@@ -297,6 +297,67 @@ app.post("/webhooks/email-inbound", async (req: Request, res: Response) => {
       return;
     }
 
+    // APPROVE / DISMISS — handle recommendation actions
+    const approveMatch = subject.match(/^APPROVE\s+(\S+)/);
+    const dismissMatch = subject.match(/^DISMISS\s+(\S+)/);
+    const retryMatch = subject.match(/^RETRY\s+(\S+)/);
+
+    if (approveMatch || dismissMatch || retryMatch) {
+      const actionId = (approveMatch?.[1] ?? dismissMatch?.[1] ?? retryMatch?.[1])!;
+      const action = approveMatch ? "approved" : dismissMatch ? "dismissed" : "retry";
+
+      try {
+        const recommendation = await prisma.recommendation.findFirst({
+          where: { approveActionId: actionId },
+        });
+
+        if (recommendation) {
+          await prisma.recommendation.update({
+            where: { id: recommendation.id },
+            data: {
+              status: action === "retry" ? "pending" : action,
+              clientAction: action,
+              clientActionAt: new Date(),
+              resolvedAt: new Date(),
+            },
+          });
+
+          // Confirm back to client
+          const agent = await prisma.agent.findUnique({
+            where: { id: agentId },
+            select: { name: true, client: { select: { email: true } } },
+          });
+
+          if (agent) {
+            const { sendEmail: sendConfirm } = await import("../shared/email.js");
+            const actionLabel = action === "approved" ? "approved" : action === "dismissed" ? "dismissed" : "queued for retry";
+            await sendConfirm({
+              agentId,
+              agentName: agent.name,
+              to: agent.client?.email ?? from,
+              subject: `${agent.name} — Action ${actionLabel}`,
+              html: `<div style="font-family: -apple-system, sans-serif; max-width: 560px; margin: 0 auto; padding: 24px;">
+                <p>Got it. I've <strong>${actionLabel}</strong> the recommendation: "${recommendation.title}".</p>
+                ${action === "approved" ? "<p>I'll proceed with this action and follow up with results.</p>" : ""}
+                ${action === "retry" ? "<p>I'll retry this action now.</p>" : ""}
+                <p style="color: #9ca3af; font-size: 13px;">— ${agent.name}, your AI agent at Ambitt</p>
+              </div>`,
+              replyToAgentId: agentId,
+            });
+          }
+
+          logger.info("Recommendation action processed", { agentId, actionId, action });
+        } else {
+          logger.warn("Recommendation not found for action", { actionId });
+        }
+      } catch (error) {
+        logger.error("Failed to process recommendation action", { actionId, action, error });
+      }
+
+      res.json({ status: "action_processed", agentId, action });
+      return;
+    }
+
     let messageContent = emailData.text || emailData.html || "";
 
     // Parse attachments if present
