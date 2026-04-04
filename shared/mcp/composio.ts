@@ -29,10 +29,20 @@ async function getAuthConfigId(appName: string): Promise<{ id: string; authSchem
     const client = getClient();
     const configs = await client.authConfigs.list();
     const items = configs.items ?? [];
-    const match = items.find((c: any) =>
-      c.appName?.toLowerCase() === appName.toLowerCase() ||
-      c.name?.toLowerCase().startsWith(appName.toLowerCase())
-    );
+
+    // Normalize: remove spaces, hyphens, underscores for comparison
+    const normalize = (s: string) => s.toLowerCase().replace(/[\s_-]/g, "");
+    const normalizedAppName = normalize(appName);
+
+    const match = items.find((c: any) => {
+      // Exact match on appName/appKey fields
+      if (c.appName && normalize(c.appName) === normalizedAppName) return true;
+      if (c.appKey && normalize(c.appKey) === normalizedAppName) return true;
+      // Fuzzy match on config name (e.g., "google sheets-9zza8o" contains "googlesheets")
+      const configName = normalize(c.name ?? "");
+      return configName.startsWith(normalizedAppName) || normalizedAppName.startsWith(configName.slice(0, normalizedAppName.length));
+    });
+
     if (!match) return null;
     return { id: match.id, authScheme: match.authScheme ?? "UNKNOWN" };
   } catch (error) {
