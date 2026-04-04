@@ -38,6 +38,91 @@ const AGENT_TYPES = [
 const MAX_TOOLS = 3;
 const STEPS = ["Basic Info", "Select Tools", "Connect", "Review"];
 
+// Popular tools by agent type — shown first when Composio catalog loads (or as fallback)
+const POPULAR_TOOLS: Record<string, ComposioApp[]> = {
+  analytics: [
+    { key: "google_analytics", name: "Google Analytics", description: "Web analytics — traffic, conversions, user behavior, funnels (GA4)", categories: ["analytics"] },
+    { key: "mixpanel", name: "Mixpanel", description: "Product analytics — event tracking, funnels, flows, retention", categories: ["analytics"] },
+    { key: "amplitude", name: "Amplitude", description: "Product analytics — charts, dashboards, cohorts, experiments", categories: ["analytics"] },
+    { key: "posthog", name: "PostHog", description: "Product analytics — session replays, feature flags, A/B testing", categories: ["analytics"] },
+    { key: "snowflake", name: "Snowflake", description: "Data warehouse — SQL queries, semantic views, Cortex AI", categories: ["analytics"] },
+    { key: "tableau", name: "Tableau", description: "Business intelligence — dashboards, visualizations, reports", categories: ["analytics"] },
+  ],
+  sales: [
+    { key: "salesforce", name: "Salesforce", description: "CRM — pipelines, contacts, opportunities, accounts, reports", categories: ["crm"] },
+    { key: "hubspot", name: "HubSpot", description: "CRM — contacts, deals, companies, tickets, marketing email", categories: ["crm"] },
+    { key: "pipedrive", name: "Pipedrive", description: "Sales CRM — deals, contacts, pipeline stages, activities", categories: ["crm"] },
+    { key: "linkedin", name: "LinkedIn", description: "Professional network — outreach, connections, lead gen", categories: ["crm"] },
+    { key: "apollo", name: "Apollo", description: "Sales intelligence — prospecting, enrichment, sequences", categories: ["crm"] },
+    { key: "stripe", name: "Stripe", description: "Payments — customers, subscriptions, invoices, revenue", categories: ["payments"] },
+  ],
+  marketing: [
+    { key: "google_ads", name: "Google Ads", description: "Advertising — campaigns, ad groups, keywords, conversions", categories: ["advertising"] },
+    { key: "facebook", name: "Meta Ads", description: "Facebook + Instagram ads — campaigns, audiences, reporting", categories: ["advertising"] },
+    { key: "mailchimp", name: "Mailchimp", description: "Email marketing — campaigns, audiences, templates, analytics", categories: ["email"] },
+    { key: "klaviyo", name: "Klaviyo", description: "Email marketing — campaigns, flows, segments, profiles", categories: ["email"] },
+    { key: "semrush", name: "SEMrush", description: "SEO — traffic analytics, keyword research, competitor analysis", categories: ["seo"] },
+    { key: "google_search_console", name: "Google Search Console", description: "Search performance — queries, clicks, impressions, CTR", categories: ["seo"] },
+  ],
+  support: [
+    { key: "zendesk", name: "Zendesk", description: "Support — tickets, users, organizations, views, macros", categories: ["support"] },
+    { key: "intercom", name: "Intercom", description: "Customer messaging — conversations, contacts, companies", categories: ["support"] },
+    { key: "freshdesk", name: "Freshdesk", description: "Support — tickets, contacts, SLA policies, surveys", categories: ["support"] },
+    { key: "slack", name: "Slack", description: "Messaging — channels, messages, threads, search", categories: ["communication"] },
+    { key: "notion", name: "Notion", description: "Workspace — pages, databases, blocks, search", categories: ["productivity"] },
+    { key: "gmail", name: "Gmail", description: "Email — send, read, search, labels, drafts", categories: ["email"] },
+  ],
+  content: [
+    { key: "notion", name: "Notion", description: "Workspace — pages, databases, blocks, search", categories: ["productivity"] },
+    { key: "wordpress", name: "WordPress", description: "CMS — posts, pages, media, categories, tags", categories: ["cms"] },
+    { key: "google_docs", name: "Google Docs", description: "Documents — create, edit, share, collaborate", categories: ["productivity"] },
+    { key: "canva", name: "Canva", description: "Design — templates, graphics, social media assets", categories: ["design"] },
+    { key: "semrush", name: "SEMrush", description: "SEO — keyword research, content audit, topic research", categories: ["seo"] },
+    { key: "ahrefs", name: "Ahrefs", description: "SEO — content explorer, keyword ideas, backlink analysis", categories: ["seo"] },
+  ],
+  engagement: [
+    { key: "slack", name: "Slack", description: "Messaging — channels, messages, threads, search", categories: ["communication"] },
+    { key: "intercom", name: "Intercom", description: "Customer messaging — conversations, contacts, segments", categories: ["support"] },
+    { key: "mailchimp", name: "Mailchimp", description: "Email marketing — campaigns, audiences, automations", categories: ["email"] },
+    { key: "mixpanel", name: "Mixpanel", description: "Product analytics — funnels, retention, user flows", categories: ["analytics"] },
+    { key: "posthog", name: "PostHog", description: "Product analytics — session replays, feature flags", categories: ["analytics"] },
+    { key: "hubspot", name: "HubSpot", description: "CRM — contacts, lifecycle stages, workflows", categories: ["crm"] },
+  ],
+  ops: [
+    { key: "github", name: "GitHub", description: "Code — repos, issues, PRs, actions, deployments", categories: ["developer tools"] },
+    { key: "jira", name: "Jira", description: "Project management — issues, sprints, boards, epics", categories: ["project management"] },
+    { key: "linear", name: "Linear", description: "Issue tracking — issues, projects, cycles, roadmaps", categories: ["project management"] },
+    { key: "slack", name: "Slack", description: "Messaging — channels, messages, threads, alerts", categories: ["communication"] },
+    { key: "pagerduty", name: "PagerDuty", description: "Incident management — alerts, escalations, on-call", categories: ["devops"] },
+    { key: "datadog", name: "Datadog", description: "Monitoring — metrics, logs, traces, dashboards", categories: ["devops"] },
+  ],
+  research: [
+    { key: "google_search", name: "Google Search", description: "Web search — find information, articles, data", categories: ["search"] },
+    { key: "notion", name: "Notion", description: "Workspace — research notes, databases, wikis", categories: ["productivity"] },
+    { key: "ahrefs", name: "Ahrefs", description: "SEO — competitor research, content analysis, keywords", categories: ["seo"] },
+    { key: "semrush", name: "SEMrush", description: "Market research — traffic analysis, competitor data", categories: ["seo"] },
+    { key: "google_sheets", name: "Google Sheets", description: "Spreadsheets — data analysis, charts, collaboration", categories: ["productivity"] },
+    { key: "linkedin", name: "LinkedIn", description: "Professional network — company research, people search", categories: ["crm"] },
+  ],
+  design: [
+    { key: "figma", name: "Figma", description: "Design — files, components, styles, prototypes", categories: ["design"] },
+    { key: "canva", name: "Canva", description: "Design — templates, graphics, brand kits", categories: ["design"] },
+    { key: "notion", name: "Notion", description: "Workspace — design specs, feedback tracking", categories: ["productivity"] },
+    { key: "slack", name: "Slack", description: "Messaging — design reviews, feedback channels", categories: ["communication"] },
+    { key: "github", name: "GitHub", description: "Code — repos, issues, design system tracking", categories: ["developer tools"] },
+    { key: "google_analytics", name: "Google Analytics", description: "Analytics — user behavior data for design decisions", categories: ["analytics"] },
+  ],
+  reputation: [
+    { key: "google_my_business", name: "Google Business", description: "Business profile — reviews, posts, insights, Q&A", categories: ["marketing"] },
+    { key: "slack", name: "Slack", description: "Messaging — reputation alerts, team notifications", categories: ["communication"] },
+    { key: "hubspot", name: "HubSpot", description: "CRM — customer feedback tracking, NPS", categories: ["crm"] },
+    { key: "intercom", name: "Intercom", description: "Customer messaging — satisfaction, feedback collection", categories: ["support"] },
+    { key: "semrush", name: "SEMrush", description: "SEO — brand monitoring, online visibility", categories: ["seo"] },
+    { key: "mailchimp", name: "Mailchimp", description: "Email — review request campaigns, follow-ups", categories: ["email"] },
+  ],
+  custom: [],
+};
+
 // ---------------------------------------------------------------------------
 // Main form component
 // ---------------------------------------------------------------------------
@@ -69,14 +154,24 @@ export function CreateAgentForm({ composioApps }: { composioApps: ComposioApp[] 
     error: null,
   });
 
-  // Filter apps by search
-  const filteredApps = composioApps.filter((app) => {
+  // Build tool list: popular tools for agent type first, then Composio catalog
+  const popularForType = POPULAR_TOOLS[agentType] ?? [];
+  const popularKeys = new Set(popularForType.map((t) => t.key));
+
+  // Merge: popular first, then Composio apps that aren't already in popular
+  const mergedApps = [
+    ...popularForType,
+    ...composioApps.filter((app) => !popularKeys.has(app.key)),
+  ];
+
+  // Filter by search
+  const filteredApps = mergedApps.filter((app) => {
     if (!search) return true;
     const q = search.toLowerCase();
     return (
       app.name.toLowerCase().includes(q) ||
       app.key.toLowerCase().includes(q) ||
-      app.description.toLowerCase().includes(q) ||
+      (app.description?.toLowerCase().includes(q) ?? false) ||
       app.categories.some((c) => c.toLowerCase().includes(q))
     );
   });
@@ -203,7 +298,7 @@ export function CreateAgentForm({ composioApps }: { composioApps: ComposioApp[] 
       {step === 1 && (
         <ToolSelectionStep
           apps={filteredApps}
-          totalCount={composioApps.length}
+          totalCount={mergedApps.length}
           selected={selectedTools}
           onToggle={toggleTool}
           search={search}
@@ -414,7 +509,7 @@ function ToolSelectionStep({
         ) : (
           <div className="col-span-full py-12 text-center">
             <p className="text-muted-foreground text-sm">
-              {search ? "No tools match your search" : "Loading tools from Composio..."}
+              No tools match your search
             </p>
           </div>
         )}
