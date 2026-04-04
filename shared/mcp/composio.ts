@@ -96,10 +96,11 @@ export async function initiateApiKeyConnection(
   const authConfig = await getAuthConfigId(appName);
   if (!authConfig) throw new Error(`No auth config for ${appName}. Set one up in Composio → Auth Configs.`);
 
-  // Build the correct field map per tool
+  // Build the correct field map per tool — each tool has its own required field names
   const fieldMap: Record<string, Record<string, string>> = {
     posthog: { apiKey: apiKey, subdomain: extraFields?.subdomain ?? "us" },
     supabase: { supabase_personal_token: apiKey, base_url: extraFields?.base_url ?? "https://api.supabase.com" },
+    _1password: { api_key: apiKey, full: extraFields?.base_url ?? "https://connect.1password.com" },
   };
 
   const fields = fieldMap[appName] ?? { api_key: apiKey };
