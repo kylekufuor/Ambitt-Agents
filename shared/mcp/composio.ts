@@ -57,12 +57,20 @@ async function getAuthConfigId(appName: string): Promise<{ id: string; authSchem
 
 /**
  * Initiate an OAuth connection. Returns a redirect URL to the actual provider.
+ * If already connected, returns success without creating a new connection.
  */
 export async function initiateOAuthConnection(
   clientId: string,
   appName: string,
   redirectUrl?: string
-): Promise<{ redirectUrl: string; connectionId: string }> {
+): Promise<{ redirectUrl: string; connectionId: string; alreadyConnected?: boolean }> {
+  // Check if already connected
+  const alreadyConnected = await isAppConnected(clientId, appName);
+  if (alreadyConnected) {
+    logger.info("App already connected", { clientId, appName });
+    return { redirectUrl: "", connectionId: "", alreadyConnected: true };
+  }
+
   const client = getClient();
   const authConfig = await getAuthConfigId(appName);
   if (!authConfig) throw new Error(`No auth config for ${appName}. Set one up in Composio → Auth Configs.`);
@@ -72,7 +80,7 @@ export async function initiateOAuthConnection(
   const conn = await client.connectedAccounts.initiate(
     clientId,
     authConfig.id,
-    { callbackUrl }
+    { callbackUrl, allowMultiple: true } as any
   );
 
   logger.info("OAuth connection initiated", { clientId, appName, connectionId: conn.id });
@@ -85,6 +93,7 @@ export async function initiateOAuthConnection(
 
 /**
  * Connect with API key directly (no redirect needed).
+ * If already connected, returns success without creating a new connection.
  */
 export async function initiateApiKeyConnection(
   clientId: string,

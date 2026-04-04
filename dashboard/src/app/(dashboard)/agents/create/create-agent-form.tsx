@@ -282,6 +282,12 @@ export function CreateAgentForm({ composioApps }: { composioApps: ComposioApp[] 
       }
       const data = await res.json();
 
+      // Already connected — no popup needed
+      if (data.alreadyConnected) {
+        setConnectionStatus((prev) => ({ ...prev, [appKey]: { status: "connected" } }));
+        return;
+      }
+
       if (data.redirectUrl) {
         const popup = window.open(data.redirectUrl, "composio_connect", "width=600,height=700");
 
