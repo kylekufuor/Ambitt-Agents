@@ -1,0 +1,8 @@
+../oracle
+../agents
+../shared
+../client-portal
+../prisma
+../.env
+../Procfile
+../nixpacks.toml
