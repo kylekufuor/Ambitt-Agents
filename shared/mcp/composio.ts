@@ -129,25 +129,51 @@ export async function initiateApiKeyConnection(
 export async function getConnectedAccounts(clientId: string): Promise<
   Array<{ id: string; appName: string; status: string }>
 > {
-  const client = getClient();
-  const response = await client.connectedAccounts.list({ user_id: clientId } as any);
-  const items = (response as any).items ?? response ?? [];
+  const apiKey = process.env.COMPOSIO_API_KEY;
+  if (!apiKey) throw new Error("COMPOSIO_API_KEY is not set");
 
-  return items.map((conn: any) => ({
-    id: conn.id ?? "",
-    appName: conn.appName ?? conn.app_name ?? "",
-    status: conn.status ?? "ACTIVE",
-  }));
+  // Use raw API — SDK doesn't populate appName
+  const res = await fetch(`https://backend.composio.dev/api/v1/connectedAccounts?showActiveOnly=true`, {
+    headers: { "x-api-key": apiKey },
+  });
+  if (!res.ok) return [];
+  const data = await res.json();
+  const items = data.items ?? [];
+
+  // Filter by entityId (client ID) — API doesn't support entityId filter directly
+  return items
+    .filter((conn: any) => {
+      const entity = conn.entityId ?? conn.member?.id ?? "";
+      return entity === clientId || !clientId; // if no clientId filter, return all
+    })
+    .map((conn: any) => ({
+      id: conn.id ?? "",
+      appName: conn.appUniqueId ?? conn.appName ?? "",
+      status: conn.status ?? "ACTIVE",
+    }));
 }
 
 /**
  * Check if a client has an active connection for a specific app.
  */
 export async function isAppConnected(clientId: string, appName: string): Promise<boolean> {
-  const connections = await getConnectedAccounts(clientId);
-  return connections.some(
-    (c) => c.appName.toLowerCase() === appName.toLowerCase() && c.status === "ACTIVE"
-  );
+  const apiKey = process.env.COMPOSIO_API_KEY;
+  if (!apiKey) return false;
+
+  // Check all active connections for this app
+  const res = await fetch(`https://backend.composio.dev/api/v1/connectedAccounts?showActiveOnly=true`, {
+    headers: { "x-api-key": apiKey },
+  });
+  if (!res.ok) return false;
+  const data = await res.json();
+  const items = data.items ?? [];
+
+  const normalize = (s: string) => s.toLowerCase().replace(/[\s_-]/g, "");
+  return items.some((conn: any) => {
+    const connApp = normalize(conn.appUniqueId ?? conn.appName ?? "");
+    const entity = conn.entityId ?? conn.member?.id ?? "";
+    return connApp === normalize(appName) && entity === clientId && conn.status === "ACTIVE";
+  });
 }
 
 // ---------------------------------------------------------------------------
