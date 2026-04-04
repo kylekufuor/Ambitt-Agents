@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { centsToUsd } from "@/lib/costs";
 
 interface TaskItem {
@@ -43,18 +43,27 @@ interface AgentConfig {
   implementationRate: number;
 }
 
-const tabs = ["Outputs", "Conversations", "Memory", "Config"] as const;
+interface DocumentItem {
+  filename: string;
+  uploadedAt: string;
+}
+
+const tabs = ["Outputs", "Conversations", "Documents", "Memory", "Config"] as const;
 type Tab = (typeof tabs)[number];
 
 export function AgentTabs({
+  agentId,
   tasks,
   conversations,
   memoryEntries,
+  documents,
   config,
 }: {
+  agentId: string;
   tasks: TaskItem[];
   conversations: ConversationItem[];
   memoryEntries: MemoryEntry[];
+  documents: DocumentItem[];
   config: AgentConfig;
 }) {
   const [active, setActive] = useState<Tab>("Outputs");
@@ -80,6 +89,7 @@ export function AgentTabs({
 
       {active === "Outputs" && <OutputsTab tasks={tasks} />}
       {active === "Conversations" && <ConversationsTab conversations={conversations} />}
+      {active === "Documents" && <DocumentsTab agentId={agentId} documents={documents} />}
       {active === "Memory" && <MemoryTab entries={memoryEntries} />}
       {active === "Config" && <ConfigTab config={config} />}
     </div>
@@ -200,6 +210,108 @@ function MemoryTab({ entries }: { entries: MemoryEntry[] }) {
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+// --- Documents Tab ---
+
+function DocumentsTab({ agentId, documents: initialDocs }: { agentId: string; documents: DocumentItem[] }) {
+  const [docs, setDocs] = useState(initialDocs);
+  const [uploading, setUploading] = useState(false);
+  const [uploadResult, setUploadResult] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const oracleUrl = process.env.NEXT_PUBLIC_ORACLE_URL ?? "https://ambitt-agents-production.up.railway.app";
+
+  async function handleUpload() {
+    const files = fileRef.current?.files;
+    if (!files || files.length === 0) return;
+
+    setUploading(true);
+    setUploadResult(null);
+
+    const formData = new FormData();
+    for (let i = 0; i < files.length; i++) {
+      formData.append("files", files[i]);
+    }
+
+    try {
+      const res = await fetch(`${oracleUrl}/agents/${agentId}/documents`, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({ error: "Upload failed" }));
+        setUploadResult(`Error: ${body.error ?? res.statusText}`);
+      } else {
+        const data = await res.json();
+        const newDocs = data.documents as DocumentItem[];
+        setDocs((prev) => [...prev, ...newDocs]);
+        setUploadResult(`${newDocs.length} document(s) uploaded`);
+        if (fileRef.current) fileRef.current.value = "";
+      }
+    } catch (err) {
+      setUploadResult(`Error: ${err instanceof Error ? err.message : "Upload failed"}`);
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Upload */}
+      <div className="bg-card border border-border rounded-xl p-5">
+        <h3 className="text-foreground font-semibold text-[15px] mb-1">Upload Documents</h3>
+        <p className="text-muted-foreground text-xs mb-4">
+          SOPs, brand guidelines, sales decks, FAQs — anything that helps the agent understand the business. Supports PDF, DOCX, and text files.
+        </p>
+        <div className="flex items-center gap-3">
+          <input
+            ref={fileRef}
+            type="file"
+            multiple
+            accept=".pdf,.docx,.doc,.txt,.md,.csv,.json"
+            className="text-sm text-muted-foreground file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border file:border-border file:text-xs file:font-medium file:bg-muted file:text-foreground hover:file:bg-muted/80 file:cursor-pointer"
+          />
+          <button
+            onClick={handleUpload}
+            disabled={uploading}
+            className="text-xs font-semibold px-4 py-1.5 rounded-md bg-foreground text-background hover:bg-foreground/90 transition-colors disabled:opacity-50"
+          >
+            {uploading ? "Uploading..." : "Upload"}
+          </button>
+        </div>
+        {uploadResult && (
+          <p className={`text-xs mt-2 ${uploadResult.startsWith("Error") ? "text-red-400" : "text-emerald-400"}`}>
+            {uploadResult}
+          </p>
+        )}
+      </div>
+
+      {/* Document list */}
+      {docs.length > 0 ? (
+        <div className="bg-card border border-border rounded-xl overflow-hidden">
+          <div className="divide-y divide-border/40">
+            {docs.map((doc, i) => (
+              <div key={`${doc.filename}-${i}`} className="px-5 py-3.5 flex items-center justify-between">
+                <div>
+                  <p className="text-foreground text-sm font-medium">{doc.filename}</p>
+                  <p className="text-muted-foreground/60 text-[11px] mt-0.5">
+                    Uploaded {new Date(doc.uploadedAt).toLocaleDateString()}
+                  </p>
+                </div>
+                <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 ring-1 ring-emerald-500/20">
+                  Stored
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <EmptyState message="No documents uploaded yet" />
+      )}
     </div>
   );
 }

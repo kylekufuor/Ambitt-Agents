@@ -12,13 +12,16 @@ interface WelcomeEmailOptions {
   clientBusinessName: string;
   tools: string[];
   capabilities: string[];
+  hasDocuments?: boolean;
+  agentEmail?: string;
+  portalUrl?: string;
 }
 
 export function buildWelcomeEmail(options: WelcomeEmailOptions): {
   subject: string;
   html: string;
 } {
-  const { agentName, agentPurpose, clientFirstName, clientBusinessName, tools, capabilities } = options;
+  const { agentName, agentPurpose, clientFirstName, clientBusinessName, tools, capabilities, hasDocuments, agentEmail, portalUrl } = options;
 
   const subject = `Meet ${agentName} — your new Ambitt agent for ${clientBusinessName}`;
 
@@ -99,6 +102,21 @@ export function buildWelcomeEmail(options: WelcomeEmailOptions): {
               </div>
             </td>
           </tr>
+
+          ${!hasDocuments ? `
+          <!-- Share Documents -->
+          <tr>
+            <td style="padding: 24px 40px 0 40px;">
+              <div style="background-color: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 20px;">
+                <p style="margin: 0 0 8px 0; font-size: 11px; font-weight: 700; color: #92400e; text-transform: uppercase; letter-spacing: 0.5px;">Help Me Work Smarter</p>
+                <p style="margin: 0 0 12px 0; font-size: 14px; color: #374151; line-height: 1.6;">
+                  I don't have any documents about ${clientBusinessName} yet. Sharing SOPs, brand guidelines, sales decks, or any internal docs helps me deliver better, more specific results.
+                </p>
+                <p style="margin: 0 0 4px 0; font-size: 13px; color: #374151;"><strong>Option 1:</strong> Reply to any of my emails with the subject line <strong style="color: #92400e;">DOCS</strong> and attach your files.</p>
+                ${portalUrl ? `<p style="margin: 0; font-size: 13px; color: #374151;"><strong>Option 2:</strong> <a href="${portalUrl}" style="color: #2563eb; text-decoration: none; font-weight: 500;">Upload via your portal</a></p>` : ""}
+              </div>
+            </td>
+          </tr>` : ""}
 
           <!-- Divider -->
           <tr>

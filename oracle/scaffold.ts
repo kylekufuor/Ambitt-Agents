@@ -310,6 +310,14 @@ export async function approveAgent(agentId: string): Promise<void> {
     const capabilities = inferCapabilities(agent.agentType, agent.tools);
     const toolNames = agent.tools.map((t) => t.charAt(0).toUpperCase() + t.slice(1));
 
+    // Check if agent already has documents in memory
+    let hasDocuments = false;
+    try {
+      const { decrypt } = await import("../shared/encryption.js");
+      const memory = JSON.parse(decrypt(agent.clientMemoryObject));
+      hasDocuments = Array.isArray(memory.documents) && memory.documents.length > 0;
+    } catch { /* no docs */ }
+
     const { subject, html } = buildWelcomeEmail({
       agentName: agent.name,
       agentPurpose: agent.purpose,
@@ -317,6 +325,7 @@ export async function approveAgent(agentId: string): Promise<void> {
       clientBusinessName: agent.client.businessName,
       tools: toolNames,
       capabilities,
+      hasDocuments,
     });
 
     await sendEmail({

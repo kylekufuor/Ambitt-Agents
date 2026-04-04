@@ -1,5 +1,6 @@
 import "dotenv/config";
 import express, { Request, Response } from "express";
+import multer from "multer";
 import { scaffoldAgent, approveAgent, rejectAgent } from "./scaffold.js";
 import { checkFleetHealth, retryFailedAgent } from "./monitor.js";
 import { runImprovementCycle } from "./improve.js";
@@ -8,6 +9,8 @@ import { handleStripeWebhook } from "./billing.js";
 import { onboardClient } from "./onboard.js";
 import prisma from "../shared/db.js";
 import logger from "../shared/logger.js";
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } }); // 20MB max
 
 const app = express();
 
@@ -225,6 +228,75 @@ app.post("/webhooks/email-inbound", async (req: Request, res: Response) => {
 
     const emailData = await emailRes.json();
     const from = emailData.from ?? event.data?.from ?? "";
+    const subject = (emailData.subject ?? event.data?.subject ?? "").toUpperCase().trim();
+
+    // DOCS subject — route attachments to agent memory instead of runtime
+    if (subject.includes("DOCS") && Array.isArray(emailData.attachments) && emailData.attachments.length > 0) {
+      const { parseInboundAttachments } = await import("../shared/attachments/parse-inbound.js");
+      const { encrypt, decrypt } = await import("../shared/encryption.js");
+
+      const attachmentsWithContent = emailData.attachments
+        .filter((att: any) => att.content)
+        .map((att: any) => ({
+          filename: att.filename ?? "attachment",
+          contentType: att.content_type ?? "application/octet-stream",
+          content: att.content,
+        }));
+
+      if (attachmentsWithContent.length > 0) {
+        const parsed = await parseInboundAttachments(attachmentsWithContent);
+        const agent = await prisma.agent.findUnique({
+          where: { id: agentId },
+          select: { clientMemoryObject: true, name: true, client: { select: { email: true, businessName: true } } },
+        });
+
+        if (agent) {
+          let memory: Record<string, unknown> = {};
+          try { memory = JSON.parse(decrypt(agent.clientMemoryObject)); } catch { /* fresh */ }
+
+          const existingDocs = (memory.documents ?? []) as Array<{ filename: string; uploadedAt: string; summary: string }>;
+          const newDocs = parsed.map((p) => ({
+            filename: p.filename,
+            uploadedAt: new Date().toISOString(),
+            summary: p.text.slice(0, 500),
+          }));
+
+          memory.documents = [...existingDocs, ...newDocs];
+          memory.documentContents = memory.documentContents ?? {};
+          for (const p of parsed) {
+            (memory.documentContents as Record<string, string>)[p.filename] = p.text;
+          }
+
+          await prisma.agent.update({
+            where: { id: agentId },
+            data: { clientMemoryObject: encrypt(JSON.stringify(memory)), lastMemoryUpdateAt: new Date() },
+          });
+
+          // Confirm back to client
+          const { sendEmail } = await import("../shared/email.js");
+          const filenames = parsed.map((p) => p.filename).join(", ");
+          await sendEmail({
+            agentId,
+            agentName: agent.name,
+            to: agent.client?.email ?? from,
+            subject: `${agent.name} — Documents received`,
+            html: `<div style="font-family: -apple-system, sans-serif; max-width: 560px; margin: 0 auto; padding: 24px;">
+              <p>I've received and studied the following documents:</p>
+              <ul>${parsed.map((p) => `<li><strong>${p.filename}</strong> (${p.sizeBytes > 1024 ? Math.round(p.sizeBytes / 1024) + "KB" : p.sizeBytes + "B"})</li>`).join("")}</ul>
+              <p>This information is now part of my knowledge about your business. I'll reference it in future work.</p>
+              <p style="color: #9ca3af; font-size: 13px;">— ${agent.name}, your AI agent at Ambitt</p>
+            </div>`,
+            replyToAgentId: agentId,
+          });
+
+          logger.info("Documents stored via email DOCS subject", { agentId, count: parsed.length, filenames });
+        }
+      }
+
+      res.json({ status: "documents_stored", agentId, count: attachmentsWithContent.length });
+      return;
+    }
+
     let messageContent = emailData.text || emailData.html || "";
 
     // Parse attachments if present
@@ -353,6 +425,115 @@ app.post("/credentials/:clientId", async (req: Request, res: Response) => {
   } catch (error) {
     logger.error("Credential storage failed", { error });
     res.status(500).json({ error: "Credential storage failed" });
+  }
+});
+
+// Upload documents to agent memory
+app.post("/agents/:id/documents", upload.array("files", 10), async (req: Request, res: Response) => {
+  try {
+    const agentId = param(req, "id");
+    const files = req.files as Express.Multer.File[];
+
+    if (!files || files.length === 0) {
+      res.status(400).json({ error: "No files uploaded" });
+      return;
+    }
+
+    const agent = await prisma.agent.findUnique({
+      where: { id: agentId },
+      select: { clientMemoryObject: true, name: true },
+    });
+
+    if (!agent) {
+      res.status(404).json({ error: "Agent not found" });
+      return;
+    }
+
+    // Parse uploaded files
+    const { parseInboundAttachments, formatAttachmentsAsContext } = await import("../shared/attachments/parse-inbound.js");
+    const { encrypt, decrypt } = await import("../shared/encryption.js");
+
+    const attachments = files.map((f) => ({
+      filename: f.originalname,
+      contentType: f.mimetype,
+      content: f.buffer.toString("base64"),
+    }));
+
+    const parsed = await parseInboundAttachments(attachments);
+
+    // Load existing memory
+    let memory: Record<string, unknown> = {};
+    try {
+      memory = JSON.parse(decrypt(agent.clientMemoryObject));
+    } catch { /* empty or corrupt memory — start fresh */ }
+
+    // Add documents to memory
+    const existingDocs = (memory.documents ?? []) as Array<{ filename: string; uploadedAt: string; summary: string }>;
+    const newDocs = parsed.map((p) => ({
+      filename: p.filename,
+      uploadedAt: new Date().toISOString(),
+      summary: p.text.slice(0, 500),
+    }));
+
+    memory.documents = [...existingDocs, ...newDocs];
+    memory.documentContents = memory.documentContents ?? {};
+
+    // Store full text keyed by filename
+    for (const p of parsed) {
+      (memory.documentContents as Record<string, string>)[p.filename] = p.text;
+    }
+
+    // Save back to DB
+    await prisma.agent.update({
+      where: { id: agentId },
+      data: {
+        clientMemoryObject: encrypt(JSON.stringify(memory)),
+        lastMemoryUpdateAt: new Date(),
+      },
+    });
+
+    logger.info("Documents uploaded to agent memory", {
+      agentId,
+      count: parsed.length,
+      filenames: parsed.map((p) => p.filename),
+    });
+
+    res.json({
+      status: "uploaded",
+      documents: newDocs.map((d) => ({ filename: d.filename, uploadedAt: d.uploadedAt })),
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    logger.error("Document upload failed", { error: message });
+    res.status(500).json({ error: "Document upload failed" });
+  }
+});
+
+// List documents in agent memory
+app.get("/agents/:id/documents", async (req: Request, res: Response) => {
+  try {
+    const agentId = param(req, "id");
+    const agent = await prisma.agent.findUnique({
+      where: { id: agentId },
+      select: { clientMemoryObject: true },
+    });
+
+    if (!agent) {
+      res.status(404).json({ error: "Agent not found" });
+      return;
+    }
+
+    const { decrypt } = await import("../shared/encryption.js");
+    let memory: Record<string, unknown> = {};
+    try {
+      memory = JSON.parse(decrypt(agent.clientMemoryObject));
+    } catch { /* empty memory */ }
+
+    const documents = (memory.documents ?? []) as Array<{ filename: string; uploadedAt: string }>;
+    res.json(documents);
+  } catch (error) {
+    logger.error("Document list failed", { error });
+    res.status(500).json({ error: "Failed to list documents" });
   }
 });
 

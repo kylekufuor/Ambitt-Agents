@@ -58,18 +58,26 @@ async function getAgentData(id: string) {
   const projectedCost = projectMonthEnd(thisMonthCost, daysElapsed, daysInMonth, lastMonthCost > 0 ? lastMonthCost : undefined);
   const burnPct = agent.budgetMonthlyCents > 0 ? Math.min((thisMonthCost / agent.budgetMonthlyCents) * 100, 100) : 0;
 
-  // Parse memory
+  // Parse memory and documents
   let memoryEntries: { key: string; value: string }[] = [];
+  let documents: { filename: string; uploadedAt: string }[] = [];
   try {
     const parsed = JSON.parse(agent.clientMemoryObject);
-    memoryEntries = Object.entries(parsed).map(([key, value]) => ({
-      key,
-      value: typeof value === "string" ? value : JSON.stringify(value),
-    }));
+    // Extract documents separately
+    if (Array.isArray(parsed.documents)) {
+      documents = parsed.documents;
+    }
+    memoryEntries = Object.entries(parsed)
+      .filter(([key]) => key !== "documents" && key !== "documentContents")
+      .map(([key, value]) => ({
+        key,
+        value: typeof value === "string" ? value : JSON.stringify(value),
+      }));
   } catch { /* encrypted or empty */ }
 
   return {
     agent,
+    documents,
     tasks: tasks.map((t) => ({
       id: t.id,
       taskType: t.taskType,
@@ -112,7 +120,7 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
   const data = await getAgentData(id);
   if (!data) notFound();
 
-  const { agent, tasks, conversations, memoryEntries, stats } = data;
+  const { agent, documents, tasks, conversations, memoryEntries, stats } = data;
 
   const statusColors: Record<string, string> = {
     active: "bg-emerald-500/10 text-emerald-400 ring-1 ring-emerald-500/20",
@@ -248,9 +256,11 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
 
       {/* Tabs */}
       <AgentTabs
+        agentId={agent.id}
         tasks={tasks}
         conversations={conversations}
         memoryEntries={memoryEntries}
+        documents={documents}
         config={{
           personality: agent.personality,
           schedule: agent.schedule,
