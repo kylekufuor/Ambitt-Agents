@@ -370,10 +370,15 @@ function ToolSelectionStep({
               >
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-2.5">
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold ${
-                      isSelected ? "bg-emerald-500/10 text-emerald-400" : "bg-muted text-muted-foreground"
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center overflow-hidden ${
+                      isSelected ? "bg-emerald-500/10" : "bg-muted"
                     }`}>
-                      {app.name[0]?.toUpperCase() ?? "?"}
+                      <img
+                        src={`https://logos.composio.dev/api/${app.key}`}
+                        alt={app.name}
+                        className="w-5 h-5 object-contain"
+                        onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; (e.target as HTMLImageElement).parentElement!.textContent = app.name[0]?.toUpperCase() ?? "?"; }}
+                      />
                     </div>
                     <div>
                       <p className="text-foreground font-medium text-sm">{app.name}</p>
@@ -449,8 +454,13 @@ function ConnectStep({
             <div key={app.key} className="bg-card border border-border rounded-xl p-5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center text-xs font-bold text-muted-foreground">
-                    {app.name[0]?.toUpperCase()}
+                  <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center overflow-hidden">
+                    <img
+                      src={`https://logos.composio.dev/api/${app.key}`}
+                      alt={app.name}
+                      className="w-5 h-5 object-contain"
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; (e.target as HTMLImageElement).parentElement!.textContent = app.name[0]?.toUpperCase() ?? "?"; }}
+                    />
                   </div>
                   <div>
                     <p className="text-foreground font-medium text-sm">{app.name}</p>
