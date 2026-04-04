@@ -1,98 +1,116 @@
-import { Composio } from "composio-core";
+import { Composio, AuthScheme } from "@composio/core";
 import logger from "../logger.js";
 
 // ---------------------------------------------------------------------------
-// Composio MCP Gateway — 850+ tools through one integration
+// Composio Integration — v3 API with @composio/core SDK
 // ---------------------------------------------------------------------------
-// Composio handles OAuth, credential storage, and tool execution for all
-// connected apps. Each client gets a unique Composio "entity" (user ID).
-// The agent connects to Composio's MCP endpoint and calls tools directly.
-//
-// Flow:
-// 1. Client connects a tool → Composio OAuth popup → credentials stored in Composio
-// 2. Agent needs to act → calls Composio execute with client's entity ID
-// 3. Composio routes the tool call to the right app with the client's credentials
+// Uses auth_config_id (not integrationId) for proper OAuth routing.
+// OAuth tools redirect to the correct provider (not Airtable).
+// API key tools connect instantly without redirect.
 // ---------------------------------------------------------------------------
 
 let _client: Composio | null = null;
 
 function getClient(): Composio {
   if (!_client) {
-    const apiKey = process.env.COMPOSIO_API_KEY;
-    if (!apiKey) throw new Error("COMPOSIO_API_KEY is not set");
-    _client = new Composio({ apiKey });
+    if (!process.env.COMPOSIO_API_KEY) throw new Error("COMPOSIO_API_KEY is not set");
+    _client = new Composio();  // Reads COMPOSIO_API_KEY from env
   }
   return _client;
 }
 
-/**
- * Get or create a Composio entity for a client.
- * Entity ID maps 1:1 with our client ID.
- */
-export async function getEntity(clientId: string) {
-  const client = getClient();
-  return client.getEntity(clientId);
+// ---------------------------------------------------------------------------
+// Auth config helpers
+// ---------------------------------------------------------------------------
+
+/** Get the auth config ID for an app. Returns null if no config exists. */
+async function getAuthConfigId(appName: string): Promise<{ id: string; authScheme: string } | null> {
+  try {
+    const client = getClient();
+    const configs = await client.authConfigs.list();
+    const items = configs.items ?? [];
+    const match = items.find((c: any) =>
+      c.appName?.toLowerCase() === appName.toLowerCase() ||
+      c.name?.toLowerCase().startsWith(appName.toLowerCase())
+    );
+    if (!match) return null;
+    return { id: match.id, authScheme: match.authScheme ?? "UNKNOWN" };
+  } catch (error) {
+    logger.warn("Failed to fetch auth config", { appName, error: error instanceof Error ? error.message : String(error) });
+    return null;
+  }
 }
 
+// ---------------------------------------------------------------------------
+// Connection initiation
+// ---------------------------------------------------------------------------
+
 /**
- * Initiate an OAuth connection for a client to a specific app.
- * Returns a redirect URL — send the client there to authorize.
+ * Initiate an OAuth connection. Returns a redirect URL to the actual provider.
  */
-export async function initiateConnection(
+export async function initiateOAuthConnection(
   clientId: string,
   appName: string,
   redirectUrl?: string
 ): Promise<{ redirectUrl: string; connectionId: string }> {
   const client = getClient();
+  const authConfig = await getAuthConfigId(appName);
+  if (!authConfig) throw new Error(`No auth config for ${appName}. Set one up in Composio → Auth Configs.`);
+
   const callbackUrl = redirectUrl ?? `${process.env.ORACLE_URL ?? "http://localhost:3000"}/composio/callback`;
 
-  const apiKey = process.env.COMPOSIO_API_KEY;
-  if (!apiKey) throw new Error("COMPOSIO_API_KEY is not set");
+  const conn = await client.connectedAccounts.initiate(
+    clientId,
+    authConfig.id,
+    { callbackUrl }
+  );
 
-  // Step 1: Get the integrationId for this app
-  const intRes = await fetch(`https://backend.composio.dev/api/v1/integrations?appName=${appName}`, {
-    headers: { "x-api-key": apiKey },
-  });
-  if (!intRes.ok) {
-    const err = await intRes.text();
-    throw new Error(`Failed to fetch integrations for ${appName} (${intRes.status}): ${err.slice(0, 200)}`);
-  }
-  const intData = await intRes.json();
-  const integrations = Array.isArray(intData) ? intData : (intData.items ?? []);
-  const integrationId = integrations[0]?.id;
+  logger.info("OAuth connection initiated", { clientId, appName, connectionId: conn.id });
 
-  if (!integrationId) {
-    throw new Error(`No auth config found for ${appName}. Set one up in Composio dashboard → Auth Configs.`);
-  }
-
-  // Step 2: Initiate connection with integrationId
-  const response = await fetch("https://backend.composio.dev/api/v2/connectedAccounts/initiateConnection", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": apiKey,
-    },
-    body: JSON.stringify({
-      integrationId,
-      entityId: clientId,
-      redirectUri: callbackUrl,
-      data: {},
-    }),
-  });
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(data.error ?? `Composio connection failed: ${response.status}`);
-  }
-
-  const authRedirectUrl = data.connectionResponse?.redirectUrl ?? "";
-  const connId = data.connectionResponse?.connectedAccountId ?? "";
-
-  logger.info("Composio connection initiated", { clientId, appName, integrationId, connectionId: connId });
-
-  return { redirectUrl: authRedirectUrl, connectionId: connId };
+  return {
+    redirectUrl: conn.redirectUrl ?? "",
+    connectionId: conn.id ?? "",
+  };
 }
+
+/**
+ * Connect with API key directly (no redirect needed).
+ */
+export async function initiateApiKeyConnection(
+  clientId: string,
+  appName: string,
+  apiKey: string,
+  extraFields?: Record<string, string>
+): Promise<{ connectionId: string; status: string }> {
+  const client = getClient();
+  const authConfig = await getAuthConfigId(appName);
+  if (!authConfig) throw new Error(`No auth config for ${appName}. Set one up in Composio → Auth Configs.`);
+
+  // Build the correct field map per tool
+  const fieldMap: Record<string, Record<string, string>> = {
+    posthog: { apiKey: apiKey, subdomain: extraFields?.subdomain ?? "us" },
+    supabase: { supabase_personal_token: apiKey, base_url: extraFields?.base_url ?? "https://api.supabase.com" },
+  };
+
+  const fields = fieldMap[appName] ?? { api_key: apiKey };
+
+  const conn = await client.connectedAccounts.initiate(
+    clientId,
+    authConfig.id,
+    { config: AuthScheme.APIKey(fields) }
+  );
+
+  logger.info("API key connection created", { clientId, appName, connectionId: conn.id });
+
+  return {
+    connectionId: conn.id ?? "",
+    status: "ACTIVE",
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Connection management
+// ---------------------------------------------------------------------------
 
 /**
  * Get all connected accounts for a client.
@@ -100,25 +118,30 @@ export async function initiateConnection(
 export async function getConnectedAccounts(clientId: string): Promise<
   Array<{ id: string; appName: string; status: string }>
 > {
-  const apiKey = process.env.COMPOSIO_API_KEY;
-  if (!apiKey) throw new Error("COMPOSIO_API_KEY is not set");
+  const client = getClient();
+  const response = await client.connectedAccounts.list({ user_id: clientId } as any);
+  const items = (response as any).items ?? response ?? [];
 
-  const res = await fetch(`https://backend.composio.dev/api/v1/connectedAccounts?user_uuid=${clientId}`, {
-    headers: { "x-api-key": apiKey },
-  });
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`Failed to fetch connections (${res.status}): ${err.slice(0, 200)}`);
-  }
-  const data = await res.json();
-  const connections = Array.isArray(data) ? data : (data.items ?? []);
-
-  return connections.map((conn: any) => ({
-    id: conn.id ?? conn.connectedAccountId ?? "",
+  return items.map((conn: any) => ({
+    id: conn.id ?? "",
     appName: conn.appName ?? conn.app_name ?? "",
-    status: conn.status ?? "active",
+    status: conn.status ?? "ACTIVE",
   }));
 }
+
+/**
+ * Check if a client has an active connection for a specific app.
+ */
+export async function isAppConnected(clientId: string, appName: string): Promise<boolean> {
+  const connections = await getConnectedAccounts(clientId);
+  return connections.some(
+    (c) => c.appName.toLowerCase() === appName.toLowerCase() && c.status === "ACTIVE"
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Tool discovery and execution
+// ---------------------------------------------------------------------------
 
 /**
  * Get available tools/actions for a specific app.
@@ -126,18 +149,21 @@ export async function getConnectedAccounts(clientId: string): Promise<
 export async function getTools(
   appName?: string
 ): Promise<Array<{ name: string; description: string; appName: string }>> {
-  const client = getClient();
+  const apiKey = process.env.COMPOSIO_API_KEY;
+  if (!apiKey) throw new Error("COMPOSIO_API_KEY is not set");
 
-  const params: any = {};
-  if (appName) params.apps = appName;
-
-  const response = await client.actions.list(params);
-  const actions = (response as any).items ?? response ?? [];
+  const params = appName ? `?apps=${appName}` : "";
+  const res = await fetch(`https://backend.composio.dev/api/v2/actions${params}`, {
+    headers: { "x-api-key": apiKey },
+  });
+  if (!res.ok) return [];
+  const data = await res.json();
+  const actions = Array.isArray(data) ? data : (data.items ?? []);
 
   return actions.map((action: any) => ({
     name: action.name ?? "",
     description: action.description ?? "",
-    appName: action.appName ?? action.app_name ?? appName ?? "",
+    appName: action.appName ?? appName ?? "",
   }));
 }
 
@@ -149,32 +175,37 @@ export async function executeTool(
   actionName: string,
   params: Record<string, unknown>
 ): Promise<{ success: boolean; data: unknown; error?: string }> {
-  const client = getClient();
+  const apiKey = process.env.COMPOSIO_API_KEY;
+  if (!apiKey) throw new Error("COMPOSIO_API_KEY is not set");
 
   try {
-    const result = await client.actions.execute({
-      actionName,
-      requestBody: params,
-      entityId: clientId,
-    } as any);
+    const res = await fetch("https://backend.composio.dev/api/v2/actions/execute", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-api-key": apiKey },
+      body: JSON.stringify({
+        actionName,
+        input: params,
+        entityId: clientId,
+      }),
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      return { success: false, data: null, error: data.error?.message ?? JSON.stringify(data.error) };
+    }
 
     logger.info("Composio tool executed", { clientId, actionName, success: true });
-
-    return {
-      success: true,
-      data: result,
-    };
+    return { success: true, data };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     logger.error("Composio tool execution failed", { clientId, actionName, error: message });
-
-    return {
-      success: false,
-      data: null,
-      error: message,
-    };
+    return { success: false, data: null, error: message };
   }
 }
+
+// ---------------------------------------------------------------------------
+// App catalog
+// ---------------------------------------------------------------------------
 
 /**
  * List all available apps in Composio's catalog.
@@ -189,8 +220,7 @@ export async function listApps(): Promise<
     headers: { "x-api-key": apiKey },
   });
   if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`Composio apps API failed (${res.status}): ${err.slice(0, 200)}`);
+    throw new Error(`Composio apps API failed (${res.status})`);
   }
   const data = await res.json();
   const apps = Array.isArray(data) ? data : (data.items ?? []);
@@ -204,25 +234,21 @@ export async function listApps(): Promise<
 }
 
 /**
- * Check if a client has an active connection for a specific app.
+ * Get the auth scheme for a specific app (from auth configs).
  */
-export async function isAppConnected(clientId: string, appName: string): Promise<boolean> {
-  const connections = await getConnectedAccounts(clientId);
-  return connections.some(
-    (c) => c.appName.toLowerCase() === appName.toLowerCase() && c.status === "active"
-  );
+export async function getAuthScheme(appName: string): Promise<string> {
+  const config = await getAuthConfigId(appName);
+  return config?.authScheme ?? "NONE";
 }
 
-/**
- * Get the Composio MCP endpoint URL for a client.
- */
+// ---------------------------------------------------------------------------
+// MCP endpoint helpers (for direct MCP connections)
+// ---------------------------------------------------------------------------
+
 export function getMCPEndpoint(clientId: string): string {
   return `https://backend.composio.dev/v3/mcp/default?user_id=${clientId}`;
 }
 
-/**
- * Get the API key for MCP connection headers.
- */
 export function getMCPHeaders(): Record<string, string> {
   const apiKey = process.env.COMPOSIO_API_KEY;
   if (!apiKey) throw new Error("COMPOSIO_API_KEY is not set");

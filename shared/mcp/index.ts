@@ -12,14 +12,16 @@ export {
   checkAgentToolHealth,
 } from "./agent-bridge.js";
 
-// Composio gateway — 850+ tools via OAuth
+// Composio gateway — 850+ tools
 export {
-  initiateConnection,
+  initiateOAuthConnection,
+  initiateApiKeyConnection,
   getConnectedAccounts,
   getTools as getComposioTools,
   executeTool as executeComposioTool,
   listApps as listComposioApps,
   isAppConnected,
+  getAuthScheme,
   getMCPEndpoint,
   getMCPHeaders,
 } from "./composio.js";
