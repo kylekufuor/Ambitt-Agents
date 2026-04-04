@@ -315,7 +315,7 @@ export function CreateAgentForm({ composioApps }: { composioApps: ComposioApp[] 
       )}
       {step === 2 && (
         <ConnectStep
-          apps={composioApps}
+          apps={mergedApps}
           selectedTools={selectedTools}
           connectionStatus={connectionStatus}
           onConnect={connectTool}
@@ -330,7 +330,7 @@ export function CreateAgentForm({ composioApps }: { composioApps: ComposioApp[] 
           businessDescription={businessDescription}
           agentType={agentType}
           selectedTools={selectedTools}
-          apps={composioApps}
+          apps={mergedApps}
           connectionStatus={connectionStatus}
           createAction={createAction}
           createState={createState}

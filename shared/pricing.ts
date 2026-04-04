@@ -6,10 +6,10 @@ import prisma from "./db.js";
 //
 // SMB Track
 // ─────────────────────────────────────────────────────────────────────────────
-// Tier       | Price     | Agents | Tools | Interactions/mo | Setup Fee
-// Starter    | $497/mo   | 1      | 3     | 1,000           | $500–1,500
-// Growth     | $697/mo   | 1      | 3     | 3,000           | $500–1,500
-// Scale      | $997/mo   | 2      | 3 each| Unlimited       | $500–1,500
+// Tier       | Price       | Agents | Tools | Interactions/mo | Setup Fee
+// Starter    | $497/mo     | 1      | 3     | 1,000           | $1,000–2,500
+// Growth     | $697/mo     | 1      | 3     | 3,000           | $1,000–2,500
+// Scale      | $1,497/mo   | 2      | 3 each| Unlimited       | $1,000–2,500
 // Annual     | 2 months free (10 months billed)
 //
 // Enterprise Track
@@ -42,8 +42,8 @@ export const TIERS: Record<PricingTier, TierConfig> = {
     maxAgents: 1,
     maxToolsPerAgent: 3,
     interactionsPerMonth: 1000,
-    setupFeeCentsMin: 50000,
-    setupFeeCentsMax: 150000,
+    setupFeeCentsMin: 100000,
+    setupFeeCentsMax: 250000,
   },
   growth: {
     tier: "growth",
@@ -52,18 +52,18 @@ export const TIERS: Record<PricingTier, TierConfig> = {
     maxAgents: 1,
     maxToolsPerAgent: 3,
     interactionsPerMonth: 3000,
-    setupFeeCentsMin: 50000,
-    setupFeeCentsMax: 150000,
+    setupFeeCentsMin: 100000,
+    setupFeeCentsMax: 250000,
   },
   scale: {
     tier: "scale",
     label: "Scale",
-    monthlyCents: 99700,
+    monthlyCents: 149700,
     maxAgents: 2,
     maxToolsPerAgent: 3,
     interactionsPerMonth: -1, // unlimited
-    setupFeeCentsMin: 50000,
-    setupFeeCentsMax: 150000,
+    setupFeeCentsMin: 100000,
+    setupFeeCentsMax: 250000,
   },
   enterprise: {
     tier: "enterprise",
