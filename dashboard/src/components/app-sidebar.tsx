@@ -30,13 +30,12 @@ import {
 } from "@/components/ui/sidebar"
 
 const navItems = [
-  { title: "Dashboard", href: "/", icon: LayoutDashboard },
-  { title: "Clients", href: "/clients", icon: Users },
+  { title: "Oracle", href: "/oracle", icon: Zap },
   { title: "Agents", href: "/agents", icon: Bot },
   { title: "Create Agent", href: "/agents/create", icon: PlusCircle },
+  { title: "Clients", href: "/clients", icon: Users },
   { title: "Activity", href: "/activity", icon: Activity },
   { title: "Costs", href: "/costs", icon: DollarSign },
-  { title: "Oracle", href: "/oracle", icon: Zap },
 ]
 
 export function AppSidebar({ pendingCount }: { pendingCount?: number }) {

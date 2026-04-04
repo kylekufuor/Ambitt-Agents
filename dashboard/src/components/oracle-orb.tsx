@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   Bot,
@@ -12,38 +12,12 @@ import {
 } from "lucide-react";
 
 const actions = [
-  { label: "Create Agent", icon: Bot, href: "/oracle", color: "from-blue-500 to-cyan-400" },
-  { label: "Fleet Health", icon: Activity, href: "/oracle", color: "from-emerald-500 to-green-400" },
-  { label: "Run Agent", icon: Play, href: "/agents", color: "from-violet-500 to-purple-400" },
-  { label: "Approvals", icon: CheckCircle, href: "/oracle", color: "from-amber-500 to-yellow-400", badgeKey: "approvals" as const },
-  { label: "Improvements", icon: Lightbulb, href: "/oracle", color: "from-pink-500 to-rose-400" },
+  { label: "Run Agent", icon: Play, href: "/agents", color: "bg-violet-500" },
+  { label: "Fleet Health", icon: Activity, href: "/oracle", color: "bg-emerald-500" },
+  { label: "Approvals", icon: CheckCircle, href: "/oracle", color: "bg-amber-500", badgeKey: "approvals" as const },
+  { label: "Create Agent", icon: Bot, href: "/agents/create", color: "bg-blue-500" },
+  { label: "Improvements", icon: Lightbulb, href: "/oracle", color: "bg-pink-500" },
 ];
-
-// Seeded PRNG for deterministic particles (no hydration mismatch)
-function seededRandom(seed: number) {
-  let s = seed;
-  return () => {
-    s = (s * 16807 + 0) % 2147483647;
-    return (s - 1) / 2147483646;
-  };
-}
-
-const PARTICLE_COUNT = 40;
-const rand = seededRandom(42);
-const particleConfigs = Array.from({ length: PARTICLE_COUNT }, (_, i) => {
-  const r1 = rand(), r2 = rand(), r3 = rand(), r4 = rand(), r5 = rand(), r6 = rand(), r7 = rand();
-  return {
-    id: i,
-    size: 1 + r1 * 3,
-    orbitRadius: 120 + r2 * 200,
-    angle: r3 * 360,
-    duration: 8 + r4 * 20,
-    delay: r5 * -20,
-    opacity: 0.15 + r6 * 0.5,
-    drift: -30 + r7 * 60,
-    color: r1 > 0.6 ? "bg-cyan-400" : r3 > 0.3 ? "bg-emerald-400" : "bg-white",
-  };
-});
 
 export function OracleOrb({ pendingCount }: { pendingCount?: number }) {
   const [open, setOpen] = useState(false);
@@ -58,53 +32,20 @@ export function OracleOrb({ pendingCount }: { pendingCount?: number }) {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handleKeyDown]);
 
-  const radius = 280;
+  const radius = 200;
   const spread = 220;
   const angleStep = spread / (actions.length - 1);
 
   return (
     <div className="flex flex-col items-center justify-center py-6">
-      {/* Orb Container */}
-      <div className="relative" style={{ width: "600px", height: "600px" }}>
+      <div className="relative" style={{ width: "500px", height: "500px" }}>
 
-        {/* Particle field */}
-        {particleConfigs.map((p) => (
-          <div
-            key={p.id}
-            className="absolute left-1/2 top-1/2 pointer-events-none"
-            style={{
-              width: `${p.size}px`,
-              height: `${p.size}px`,
-              animation: `orbit-particle ${p.duration}s linear infinite`,
-              animationDelay: `${p.delay}s`,
-              // CSS custom properties for the animation
-              ["--orbit-radius" as string]: `${p.orbitRadius}px`,
-              ["--start-angle" as string]: `${p.angle}deg`,
-              ["--drift" as string]: `${p.drift}px`,
-            }}
-          >
-            <div
-              className={`w-full h-full rounded-full ${p.color}`}
-              style={{ opacity: p.opacity }}
-            />
-          </div>
-        ))}
+        {/* Soft ambient light behind orb */}
+        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] rounded-full bg-white/[0.03] blur-[80px]" />
 
-        {/* Ambient gradient rings */}
-        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] rounded-full bg-gradient-to-br from-emerald-500/5 to-cyan-500/5 blur-3xl animate-pulse-slow" />
-        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] rounded-full border border-emerald-500/5 animate-orb-spin-slow" />
-        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[350px] h-[350px] rounded-full border border-cyan-500/8 animate-orb-spin-reverse" />
-        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[280px] h-[280px] rounded-full border border-emerald-500/10 animate-orb-rotate" style={{ animationDuration: "20s" }} />
-
-        {/* Gradient sweeper rings */}
-        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[420px] h-[420px] rounded-full animate-orb-rotate" style={{ animationDuration: "15s" }}>
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-20 h-1 bg-gradient-to-r from-transparent via-emerald-500/30 to-transparent rounded-full blur-sm" />
-          <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-16 h-1 bg-gradient-to-r from-transparent via-cyan-500/20 to-transparent rounded-full blur-sm" />
-        </div>
-        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[320px] h-[320px] rounded-full animate-orb-spin-reverse" style={{ animationDuration: "12s" }}>
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-12 h-1 bg-gradient-to-r from-transparent via-emerald-400/40 to-transparent rounded-full blur-[1px]" />
-          <div className="absolute right-0 top-1/2 -translate-y-1/2 w-1 h-12 bg-gradient-to-b from-transparent via-cyan-400/30 to-transparent rounded-full blur-[1px]" />
-        </div>
+        {/* Outer ring — slow rotate */}
+        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[280px] h-[280px] rounded-full border border-white/[0.06] animate-orb-spin-slow" />
+        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[240px] h-[240px] rounded-full border border-white/[0.04] animate-orb-spin-reverse" />
 
         {/* Radial Actions */}
         {actions.map((action, i) => {
@@ -132,11 +73,11 @@ export function OracleOrb({ pendingCount }: { pendingCount?: number }) {
                 className="group flex flex-col items-center gap-2"
               >
                 <div className="relative">
-                  <div className={`w-16 h-16 rounded-full bg-gradient-to-br ${action.color} flex items-center justify-center shadow-lg shadow-black/40 group-hover:scale-110 transition-transform`}>
-                    <action.icon className="size-7 text-white" />
+                  <div className={`w-14 h-14 rounded-full ${action.color} flex items-center justify-center shadow-lg shadow-black/40 group-hover:scale-110 transition-transform`}>
+                    <action.icon className="size-6 text-white" />
                   </div>
                   {action.badgeKey === "approvals" && pendingCount && pendingCount > 0 && (
-                    <div className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-amber-500 text-black text-[11px] font-bold flex items-center justify-center ring-2 ring-background">
+                    <div className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-amber-500 text-black text-[10px] font-bold flex items-center justify-center ring-2 ring-background">
                       {pendingCount}
                     </div>
                   )}
@@ -149,48 +90,52 @@ export function OracleOrb({ pendingCount }: { pendingCount?: number }) {
           );
         })}
 
-        {/* The Orb — dead center */}
+        {/* The Orb — Liquid Glass / Chrome */}
         <button
           onClick={() => setOpen(!open)}
           className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 group cursor-pointer z-10"
           aria-label="Oracle Command Center"
         >
-          {/* Outermost ambient glow */}
-          <div className="absolute -inset-24 rounded-full bg-gradient-to-br from-emerald-500/8 to-cyan-500/5 blur-3xl animate-pulse-slow" />
+          {/* Outer glow — soft white */}
+          <div className="absolute -inset-16 rounded-full bg-white/[0.02] blur-3xl animate-pulse-slow" />
 
-          {/* Ping ring */}
-          <div className="absolute -inset-8 rounded-full bg-emerald-500/10 animate-ping-slow" />
-
-          {/* Layered glow rings */}
-          <div className="absolute -inset-6 rounded-full bg-gradient-to-br from-emerald-500/20 to-cyan-500/20 blur-xl group-hover:from-emerald-500/35 group-hover:to-cyan-500/35 transition-all duration-700" />
-          <div className="absolute -inset-3 rounded-full bg-gradient-to-br from-emerald-500/25 to-cyan-500/30 blur-lg" />
-          <div className="absolute -inset-1 rounded-full bg-gradient-to-br from-emerald-400/30 to-cyan-400/30 blur-md" />
-
-          {/* Core orb — 5x bigger (120px) */}
-          <div className={`relative w-[120px] h-[120px] rounded-full flex items-center justify-center transition-all duration-500 ${
-            open
-              ? "bg-gradient-to-br from-emerald-400 via-cyan-400 to-teal-400 shadow-2xl shadow-emerald-500/50 scale-90"
-              : "bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-500 shadow-xl shadow-emerald-500/30 group-hover:shadow-2xl group-hover:shadow-emerald-500/50 group-hover:scale-105"
+          {/* Glass sphere — layered for depth */}
+          <div className={`relative w-[140px] h-[140px] rounded-full transition-all duration-700 ${
+            open ? "scale-90" : "group-hover:scale-105"
           }`}>
-            {/* Rotating gradient overlay */}
-            <div className="absolute inset-0 rounded-full bg-gradient-conic from-white/15 via-transparent to-white/10 animate-orb-rotate" style={{ animationDuration: "6s" }} />
 
-            {/* Inner rings */}
-            <div className="absolute inset-3 rounded-full border border-white/15 animate-orb-rotate" />
-            <div className="absolute inset-6 rounded-full border border-white/10 animate-orb-spin-reverse" style={{ animationDuration: "8s" }} />
+            {/* Base sphere — gradient for 3D effect */}
+            <div className="absolute inset-0 rounded-full bg-gradient-to-br from-white/20 via-white/5 to-transparent" />
 
-            {/* Inner highlight */}
-            <div className="absolute inset-4 rounded-full bg-gradient-to-br from-white/25 to-transparent" />
-            <div className="absolute inset-8 rounded-full bg-gradient-to-br from-white/20 to-transparent blur-[2px]" />
+            {/* Glass fill */}
+            <div className="absolute inset-0 rounded-full bg-gradient-to-b from-white/[0.12] to-white/[0.02] backdrop-blur-sm" />
 
-            {/* Center bright spot */}
-            <div className="absolute inset-10 rounded-full bg-white/10 blur-sm animate-pulse-slow" />
+            {/* Top highlight — liquid caustic */}
+            <div className="absolute inset-2 rounded-full bg-gradient-to-b from-white/25 via-transparent to-transparent" />
 
-            {/* Oracle icon */}
-            <Zap className={`size-12 text-white relative z-10 drop-shadow-lg transition-transform duration-500 ${open ? "rotate-180 scale-90" : "group-hover:scale-110"}`} />
+            {/* Inner reflection arc */}
+            <div className="absolute top-3 left-1/2 -translate-x-1/2 w-[60%] h-[30%] rounded-full bg-white/15 blur-[6px]" />
+
+            {/* Subtle edge ring */}
+            <div className="absolute inset-0 rounded-full ring-1 ring-white/10" />
+
+            {/* Inner ring — rotating */}
+            <div className="absolute inset-4 rounded-full ring-1 ring-white/[0.06] animate-orb-rotate" style={{ animationDuration: "10s" }} />
+
+            {/* Bottom shadow for 3D grounding */}
+            <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-[70%] h-3 rounded-full bg-white/[0.03] blur-md" />
+
+            {/* Center icon */}
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className={`w-14 h-14 rounded-full bg-gradient-to-br from-white/20 to-white/5 flex items-center justify-center backdrop-blur-sm transition-transform duration-500 ${
+                open ? "rotate-180 scale-90" : "group-hover:scale-110"
+              }`}>
+                <Zap className="size-7 text-white/80 drop-shadow-sm" />
+              </div>
+            </div>
           </div>
 
-          {/* Pending badge on orb */}
+          {/* Pending badge */}
           {!open && pendingCount && pendingCount > 0 && (
             <div className="absolute -top-1 -right-1 w-7 h-7 rounded-full bg-amber-500 text-black text-xs font-bold flex items-center justify-center ring-2 ring-background z-20">
               {pendingCount}
@@ -199,8 +144,8 @@ export function OracleOrb({ pendingCount }: { pendingCount?: number }) {
         </button>
       </div>
 
-      {/* Label below orb */}
-      <p className={`text-muted-foreground text-sm transition-opacity duration-300 ${open ? "opacity-0" : "opacity-100"}`}>
+      {/* Label */}
+      <p className={`text-muted-foreground/60 text-sm transition-opacity duration-300 ${open ? "opacity-0" : "opacity-100"}`}>
         Click to command
       </p>
 
