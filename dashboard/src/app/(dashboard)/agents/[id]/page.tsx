@@ -257,6 +257,7 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
       {/* Tabs */}
       <AgentTabs
         agentId={agent.id}
+        agentStatus={agent.status}
         tasks={tasks}
         conversations={conversations}
         memoryEntries={memoryEntries}

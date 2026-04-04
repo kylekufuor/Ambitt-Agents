@@ -53,6 +53,7 @@ type Tab = (typeof tabs)[number];
 
 export function AgentTabs({
   agentId,
+  agentStatus,
   tasks,
   conversations,
   memoryEntries,
@@ -60,6 +61,7 @@ export function AgentTabs({
   config,
 }: {
   agentId: string;
+  agentStatus: string;
   tasks: TaskItem[];
   conversations: ConversationItem[];
   memoryEntries: MemoryEntry[];
@@ -91,7 +93,7 @@ export function AgentTabs({
       {active === "Conversations" && <ConversationsTab conversations={conversations} />}
       {active === "Documents" && <DocumentsTab agentId={agentId} documents={documents} />}
       {active === "Memory" && <MemoryTab entries={memoryEntries} />}
-      {active === "Config" && <ConfigTab config={config} />}
+      {active === "Config" && <ConfigTab agentId={agentId} agentStatus={agentStatus} config={config} />}
     </div>
   );
 }
@@ -318,16 +320,115 @@ function DocumentsTab({ agentId, documents: initialDocs }: { agentId: string; do
 
 // --- Config Tab ---
 
-function ConfigTab({ config }: { config: AgentConfig }) {
+const SCHEDULE_PRESETS: Array<{ label: string; value: string; description: string }> = [
+  { label: "Every Monday 8am", value: "0 8 * * 1", description: "Weekly on Monday" },
+  { label: "Every weekday 8am", value: "0 8 * * 1-5", description: "Mon–Fri" },
+  { label: "Every day 8am", value: "0 8 * * *", description: "Daily" },
+  { label: "Twice a week (Mon/Thu)", value: "0 8 * * 1,4", description: "Mon & Thu" },
+  { label: "Every 6 hours", value: "0 */6 * * *", description: "4x daily" },
+  { label: "Manual only", value: "manual", description: "No scheduled runs" },
+];
+
+function ConfigTab({ agentId, agentStatus, config }: { agentId: string; agentStatus: string; config: AgentConfig }) {
+  const [schedule, setSchedule] = useState(config.schedule);
+  const [customCron, setCustomCron] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saveResult, setSaveResult] = useState<string | null>(null);
+  const [showCustom, setShowCustom] = useState(false);
+
+  const oracleUrl = process.env.NEXT_PUBLIC_ORACLE_URL ?? "https://ambitt-agents-production.up.railway.app";
+
+  async function updateSchedule(newSchedule: string) {
+    setSaving(true);
+    setSaveResult(null);
+    try {
+      const res = await fetch(`${oracleUrl}/agents/${agentId}/schedule`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ schedule: newSchedule }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({ error: "Failed" }));
+        setSaveResult(`Error: ${body.error}`);
+      } else {
+        setSchedule(newSchedule);
+        setSaveResult("Schedule updated");
+        setShowCustom(false);
+      }
+    } catch (err) {
+      setSaveResult(`Error: ${err instanceof Error ? err.message : "Failed"}`);
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
     <div className="space-y-4">
+      {/* Schedule */}
+      <div className="bg-card border border-border rounded-xl p-5">
+        <h3 className="text-foreground font-semibold text-[15px] mb-1">Schedule</h3>
+        <p className="text-muted-foreground text-xs mb-4">
+          How often the agent runs autonomously.
+          {agentStatus === "active" ? " Changes take effect immediately." : " Will activate when agent is approved."}
+        </p>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mb-3">
+          {SCHEDULE_PRESETS.map((preset) => (
+            <button
+              key={preset.value}
+              onClick={() => updateSchedule(preset.value)}
+              disabled={saving}
+              className={`text-left p-3 rounded-lg border transition-colors ${
+                schedule === preset.value
+                  ? "border-emerald-500/50 bg-emerald-500/5 ring-1 ring-emerald-500/20"
+                  : "border-border hover:border-muted-foreground/30"
+              }`}
+            >
+              <p className={`text-xs font-medium ${schedule === preset.value ? "text-emerald-400" : "text-foreground"}`}>{preset.label}</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">{preset.description}</p>
+            </button>
+          ))}
+        </div>
+
+        {/* Custom cron */}
+        {!showCustom ? (
+          <button onClick={() => setShowCustom(true)} className="text-xs text-muted-foreground hover:text-foreground transition">
+            Custom cron expression...
+          </button>
+        ) : (
+          <div className="flex items-center gap-2 mt-2">
+            <input
+              type="text"
+              value={customCron}
+              onChange={(e) => setCustomCron(e.target.value)}
+              placeholder="e.g. 0 9 * * 1,3,5"
+              className="flex-1 text-xs font-mono px-3 py-1.5 rounded-md bg-background border border-border text-foreground"
+            />
+            <button
+              onClick={() => customCron && updateSchedule(customCron)}
+              disabled={saving || !customCron}
+              className="text-xs font-semibold px-3 py-1.5 rounded-md bg-foreground text-background hover:bg-foreground/90 disabled:opacity-50"
+            >
+              Set
+            </button>
+          </div>
+        )}
+
+        <div className="flex items-center gap-3 mt-2">
+          <p className="text-[11px] text-muted-foreground font-mono">{schedule}</p>
+          {saveResult && (
+            <p className={`text-[11px] ${saveResult.startsWith("Error") ? "text-red-400" : "text-emerald-400"}`}>
+              {saveResult}
+            </p>
+          )}
+        </div>
+      </div>
+
       {/* Identity & Behavior */}
       <div className="bg-card border border-border rounded-xl p-5">
         <h3 className="text-foreground font-semibold text-[15px] mb-4">Identity & Behavior</h3>
         <div className="grid md:grid-cols-2 gap-4">
           <ConfigField label="Personality" value={config.personality} />
           <ConfigField label="Autonomy Level" value={config.autonomyLevel} />
-          <ConfigField label="Schedule" value={config.schedule} mono />
           <ConfigField label="History Tier" value={config.historyTier} />
           {config.clientNorthStar && (
             <ConfigField label="Client North Star" value={config.clientNorthStar} />

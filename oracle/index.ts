@@ -145,6 +145,50 @@ app.post("/agents/:id/kill", async (req: Request, res: Response) => {
   }
 });
 
+// Update agent schedule
+app.patch("/agents/:id/schedule", async (req: Request, res: Response) => {
+  try {
+    const id = param(req, "id");
+    const { schedule } = req.body;
+
+    if (!schedule || typeof schedule !== "string") {
+      res.status(400).json({ error: "Missing 'schedule' (cron string or 'manual')" });
+      return;
+    }
+
+    // Validate cron expression (unless "manual")
+    if (schedule !== "manual") {
+      const cron = await import("node-cron");
+      if (!cron.validate(schedule)) {
+        res.status(400).json({ error: `Invalid cron expression: ${schedule}` });
+        return;
+      }
+    }
+
+    await prisma.agent.update({
+      where: { id },
+      data: { schedule },
+    });
+
+    // Re-register with scheduler
+    const { registerAgent, unregisterAgent } = await import("./scheduler.js");
+    if (schedule === "manual") {
+      unregisterAgent(id);
+    } else {
+      const agent = await prisma.agent.findUnique({ where: { id }, select: { status: true } });
+      if (agent?.status === "active") {
+        registerAgent(id, schedule);
+      }
+    }
+
+    logger.info("Agent schedule updated", { agentId: id, schedule });
+    res.json({ status: "updated", schedule });
+  } catch (error) {
+    logger.error("Schedule update failed", { error, agentId: param(req, "id") });
+    res.status(500).json({ error: "Schedule update failed" });
+  }
+});
+
 // WhatsApp webhook — Kyle's approval replies
 app.post("/webhooks/whatsapp", async (req: Request, res: Response) => {
   try {
