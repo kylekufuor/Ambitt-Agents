@@ -4,6 +4,7 @@ import { sendKyleWhatsApp } from "../shared/whatsapp.js";
 import { sendEmail } from "../shared/email.js";
 import { recalcClientRetainers, getTierConfig, getInteractionLimit, type PricingTier } from "../shared/pricing.js";
 import { buildWelcomeEmail, inferCapabilities } from "./templates/welcome-email.js";
+import { buildOnboardingEmail } from "./templates/onboarding-email.js";
 import logger from "../shared/logger.js";
 
 // Full brief — when clientId is already known
@@ -312,6 +313,32 @@ export async function approveAgent(agentId: string): Promise<void> {
     });
 
     logger.info("Welcome email sent", { agentId, to: agent.client.email });
+
+    // Schedule onboarding email — 1 hour later
+    setTimeout(async () => {
+      try {
+        const { subject: onboardSubject, html: onboardHtml } = buildOnboardingEmail({
+          agentName: agent.name,
+          clientFirstName,
+          clientBusinessName: agent.client.businessName,
+          agentType: agent.agentType,
+        });
+
+        await sendEmail({
+          agentId,
+          agentName: agent.name,
+          to: agent.client.email,
+          subject: onboardSubject,
+          html: onboardHtml,
+          replyToAgentId: agentId,
+        });
+
+        logger.info("Onboarding email sent", { agentId, to: agent.client.email });
+      } catch (err) {
+        logger.error("Failed to send onboarding email", { agentId, error: err });
+      }
+    }, 60 * 60 * 1000); // 1 hour
+
   } catch (error) {
     logger.error("Failed to send welcome email", { agentId, error });
   }
