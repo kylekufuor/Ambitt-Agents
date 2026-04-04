@@ -50,6 +50,7 @@ export function CreateAgentForm({ composioApps }: { composioApps: ComposioApp[] 
   const [agentName, setAgentName] = useState("");
   const [clientEmail, setClientEmail] = useState("");
   const [businessName, setBusinessName] = useState("");
+  const [businessWebsite, setBusinessWebsite] = useState("");
   const [businessDescription, setBusinessDescription] = useState("");
   const [agentType, setAgentType] = useState("analytics");
 
@@ -194,6 +195,7 @@ export function CreateAgentForm({ composioApps }: { composioApps: ComposioApp[] 
           agentName={agentName} setAgentName={setAgentName}
           clientEmail={clientEmail} setClientEmail={setClientEmail}
           businessName={businessName} setBusinessName={setBusinessName}
+          businessWebsite={businessWebsite} setBusinessWebsite={setBusinessWebsite}
           businessDescription={businessDescription} setBusinessDescription={setBusinessDescription}
           agentType={agentType} setAgentType={setAgentType}
         />
@@ -221,6 +223,7 @@ export function CreateAgentForm({ composioApps }: { composioApps: ComposioApp[] 
           agentName={agentName}
           clientEmail={clientEmail}
           businessName={businessName}
+          businessWebsite={businessWebsite}
           businessDescription={businessDescription}
           agentType={agentType}
           selectedTools={selectedTools}
@@ -258,12 +261,14 @@ function BasicInfoStep({
   agentName, setAgentName,
   clientEmail, setClientEmail,
   businessName, setBusinessName,
+  businessWebsite, setBusinessWebsite,
   businessDescription, setBusinessDescription,
   agentType, setAgentType,
 }: {
   agentName: string; setAgentName: (v: string) => void;
   clientEmail: string; setClientEmail: (v: string) => void;
   businessName: string; setBusinessName: (v: string) => void;
+  businessWebsite: string; setBusinessWebsite: (v: string) => void;
   businessDescription: string; setBusinessDescription: (v: string) => void;
   agentType: string; setAgentType: (v: string) => void;
 }) {
@@ -282,6 +287,10 @@ function BasicInfoStep({
         </Field>
         <Field label="Business Name">
           <Input placeholder="e.g. Acme Corp" value={businessName} onChange={(e) => setBusinessName(e.target.value)} />
+        </Field>
+        <Field label="Website URL">
+          <Input type="url" placeholder="e.g. mcquizzy.com" value={businessWebsite} onChange={(e) => setBusinessWebsite(e.target.value)} />
+          <p className="text-muted-foreground/50 text-[11px] mt-1">Agent will automatically scan this site on activation to learn the business</p>
         </Field>
         <Field label="What does this business do?">
           <Input placeholder="One line — e.g. B2B SaaS for restaurant supply chains" value={businessDescription} onChange={(e) => setBusinessDescription(e.target.value)} />
@@ -525,6 +534,7 @@ function ReviewStep({
   agentName,
   clientEmail,
   businessName,
+  businessWebsite,
   businessDescription,
   agentType,
   selectedTools,
@@ -536,6 +546,7 @@ function ReviewStep({
   agentName: string;
   clientEmail: string;
   businessName: string;
+  businessWebsite: string;
   businessDescription: string;
   agentType: string;
   selectedTools: string[];
@@ -557,6 +568,7 @@ function ReviewStep({
     formData.set("agentName", agentName);
     formData.set("clientEmail", clientEmail);
     formData.set("businessName", businessName);
+    formData.set("businessWebsite", businessWebsite);
     formData.set("businessDescription", businessDescription);
     formData.set("agentType", agentType);
     formData.set("tools", JSON.stringify(selectedTools));
@@ -576,6 +588,7 @@ function ReviewStep({
         <ReviewRow label="Agent Name" value={agentName} />
         <ReviewRow label="Client Email" value={clientEmail} />
         <ReviewRow label="Business" value={`${businessName} — ${businessDescription}`} />
+        {businessWebsite && <ReviewRow label="Website" value={businessWebsite} />}
         <ReviewRow label="Agent Type" value={agentType} />
         <div>
           <p className="text-muted-foreground text-[11px] font-semibold uppercase tracking-wider mb-2">Connected Tools</p>

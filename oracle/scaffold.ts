@@ -32,6 +32,7 @@ interface DashboardBrief {
     tools: string[];
     purpose: string;
   };
+  businessWebsite?: string;
   credentials?: Array<{
     toolName: string;
     apiKey?: string;
@@ -70,6 +71,7 @@ export async function scaffoldAgent(input: AgentBrief | DashboardBrief): Promise
           businessName: input.businessName,
           industry: "General",
           businessGoal: input.businessDescription,
+          website: input.businessWebsite ?? null,
           brandVoice: "Professional and direct",
           preferredChannel: "email",
           stripeCustomerId: `pending_${Date.now()}`,
@@ -235,11 +237,11 @@ export async function approveAgent(agentId: string): Promise<void> {
     },
   });
 
-  // Load full agent + client for welcome email
+  // Load full agent + client for welcome email + site scan
   const agent = await prisma.agent.findUnique({
     where: { id: agentId },
     include: {
-      client: { select: { id: true, email: true, businessName: true } },
+      client: { select: { id: true, email: true, businessName: true, website: true } },
     },
   });
 
@@ -247,6 +249,43 @@ export async function approveAgent(agentId: string): Promise<void> {
 
   // Recalc pricing — agent count changed
   await recalcClientRetainers(agent.clientId);
+
+  // Auto-scan client website and store in agent memory
+  try {
+    const clientWebsite = agent.client.website;
+    if (clientWebsite) {
+      const { scanSite, formatScanResults } = await import("../shared/platform-tools/site-scanner.js");
+      const scanResult = await scanSite(clientWebsite);
+      const scanSummary = formatScanResults(scanResult);
+
+      // Store scan results in agent memory
+      const memory = {
+        businessWebsite: clientWebsite,
+        siteScan: {
+          scannedAt: new Date().toISOString(),
+          techStack: scanResult.techStack.map((t) => t.name),
+          securityGrade: scanResult.securityHeaders.grade,
+          sslValid: scanResult.ssl.valid,
+          sslExpiry: scanResult.ssl.expiresAt,
+          title: scanResult.metadata.title,
+          description: scanResult.metadata.description,
+        },
+        scanSummary,
+      };
+
+      await prisma.agent.update({
+        where: { id: agentId },
+        data: {
+          clientMemoryObject: encrypt(JSON.stringify(memory)),
+          lastMemoryUpdateAt: new Date(),
+        },
+      });
+
+      logger.info("Client website scanned on activation", { agentId, website: clientWebsite });
+    }
+  } catch (error) {
+    logger.warn("Site scan on activation failed — non-blocking", { agentId, error });
+  }
 
   // Send welcome email to client
   try {

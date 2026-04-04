@@ -66,6 +66,7 @@ export async function createAgentAction(
   const payload = {
     clientEmail: formData.get("clientEmail") as string,
     businessName: formData.get("businessName") as string,
+    businessWebsite: formData.get("businessWebsite") as string || undefined,
     businessDescription: formData.get("businessDescription") as string,
     agent: {
       name: formData.get("agentName") as string,

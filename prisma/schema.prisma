@@ -14,6 +14,7 @@ model Client {
   businessName          String
   industry              String
   businessGoal          String
+  website               String?
   brandVoice            String    @db.Text
   preferredChannel      String
   whatsappNumber        String?
