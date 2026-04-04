@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase-server";
 import prisma from "@/lib/db";
 import { redirect } from "next/navigation";
 import { ManageBillingButton } from "./billing-button";
+import { DocumentUpload } from "./document-upload";
 
 export const dynamic = "force-dynamic";
 
@@ -37,6 +38,7 @@ export default async function PortalPage() {
           schedule: true,
           lastRunAt: true,
           totalTasksCompleted: true,
+          clientMemoryObject: true,
         },
         orderBy: { createdAt: "desc" },
       },
@@ -105,6 +107,11 @@ export default async function PortalPage() {
                     : "Not yet"}
                 </span>
               </div>
+              <DocumentUpload
+                agentId={agent.id}
+                agentName={agent.name}
+                initialDocs={parseDocuments(agent.clientMemoryObject)}
+              />
             </div>
           ))}
           {client.agents.length === 0 && (
@@ -151,6 +158,14 @@ export default async function PortalPage() {
       </section>
     </div>
   );
+}
+
+function parseDocuments(memoryObject: string): Array<{ filename: string; uploadedAt: string }> {
+  try {
+    const parsed = JSON.parse(memoryObject);
+    if (Array.isArray(parsed.documents)) return parsed.documents;
+  } catch { /* encrypted or empty */ }
+  return [];
 }
 
 async function signOut() {
