@@ -433,7 +433,7 @@ app.post("/composio/connect", async (req: Request, res: Response) => {
 // Connect with API key directly (no popup needed)
 app.post("/composio/connect-apikey", async (req: Request, res: Response) => {
   try {
-    const { clientId, appName, apiKey: toolApiKey } = req.body;
+    const { clientId, appName, apiKey: toolApiKey, extraFields } = req.body;
     if (!clientId || !appName || !toolApiKey) {
       res.status(400).json({ error: "Missing clientId, appName, or apiKey" });
       return;
@@ -442,7 +442,7 @@ app.post("/composio/connect-apikey", async (req: Request, res: Response) => {
     const composioKey = process.env.COMPOSIO_API_KEY;
     if (!composioKey) throw new Error("COMPOSIO_API_KEY is not set");
 
-    // Get integration ID
+    // Get integration ID and required fields
     const intRes = await fetch(`https://backend.composio.dev/api/v1/integrations?appName=${appName}`, {
       headers: { "x-api-key": composioKey },
     });
@@ -450,28 +450,40 @@ app.post("/composio/connect-apikey", async (req: Request, res: Response) => {
     const intData = await intRes.json();
     const integrations = Array.isArray(intData) ? intData : (intData.items ?? []);
     const integrationId = integrations[0]?.id;
-    if (!integrationId) throw new Error(`No auth config for ${appName}`);
+    if (!integrationId) throw new Error(`No auth config for ${appName}. Set one up in Composio → Auth Configs.`);
 
-    // Create connection with API key
+    // Build data payload — different tools expect different field names
+    const toolFieldMap: Record<string, (key: string, extra?: Record<string, string>) => Record<string, string>> = {
+      posthog: (key, extra) => ({ apiKey: key, subdomain: extra?.subdomain ?? "us" }),
+      supabase: (key) => ({ api_key: key }),
+      resend: (key) => ({ api_key: key }),
+      stripe: (key) => ({ api_key: key }),
+      hubspot: (key) => ({ api_key: key }),
+    };
+
+    const buildData = toolFieldMap[appName] ?? ((key: string) => ({ api_key: key }));
+    const data = buildData(toolApiKey, extraFields);
+
+    // Create connection
     const connRes = await fetch("https://backend.composio.dev/api/v1/connectedAccounts", {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-api-key": composioKey },
-      body: JSON.stringify({
-        integrationId,
-        entityId: clientId,
-        data: { api_key: toolApiKey },
-      }),
+      body: JSON.stringify({ integrationId, entityId: clientId, data }),
     });
     const connData = await connRes.json();
 
     if (!connRes.ok || connData.connectionStatus !== "ACTIVE") {
-      throw new Error(connData.error ?? "Connection failed — check your API key");
+      // Extract error message from nested error objects
+      const errMsg = typeof connData.error === "string"
+        ? connData.error
+        : connData.error?.message ?? JSON.stringify(connData.error ?? "Connection failed — check your API key");
+      throw new Error(errMsg);
     }
 
     logger.info("API key connection created", { clientId, appName });
     res.json({ status: "connected", connectionId: connData.connectedAccountId });
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = error instanceof Error ? error.message : JSON.stringify(error);
     logger.error("API key connect failed", { error: message });
     res.status(500).json({ error: message });
   }
