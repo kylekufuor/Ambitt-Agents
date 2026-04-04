@@ -430,6 +430,76 @@ app.post("/composio/connect", async (req: Request, res: Response) => {
   }
 });
 
+// Connect with API key directly (no popup needed)
+app.post("/composio/connect-apikey", async (req: Request, res: Response) => {
+  try {
+    const { clientId, appName, apiKey: toolApiKey } = req.body;
+    if (!clientId || !appName || !toolApiKey) {
+      res.status(400).json({ error: "Missing clientId, appName, or apiKey" });
+      return;
+    }
+
+    const composioKey = process.env.COMPOSIO_API_KEY;
+    if (!composioKey) throw new Error("COMPOSIO_API_KEY is not set");
+
+    // Get integration ID
+    const intRes = await fetch(`https://backend.composio.dev/api/v1/integrations?appName=${appName}`, {
+      headers: { "x-api-key": composioKey },
+    });
+    if (!intRes.ok) throw new Error(`Failed to fetch integration for ${appName}`);
+    const intData = await intRes.json();
+    const integrations = Array.isArray(intData) ? intData : (intData.items ?? []);
+    const integrationId = integrations[0]?.id;
+    if (!integrationId) throw new Error(`No auth config for ${appName}`);
+
+    // Create connection with API key
+    const connRes = await fetch("https://backend.composio.dev/api/v1/connectedAccounts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-api-key": composioKey },
+      body: JSON.stringify({
+        integrationId,
+        entityId: clientId,
+        data: { api_key: toolApiKey },
+      }),
+    });
+    const connData = await connRes.json();
+
+    if (!connRes.ok || connData.connectionStatus !== "ACTIVE") {
+      throw new Error(connData.error ?? "Connection failed — check your API key");
+    }
+
+    logger.info("API key connection created", { clientId, appName });
+    res.json({ status: "connected", connectionId: connData.connectedAccountId });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    logger.error("API key connect failed", { error: message });
+    res.status(500).json({ error: message });
+  }
+});
+
+// Get auth scheme for a tool
+app.get("/composio/auth-scheme/:appName", async (req: Request, res: Response) => {
+  try {
+    const appName = param(req, "appName");
+    const composioKey = process.env.COMPOSIO_API_KEY;
+    if (!composioKey) throw new Error("COMPOSIO_API_KEY is not set");
+
+    const intRes = await fetch(`https://backend.composio.dev/api/v1/integrations?appName=${appName}`, {
+      headers: { "x-api-key": composioKey },
+    });
+    if (!intRes.ok) {
+      res.json({ authScheme: "NONE" });
+      return;
+    }
+    const intData = await intRes.json();
+    const integrations = Array.isArray(intData) ? intData : (intData.items ?? []);
+    const scheme = integrations[0]?.authScheme ?? "NONE";
+    res.json({ authScheme: scheme });
+  } catch {
+    res.json({ authScheme: "NONE" });
+  }
+});
+
 // OAuth callback — Composio redirects here after client authorizes
 app.get("/composio/callback", async (req: Request, res: Response) => {
   // Composio handles the token exchange; this just confirms to the user

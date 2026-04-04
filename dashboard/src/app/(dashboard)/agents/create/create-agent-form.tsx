@@ -301,6 +301,28 @@ export function CreateAgentForm({ composioApps }: { composioApps: ComposioApp[] 
     }));
   };
 
+  // Connect via API key (no popup)
+  const connectToolApiKey = async (appKey: string, toolApiKey: string) => {
+    setConnectionStatus((prev) => ({ ...prev, [appKey]: { status: "connecting" } }));
+    try {
+      const oracleUrl = process.env.NEXT_PUBLIC_ORACLE_URL ?? "";
+      const res = await fetch(`${oracleUrl}/composio/connect-apikey`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientId: clientEmail, appName: appKey, apiKey: toolApiKey }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Connection failed");
+
+      setConnectionStatus((prev) => ({ ...prev, [appKey]: { status: "connected" } }));
+    } catch (error) {
+      setConnectionStatus((prev) => ({
+        ...prev,
+        [appKey]: { status: "failed", error: error instanceof Error ? error.message : "Connection failed" },
+      }));
+    }
+  };
+
   // Disconnect a tool
   const disconnectTool = (appKey: string) => {
     setConnectionStatus((prev) => ({
@@ -371,6 +393,7 @@ export function CreateAgentForm({ composioApps }: { composioApps: ComposioApp[] 
           selectedTools={selectedTools}
           connectionStatus={connectionStatus}
           onConnect={connectTool}
+          onConnectApiKey={connectToolApiKey}
           onTest={testTool}
           onDisconnect={disconnectTool}
         />
@@ -635,6 +658,7 @@ function ConnectStep({
   selectedTools,
   connectionStatus,
   onConnect,
+  onConnectApiKey,
   onTest,
   onDisconnect,
 }: {
@@ -642,9 +666,13 @@ function ConnectStep({
   selectedTools: string[];
   connectionStatus: Record<string, { status: string; error?: string }>;
   onConnect: (appKey: string) => void;
+  onConnectApiKey: (appKey: string, apiKey: string) => void;
   onTest: (appKey: string) => void;
   onDisconnect: (appKey: string) => void;
 }) {
+  const [apiKeys, setApiKeys] = useState<Record<string, string>>({});
+  // Tools that use API key auth (not OAuth popup)
+  const API_KEY_TOOLS = new Set(["resend", "posthog", "sendgrid", "mailchimp", "stripe", "hubspot", "klaviyo", "ahrefs", "semrush", "amplitude", "mixpanel", "pipedrive", "freshdesk", "monday", "linear", "notion", "asana"]);
   const selectedApps = selectedTools
     .map((key) => apps.find((a) => a.key === key))
     .filter(Boolean) as ComposioApp[];
@@ -673,6 +701,7 @@ function ConnectStep({
           const isFailed = status?.status === "failed";
           const isConnecting = status?.status === "connecting";
           const isTesting = status?.status === "testing";
+          const isApiKey = API_KEY_TOOLS.has(app.key);
 
           return (
             <div key={app.key} className={`bg-card border rounded-xl p-5 ${isConnected ? "border-emerald-500/20" : "border-border"}`}>
@@ -707,13 +736,13 @@ function ConnectStep({
                       </Button>
                     </>
                   )}
-                  {isFailed && (
+                  {isFailed && !isApiKey && (
                     <span className="flex items-center gap-1 text-[11px] font-semibold bg-red-500/10 text-red-400 ring-1 ring-red-500/20 px-2.5 py-1 rounded-md">
                       <XCircle className="size-3" />
                       Failed
                     </span>
                   )}
-                  {!isConnected && (
+                  {!isConnected && !isApiKey && (
                     <Button
                       variant="outline"
                       onClick={() => onConnect(app.key)}
@@ -731,6 +760,27 @@ function ConnectStep({
                   )}
                 </div>
               </div>
+
+              {/* API Key input for non-OAuth tools */}
+              {isApiKey && !isConnected && (
+                <div className="flex gap-2 mt-3">
+                  <Input
+                    type="password"
+                    placeholder={`Paste your ${app.name} API key`}
+                    value={apiKeys[app.key] ?? ""}
+                    onChange={(e) => setApiKeys((prev) => ({ ...prev, [app.key]: e.target.value }))}
+                    className="flex-1"
+                  />
+                  <Button
+                    variant="outline"
+                    onClick={() => onConnectApiKey(app.key, apiKeys[app.key] ?? "")}
+                    disabled={!apiKeys[app.key] || isConnecting}
+                  >
+                    {isConnecting ? <Loader2 className="size-4 animate-spin" /> : "Connect"}
+                  </Button>
+                </div>
+              )}
+
               {status?.error && (
                 <p className="text-red-400 text-xs mt-2">{status.error}</p>
               )}
