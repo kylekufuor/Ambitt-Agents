@@ -1,0 +1,16 @@
+{
+  "agentId": "pulse-ambittmedia-001",
+  "clientId": "ambittmedia-internal",
+  "name": "Pulse",
+  "email": "pulse@ambitt.agency",
+  "personality": "vigilant, empathetic, protective — guards the brand's reputation like it's their own",
+  "purpose": "Reputation monitoring and management for AmbittMedia. Tracks reviews, brand mentions, and sentiment across platforms. Drafts responses and flags issues.",
+  "tools": ["google-reviews", "yelp", "social-listening", "email"],
+  "schedule": "0 8 * * *",
+  "primaryModel": "claude-sonnet-4-6",
+  "analyticsModel": "gemini",
+  "creativeModel": "gpt-4o",
+  "autonomyLevel": "advisory",
+  "status": "active",
+  "historyTier": "standard"
+}

@@ -1,0 +1,287 @@
+import prisma from "../shared/db.js";
+import { encrypt } from "../shared/encryption.js";
+import { sendKyleWhatsApp } from "../shared/whatsapp.js";
+import { sendEmail } from "../shared/email.js";
+import { recalcClientRetainers } from "../shared/pricing.js";
+import { buildWelcomeEmail, inferCapabilities } from "./templates/welcome-email.js";
+import logger from "../shared/logger.js";
+
+// Full brief — when clientId is already known
+interface AgentBrief {
+  clientId: string;
+  name: string;
+  email: string;
+  personality: string;
+  purpose: string;
+  agentType: string;
+  tools: string[];
+  schedule: string;
+  autonomyLevel?: string;
+  monthlyRetainerCents: number;
+  setupFeeCents: number;
+}
+
+// Dashboard brief — when creating from the UI (clientEmail instead of clientId)
+interface DashboardBrief {
+  clientEmail: string;
+  businessName: string;
+  businessDescription: string;
+  agent: {
+    name: string;
+    agentType: string;
+    tools: string[];
+    purpose: string;
+  };
+  credentials?: Array<{
+    toolName: string;
+    apiKey?: string;
+    oauthToken?: string;
+  }>;
+}
+
+function isDashboardBrief(brief: AgentBrief | DashboardBrief): brief is DashboardBrief {
+  return "clientEmail" in brief;
+}
+
+export async function scaffoldAgent(input: AgentBrief | DashboardBrief): Promise<string> {
+  let clientId: string;
+  let agentName: string;
+  let agentEmail: string;
+  let agentType: string;
+  let tools: string[];
+  let purpose: string;
+  let personality: string;
+  let schedule: string;
+  let autonomyLevel: string;
+  let monthlyRetainerCents: number;
+  let setupFeeCents: number;
+
+  if (isDashboardBrief(input)) {
+    // Find or create client from email
+    let client = await prisma.client.findUnique({
+      where: { email: input.clientEmail },
+    });
+
+    if (!client) {
+      // Create a new client with a placeholder Stripe customer ID
+      client = await prisma.client.create({
+        data: {
+          email: input.clientEmail,
+          businessName: input.businessName,
+          industry: "General",
+          businessGoal: input.businessDescription,
+          brandVoice: "Professional and direct",
+          preferredChannel: "email",
+          stripeCustomerId: `pending_${Date.now()}`,
+          billingEmail: input.clientEmail,
+        },
+      });
+      logger.info("New client created from dashboard", { clientId: client.id, email: input.clientEmail });
+    }
+
+    clientId = client.id;
+    agentName = input.agent.name;
+    const domain = process.env.EMAIL_DOMAIN ?? "ambitt.agency";
+    agentEmail = `${agentName.toLowerCase()}@${domain}`;
+    agentType = input.agent.agentType;
+    tools = input.agent.tools;
+    purpose = input.agent.purpose;
+    personality = "Professional, proactive, and results-driven";
+    schedule = "0 8 * * 1"; // Default: Monday 8am
+    autonomyLevel = "advisory";
+    monthlyRetainerCents = 49700; // $497 default
+    setupFeeCents = 0;
+
+    // Store credentials if provided (for direct MCP fallback)
+    if (input.credentials && input.credentials.length > 0) {
+      for (const cred of input.credentials) {
+        if (!cred.apiKey && !cred.oauthToken) continue;
+        await prisma.credential.upsert({
+          where: { clientId_toolName: { clientId, toolName: cred.toolName } },
+          create: {
+            clientId,
+            toolName: cred.toolName,
+            apiKey: cred.apiKey ? encrypt(cred.apiKey) : null,
+            oauthToken: cred.oauthToken ? encrypt(cred.oauthToken) : null,
+          },
+          update: {
+            apiKey: cred.apiKey ? encrypt(cred.apiKey) : undefined,
+            oauthToken: cred.oauthToken ? encrypt(cred.oauthToken) : undefined,
+          },
+        });
+      }
+    }
+  } else {
+    clientId = input.clientId;
+    agentName = input.name;
+    agentEmail = input.email;
+    agentType = input.agentType;
+    tools = input.tools;
+    purpose = input.purpose;
+    personality = input.personality;
+    schedule = input.schedule;
+    autonomyLevel = input.autonomyLevel ?? "advisory";
+    monthlyRetainerCents = input.monthlyRetainerCents;
+    setupFeeCents = input.setupFeeCents;
+  }
+
+  const emptyMemory = encrypt(JSON.stringify({}));
+
+  const agent = await prisma.agent.create({
+    data: {
+      clientId,
+      name: agentName,
+      email: agentEmail,
+      personality,
+      purpose,
+      agentType,
+      tools,
+      schedule,
+      autonomyLevel,
+      monthlyRetainerCents,
+      setupFeeCents,
+      clientMemoryObject: emptyMemory,
+      status: "pending_approval",
+    },
+  });
+
+  // Log Oracle action
+  await prisma.oracleAction.create({
+    data: {
+      actionType: "scaffold_agent",
+      description: `Scaffolded agent "${agentName}" (${agentType}) for client ${clientId}`,
+      agentId: agent.id,
+      clientId,
+      status: "completed",
+    },
+  });
+
+  // Send Kyle WhatsApp approval request
+  try {
+    const client = await prisma.client.findUnique({
+      where: { id: clientId },
+      select: { businessName: true },
+    });
+
+    await sendKyleWhatsApp(
+      `Agent "${agentName}" ready for ${client?.businessName ?? "unknown"}.\n` +
+        `Type: ${agentType}\n` +
+        `Tools: ${tools.length > 0 ? tools.join(", ") : "none yet"}\n` +
+        `Schedule: ${schedule}\n\n` +
+        `Reply APPROVE ${agent.id} or REJECT ${agent.id}`
+    );
+
+    await prisma.oracleAction.create({
+      data: {
+        actionType: "approval_request",
+        description: `Sent WhatsApp approval request to Kyle for agent "${agentName}"`,
+        agentId: agent.id,
+        clientId,
+        status: "completed",
+      },
+    });
+  } catch (error) {
+    logger.error("Failed to send WhatsApp approval", { agentId: agent.id, error });
+    await prisma.oracleAction.create({
+      data: {
+        actionType: "approval_request",
+        description: `Failed to send WhatsApp approval for agent "${agentName}"`,
+        agentId: agent.id,
+        clientId,
+        status: "failed",
+        result: String(error),
+      },
+    });
+  }
+
+  const pricing = await recalcClientRetainers(clientId);
+  logger.info("Agent scaffolded", { agentId: agent.id, name: agentName, type: agentType, pricing });
+  return agent.id;
+}
+
+export async function approveAgent(agentId: string): Promise<void> {
+  await prisma.agent.update({
+    where: { id: agentId },
+    data: {
+      status: "active",
+      approvedAt: new Date(),
+    },
+  });
+
+  await prisma.oracleAction.create({
+    data: {
+      actionType: "scaffold_agent",
+      description: `Agent ${agentId} approved and activated`,
+      agentId,
+      status: "completed",
+    },
+  });
+
+  // Load full agent + client for welcome email
+  const agent = await prisma.agent.findUnique({
+    where: { id: agentId },
+    include: {
+      client: { select: { id: true, email: true, businessName: true } },
+    },
+  });
+
+  if (!agent) return;
+
+  // Recalc pricing — agent count changed
+  await recalcClientRetainers(agent.clientId);
+
+  // Send welcome email to client
+  try {
+    const clientFirstName = agent.client.businessName.split(" ")[0];
+    const capabilities = inferCapabilities(agent.agentType, agent.tools);
+    const toolNames = agent.tools.map((t) => t.charAt(0).toUpperCase() + t.slice(1));
+
+    const { subject, html } = buildWelcomeEmail({
+      agentName: agent.name,
+      agentPurpose: agent.purpose,
+      clientFirstName,
+      clientBusinessName: agent.client.businessName,
+      tools: toolNames,
+      capabilities,
+    });
+
+    await sendEmail({
+      agentId,
+      agentName: agent.name,
+      to: agent.client.email,
+      subject,
+      html,
+      replyToAgentId: agentId,
+    });
+
+    logger.info("Welcome email sent", { agentId, to: agent.client.email });
+  } catch (error) {
+    logger.error("Failed to send welcome email", { agentId, error });
+  }
+
+  logger.info("Agent approved", { agentId });
+}
+
+export async function rejectAgent(agentId: string): Promise<void> {
+  await prisma.agent.update({
+    where: { id: agentId },
+    data: { status: "killed" },
+  });
+
+  await prisma.oracleAction.create({
+    data: {
+      actionType: "kill_agent",
+      description: `Agent ${agentId} rejected by Kyle`,
+      agentId,
+      status: "completed",
+    },
+  });
+
+  // Recalc pricing — agent count changed
+  const rejectedAgent = await prisma.agent.findUnique({ where: { id: agentId }, select: { clientId: true } });
+  if (rejectedAgent) await recalcClientRetainers(rejectedAgent.clientId);
+
+  logger.info("Agent rejected", { agentId });
+}
+
+export default { scaffoldAgent, approveAgent, rejectAgent };

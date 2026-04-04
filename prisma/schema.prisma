@@ -1,0 +1,354 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Client {
+  id                    String    @id @default(cuid())
+  email                 String    @unique
+  businessName          String
+  industry              String
+  businessGoal          String
+  brandVoice            String    @db.Text
+  preferredChannel      String
+  whatsappNumber        String?
+
+  onboardingCompletedAt DateTime?
+  northStarMetric       String?
+  agentGoal             String?   @db.Text
+  createdAt             DateTime  @default(now())
+
+  stripeCustomerId      String    @unique
+  billingEmail          String
+  billingStatus         String    @default("active")
+  pausedAt              DateTime?
+  cancelledAt           DateTime?
+
+  agents                Agent[]
+  tasks                 Task[]
+  recommendations       Recommendation[]
+  outcomes              Outcome[]
+  credentials           Credential[]
+  conversationMessages  ConversationMessage[]
+  suppressions          Suppression[]
+
+  @@index([stripeCustomerId])
+  @@index([billingStatus])
+}
+
+model Agent {
+  id                    String    @id @default(cuid())
+  clientId              String
+  client                Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  name                  String
+  email                 String    @unique
+  personality           String    @db.Text
+  purpose               String    @db.Text
+  agentType             String
+
+  tools                 String[]
+  schedule              String
+  autonomyLevel         String    @default("advisory")
+  clientNorthStar       String?
+
+  primaryModel          String    @default("claude-sonnet-4-6")
+  analyticsModel        String    @default("gemini")
+  creativeModel         String    @default("gpt-4o")
+
+  status                String    @default("pending_approval")
+  approvedAt            DateTime?
+  lastRunAt             DateTime?
+  nextScheduledRun      DateTime?
+
+  stripeSubscriptionId  String?
+  setupFeeInvoiceId     String?
+  monthlyRetainerCents  Int
+  setupFeeCents         Int
+  historyTier           String    @default("standard")
+
+  // Budget enforcement
+  budgetMonthlyCents    Int       @default(5000) // $50 default
+  budgetWarningAt       DateTime? // when 80% threshold was hit
+  budgetPausedAt        DateTime? // when 100% threshold paused the agent
+
+  clientMemoryObject    String    @db.Text
+  lastMemoryUpdateAt    DateTime?
+
+  totalTasksCompleted   Int       @default(0)
+  totalRecommendations  Int       @default(0)
+  approvalRate          Float     @default(0)
+  implementationRate    Float     @default(0)
+
+  tasks                 Task[]
+  recommendations       Recommendation[]
+  outcomes              Outcome[]
+  conversationMessages  ConversationMessage[]
+  performanceSignals    PerformanceSignal[]
+  apiUsage              ApiUsage[]
+  suppressions          Suppression[]
+
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([clientId])
+  @@index([clientId, agentType])
+  @@index([status])
+  @@index([agentType])
+}
+
+model Task {
+  id                    String    @id @default(cuid())
+  agentId               String
+  agent                 Agent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  clientId              String
+  client                Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  taskType              String
+  description           String    @db.Text
+
+  status                String    @default("pending")
+  executedAt            DateTime?
+  completedAt           DateTime?
+  errorMessage          String?   @db.Text
+  retryCount            Int       @default(0)
+
+  rawOutput             String    @db.Text
+  emailSentAt           DateTime?
+  whatsappSentAt        DateTime?
+
+  recommendations       Recommendation[]
+
+  createdAt             DateTime  @default(now())
+
+  @@index([agentId])
+  @@index([clientId])
+  @@index([status])
+  @@index([taskType])
+}
+
+model Recommendation {
+  id                    String    @id @default(cuid())
+  agentId               String
+  agent                 Agent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  clientId              String
+  client                Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  taskId                String
+  task                  Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  title                 String
+  description           String    @db.Text
+  actionItems           String[]
+
+  expectedMetric        String
+  baselineValue         Float
+  expectedDirection     String
+  expectedChangePct     Float?
+
+  implementationMode    String    @default("advisory")
+  autonomouslyExecuted  Boolean   @default(false)
+  autonomousActionLog   String?   @db.Text
+
+  clientAction          String    @default("pending")
+  clientActionAt        DateTime?
+  clientNotes           String?   @db.Text
+
+  verificationScheduled DateTime?
+  verifiedAt            DateTime?
+  verificationMethod    String?
+  verificationResult    Boolean?
+  verificationNotes     String?   @db.Text
+
+  outcomes              Outcome[]
+
+  sentAt                DateTime  @default(now())
+
+  @@index([agentId])
+  @@index([clientId])
+  @@index([clientAction])
+  @@index([expectedMetric])
+  @@index([implementationMode])
+}
+
+model Outcome {
+  id                    String    @id @default(cuid())
+  agentId               String
+  agent                 Agent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  clientId              String
+  client                Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  recommendationId      String
+  recommendation        Recommendation @relation(fields: [recommendationId], references: [id], onDelete: Cascade)
+
+  metric                String
+  baselineValue         Float
+  measuredValue         Float
+  changeAmount          Float
+  changePercent         Float
+
+  measuredAt            DateTime
+  measurementWindow     String
+  measurementMethod     String
+  toolUsed              String?
+  rawData               String?   @db.Text
+
+  confidenceLevel       String    @default("medium")
+  implementationVerified Boolean  @default(false)
+  notes                 String?   @db.Text
+
+  createdAt             DateTime  @default(now())
+
+  @@index([recommendationId])
+  @@index([metric])
+  @@index([measurementWindow])
+  @@index([agentId])
+  @@index([clientId])
+}
+
+model ConversationMessage {
+  id                    String    @id @default(cuid())
+  agentId               String
+  agent                 Agent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  clientId              String
+  client                Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  role                  String
+  content               String    @db.Text
+  channel               String
+
+  threadId              String
+  inReplyTo             String?
+
+  archivedAt            DateTime?
+
+  createdAt             DateTime  @default(now())
+
+  @@index([agentId])
+  @@index([clientId])
+  @@index([threadId])
+  @@index([archivedAt])
+}
+
+model PerformanceSignal {
+  id                    String    @id @default(cuid())
+  agentId               String
+  agent                 Agent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  signalType            String
+  outputSummary         String    @db.Text
+  clientAction          String    @db.Text
+
+  agentType             String
+  anonymized            Boolean   @default(true)
+
+  createdAt             DateTime  @default(now())
+
+  @@index([agentId])
+  @@index([agentType])
+  @@index([signalType])
+}
+
+model Credential {
+  id                    String    @id @default(cuid())
+  clientId              String
+  client                Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  toolName              String
+  oauthToken            String?   @db.Text
+  apiKey                String?   @db.Text
+  refreshToken          String?   @db.Text
+  expiresAt             DateTime?
+
+  connectedAt           DateTime  @default(now())
+  lastUsedAt            DateTime?
+  status                String    @default("active")
+
+  @@unique([clientId, toolName])
+  @@index([clientId])
+  @@index([status])
+}
+
+model ApiUsage {
+  id                    String    @id @default(cuid())
+  agentId               String
+  agent                 Agent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  model                 String
+  inputTokens           Int
+  outputTokens          Int
+  totalTokens           Int
+  costInCents           Int
+
+  taskType              String
+  taskId                String?
+
+  createdAt             DateTime  @default(now())
+
+  @@index([agentId])
+  @@index([model])
+  @@index([createdAt])
+}
+
+model StripeEvent {
+  id                    String    @id
+  type                  String
+  data                  String    @db.Text
+  processed             Boolean   @default(false)
+  processedAt           DateTime?
+
+  createdAt             DateTime  @default(now())
+
+  @@index([type])
+  @@index([processed])
+}
+
+model Suppression {
+  id                    String    @id @default(cuid())
+  agentId               String
+  agent                 Agent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  clientId              String
+  client                Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  // What was suppressed
+  findingKey            String    // e.g. "activation_broken", "low_traffic", "signup_drop"
+  findingDescription    String    @db.Text
+  metricName            String    // the metric this finding relates to
+  metricValueAtSend     Float     // the value when the finding was last sent
+
+  // When to unsuppress
+  cooldownDays          Int       @default(7)   // minimum days before resending
+  changeThresholdPct    Float     @default(10)  // resend if metric changes by this %
+
+  // Tracking
+  lastSentAt            DateTime
+  suppressUntil         DateTime  // computed: lastSentAt + cooldownDays
+  sendCount             Int       @default(1)   // how many times this finding has been sent
+
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@unique([agentId, clientId, findingKey])
+  @@index([agentId])
+  @@index([clientId])
+  @@index([suppressUntil])
+}
+
+model OracleAction {
+  id                    String    @id @default(cuid())
+  actionType            String
+  description           String    @db.Text
+  agentId               String?
+  clientId              String?
+  status                String    @default("completed")
+  result                String?   @db.Text
+
+  createdAt             DateTime  @default(now())
+
+  @@index([actionType])
+  @@index([agentId])
+  @@index([createdAt])
+}

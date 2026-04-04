@@ -1,0 +1,36 @@
+{
+  "name": "ambitt-agents",
+  "version": "1.0.0",
+  "description": "AI workforce platform — agents as remote contractors",
+  "main": "oracle/index.ts",
+  "scripts": {
+    "dev": "tsx watch oracle/index.ts",
+    "oracle": "tsx oracle/index.ts",
+    "db:generate": "prisma generate",
+    "db:push": "prisma db push",
+    "db:studio": "prisma studio"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.80.0",
+    "@google/generative-ai": "^0.24.1",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@prisma/client": "^5.22.0",
+    "@types/express": "^5.0.6",
+    "@types/node": "^25.5.0",
+    "composio-core": "^0.5.39",
+    "dotenv": "^17.3.1",
+    "express": "^5.2.1",
+    "openai": "^6.33.0",
+    "prisma": "^5.22.0",
+    "puppeteer": "^24.40.0",
+    "resend": "^6.10.0",
+    "stripe": "^21.0.1",
+    "tsx": "^4.21.0",
+    "twilio": "^5.13.1",
+    "typescript": "^5.9.3",
+    "winston": "^3.19.0"
+  }
+}
