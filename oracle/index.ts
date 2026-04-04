@@ -455,7 +455,7 @@ app.post("/composio/connect-apikey", async (req: Request, res: Response) => {
     // Build data payload — different tools expect different field names
     const toolFieldMap: Record<string, (key: string, extra?: Record<string, string>) => Record<string, string>> = {
       posthog: (key, extra) => ({ apiKey: key, subdomain: extra?.subdomain ?? "us" }),
-      supabase: (key) => ({ api_key: key }),
+      supabase: (key, extra) => ({ supabase_personal_token: key, base_url: extra?.base_url ?? "https://api.supabase.com" }),
       resend: (key) => ({ api_key: key }),
       stripe: (key) => ({ api_key: key }),
       hubspot: (key) => ({ api_key: key }),
