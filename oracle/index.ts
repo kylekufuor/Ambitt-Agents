@@ -11,6 +11,26 @@ import logger from "../shared/logger.js";
 
 const app = express();
 
+// CORS — allow dashboard to call Oracle APIs
+app.use((req: Request, res: Response, next: () => void) => {
+  const origin = req.headers.origin;
+  // Allow Railway dashboard domains and localhost
+  if (origin && (
+    origin.includes("railway.app") ||
+    origin.includes("ambitt.agency") ||
+    origin.includes("localhost")
+  )) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  }
+  if (req.method === "OPTIONS") {
+    res.status(204).end();
+    return;
+  }
+  next();
+});
+
 // Stripe webhook needs raw body — must come before express.json()
 app.post("/webhooks/stripe", express.raw({ type: "application/json" }), async (req: Request, res: Response) => {
   try {
