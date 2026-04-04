@@ -147,56 +147,6 @@ cmd_improve() {
   curl -sf -X POST "${ORACLE_URL}/cron/improvement" | pretty
 }
 
-cmd_lead() {
-  [ -z "${1:-}" ] && error "Usage: oracle lead \"Met Sarah at Sass Café, she runs a hotel...\""
-  header "Processing lead"
-
-  local response
-  response=$(curl -sf -X POST "${ORACLE_URL}/lead" \
-    -H "Authorization: Bearer ${LEAD_API_KEY:-}" \
-    -H "Content-Type: application/json" \
-    -d "{\"brief\": \"$*\"}" 2>&1) || error "Lead processing failed — is Oracle running?"
-
-  if has_jq; then
-    local status name biz email
-    status=$(echo "$response" | jq -r '.status')
-    name=$(echo "$response" | jq -r '.lead.prospectName')
-    biz=$(echo "$response" | jq -r '.lead.businessName')
-    email=$(echo "$response" | jq -r '.lead.prospectEmail // "not provided"')
-
-    if [ "$status" = "sent" ]; then
-      echo -e "  ${GREEN}✓${NC} Email sent to ${BOLD}${name}${NC} (${biz})"
-      echo -e "  ${DIM}Email:${NC} $(echo "$response" | jq -r '.emailSentTo')"
-    elif [ "$status" = "need_email" ]; then
-      local lid
-      lid=$(echo "$response" | jq -r '.leadId')
-      echo -e "  ${YELLOW}⏳${NC} Lead captured: ${BOLD}${name}${NC} (${biz})"
-      echo -e "  ${YELLOW}No email found.${NC} Provide it with:"
-      echo -e "    ${GREEN}./oracle/cli.sh lead-email ${lid} their@email.com${NC}"
-    else
-      echo "$response" | pretty
-    fi
-  else
-    echo "$response" | pretty
-  fi
-}
-
-cmd_lead_email() {
-  [ -z "${1:-}" ] || [ -z "${2:-}" ] && error "Usage: oracle lead-email <leadId> <email>"
-  header "Sending to ${2}"
-  local response
-  response=$(curl -sf -X POST "${ORACLE_URL}/lead/email" \
-    -H "Authorization: Bearer ${LEAD_API_KEY:-}" \
-    -H "Content-Type: application/json" \
-    -d "{\"leadId\": \"${1}\", \"email\": \"${2}\"}" 2>&1) || error "Failed"
-
-  if has_jq; then
-    echo -e "  ${GREEN}✓${NC} Email sent to ${BOLD}${2}${NC}"
-  else
-    echo "$response" | pretty
-  fi
-}
-
 cmd_import() {
   [ -z "${1:-}" ] && error "Usage: oracle import <manifest.json>"
   [ ! -f "${1}" ] && error "File not found: ${1}"
@@ -266,8 +216,6 @@ cmd_help() {
   echo -e "    ${RED}kill${NC} <id>            Kill an agent"
   echo -e "    ${BLUE}run${NC} <id>             Manually run an agent"
   echo -e "    ${PURPLE}improve${NC}             Run improvement cycle"
-  echo -e "    ${BOLD}lead${NC} \"brief\"         Capture a lead from a bar conversation"
-  echo -e "    ${BOLD}lead-email${NC} <id> <e>   Provide email for a pending lead"
   echo -e "    ${BOLD}import${NC} <file>        Bulk import agents from manifest JSON"
   echo -e "    ${CYAN}tools${NC}               List tool catalog"
   echo -e "    ${CYAN}tools-status${NC} <cid>   Tool status for client"
@@ -287,8 +235,6 @@ case "${1:-help}" in
   kill)         cmd_kill "${2:-}" ;;
   run)          cmd_run "${2:-}" ;;
   improve)      cmd_improve ;;
-  lead)          shift; cmd_lead "$@" ;;
-  lead-email)    cmd_lead_email "${2:-}" "${3:-}" ;;
   import)        cmd_import "${2:-}" ;;
   tools)        cmd_tools ;;
   tools-status) cmd_tools_status "${2:-}" ;;

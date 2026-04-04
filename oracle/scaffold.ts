@@ -240,6 +240,20 @@ export async function approveAgent(agentId: string): Promise<void> {
     },
   });
 
+  // Register agent with scheduler if it has a cron schedule
+  try {
+    const agentForSchedule = await prisma.agent.findUnique({
+      where: { id: agentId },
+      select: { schedule: true },
+    });
+    if (agentForSchedule?.schedule) {
+      const { registerAgent } = await import("./scheduler.js");
+      registerAgent(agentId, agentForSchedule.schedule);
+    }
+  } catch (error) {
+    logger.warn("Failed to register agent schedule", { agentId, error });
+  }
+
   // Load full agent + client for welcome email + site scan
   const agent = await prisma.agent.findUnique({
     where: { id: agentId },
@@ -349,6 +363,12 @@ export async function approveAgent(agentId: string): Promise<void> {
 }
 
 export async function rejectAgent(agentId: string): Promise<void> {
+  // Unregister from scheduler
+  try {
+    const { unregisterAgent } = await import("./scheduler.js");
+    unregisterAgent(agentId);
+  } catch { /* scheduler may not be initialized */ }
+
   await prisma.agent.update({
     where: { id: agentId },
     data: { status: "killed" },

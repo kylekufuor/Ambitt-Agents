@@ -3,7 +3,7 @@ import express, { Request, Response } from "express";
 import { scaffoldAgent, approveAgent, rejectAgent } from "./scaffold.js";
 import { checkFleetHealth, retryFailedAgent } from "./monitor.js";
 import { runImprovementCycle } from "./improve.js";
-import { routeTask } from "./router.js";
+// import { routeTask } from "./router.js"; // TODO: re-enable when scheduled tasks are built
 import { handleStripeWebhook } from "./billing.js";
 import { onboardClient } from "./onboard.js";
 import prisma from "../shared/db.js";
@@ -53,82 +53,6 @@ function param(req: Request, key: string): string {
   const val = req.params[key];
   return Array.isArray(val) ? val[0] : val;
 }
-
-// ---------------------------------------------------------------------------
-// Lead Agent — Bar Demo
-// ---------------------------------------------------------------------------
-
-// Auth middleware for lead endpoints
-function authLead(req: Request, res: Response, next: () => void) {
-  const token = req.headers.authorization?.replace("Bearer ", "");
-  const expected = process.env.LEAD_API_KEY;
-  if (!expected || token !== expected) {
-    res.status(401).json({ error: "Unauthorized" });
-    return;
-  }
-  next();
-}
-
-// Trigger 1: API call (iPhone Shortcut)
-app.post("/lead", authLead, async (req: Request, res: Response) => {
-  try {
-    const { processLead } = await import("./lead-agent.js");
-    const brief = req.body.brief;
-    if (!brief || typeof brief !== "string") {
-      res.status(400).json({ error: "Missing 'brief' in request body" });
-      return;
-    }
-    const result = await processLead(brief);
-    res.json(result);
-  } catch (error) {
-    logger.error("Lead processing failed", { error });
-    res.status(500).json({ error: "Lead processing failed" });
-  }
-});
-
-// Resume: provide email for a pending lead
-app.post("/lead/email", authLead, async (req: Request, res: Response) => {
-  try {
-    const { resumeWithEmail } = await import("./lead-agent.js");
-    const { leadId, email } = req.body;
-    if (!leadId || !email) {
-      res.status(400).json({ error: "Missing 'leadId' or 'email'" });
-      return;
-    }
-    const result = await resumeWithEmail(leadId, email);
-    res.json(result);
-  } catch (error) {
-    logger.error("Lead email resume failed", { error });
-    res.status(500).json({ error: "Failed to resume lead with email" });
-  }
-});
-
-// Trigger 2: Inbound email (Resend webhook)
-app.post("/webhooks/lead-inbound", async (req: Request, res: Response) => {
-  try {
-    const kyleEmail = process.env.KYLE_EMAIL ?? "kylekufuor@gmail.com";
-    const from = req.body.from ?? req.body.sender ?? "";
-
-    // Only process emails from Kyle
-    if (!from.includes(kyleEmail)) {
-      res.status(403).json({ error: "Unauthorized sender" });
-      return;
-    }
-
-    const brief = req.body.text || req.body.html || "";
-    if (!brief) {
-      res.status(400).json({ error: "Empty email body" });
-      return;
-    }
-
-    const { processLead } = await import("./lead-agent.js");
-    const result = await processLead(brief);
-    res.json(result);
-  } catch (error) {
-    logger.error("Lead inbound email failed", { error });
-    res.status(500).json({ error: "Lead inbound processing failed" });
-  }
-});
 
 // ---------------------------------------------------------------------------
 // Standard endpoints
@@ -187,8 +111,11 @@ app.post("/agents/:id/reject", async (req: Request, res: Response) => {
 // Pause agent
 app.post("/agents/:id/pause", async (req: Request, res: Response) => {
   try {
+    const id = param(req, "id");
+    const { unregisterAgent } = await import("./scheduler.js");
+    unregisterAgent(id);
     await prisma.agent.update({
-      where: { id: param(req, "id") },
+      where: { id },
       data: { status: "paused" },
     });
     res.json({ status: "paused" });
@@ -201,8 +128,11 @@ app.post("/agents/:id/pause", async (req: Request, res: Response) => {
 // Kill agent
 app.post("/agents/:id/kill", async (req: Request, res: Response) => {
   try {
+    const id = param(req, "id");
+    const { unregisterAgent } = await import("./scheduler.js");
+    unregisterAgent(id);
     await prisma.agent.update({
-      where: { id: param(req, "id") },
+      where: { id },
       data: { status: "killed" },
     });
     res.json({ status: "killed" });
@@ -243,12 +173,93 @@ app.post("/webhooks/whatsapp", async (req: Request, res: Response) => {
   }
 });
 
-// Email reply webhook — Resend inbound → Agent Runtime → outbound email
-app.post("/webhooks/email-reply/:agentId", async (req: Request, res: Response) => {
+// Email inbound webhook — Resend sends email.received event here
+// Resend fires ONE webhook for all inbound emails. We extract the agentId
+// from the recipient address (reply-{agentId}@ambitt.agency), then fetch
+// the full email content + attachments via Resend API.
+app.post("/webhooks/email-inbound", async (req: Request, res: Response) => {
   try {
-    const agentId = param(req, "agentId");
-    const { from, text, html } = req.body;
-    const messageContent = text || html || "";
+    const event = req.body;
+
+    // Resend webhook payload has type + data
+    if (event.type !== "email.received") {
+      res.json({ status: "ignored", reason: `Event type: ${event.type}` });
+      return;
+    }
+
+    const emailId = event.data?.email_id;
+    const toAddresses: string[] = event.data?.to ?? [];
+
+    if (!emailId) {
+      res.status(400).json({ error: "Missing email_id in webhook payload" });
+      return;
+    }
+
+    // Extract agentId from recipient: reply-{agentId}@ambitt.agency
+    const replyAddress = toAddresses.find((addr: string) => addr.startsWith("reply-"));
+    if (!replyAddress) {
+      logger.warn("Inbound email not addressed to an agent", { to: toAddresses });
+      res.json({ status: "ignored", reason: "No reply-{agentId} address found" });
+      return;
+    }
+
+    const agentId = replyAddress.replace(/^reply-/, "").split("@")[0];
+
+    // Fetch full email content from Resend API
+    const resendKey = process.env.RESEND_API_KEY;
+    if (!resendKey) {
+      res.status(500).json({ error: "RESEND_API_KEY not configured" });
+      return;
+    }
+
+    const emailRes = await fetch(`https://api.resend.com/emails/${emailId}`, {
+      headers: { Authorization: `Bearer ${resendKey}` },
+    });
+
+    if (!emailRes.ok) {
+      const errBody = await emailRes.text();
+      logger.error("Failed to fetch inbound email from Resend", { emailId, status: emailRes.status, body: errBody });
+      res.status(502).json({ error: "Failed to fetch email content from Resend" });
+      return;
+    }
+
+    const emailData = await emailRes.json();
+    const from = emailData.from ?? event.data?.from ?? "";
+    let messageContent = emailData.text || emailData.html || "";
+
+    // Parse attachments if present
+    if (Array.isArray(emailData.attachments) && emailData.attachments.length > 0) {
+      // Fetch attachment content from the raw signed URL
+      const attachmentsWithContent = [];
+      for (const att of emailData.attachments) {
+        try {
+          // If Resend provides a download URL via the raw field, fetch it
+          // Otherwise use the attachment data directly
+          if (att.content) {
+            attachmentsWithContent.push({
+              filename: att.filename ?? "attachment",
+              contentType: att.content_type ?? "application/octet-stream",
+              content: att.content, // base64
+            });
+          }
+        } catch (err) {
+          logger.warn("Failed to process attachment", { filename: att.filename, error: err });
+        }
+      }
+
+      if (attachmentsWithContent.length > 0) {
+        const { parseInboundAttachments, formatAttachmentsAsContext } = await import("../shared/attachments/parse-inbound.js");
+        const parsed = await parseInboundAttachments(attachmentsWithContent);
+        if (parsed.length > 0) {
+          messageContent += formatAttachmentsAsContext(parsed);
+          logger.info("Parsed inbound attachments", {
+            agentId,
+            count: parsed.length,
+            filenames: parsed.map((a) => a.filename),
+          });
+        }
+      }
+    }
 
     if (!messageContent) {
       res.status(400).json({ error: "Empty message" });
@@ -310,12 +321,13 @@ app.post("/webhooks/email-reply/:agentId", async (req: Request, res: Response) =
 
     res.json({
       status: "replied",
+      agentId,
       toolsUsed: result.toolsUsed.length,
       loopCount: result.loopCount,
     });
   } catch (error) {
-    logger.error("Email reply webhook failed", { error });
-    res.status(500).json({ error: "Reply processing failed" });
+    logger.error("Email inbound webhook failed", { error });
+    res.status(500).json({ error: "Inbound processing failed" });
   }
 });
 
@@ -344,13 +356,13 @@ app.post("/credentials/:clientId", async (req: Request, res: Response) => {
   }
 });
 
-// Run agent manually
+// Run agent manually — triggers the universal runtime engine
 app.post("/agents/:id/run", async (req: Request, res: Response) => {
   try {
     const agentId = param(req, "id");
     const agent = await prisma.agent.findUnique({
       where: { id: agentId },
-      select: { agentType: true, status: true },
+      select: { status: true, name: true },
     });
 
     if (!agent) {
@@ -358,17 +370,29 @@ app.post("/agents/:id/run", async (req: Request, res: Response) => {
       return;
     }
 
-    // Dynamic import based on agent type
-    switch (agent.agentType) {
-      case "scout": {
-        const { runScout } = await import("../agents/scout/index.js");
-        runScout(agentId).catch((err: unknown) => logger.error("Scout run failed", { agentId, error: err }));
-        res.json({ status: "running", agentId, agentType: "scout" });
-        break;
-      }
-      default:
-        res.status(400).json({ error: `Agent type "${agent.agentType}" runner not implemented yet` });
+    if (agent.status !== "active") {
+      res.status(400).json({ error: `Agent "${agent.name}" is not active (status: ${agent.status})` });
+      return;
     }
+
+    const message = req.body.message;
+    if (!message || typeof message !== "string") {
+      res.status(400).json({ error: "Missing 'message' in request body" });
+      return;
+    }
+
+    const { processInboundMessage } = await import("../shared/runtime/index.js");
+    const threadId = `thread-${agentId}-manual-${Date.now()}`;
+
+    // Run async — don't block the HTTP response
+    processInboundMessage({
+      agentId,
+      userMessage: message,
+      channel: "email",
+      threadId,
+    }).catch((err: unknown) => logger.error("Manual agent run failed", { agentId, error: err }));
+
+    res.json({ status: "running", agentId, agentName: agent.name });
   } catch (error) {
     logger.error("Agent run failed", { error });
     res.status(500).json({ error: "Agent run failed" });
@@ -560,6 +584,7 @@ app.post("/import", async (req: Request, res: Response) => {
 });
 
 // Cron endpoints (hit by Railway cron or external scheduler)
+
 app.post("/cron/fleet-health", async (_req: Request, res: Response) => {
   try {
     const status = await checkFleetHealth();
@@ -582,6 +607,14 @@ app.post("/cron/improvement", async (_req: Request, res: Response) => {
 
 // Start server
 const PORT = parseInt(process.env.PORT || "3000", 10);
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   logger.info(`Oracle running on port ${PORT}`);
+
+  // Initialize agent scheduler — registers cron jobs for all active agents
+  try {
+    const { initScheduler } = await import("./scheduler.js");
+    await initScheduler();
+  } catch (error) {
+    logger.error("Scheduler initialization failed", { error });
+  }
 });

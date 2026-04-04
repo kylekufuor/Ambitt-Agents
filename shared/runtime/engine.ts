@@ -5,6 +5,7 @@ import { generateCSV } from "../attachments/csv.js";
 import { generatePDF } from "../attachments/pdf.js";
 import { analyzePerformanceFull, formatPageSpeedResults } from "../platform-tools/pagespeed.js";
 import { scanSite, formatScanResults } from "../platform-tools/site-scanner.js";
+import { webSearch, formatSearchResults } from "../platform-tools/web-search.js";
 import { logUsage } from "../claude.js";
 import type { EmailAttachment } from "../email.js";
 import prisma from "../db.js";
@@ -31,7 +32,11 @@ const MODEL = "claude-sonnet-4-20250514";
 const MAX_TOKENS = 4096;
 
 // Built-in tool names (not MCP — handled internally)
+// Built-in tools are platform-level capabilities that don't require a client
+// tool connection. Everything else (email, calendar, CRM, etc.) goes through
+// Composio tool connections.
 const BUILTIN_TOOLS = new Set([
+  "web_search",
   "generate_csv",
   "generate_pdf",
   "analyze_website_performance",
@@ -60,6 +65,31 @@ export interface RuntimeOutput {
 // ---------------------------------------------------------------------------
 
 const BUILTIN_CLAUDE_TOOLS: Anthropic.Messages.Tool[] = [
+  // --- Web search ---
+  {
+    name: "web_search",
+    description:
+      "Search the web for real-time information. Use this to research businesses, competitors, reviews, news, market data, people, companies, or any public information. Returns relevant results with titles, URLs, and content snippets. Use multiple searches to build a complete picture.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        query: {
+          type: "string",
+          description: "The search query. Be specific — include business name, location, industry, or topic. Example: 'Jake\\'s Pizza Houston Google reviews' or 'best pizza restaurants Houston competitor analysis'.",
+        },
+        max_results: {
+          type: "number",
+          description: "Number of results to return (1-10). Default: 5.",
+        },
+        search_depth: {
+          type: "string",
+          enum: ["basic", "advanced"],
+          description: "Search depth. 'basic' is fast. 'advanced' is slower but more thorough — use for detailed research.",
+        },
+      },
+      required: ["query"],
+    },
+  },
   // --- Platform analysis tools (free, no client credentials needed) ---
   {
     name: "analyze_website_performance",
@@ -155,6 +185,22 @@ async function executeBuiltinTool(
   attachments: EmailAttachment[]
 ): Promise<{ content: string; isError: boolean }> {
   try {
+    if (toolName === "web_search") {
+      const { query, max_results, search_depth } = args as {
+        query: string;
+        max_results?: number;
+        search_depth?: "basic" | "advanced";
+      };
+      const result = await webSearch(query, {
+        maxResults: max_results,
+        searchDepth: search_depth,
+      });
+      return {
+        content: formatSearchResults(result),
+        isError: false,
+      };
+    }
+
     if (toolName === "analyze_website_performance") {
       const { url } = args as { url: string };
       const { mobile, desktop } = await analyzePerformanceFull(url);

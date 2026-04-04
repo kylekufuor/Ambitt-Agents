@@ -23,7 +23,10 @@
     "@types/node": "^25.5.0",
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
+    "mammoth": "^1.12.0",
+    "node-cron": "^4.2.1",
     "openai": "^6.33.0",
+    "pdf-parse": "^2.4.5",
     "prisma": "^5.22.0",
     "puppeteer": "^24.40.0",
     "resend": "^6.10.0",
@@ -32,5 +35,8 @@
     "twilio": "^5.13.1",
     "typescript": "^5.9.3",
     "winston": "^3.19.0"
+  },
+  "devDependencies": {
+    "@types/node-cron": "^3.0.11"
   }
 }
