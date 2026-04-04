@@ -791,13 +791,20 @@ function AgentTypeSelect({ value, onChange }: { value: string; onChange: (v: str
       {isOpen && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
-          <div className="absolute z-50 top-9 left-0 w-full bg-card border border-border rounded-lg shadow-xl shadow-black/20 py-1 max-h-[240px] overflow-y-auto">
+          <div className="fixed z-50 bg-card border border-border rounded-lg shadow-2xl shadow-black/30 py-1 max-h-[280px] overflow-y-auto w-[300px]"
+            style={{
+              left: "50%",
+              top: "50%",
+              transform: "translate(-50%, -50%)",
+            }}
+          >
+            <p className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground border-b border-border">Select Agent Type</p>
             {AGENT_TYPES.map((t) => (
               <button
                 key={t}
                 type="button"
                 onClick={() => { onChange(t); setIsOpen(false); }}
-                className={`w-full text-left px-3 py-1.5 text-sm transition-colors ${
+                className={`w-full text-left px-3 py-2 text-sm transition-colors ${
                   t === value
                     ? "bg-foreground/10 text-foreground font-medium"
                     : "text-muted-foreground hover:bg-muted hover:text-foreground"
