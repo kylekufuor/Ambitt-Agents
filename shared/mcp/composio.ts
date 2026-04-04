@@ -110,6 +110,7 @@ export async function initiateApiKeyConnection(
     posthog: { apiKey: apiKey, subdomain: extraFields?.subdomain ?? "us" },
     supabase: { supabase_personal_token: apiKey, base_url: extraFields?.base_url ?? "https://api.supabase.com" },
     _1password: { api_key: apiKey, full: extraFields?.base_url ?? "https://connect.1password.com" },
+    resend: { api_key: apiKey },
   };
 
   const fields = fieldMap[appName] ?? { api_key: apiKey };
@@ -117,7 +118,7 @@ export async function initiateApiKeyConnection(
   const conn = await client.connectedAccounts.initiate(
     clientId,
     authConfig.id,
-    { config: AuthScheme.APIKey(fields) }
+    { config: AuthScheme.APIKey(fields), allowMultiple: true } as any
   );
 
   logger.info("API key connection created", { clientId, appName, connectionId: conn.id });
