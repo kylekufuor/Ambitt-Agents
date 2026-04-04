@@ -3,6 +3,7 @@
 import { useState, useActionState, startTransition } from "react";
 import {
   Wrench,
+  Activity,
   CheckCircle2,
   XCircle,
   Loader2,
@@ -151,7 +152,7 @@ export function CreateAgentForm({ composioApps }: { composioApps: ComposioApp[] 
 
   // Step 3 state
   const [connectionStatus, setConnectionStatus] = useState<
-    Record<string, { status: "pending" | "connecting" | "connected" | "failed"; error?: string }>
+    Record<string, { status: "pending" | "connecting" | "connected" | "failed" | "testing"; error?: string }>
   >({});
 
   // Step 4 state
@@ -214,6 +215,21 @@ export function CreateAgentForm({ composioApps }: { composioApps: ComposioApp[] 
     });
   };
 
+  // Verify connection status with Composio
+  const verifyConnection = async (appKey: string): Promise<boolean> => {
+    try {
+      const oracleUrl = process.env.NEXT_PUBLIC_ORACLE_URL ?? "";
+      const res = await fetch(`${oracleUrl}/composio/connections/${encodeURIComponent(clientEmail)}`);
+      if (!res.ok) return false;
+      const connections = await res.json();
+      return Array.isArray(connections) && connections.some(
+        (c: any) => c.appName?.toLowerCase() === appKey.toLowerCase() && c.status === "ACTIVE"
+      );
+    } catch {
+      return false;
+    }
+  };
+
   // OAuth connect
   const connectTool = async (appKey: string) => {
     setConnectionStatus((prev) => ({ ...prev, [appKey]: { status: "connecting" } }));
@@ -224,25 +240,41 @@ export function CreateAgentForm({ composioApps }: { composioApps: ComposioApp[] 
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          clientId: clientEmail, // Composio entity = client email
+          clientId: clientEmail,
           appName: appKey,
         }),
       });
 
-      if (!res.ok) throw new Error("Connection failed");
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({ error: "Connection failed" }));
+        throw new Error(errData.error ?? "Connection failed");
+      }
       const data = await res.json();
 
       if (data.redirectUrl) {
-        // Open OAuth popup
         const popup = window.open(data.redirectUrl, "composio_connect", "width=600,height=700");
 
-        // Poll for popup close (OAuth complete)
-        const timer = setInterval(() => {
+        // Poll for popup close, then verify actual connection
+        const timer = setInterval(async () => {
           if (!popup || popup.closed) {
             clearInterval(timer);
+
+            // Wait a moment for Composio to process, then verify
+            setConnectionStatus((prev) => ({ ...prev, [appKey]: { status: "connecting" } }));
+
+            // Try up to 3 times with 2s delay
+            let verified = false;
+            for (let i = 0; i < 3; i++) {
+              await new Promise((r) => setTimeout(r, 2000));
+              verified = await verifyConnection(appKey);
+              if (verified) break;
+            }
+
             setConnectionStatus((prev) => ({
               ...prev,
-              [appKey]: { status: "connected" },
+              [appKey]: verified
+                ? { status: "connected" }
+                : { status: "failed", error: "Connection not completed. Click Connect to try again." },
             }));
           }
         }, 1000);
@@ -255,6 +287,26 @@ export function CreateAgentForm({ composioApps }: { composioApps: ComposioApp[] 
         [appKey]: { status: "failed", error: error instanceof Error ? error.message : "Connection failed" },
       }));
     }
+  };
+
+  // Test a specific tool connection
+  const testTool = async (appKey: string) => {
+    setConnectionStatus((prev) => ({ ...prev, [appKey]: { ...prev[appKey], status: "testing" } }));
+    const verified = await verifyConnection(appKey);
+    setConnectionStatus((prev) => ({
+      ...prev,
+      [appKey]: verified
+        ? { status: "connected" }
+        : { status: "failed", error: "Connection not active. Click Connect to authorize." },
+    }));
+  };
+
+  // Disconnect a tool
+  const disconnectTool = (appKey: string) => {
+    setConnectionStatus((prev) => ({
+      ...prev,
+      [appKey]: { status: "pending" },
+    }));
   };
 
   return (
@@ -319,6 +371,8 @@ export function CreateAgentForm({ composioApps }: { composioApps: ComposioApp[] 
           selectedTools={selectedTools}
           connectionStatus={connectionStatus}
           onConnect={connectTool}
+          onTest={testTool}
+          onDisconnect={disconnectTool}
         />
       )}
       {step === 3 && (
@@ -581,29 +635,47 @@ function ConnectStep({
   selectedTools,
   connectionStatus,
   onConnect,
+  onTest,
+  onDisconnect,
 }: {
   apps: ComposioApp[];
   selectedTools: string[];
   connectionStatus: Record<string, { status: string; error?: string }>;
   onConnect: (appKey: string) => void;
+  onTest: (appKey: string) => void;
+  onDisconnect: (appKey: string) => void;
 }) {
   const selectedApps = selectedTools
     .map((key) => apps.find((a) => a.key === key))
     .filter(Boolean) as ComposioApp[];
 
+  const hasAnyConnected = selectedTools.some((key) => connectionStatus[key]?.status === "connected");
+
   return (
     <div className="space-y-4">
-      <div>
-        <h2 className="text-foreground font-semibold text-[15px]">Connect Tools</h2>
-        <p className="text-muted-foreground text-sm mt-1">Authorize each tool via OAuth. Click Connect and sign in — Composio handles the rest.</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-foreground font-semibold text-[15px]">Connect Tools</h2>
+          <p className="text-muted-foreground text-sm mt-1">Authorize each tool via OAuth. Click Connect and sign in — Composio handles the rest.</p>
+        </div>
+        {hasAnyConnected && (
+          <Button variant="outline" onClick={() => selectedTools.forEach((key) => onTest(key))}>
+            <Activity className="size-3.5" />
+            Test All
+          </Button>
+        )}
       </div>
 
       <div className="space-y-3">
         {selectedApps.map((app) => {
           const status = connectionStatus[app.key];
+          const isConnected = status?.status === "connected";
+          const isFailed = status?.status === "failed";
+          const isConnecting = status?.status === "connecting";
+          const isTesting = status?.status === "testing";
 
           return (
-            <div key={app.key} className="bg-card border border-border rounded-xl p-5">
+            <div key={app.key} className={`bg-card border rounded-xl p-5 ${isConnected ? "border-emerald-500/20" : "border-border"}`}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center overflow-hidden">
@@ -621,30 +693,38 @@ function ConnectStep({
                 </div>
 
                 <div className="flex items-center gap-2">
-                  {status?.status === "connected" && (
-                    <span className="flex items-center gap-1 text-[11px] font-semibold bg-emerald-500/10 text-emerald-400 ring-1 ring-emerald-500/20 px-2.5 py-1 rounded-md">
-                      <CheckCircle2 className="size-3" />
-                      Connected
-                    </span>
+                  {isConnected && (
+                    <>
+                      <span className="flex items-center gap-1 text-[11px] font-semibold bg-emerald-500/10 text-emerald-400 ring-1 ring-emerald-500/20 px-2.5 py-1 rounded-md">
+                        <CheckCircle2 className="size-3" />
+                        Connected
+                      </span>
+                      <Button variant="outline" size="sm" onClick={() => onTest(app.key)}>
+                        Test
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={() => onDisconnect(app.key)} className="text-muted-foreground hover:text-red-400">
+                        <XCircle className="size-3.5" />
+                      </Button>
+                    </>
                   )}
-                  {status?.status === "failed" && (
+                  {isFailed && (
                     <span className="flex items-center gap-1 text-[11px] font-semibold bg-red-500/10 text-red-400 ring-1 ring-red-500/20 px-2.5 py-1 rounded-md">
                       <XCircle className="size-3" />
                       Failed
                     </span>
                   )}
-                  {status?.status !== "connected" && (
+                  {!isConnected && (
                     <Button
                       variant="outline"
                       onClick={() => onConnect(app.key)}
-                      disabled={status?.status === "connecting"}
+                      disabled={isConnecting || isTesting}
                     >
-                      {status?.status === "connecting" ? (
+                      {isConnecting || isTesting ? (
                         <Loader2 className="size-4 animate-spin" />
                       ) : (
                         <>
                           <ExternalLink className="size-3.5" />
-                          Connect
+                          {isFailed ? "Reconnect" : "Connect"}
                         </>
                       )}
                     </Button>
