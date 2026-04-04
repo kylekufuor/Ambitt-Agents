@@ -42,27 +42,27 @@ const STEPS = ["Basic Info", "Select Tools", "Connect", "Review"];
 const POPULAR_TOOLS: Record<string, ComposioApp[]> = {
   analytics: [
     { key: "google_analytics", name: "Google Analytics", description: "Web analytics — traffic, conversions, user behavior, funnels (GA4)", categories: ["analytics"] },
-    { key: "mixpanel", name: "Mixpanel", description: "Product analytics — event tracking, funnels, flows, retention", categories: ["analytics"] },
-    { key: "amplitude", name: "Amplitude", description: "Product analytics — charts, dashboards, cohorts, experiments", categories: ["analytics"] },
     { key: "posthog", name: "PostHog", description: "Product analytics — session replays, feature flags, A/B testing", categories: ["analytics"] },
+    { key: "mixpanel", name: "Mixpanel", description: "Product analytics — event tracking, funnels, flows, retention", categories: ["analytics"] },
+    { key: "supabase", name: "Supabase", description: "Database — tables, queries, auth, storage, real-time subscriptions", categories: ["database"] },
+    { key: "amplitude", name: "Amplitude", description: "Product analytics — charts, dashboards, cohorts, experiments", categories: ["analytics"] },
     { key: "snowflake", name: "Snowflake", description: "Data warehouse — SQL queries, semantic views, Cortex AI", categories: ["analytics"] },
-    { key: "tableau", name: "Tableau", description: "Business intelligence — dashboards, visualizations, reports", categories: ["analytics"] },
   ],
   sales: [
     { key: "salesforce", name: "Salesforce", description: "CRM — pipelines, contacts, opportunities, accounts, reports", categories: ["crm"] },
     { key: "hubspot", name: "HubSpot", description: "CRM — contacts, deals, companies, tickets, marketing email", categories: ["crm"] },
     { key: "pipedrive", name: "Pipedrive", description: "Sales CRM — deals, contacts, pipeline stages, activities", categories: ["crm"] },
+    { key: "resend", name: "Resend", description: "Email delivery — outreach emails, follow-ups, templates", categories: ["email"] },
     { key: "linkedin", name: "LinkedIn", description: "Professional network — outreach, connections, lead gen", categories: ["crm"] },
-    { key: "apollo", name: "Apollo", description: "Sales intelligence — prospecting, enrichment, sequences", categories: ["crm"] },
     { key: "stripe", name: "Stripe", description: "Payments — customers, subscriptions, invoices, revenue", categories: ["payments"] },
   ],
   marketing: [
     { key: "google_ads", name: "Google Ads", description: "Advertising — campaigns, ad groups, keywords, conversions", categories: ["advertising"] },
     { key: "facebook", name: "Meta Ads", description: "Facebook + Instagram ads — campaigns, audiences, reporting", categories: ["advertising"] },
     { key: "mailchimp", name: "Mailchimp", description: "Email marketing — campaigns, audiences, templates, analytics", categories: ["email"] },
-    { key: "klaviyo", name: "Klaviyo", description: "Email marketing — campaigns, flows, segments, profiles", categories: ["email"] },
+    { key: "resend", name: "Resend", description: "Email delivery — transactional email, broadcasts, templates, analytics", categories: ["email"] },
     { key: "semrush", name: "SEMrush", description: "SEO — traffic analytics, keyword research, competitor analysis", categories: ["seo"] },
-    { key: "google_search_console", name: "Google Search Console", description: "Search performance — queries, clicks, impressions, CTR", categories: ["seo"] },
+    { key: "klaviyo", name: "Klaviyo", description: "Email marketing — campaigns, flows, segments, profiles", categories: ["email"] },
   ],
   support: [
     { key: "zendesk", name: "Zendesk", description: "Support — tickets, users, organizations, views, macros", categories: ["support"] },
@@ -90,10 +90,10 @@ const POPULAR_TOOLS: Record<string, ComposioApp[]> = {
   ],
   ops: [
     { key: "github", name: "GitHub", description: "Code — repos, issues, PRs, actions, deployments", categories: ["developer tools"] },
+    { key: "supabase", name: "Supabase", description: "Database — tables, queries, auth, storage, edge functions", categories: ["database"] },
     { key: "jira", name: "Jira", description: "Project management — issues, sprints, boards, epics", categories: ["project management"] },
     { key: "linear", name: "Linear", description: "Issue tracking — issues, projects, cycles, roadmaps", categories: ["project management"] },
     { key: "slack", name: "Slack", description: "Messaging — channels, messages, threads, alerts", categories: ["communication"] },
-    { key: "pagerduty", name: "PagerDuty", description: "Incident management — alerts, escalations, on-call", categories: ["devops"] },
     { key: "datadog", name: "Datadog", description: "Monitoring — metrics, logs, traces, dashboards", categories: ["devops"] },
   ],
   research: [
@@ -299,6 +299,7 @@ export function CreateAgentForm({ composioApps }: { composioApps: ComposioApp[] 
         <ToolSelectionStep
           apps={filteredApps}
           totalCount={mergedApps.length}
+          popularCount={popularForType.length}
           selected={selectedTools}
           onToggle={toggleTool}
           search={search}
@@ -391,15 +392,7 @@ function BasicInfoStep({
           <Input placeholder="One line — e.g. B2B SaaS for restaurant supply chains" value={businessDescription} onChange={(e) => setBusinessDescription(e.target.value)} />
         </Field>
         <Field label="Agent Type">
-          <select
-            value={agentType}
-            onChange={(e) => setAgentType(e.target.value)}
-            className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-          >
-            {AGENT_TYPES.map((t) => (
-              <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>
-            ))}
-          </select>
+          <AgentTypeSelect value={agentType} onChange={setAgentType} />
         </Field>
       </div>
     </div>
@@ -413,6 +406,7 @@ function BasicInfoStep({
 function ToolSelectionStep({
   apps,
   totalCount,
+  popularCount,
   selected,
   onToggle,
   search,
@@ -420,11 +414,14 @@ function ToolSelectionStep({
 }: {
   apps: ComposioApp[];
   totalCount: number;
+  popularCount: number;
   selected: string[];
   onToggle: (key: string) => void;
   search: string;
   setSearch: (v: string) => void;
 }) {
+  const recommendedApps = search ? apps : apps.slice(0, popularCount);
+  const allApps = search ? [] : apps.slice(popularCount);
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -453,74 +450,97 @@ function ToolSelectionStep({
       </div>
 
       {/* App grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[500px] overflow-y-auto pr-1">
-        {apps.length > 0 ? (
-          apps.slice(0, 60).map((app) => {
-            const isSelected = selected.includes(app.key);
-            const isDisabled = !isSelected && selected.length >= MAX_TOOLS;
+      <div className="max-h-[600px] overflow-y-auto pr-1 space-y-4">
+        {/* Recommended section */}
+        {recommendedApps.length > 0 && (
+          <div>
+            {!search && <p className="text-muted-foreground text-[11px] font-semibold uppercase tracking-wider mb-3">Recommended for this agent type</p>}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {recommendedApps.map((app) => (
+                <ToolCard key={app.key} app={app} isSelected={selected.includes(app.key)} isDisabled={!selected.includes(app.key) && selected.length >= MAX_TOOLS} onToggle={onToggle} />
+              ))}
+            </div>
+          </div>
+        )}
 
-            return (
-              <button
-                key={app.key}
-                onClick={() => !isDisabled && onToggle(app.key)}
-                disabled={isDisabled}
-                className={`text-left bg-card border rounded-xl p-4 transition-all ${
-                  isSelected
-                    ? "border-emerald-500/40 ring-2 ring-emerald-500/20"
-                    : isDisabled
-                      ? "border-border opacity-40 cursor-not-allowed"
-                      : "border-border hover:border-foreground/10 cursor-pointer"
-                }`}
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center overflow-hidden ${
-                      isSelected ? "bg-emerald-500/10" : "bg-muted"
-                    }`}>
-                      <img
-                        src={`https://logos.composio.dev/api/${app.key}`}
-                        alt={app.name}
-                        className="w-5 h-5 object-contain"
-                        onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; (e.target as HTMLImageElement).parentElement!.textContent = app.name[0]?.toUpperCase() ?? "?"; }}
-                      />
-                    </div>
-                    <div>
-                      <p className="text-foreground font-medium text-sm">{app.name}</p>
-                      {app.categories.length > 0 && (
-                        <p className="text-muted-foreground/60 text-[10px] uppercase tracking-wider">
-                          {app.categories[0]}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-                {app.description && (
-                  <p className="text-muted-foreground text-xs mt-2.5 line-clamp-2">{app.description}</p>
-                )}
-                {isSelected && (
-                  <div className="mt-2.5 flex items-center gap-1 text-emerald-400 text-[11px] font-semibold">
-                    <CheckCircle2 className="size-3" />
-                    Selected
-                  </div>
-                )}
-              </button>
-            );
-          })
-        ) : (
-          <div className="col-span-full py-12 text-center">
-            <p className="text-muted-foreground text-sm">
-              No tools match your search
-            </p>
+        {/* All Tools section */}
+        {allApps.length > 0 && (
+          <div>
+            <p className="text-muted-foreground text-[11px] font-semibold uppercase tracking-wider mb-3 pt-2 border-t border-border">All Tools ({allApps.length})</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {allApps.slice(0, 54).map((app) => (
+                <ToolCard key={app.key} app={app} isSelected={selected.includes(app.key)} isDisabled={!selected.includes(app.key) && selected.length >= MAX_TOOLS} onToggle={onToggle} />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {apps.length === 0 && (
+          <div className="py-12 text-center">
+            <p className="text-muted-foreground text-sm">No tools match your search</p>
           </div>
         )}
       </div>
 
-      {apps.length > 60 && !search && (
+      {allApps.length > 54 && !search && (
         <p className="text-muted-foreground/60 text-xs text-center">
-          Showing 60 of {apps.length} tools. Use search to find specific tools.
+          Showing 60 of {totalCount} tools. Use search to find specific tools.
         </p>
       )}
     </div>
+  );
+}
+
+function ToolCard({ app, isSelected, isDisabled, onToggle }: {
+  app: ComposioApp;
+  isSelected: boolean;
+  isDisabled: boolean;
+  onToggle: (key: string) => void;
+}) {
+  return (
+    <button
+      onClick={() => !isDisabled && onToggle(app.key)}
+      disabled={isDisabled}
+      className={`text-left bg-card border rounded-xl p-4 transition-all ${
+        isSelected
+          ? "border-emerald-500/40 ring-2 ring-emerald-500/20"
+          : isDisabled
+            ? "border-border opacity-40 cursor-not-allowed"
+            : "border-border hover:border-foreground/10 cursor-pointer"
+      }`}
+    >
+      <div className="flex items-start justify-between">
+        <div className="flex items-center gap-2.5">
+          <div className={`w-8 h-8 rounded-lg flex items-center justify-center overflow-hidden ${
+            isSelected ? "bg-emerald-500/10" : "bg-muted"
+          }`}>
+            <img
+              src={`https://logos.composio.dev/api/${app.key}`}
+              alt={app.name}
+              className="w-5 h-5 object-contain"
+              onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; (e.target as HTMLImageElement).parentElement!.textContent = app.name[0]?.toUpperCase() ?? "?"; }}
+            />
+          </div>
+          <div>
+            <p className="text-foreground font-medium text-sm">{app.name}</p>
+            {app.categories.length > 0 && (
+              <p className="text-muted-foreground/60 text-[10px] uppercase tracking-wider">
+                {app.categories[0]}
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+      {app.description && (
+        <p className="text-muted-foreground text-xs mt-2.5 line-clamp-2">{app.description}</p>
+      )}
+      {isSelected && (
+        <div className="mt-2.5 flex items-center gap-1 text-emerald-400 text-[11px] font-semibold">
+          <CheckCircle2 className="size-3" />
+          Selected
+        </div>
+      )}
+    </button>
   );
 }
 
@@ -751,6 +771,44 @@ function ReviewRow({ label, value }: { label: string; value: string }) {
     <div className="flex justify-between items-start gap-4">
       <p className="text-muted-foreground text-[11px] font-semibold uppercase tracking-wider shrink-0">{label}</p>
       <p className="text-foreground text-sm text-right">{value}</p>
+    </div>
+  );
+}
+
+function AgentTypeSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm text-left flex items-center justify-between outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+      >
+        <span className="text-foreground">{value.charAt(0).toUpperCase() + value.slice(1)}</span>
+        <ChevronRight className={`size-3.5 text-muted-foreground transition-transform ${isOpen ? "rotate-90" : ""}`} />
+      </button>
+      {isOpen && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
+          <div className="absolute z-50 top-9 left-0 w-full bg-card border border-border rounded-lg shadow-xl shadow-black/20 py-1 max-h-[240px] overflow-y-auto">
+            {AGENT_TYPES.map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => { onChange(t); setIsOpen(false); }}
+                className={`w-full text-left px-3 py-1.5 text-sm transition-colors ${
+                  t === value
+                    ? "bg-foreground/10 text-foreground font-medium"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                }`}
+              >
+                {t.charAt(0).toUpperCase() + t.slice(1)}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }
