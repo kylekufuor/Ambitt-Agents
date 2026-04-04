@@ -148,12 +148,13 @@ model Recommendation {
   agent                 Agent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
   clientId              String
   client                Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  taskId                String
-  task                  Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  taskId                String?
+  task                  Task?     @relation(fields: [taskId], references: [id], onDelete: Cascade)
 
   title                 String
   description           String    @db.Text
   actionItems           String[]
+  reasoning             String?   @db.Text
 
   expectedMetric        String
   baselineValue         Float
@@ -163,6 +164,11 @@ model Recommendation {
   implementationMode    String    @default("advisory")
   autonomouslyExecuted  Boolean   @default(false)
   autonomousActionLog   String?   @db.Text
+
+  // Email template context
+  emailType             String?
+  approveActionId       String?   @unique
+  status                String    @default("pending")
 
   clientAction          String    @default("pending")
   clientActionAt        DateTime?
@@ -174,6 +180,8 @@ model Recommendation {
   verificationResult    Boolean?
   verificationNotes     String?   @db.Text
 
+  resolvedAt            DateTime?
+
   outcomes              Outcome[]
 
   sentAt                DateTime  @default(now())
@@ -183,6 +191,8 @@ model Recommendation {
   @@index([clientAction])
   @@index([expectedMetric])
   @@index([implementationMode])
+  @@index([approveActionId])
+  @@index([status])
 }
 
 model Outcome {
