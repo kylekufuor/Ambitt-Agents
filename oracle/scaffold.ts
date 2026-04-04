@@ -2,7 +2,7 @@ import prisma from "../shared/db.js";
 import { encrypt } from "../shared/encryption.js";
 import { sendKyleWhatsApp } from "../shared/whatsapp.js";
 import { sendEmail } from "../shared/email.js";
-import { recalcClientRetainers } from "../shared/pricing.js";
+import { recalcClientRetainers, getTierConfig, getInteractionLimit, type PricingTier } from "../shared/pricing.js";
 import { buildWelcomeEmail, inferCapabilities } from "./templates/welcome-email.js";
 import logger from "../shared/logger.js";
 
@@ -89,8 +89,12 @@ export async function scaffoldAgent(input: AgentBrief | DashboardBrief): Promise
     personality = "Professional, proactive, and results-driven";
     schedule = "0 8 * * 1"; // Default: Monday 8am
     autonomyLevel = "advisory";
-    monthlyRetainerCents = 49700; // $497 default
-    setupFeeCents = 0;
+
+    // Set pricing from tier
+    const tier = (input as any).pricingTier as PricingTier ?? "starter";
+    const tierConfig = getTierConfig(tier);
+    monthlyRetainerCents = tierConfig.monthlyCents;
+    setupFeeCents = tierConfig.setupFeeCentsMin;
 
     // Store credentials if provided (for direct MCP fallback)
     if (input.credentials && input.credentials.length > 0) {
@@ -127,6 +131,16 @@ export async function scaffoldAgent(input: AgentBrief | DashboardBrief): Promise
 
   const emptyMemory = encrypt(JSON.stringify({}));
 
+  // Determine tier for interaction limits
+  const agentTier = isDashboardBrief(input)
+    ? ((input as any).pricingTier as PricingTier ?? "starter")
+    : "starter";
+  const interactionLimit = getInteractionLimit(agentTier);
+  const nextReset = new Date();
+  nextReset.setMonth(nextReset.getMonth() + 1);
+  nextReset.setDate(1);
+  nextReset.setHours(0, 0, 0, 0);
+
   const agent = await prisma.agent.create({
     data: {
       clientId,
@@ -140,6 +154,10 @@ export async function scaffoldAgent(input: AgentBrief | DashboardBrief): Promise
       autonomyLevel,
       monthlyRetainerCents,
       setupFeeCents,
+      pricingTier: agentTier,
+      interactionCount: 0,
+      interactionLimit,
+      interactionResetAt: nextReset,
       clientMemoryObject: emptyMemory,
       status: "pending_approval",
     },

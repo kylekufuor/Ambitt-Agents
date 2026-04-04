@@ -1,97 +1,178 @@
 import prisma from "./db.js";
 
 // ---------------------------------------------------------------------------
-// Ambitt Agents — Volume Pricing
+// Ambitt Agents — Pricing Model
 // ---------------------------------------------------------------------------
 //
-// Per-agent monthly rate decreases as the client adds more agents.
-// Setup fee is flat per batch import, or per-agent for single adds.
+// SMB Track
+// ─────────────────────────────────────────────────────────────────────────────
+// Tier       | Price     | Agents | Tools | Interactions/mo | Setup Fee
+// Starter    | $497/mo   | 1      | 3     | 1,000           | $500–1,500
+// Growth     | $697/mo   | 1      | 3     | 3,000           | $500–1,500
+// Scale      | $997/mo   | 2      | 3 each| Unlimited       | $500–1,500
+// Annual     | 2 months free (10 months billed)
 //
-// Tier      | Per Agent/mo | Example total
-// 1 agent   | $99          | $99
-// 2-3       | $79          | $158-237
-// 4-6       | $59          | $236-354
-// 7+        | $49          | $343+
-//
-// Setup: $199 per agent (single) or $499 flat (batch import of 3+)
+// Enterprise Track
+// ─────────────────────────────────────────────────────────────────────────────
+// Discovery & Strategy:         $5,000–15,000 one-time
+// Implementation & Config:      $10,000–25,000 one-time
+// Managed Service Retainer:     $2,500–7,500/mo per agent
+// Additional agent:             +$2,000–4,000/mo
+// Custom MCP integration:       $2,500–5,000 one-time per tool
 // ---------------------------------------------------------------------------
 
-const TIERS = [
-  { minAgents: 7, perAgentCents: 4900 },
-  { minAgents: 4, perAgentCents: 5900 },
-  { minAgents: 2, perAgentCents: 7900 },
-  { minAgents: 1, perAgentCents: 9900 },
-];
+export type PricingTier = "starter" | "growth" | "scale" | "enterprise";
 
-const SETUP_FEE_SINGLE_CENTS = 19900;  // $199 per agent
-const SETUP_FEE_BATCH_CENTS = 49900;   // $499 flat for batch (3+ agents)
-const BATCH_THRESHOLD = 3;
-
-/** Get per-agent monthly rate in cents based on total active agent count for a client. */
-export function getPerAgentRate(totalAgents: number): number {
-  for (const tier of TIERS) {
-    if (totalAgents >= tier.minAgents) return tier.perAgentCents;
-  }
-  return 9900; // fallback
+interface TierConfig {
+  tier: PricingTier;
+  label: string;
+  monthlyCents: number;
+  maxAgents: number;
+  maxToolsPerAgent: number;
+  interactionsPerMonth: number; // -1 = unlimited
+  setupFeeCentsMin: number;
+  setupFeeCentsMax: number;
 }
 
-/** Get setup fee in cents. Batch discount if importing 3+ agents at once. */
-export function getSetupFee(agentsBeingAdded: number): number {
-  if (agentsBeingAdded >= BATCH_THRESHOLD) return SETUP_FEE_BATCH_CENTS;
-  return SETUP_FEE_SINGLE_CENTS * agentsBeingAdded;
+export const TIERS: Record<PricingTier, TierConfig> = {
+  starter: {
+    tier: "starter",
+    label: "Starter",
+    monthlyCents: 49700,
+    maxAgents: 1,
+    maxToolsPerAgent: 3,
+    interactionsPerMonth: 1000,
+    setupFeeCentsMin: 50000,
+    setupFeeCentsMax: 150000,
+  },
+  growth: {
+    tier: "growth",
+    label: "Growth",
+    monthlyCents: 69700,
+    maxAgents: 1,
+    maxToolsPerAgent: 3,
+    interactionsPerMonth: 3000,
+    setupFeeCentsMin: 50000,
+    setupFeeCentsMax: 150000,
+  },
+  scale: {
+    tier: "scale",
+    label: "Scale",
+    monthlyCents: 99700,
+    maxAgents: 2,
+    maxToolsPerAgent: 3,
+    interactionsPerMonth: -1, // unlimited
+    setupFeeCentsMin: 50000,
+    setupFeeCentsMax: 150000,
+  },
+  enterprise: {
+    tier: "enterprise",
+    label: "Enterprise",
+    monthlyCents: 0, // custom pricing
+    maxAgents: -1,    // unlimited
+    maxToolsPerAgent: -1,
+    interactionsPerMonth: -1,
+    setupFeeCentsMin: 0,
+    setupFeeCentsMax: 0,
+  },
+};
+
+/** Get tier config by name. */
+export function getTierConfig(tier: PricingTier): TierConfig {
+  return TIERS[tier];
 }
 
-/** Calculate per-agent rate and total MRR for a client given their agent count. */
-export function calculateClientPricing(totalAgents: number): {
-  perAgentCents: number;
+/** Get the interaction limit for a tier. Returns -1 for unlimited. */
+export function getInteractionLimit(tier: PricingTier): number {
+  return TIERS[tier].interactionsPerMonth;
+}
+
+/** Get monthly price in cents for a tier. */
+export function getMonthlyPrice(tier: PricingTier): number {
+  return TIERS[tier].monthlyCents;
+}
+
+/** Get annual price in cents (10 months — 2 months free). */
+export function getAnnualPrice(tier: PricingTier): number {
+  return TIERS[tier].monthlyCents * 10;
+}
+
+/** Calculate total MRR for a client based on their agents. */
+export async function calculateClientMRR(clientId: string): Promise<{
   totalMonthlyCents: number;
-  tierLabel: string;
-} {
-  const perAgentCents = getPerAgentRate(totalAgents);
-  return {
-    perAgentCents,
-    totalMonthlyCents: perAgentCents * totalAgents,
-    tierLabel: `$${(perAgentCents / 100).toFixed(0)}/agent/mo (${totalAgents} agents)`,
-  };
+  agentCount: number;
+  breakdown: Array<{ agentId: string; agentName: string; tier: string; monthlyCents: number }>;
+}> {
+  const agents = await prisma.agent.findMany({
+    where: { clientId, status: "active" },
+    select: { id: true, name: true, pricingTier: true, monthlyRetainerCents: true },
+  });
+
+  const breakdown = agents.map((a) => ({
+    agentId: a.id,
+    agentName: a.name,
+    tier: a.pricingTier,
+    monthlyCents: a.monthlyRetainerCents,
+  }));
+
+  const totalMonthlyCents = breakdown.reduce((sum, a) => sum + a.monthlyCents, 0);
+
+  return { totalMonthlyCents, agentCount: agents.length, breakdown };
 }
 
 /**
  * Recalculate retainers for all active agents of a client.
- * Call this after adding/removing agents so pricing stays in sync.
+ * Updates each agent's monthly retainer based on its pricing tier.
  */
 export async function recalcClientRetainers(clientId: string): Promise<{
   agentCount: number;
-  perAgentCents: number;
   totalMonthlyCents: number;
 }> {
   const agents = await prisma.agent.findMany({
     where: { clientId, status: { in: ["active", "pending_approval"] } },
-    select: { id: true },
+    select: { id: true, pricingTier: true },
   });
 
-  const count = agents.length;
-  const perAgentCents = getPerAgentRate(count);
+  let totalMonthlyCents = 0;
 
-  // Update all agents to the new tier rate
-  await prisma.agent.updateMany({
+  for (const agent of agents) {
+    const tier = agent.pricingTier as PricingTier;
+    const config = TIERS[tier] ?? TIERS.starter;
+    const monthlyCents = config.monthlyCents;
+
+    await prisma.agent.update({
+      where: { id: agent.id },
+      data: {
+        monthlyRetainerCents: monthlyCents,
+        interactionLimit: config.interactionsPerMonth,
+      },
+    });
+
+    totalMonthlyCents += monthlyCents;
+  }
+
+  return { agentCount: agents.length, totalMonthlyCents };
+}
+
+/** Check if a client can add another agent based on their current tier. */
+export async function canAddAgent(clientId: string, tier: PricingTier): Promise<boolean> {
+  const config = TIERS[tier];
+  if (config.maxAgents === -1) return true; // enterprise — unlimited
+
+  const currentCount = await prisma.agent.count({
     where: { clientId, status: { in: ["active", "pending_approval"] } },
-    data: { monthlyRetainerCents: perAgentCents },
   });
 
-  return {
-    agentCount: count,
-    perAgentCents,
-    totalMonthlyCents: perAgentCents * count,
-  };
+  return currentCount < config.maxAgents;
 }
 
 export default {
-  getPerAgentRate,
-  getSetupFee,
-  calculateClientPricing,
-  recalcClientRetainers,
   TIERS,
-  SETUP_FEE_SINGLE_CENTS,
-  SETUP_FEE_BATCH_CENTS,
-  BATCH_THRESHOLD,
+  getTierConfig,
+  getInteractionLimit,
+  getMonthlyPrice,
+  getAnnualPrice,
+  calculateClientMRR,
+  recalcClientRetainers,
+  canAddAgent,
 };

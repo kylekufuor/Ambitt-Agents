@@ -72,6 +72,14 @@ model Agent {
   setupFeeCents         Int
   historyTier           String    @default("standard")
 
+  // Pricing tier
+  pricingTier           String    @default("starter") // "starter" | "growth" | "scale" | "enterprise"
+
+  // Interaction tracking
+  interactionCount      Int       @default(0)         // current billing cycle
+  interactionLimit      Int       @default(1000)      // per tier: 1000/3000/-1(unlimited)
+  interactionResetAt    DateTime?                     // next reset date (monthly)
+
   // Budget enforcement
   budgetMonthlyCents    Int       @default(5000) // $50 default
   budgetWarningAt       DateTime? // when 80% threshold was hit

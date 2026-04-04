@@ -224,6 +224,38 @@ export async function runAgent(input: RuntimeInput): Promise<RuntimeOutput> {
   const { agentId, userMessage, channel, threadId } = input;
   const startTime = Date.now();
 
+  // Check interaction limit before running
+  const agentRecord = await prisma.agent.findUnique({
+    where: { id: agentId },
+    select: { interactionCount: true, interactionLimit: true, interactionResetAt: true, pricingTier: true },
+  });
+
+  if (agentRecord) {
+    // Reset counter if past the reset date
+    if (agentRecord.interactionResetAt && new Date() >= agentRecord.interactionResetAt) {
+      const nextReset = new Date();
+      nextReset.setMonth(nextReset.getMonth() + 1);
+      nextReset.setDate(1);
+      nextReset.setHours(0, 0, 0, 0);
+
+      await prisma.agent.update({
+        where: { id: agentId },
+        data: { interactionCount: 0, interactionResetAt: nextReset },
+      });
+    } else if (agentRecord.interactionLimit > 0 && agentRecord.interactionCount >= agentRecord.interactionLimit) {
+      // Limit reached — return limit message instead of running
+      const tierName = agentRecord.pricingTier.charAt(0).toUpperCase() + agentRecord.pricingTier.slice(1);
+      return {
+        response: `You've reached your ${tierName} plan limit of ${agentRecord.interactionLimit.toLocaleString()} interactions this month. Reply "upgrade" to increase your limit, or contact support@ambitt.agency.`,
+        toolsUsed: [],
+        attachments: [],
+        totalInputTokens: 0,
+        totalOutputTokens: 0,
+        loopCount: 0,
+      };
+    }
+  }
+
   // Step 1: Load agent context
   const ctx = await loadAgentContext(agentId);
 
@@ -367,6 +399,12 @@ export async function runAgent(input: RuntimeInput): Promise<RuntimeOutput> {
       channel,
       threadId,
     },
+  });
+
+  // Increment interaction counter
+  await prisma.agent.update({
+    where: { id: agentId },
+    data: { interactionCount: { increment: 1 } },
   });
 
   // Log API usage
