@@ -32,20 +32,20 @@ export function OracleOrb({ pendingCount }: { pendingCount?: number }) {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handleKeyDown]);
 
-  const radius = 200;
+  const radius = 240;
   const spread = 220;
   const angleStep = spread / (actions.length - 1);
 
   return (
     <div className="flex flex-col items-center justify-center py-6">
-      <div className="relative" style={{ width: "500px", height: "500px" }}>
+      <div className="relative" style={{ width: "580px", height: "580px" }}>
 
-        {/* Soft ambient light behind orb */}
-        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] rounded-full bg-white/[0.03] blur-[80px]" />
+        {/* Subtle shadow pool beneath orb */}
+        <div className="absolute left-1/2 top-[55%] -translate-x-1/2 w-[200px] h-[40px] rounded-full bg-black/10 dark:bg-white/[0.03] blur-2xl" />
 
-        {/* Outer ring — slow rotate */}
-        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[280px] h-[280px] rounded-full border border-white/[0.06] animate-orb-spin-slow" />
-        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[240px] h-[240px] rounded-full border border-white/[0.04] animate-orb-spin-reverse" />
+        {/* Outer rings */}
+        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[340px] h-[340px] rounded-full border border-neutral-300/30 dark:border-white/[0.06] animate-orb-spin-slow" />
+        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[290px] h-[290px] rounded-full border border-neutral-300/20 dark:border-white/[0.04] animate-orb-spin-reverse" />
 
         {/* Radial Actions */}
         {actions.map((action, i) => {
@@ -73,7 +73,7 @@ export function OracleOrb({ pendingCount }: { pendingCount?: number }) {
                 className="group flex flex-col items-center gap-2"
               >
                 <div className="relative">
-                  <div className={`w-14 h-14 rounded-full ${action.color} flex items-center justify-center shadow-lg shadow-black/40 group-hover:scale-110 transition-transform`}>
+                  <div className={`w-14 h-14 rounded-full ${action.color} flex items-center justify-center shadow-lg shadow-black/20 group-hover:scale-110 transition-transform`}>
                     <action.icon className="size-6 text-white" />
                   </div>
                   {action.badgeKey === "approvals" && pendingCount && pendingCount > 0 && (
@@ -90,47 +90,47 @@ export function OracleOrb({ pendingCount }: { pendingCount?: number }) {
           );
         })}
 
-        {/* The Orb — Liquid Glass / Chrome */}
+        {/* The Orb — Dark Chrome Sphere (works on light + dark) */}
         <button
           onClick={() => setOpen(!open)}
           className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 group cursor-pointer z-10"
           aria-label="Oracle Command Center"
         >
-          {/* Outer glow — soft white */}
-          <div className="absolute -inset-16 rounded-full bg-white/[0.02] blur-3xl animate-pulse-slow" />
+          {/* Ambient glow */}
+          <div className="absolute -inset-12 rounded-full bg-neutral-400/10 dark:bg-white/[0.03] blur-3xl animate-pulse-slow" />
 
-          {/* Glass sphere — layered for depth */}
-          <div className={`relative w-[140px] h-[140px] rounded-full transition-all duration-700 ${
-            open ? "scale-90" : "group-hover:scale-105"
+          {/* Sphere — large with breathing animation */}
+          <div className={`relative w-[200px] h-[200px] rounded-full transition-all duration-700 ${
+            open ? "scale-90" : "group-hover:scale-105 animate-breathe"
           }`}>
 
-            {/* Base sphere — gradient for 3D effect */}
-            <div className="absolute inset-0 rounded-full bg-gradient-to-br from-white/20 via-white/5 to-transparent" />
+            {/* Base — dark gradient sphere */}
+            <div className="absolute inset-0 rounded-full bg-gradient-to-b from-neutral-700 via-neutral-900 to-black shadow-2xl shadow-black/50" />
 
-            {/* Glass fill */}
-            <div className="absolute inset-0 rounded-full bg-gradient-to-b from-white/[0.12] to-white/[0.02] backdrop-blur-sm" />
+            {/* Top highlight — chrome reflection */}
+            <div className="absolute inset-0 rounded-full bg-gradient-to-b from-white/30 via-transparent to-transparent" />
 
-            {/* Top highlight — liquid caustic */}
-            <div className="absolute inset-2 rounded-full bg-gradient-to-b from-white/25 via-transparent to-transparent" />
+            {/* Upper caustic arc */}
+            <div className="absolute top-2 left-1/2 -translate-x-1/2 w-[55%] h-[25%] rounded-full bg-white/20 blur-[4px]" />
 
-            {/* Inner reflection arc */}
-            <div className="absolute top-3 left-1/2 -translate-x-1/2 w-[60%] h-[30%] rounded-full bg-white/15 blur-[6px]" />
+            {/* Subtle mid reflection */}
+            <div className="absolute top-[40%] left-[15%] w-[20%] h-[15%] rounded-full bg-white/[0.07] blur-[3px]" />
 
-            {/* Subtle edge ring */}
-            <div className="absolute inset-0 rounded-full ring-1 ring-white/10" />
+            {/* Edge rim light */}
+            <div className="absolute inset-0 rounded-full ring-1 ring-white/[0.15]" />
 
-            {/* Inner ring — rotating */}
-            <div className="absolute inset-4 rounded-full ring-1 ring-white/[0.06] animate-orb-rotate" style={{ animationDuration: "10s" }} />
+            {/* Inner rotating ring */}
+            <div className="absolute inset-5 rounded-full ring-1 ring-white/[0.08] animate-orb-rotate" style={{ animationDuration: "10s" }} />
 
-            {/* Bottom shadow for 3D grounding */}
-            <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-[70%] h-3 rounded-full bg-white/[0.03] blur-md" />
+            {/* Bottom reflection */}
+            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 w-[40%] h-[10%] rounded-full bg-white/[0.06] blur-[2px]" />
 
-            {/* Center icon */}
+            {/* Center icon container */}
             <div className="absolute inset-0 flex items-center justify-center">
-              <div className={`w-14 h-14 rounded-full bg-gradient-to-br from-white/20 to-white/5 flex items-center justify-center backdrop-blur-sm transition-transform duration-500 ${
+              <div className={`w-14 h-14 rounded-full bg-white/[0.08] flex items-center justify-center backdrop-blur-sm ring-1 ring-white/[0.1] transition-transform duration-500 ${
                 open ? "rotate-180 scale-90" : "group-hover:scale-110"
               }`}>
-                <Zap className="size-7 text-white/80 drop-shadow-sm" />
+                <Zap className="size-7 text-white drop-shadow-md" />
               </div>
             </div>
           </div>
