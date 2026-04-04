@@ -46,36 +46,48 @@ export async function initiateConnection(
   const client = getClient();
   const callbackUrl = redirectUrl ?? `${process.env.ORACLE_URL ?? "http://localhost:3000"}/composio/callback`;
 
-  // Get the integration/auth config for this app
-  let integrationId: string | undefined;
-  try {
-    const integrations = await client.integrations.list({ appName });
-    const items = (integrations as any).items ?? integrations ?? [];
-    if (items.length > 0) {
-      integrationId = items[0].id ?? items[0].integrationId;
-    }
-  } catch {
-    logger.warn("Could not fetch integration for app", { appName });
+  const apiKey = process.env.COMPOSIO_API_KEY;
+  if (!apiKey) throw new Error("COMPOSIO_API_KEY is not set");
+
+  // Step 1: Get the integrationId for this app
+  const intRes = await fetch(`https://backend.composio.dev/api/v1/integrations?appName=${appName}`, {
+    headers: { "x-api-key": apiKey },
+  });
+  const intData = await intRes.json();
+  const integrations = intData.items ?? intData ?? [];
+  const integrationId = integrations[0]?.id;
+
+  if (!integrationId) {
+    throw new Error(`No auth config found for ${appName}. Set one up in Composio dashboard → Auth Configs.`);
   }
 
-  const initParams: Record<string, unknown> = {
-    appName,
-    entityId: clientId,
-    redirectUri: callbackUrl,
-  };
+  // Step 2: Initiate connection with integrationId
+  const response = await fetch("https://backend.composio.dev/api/v2/connectedAccounts/initiateConnection", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": apiKey,
+    },
+    body: JSON.stringify({
+      integrationId,
+      entityId: clientId,
+      redirectUri: callbackUrl,
+      data: {},
+    }),
+  });
 
-  if (integrationId) {
-    initParams.integrationId = integrationId;
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error ?? `Composio connection failed: ${response.status}`);
   }
 
-  const connection = await client.connectedAccounts.initiate(initParams as any);
+  const authRedirectUrl = data.connectionResponse?.redirectUrl ?? "";
+  const connId = data.connectionResponse?.connectedAccountId ?? "";
 
-  logger.info("Composio connection initiated", { clientId, appName, integrationId });
+  logger.info("Composio connection initiated", { clientId, appName, integrationId, connectionId: connId });
 
-  return {
-    redirectUrl: (connection as any).redirectUrl ?? (connection as any).redirect_url ?? "",
-    connectionId: (connection as any).connectedAccountId ?? (connection as any).id ?? "",
-  };
+  return { redirectUrl: authRedirectUrl, connectionId: connId };
 }
 
 /**
