@@ -43,10 +43,10 @@ const POPULAR_TOOLS: Record<string, ComposioApp[]> = {
   analytics: [
     { key: "google_analytics", name: "Google Analytics", description: "Web analytics — traffic, conversions, user behavior, funnels (GA4)", categories: ["analytics"] },
     { key: "posthog", name: "PostHog", description: "Product analytics — session replays, feature flags, A/B testing", categories: ["analytics"] },
-    { key: "mixpanel", name: "Mixpanel", description: "Product analytics — event tracking, funnels, flows, retention", categories: ["analytics"] },
     { key: "supabase", name: "Supabase", description: "Database — tables, queries, auth, storage, real-time subscriptions", categories: ["database"] },
+    { key: "resend", name: "Resend", description: "Email delivery — agent sends reports, digests, and alerts via email", categories: ["email"] },
+    { key: "mixpanel", name: "Mixpanel", description: "Product analytics — event tracking, funnels, flows, retention", categories: ["analytics"] },
     { key: "amplitude", name: "Amplitude", description: "Product analytics — charts, dashboards, cohorts, experiments", categories: ["analytics"] },
-    { key: "snowflake", name: "Snowflake", description: "Data warehouse — SQL queries, semantic views, Cortex AI", categories: ["analytics"] },
   ],
   sales: [
     { key: "salesforce", name: "Salesforce", description: "CRM — pipelines, contacts, opportunities, accounts, reports", categories: ["crm"] },
@@ -69,13 +69,13 @@ const POPULAR_TOOLS: Record<string, ComposioApp[]> = {
     { key: "intercom", name: "Intercom", description: "Customer messaging — conversations, contacts, companies", categories: ["support"] },
     { key: "freshdesk", name: "Freshdesk", description: "Support — tickets, contacts, SLA policies, surveys", categories: ["support"] },
     { key: "slack", name: "Slack", description: "Messaging — channels, messages, threads, search", categories: ["communication"] },
+    { key: "resend", name: "Resend", description: "Email delivery — ticket notifications, updates to clients", categories: ["email"] },
     { key: "notion", name: "Notion", description: "Workspace — pages, databases, blocks, search", categories: ["productivity"] },
-    { key: "gmail", name: "Gmail", description: "Email — send, read, search, labels, drafts", categories: ["email"] },
   ],
   content: [
     { key: "notion", name: "Notion", description: "Workspace — pages, databases, blocks, search", categories: ["productivity"] },
     { key: "wordpress", name: "WordPress", description: "CMS — posts, pages, media, categories, tags", categories: ["cms"] },
-    { key: "google_docs", name: "Google Docs", description: "Documents — create, edit, share, collaborate", categories: ["productivity"] },
+    { key: "resend", name: "Resend", description: "Email delivery — newsletters, content distribution", categories: ["email"] },
     { key: "canva", name: "Canva", description: "Design — templates, graphics, social media assets", categories: ["design"] },
     { key: "semrush", name: "SEMrush", description: "SEO — keyword research, content audit, topic research", categories: ["seo"] },
     { key: "ahrefs", name: "Ahrefs", description: "SEO — content explorer, keyword ideas, backlink analysis", categories: ["seo"] },
@@ -83,7 +83,7 @@ const POPULAR_TOOLS: Record<string, ComposioApp[]> = {
   engagement: [
     { key: "slack", name: "Slack", description: "Messaging — channels, messages, threads, search", categories: ["communication"] },
     { key: "intercom", name: "Intercom", description: "Customer messaging — conversations, contacts, segments", categories: ["support"] },
-    { key: "mailchimp", name: "Mailchimp", description: "Email marketing — campaigns, audiences, automations", categories: ["email"] },
+    { key: "resend", name: "Resend", description: "Email delivery — engagement emails, onboarding sequences", categories: ["email"] },
     { key: "mixpanel", name: "Mixpanel", description: "Product analytics — funnels, retention, user flows", categories: ["analytics"] },
     { key: "posthog", name: "PostHog", description: "Product analytics — session replays, feature flags", categories: ["analytics"] },
     { key: "hubspot", name: "HubSpot", description: "CRM — contacts, lifecycle stages, workflows", categories: ["crm"] },
@@ -94,14 +94,14 @@ const POPULAR_TOOLS: Record<string, ComposioApp[]> = {
     { key: "jira", name: "Jira", description: "Project management — issues, sprints, boards, epics", categories: ["project management"] },
     { key: "linear", name: "Linear", description: "Issue tracking — issues, projects, cycles, roadmaps", categories: ["project management"] },
     { key: "slack", name: "Slack", description: "Messaging — channels, messages, threads, alerts", categories: ["communication"] },
-    { key: "datadog", name: "Datadog", description: "Monitoring — metrics, logs, traces, dashboards", categories: ["devops"] },
+    { key: "resend", name: "Resend", description: "Email delivery — alerts, incident notifications, reports", categories: ["email"] },
   ],
   research: [
     { key: "google_search", name: "Google Search", description: "Web search — find information, articles, data", categories: ["search"] },
     { key: "notion", name: "Notion", description: "Workspace — research notes, databases, wikis", categories: ["productivity"] },
     { key: "ahrefs", name: "Ahrefs", description: "SEO — competitor research, content analysis, keywords", categories: ["seo"] },
     { key: "semrush", name: "SEMrush", description: "Market research — traffic analysis, competitor data", categories: ["seo"] },
-    { key: "google_sheets", name: "Google Sheets", description: "Spreadsheets — data analysis, charts, collaboration", categories: ["productivity"] },
+    { key: "resend", name: "Resend", description: "Email delivery — research reports, findings digests", categories: ["email"] },
     { key: "linkedin", name: "LinkedIn", description: "Professional network — company research, people search", categories: ["crm"] },
   ],
   design: [
@@ -109,18 +109,25 @@ const POPULAR_TOOLS: Record<string, ComposioApp[]> = {
     { key: "canva", name: "Canva", description: "Design — templates, graphics, brand kits", categories: ["design"] },
     { key: "notion", name: "Notion", description: "Workspace — design specs, feedback tracking", categories: ["productivity"] },
     { key: "slack", name: "Slack", description: "Messaging — design reviews, feedback channels", categories: ["communication"] },
+    { key: "resend", name: "Resend", description: "Email delivery — design review notifications, approvals", categories: ["email"] },
     { key: "github", name: "GitHub", description: "Code — repos, issues, design system tracking", categories: ["developer tools"] },
-    { key: "google_analytics", name: "Google Analytics", description: "Analytics — user behavior data for design decisions", categories: ["analytics"] },
   ],
   reputation: [
     { key: "google_my_business", name: "Google Business", description: "Business profile — reviews, posts, insights, Q&A", categories: ["marketing"] },
-    { key: "slack", name: "Slack", description: "Messaging — reputation alerts, team notifications", categories: ["communication"] },
+    { key: "resend", name: "Resend", description: "Email delivery — review requests, reputation alerts", categories: ["email"] },
     { key: "hubspot", name: "HubSpot", description: "CRM — customer feedback tracking, NPS", categories: ["crm"] },
     { key: "intercom", name: "Intercom", description: "Customer messaging — satisfaction, feedback collection", categories: ["support"] },
     { key: "semrush", name: "SEMrush", description: "SEO — brand monitoring, online visibility", categories: ["seo"] },
-    { key: "mailchimp", name: "Mailchimp", description: "Email — review request campaigns, follow-ups", categories: ["email"] },
+    { key: "slack", name: "Slack", description: "Messaging — reputation alerts, team notifications", categories: ["communication"] },
   ],
-  custom: [],
+  custom: [
+    { key: "slack", name: "Slack", description: "Messaging — channels, messages, threads, search", categories: ["communication"] },
+    { key: "resend", name: "Resend", description: "Email delivery — transactional email, notifications", categories: ["email"] },
+    { key: "notion", name: "Notion", description: "Workspace — pages, databases, blocks, search", categories: ["productivity"] },
+    { key: "supabase", name: "Supabase", description: "Database — tables, queries, auth, storage", categories: ["database"] },
+    { key: "github", name: "GitHub", description: "Code — repos, issues, PRs, actions", categories: ["developer tools"] },
+    { key: "posthog", name: "PostHog", description: "Product analytics — events, funnels, session replays", categories: ["analytics"] },
+  ],
 };
 
 // ---------------------------------------------------------------------------
@@ -437,6 +444,27 @@ function ToolSelectionStep({
           {selected.length}/{MAX_TOOLS}
         </span>
       </div>
+
+      {/* Selected tools bar */}
+      {selected.length > 0 && (
+        <div className="flex items-center gap-2 flex-wrap bg-card border border-border rounded-lg px-3 py-2">
+          <span className="text-muted-foreground text-[11px] font-semibold uppercase tracking-wider shrink-0">Selected:</span>
+          {selected.map((key) => {
+            const app = apps.find((a) => a.key === key);
+            return (
+              <button
+                key={key}
+                onClick={() => onToggle(key)}
+                className="flex items-center gap-1.5 bg-emerald-500/10 text-emerald-400 ring-1 ring-emerald-500/20 px-2 py-0.5 rounded-md text-xs font-medium hover:bg-red-500/10 hover:text-red-400 hover:ring-red-500/20 transition-colors"
+              >
+                <img src={`https://logos.composio.dev/api/${key}`} alt="" className="w-3.5 h-3.5 object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                {app?.name ?? key}
+                <XCircle className="size-3 opacity-60" />
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* Search */}
       <div className="relative">
