@@ -24,6 +24,7 @@ interface AgentBrief {
 
 // Dashboard brief — when creating from the UI (clientEmail instead of clientId)
 interface DashboardBrief {
+  clientName?: string;
   clientEmail: string;
   businessName: string;
   businessDescription: string;
@@ -69,6 +70,7 @@ export async function scaffoldAgent(input: AgentBrief | DashboardBrief): Promise
       client = await prisma.client.create({
         data: {
           email: input.clientEmail,
+          contactName: input.clientName ?? null,
           businessName: input.businessName,
           industry: "General",
           businessGoal: input.businessDescription,
@@ -242,7 +244,7 @@ export async function approveAgent(agentId: string): Promise<void> {
   const agent = await prisma.agent.findUnique({
     where: { id: agentId },
     include: {
-      client: { select: { id: true, email: true, businessName: true, website: true } },
+      client: { select: { id: true, email: true, contactName: true, businessName: true, website: true } },
     },
   });
 
@@ -290,7 +292,7 @@ export async function approveAgent(agentId: string): Promise<void> {
 
   // Send welcome email to client
   try {
-    const clientFirstName = agent.client.businessName.split(" ")[0];
+    const clientFirstName = agent.client.contactName?.split(" ")[0] ?? agent.client.businessName.split(" ")[0];
     const capabilities = inferCapabilities(agent.agentType, agent.tools);
     const toolNames = agent.tools.map((t) => t.charAt(0).toUpperCase() + t.slice(1));
 

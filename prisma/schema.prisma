@@ -11,6 +11,7 @@ datasource db {
 model Client {
   id                    String    @id @default(cuid())
   email                 String    @unique
+  contactName           String?
   businessName          String
   industry              String
   businessGoal          String

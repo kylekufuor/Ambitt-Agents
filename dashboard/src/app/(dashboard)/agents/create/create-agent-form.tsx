@@ -141,6 +141,7 @@ export function CreateAgentForm({ composioApps }: { composioApps: ComposioApp[] 
 
   // Step 1 state
   const [agentName, setAgentName] = useState("");
+  const [clientName, setClientName] = useState("");
   const [clientEmail, setClientEmail] = useState("");
   const [businessName, setBusinessName] = useState("");
   const [businessWebsite, setBusinessWebsite] = useState("");
@@ -406,6 +407,7 @@ export function CreateAgentForm({ composioApps }: { composioApps: ComposioApp[] 
       {step === 0 && (
         <BasicInfoStep
           agentName={agentName} setAgentName={setAgentName}
+          clientName={clientName} setClientName={setClientName}
           clientEmail={clientEmail} setClientEmail={setClientEmail}
           businessName={businessName} setBusinessName={setBusinessName}
           businessWebsite={businessWebsite} setBusinessWebsite={setBusinessWebsite}
@@ -439,6 +441,7 @@ export function CreateAgentForm({ composioApps }: { composioApps: ComposioApp[] 
       {step === 3 && (
         <ReviewStep
           agentName={agentName}
+          clientName={clientName}
           clientEmail={clientEmail}
           businessName={businessName}
           businessWebsite={businessWebsite}
@@ -477,6 +480,7 @@ export function CreateAgentForm({ composioApps }: { composioApps: ComposioApp[] 
 
 function BasicInfoStep({
   agentName, setAgentName,
+  clientName, setClientName,
   clientEmail, setClientEmail,
   businessName, setBusinessName,
   businessWebsite, setBusinessWebsite,
@@ -484,6 +488,7 @@ function BasicInfoStep({
   agentType, setAgentType,
 }: {
   agentName: string; setAgentName: (v: string) => void;
+  clientName: string; setClientName: (v: string) => void;
   clientEmail: string; setClientEmail: (v: string) => void;
   businessName: string; setBusinessName: (v: string) => void;
   businessWebsite: string; setBusinessWebsite: (v: string) => void;
@@ -499,6 +504,9 @@ function BasicInfoStep({
       <div className="space-y-4">
         <Field label="Agent Name">
           <Input placeholder="e.g. Atlas" value={agentName} onChange={(e) => setAgentName(e.target.value)} />
+        </Field>
+        <Field label="Client Contact Name">
+          <Input placeholder="e.g. Kyle" value={clientName} onChange={(e) => setClientName(e.target.value)} />
         </Field>
         <Field label="Client Email">
           <Input type="email" placeholder="client@company.com" value={clientEmail} onChange={(e) => setClientEmail(e.target.value)} />
@@ -851,6 +859,7 @@ function ConnectStep({
 
 function ReviewStep({
   agentName,
+  clientName,
   clientEmail,
   businessName,
   businessWebsite,
@@ -863,6 +872,7 @@ function ReviewStep({
   createState,
 }: {
   agentName: string;
+  clientName: string;
   clientEmail: string;
   businessName: string;
   businessWebsite: string;
@@ -885,6 +895,7 @@ function ReviewStep({
   const handleActivate = () => {
     const formData = new FormData();
     formData.set("agentName", agentName);
+    formData.set("clientName", clientName);
     formData.set("clientEmail", clientEmail);
     formData.set("businessName", businessName);
     formData.set("businessWebsite", businessWebsite);
@@ -905,6 +916,7 @@ function ReviewStep({
 
       <div className="bg-card border border-border rounded-xl p-5 space-y-4">
         <ReviewRow label="Agent Name" value={agentName} />
+        <ReviewRow label="Client Contact" value={clientName} />
         <ReviewRow label="Client Email" value={clientEmail} />
         <ReviewRow label="Business" value={`${businessName} — ${businessDescription}`} />
         {businessWebsite && <ReviewRow label="Website" value={businessWebsite} />}

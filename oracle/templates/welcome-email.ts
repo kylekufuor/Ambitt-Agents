@@ -133,6 +133,9 @@ export function inferCapabilities(agentType: string, tools: string[]): string[] 
   const capabilities: string[] = [];
 
   const toolCaps: Record<string, string[]> = {
+    posthog: ["Track user behavior, funnels, and session replays", "Monitor feature flag usage and A/B tests", "Surface activation and retention insights"],
+    supabase: ["Query your database for user and business data", "Monitor signups, auth events, and storage usage", "Pull real-time data for reports"],
+    resend: ["Send you formatted reports and digests via email", "Deliver alerts when metrics change", "Email data exports and PDF reports"],
     salesforce: ["Query and update your CRM pipeline", "Track deal stages and contact activity", "Generate pipeline reports"],
     hubspot: ["Manage contacts, deals, and companies", "Monitor marketing email performance", "Pull CRM reports on demand"],
     stripe: ["Check subscription status and revenue", "Look up customer payment history", "Monitor failed payments and churn"],
@@ -148,6 +151,10 @@ export function inferCapabilities(agentType: string, tools: string[]): string[] 
     xero: ["Monitor bank transactions and reconciliation", "Generate accounting reports"],
     shopify: ["Track orders and inventory levels", "Monitor product performance", "Pull sales reports"],
     klaviyo: ["Monitor email campaign performance", "Track flow metrics and engagement", "Segment analysis"],
+    gmail: ["Read and send emails on your behalf", "Search email history", "Manage labels and drafts"],
+    google_analytics: ["Pull traffic and conversion data", "Analyze user behavior and acquisition", "Monitor goal completions"],
+    linkedin: ["Research prospects and companies", "Monitor profile engagement", "Track connection activity"],
+    zoominfo: ["Look up company and contact data", "Find decision-makers and their contact info", "Research prospects by industry and size"],
   };
 
   for (const tool of tools) {

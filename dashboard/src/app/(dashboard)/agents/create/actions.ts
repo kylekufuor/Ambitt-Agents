@@ -64,6 +64,7 @@ export async function createAgentAction(
   formData: FormData
 ): Promise<CreateAgentState> {
   const payload = {
+    clientName: formData.get("clientName") as string,
     clientEmail: formData.get("clientEmail") as string,
     businessName: formData.get("businessName") as string,
     businessWebsite: formData.get("businessWebsite") as string || undefined,
