@@ -136,8 +136,9 @@ app.post("/agents/scaffold", async (req: Request, res: Response) => {
     const agentId = await scaffoldAgent(req.body);
     res.json({ agentId, status: "pending_approval" });
   } catch (error) {
-    logger.error("Agent scaffold failed", { error });
-    res.status(500).json({ error: "Scaffold failed" });
+    const message = error instanceof Error ? error.message : String(error);
+    logger.error("Agent scaffold failed", { error: message, stack: error instanceof Error ? error.stack : undefined });
+    res.status(500).json({ error: `Scaffold failed: ${message}` });
   }
 });
 
