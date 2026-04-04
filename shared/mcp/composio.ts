@@ -96,12 +96,15 @@ export async function initiateConnection(
 export async function getConnectedAccounts(clientId: string): Promise<
   Array<{ id: string; appName: string; status: string }>
 > {
-  const client = getClient();
-  const response = await client.connectedAccounts.list({
-    entityId: clientId,
-  });
+  const apiKey = process.env.COMPOSIO_API_KEY;
+  if (!apiKey) throw new Error("COMPOSIO_API_KEY is not set");
 
-  const connections = (response as any).items ?? response ?? [];
+  const res = await fetch(`https://backend.composio.dev/api/v1/connectedAccounts?user_uuid=${clientId}`, {
+    headers: { "x-api-key": apiKey },
+  });
+  const data = await res.json();
+  const connections = data.items ?? data ?? [];
+
   return connections.map((conn: any) => ({
     id: conn.id ?? conn.connectedAccountId ?? "",
     appName: conn.appName ?? conn.app_name ?? "",
@@ -171,12 +174,17 @@ export async function executeTool(
 export async function listApps(): Promise<
   Array<{ name: string; key: string; description: string; categories: string[] }>
 > {
-  const client = getClient();
-  const response = await client.apps.list();
-  const apps = (response as any).items ?? response ?? [];
+  const apiKey = process.env.COMPOSIO_API_KEY;
+  if (!apiKey) throw new Error("COMPOSIO_API_KEY is not set");
+
+  const res = await fetch("https://backend.composio.dev/api/v1/apps", {
+    headers: { "x-api-key": apiKey },
+  });
+  const data = await res.json();
+  const apps = data.items ?? data ?? [];
 
   return apps.map((app: any) => ({
-    name: app.name ?? "",
+    name: app.displayName ?? app.name ?? "",
     key: app.key ?? app.appId ?? "",
     description: app.description ?? "",
     categories: app.categories ?? [],
