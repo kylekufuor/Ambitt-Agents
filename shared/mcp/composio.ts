@@ -53,8 +53,12 @@ export async function initiateConnection(
   const intRes = await fetch(`https://backend.composio.dev/api/v1/integrations?appName=${appName}`, {
     headers: { "x-api-key": apiKey },
   });
+  if (!intRes.ok) {
+    const err = await intRes.text();
+    throw new Error(`Failed to fetch integrations for ${appName} (${intRes.status}): ${err.slice(0, 200)}`);
+  }
   const intData = await intRes.json();
-  const integrations = intData.items ?? intData ?? [];
+  const integrations = Array.isArray(intData) ? intData : (intData.items ?? []);
   const integrationId = integrations[0]?.id;
 
   if (!integrationId) {
@@ -102,8 +106,12 @@ export async function getConnectedAccounts(clientId: string): Promise<
   const res = await fetch(`https://backend.composio.dev/api/v1/connectedAccounts?user_uuid=${clientId}`, {
     headers: { "x-api-key": apiKey },
   });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Failed to fetch connections (${res.status}): ${err.slice(0, 200)}`);
+  }
   const data = await res.json();
-  const connections = data.items ?? data ?? [];
+  const connections = Array.isArray(data) ? data : (data.items ?? []);
 
   return connections.map((conn: any) => ({
     id: conn.id ?? conn.connectedAccountId ?? "",
@@ -180,8 +188,12 @@ export async function listApps(): Promise<
   const res = await fetch("https://backend.composio.dev/api/v1/apps", {
     headers: { "x-api-key": apiKey },
   });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Composio apps API failed (${res.status}): ${err.slice(0, 200)}`);
+  }
   const data = await res.json();
-  const apps = data.items ?? data ?? [];
+  const apps = Array.isArray(data) ? data : (data.items ?? []);
 
   return apps.map((app: any) => ({
     name: app.displayName ?? app.name ?? "",
