@@ -140,17 +140,11 @@ export async function getConnectedAccounts(clientId: string): Promise<
   const data = await res.json();
   const items = data.items ?? [];
 
-  // Filter by entityId (client ID) — API doesn't support entityId filter directly
-  return items
-    .filter((conn: any) => {
-      const entity = conn.entityId ?? conn.member?.id ?? "";
-      return entity === clientId || !clientId; // if no clientId filter, return all
-    })
-    .map((conn: any) => ({
-      id: conn.id ?? "",
-      appName: conn.appUniqueId ?? conn.appName ?? "",
-      status: conn.status ?? "ACTIVE",
-    }));
+  return items.map((conn: any) => ({
+    id: conn.id ?? "",
+    appName: conn.appUniqueId ?? conn.appName ?? "",
+    status: conn.status ?? "ACTIVE",
+  }));
 }
 
 /**
@@ -160,7 +154,6 @@ export async function isAppConnected(clientId: string, appName: string): Promise
   const apiKey = process.env.COMPOSIO_API_KEY;
   if (!apiKey) return false;
 
-  // Check all active connections for this app
   const res = await fetch(`https://backend.composio.dev/api/v1/connectedAccounts?showActiveOnly=true`, {
     headers: { "x-api-key": apiKey },
   });
@@ -171,8 +164,7 @@ export async function isAppConnected(clientId: string, appName: string): Promise
   const normalize = (s: string) => s.toLowerCase().replace(/[\s_-]/g, "");
   return items.some((conn: any) => {
     const connApp = normalize(conn.appUniqueId ?? conn.appName ?? "");
-    const entity = conn.entityId ?? conn.member?.id ?? "";
-    return connApp === normalize(appName) && entity === clientId && conn.status === "ACTIVE";
+    return connApp === normalize(appName) && conn.status === "ACTIVE";
   });
 }
 
