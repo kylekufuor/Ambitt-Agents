@@ -46,13 +46,31 @@ export async function initiateConnection(
   const client = getClient();
   const callbackUrl = redirectUrl ?? `${process.env.ORACLE_URL ?? "http://localhost:3000"}/composio/callback`;
 
-  const connection = await client.connectedAccounts.initiate({
+  // Get the integration/auth config for this app
+  let integrationId: string | undefined;
+  try {
+    const integrations = await client.integrations.list({ appName });
+    const items = (integrations as any).items ?? integrations ?? [];
+    if (items.length > 0) {
+      integrationId = items[0].id ?? items[0].integrationId;
+    }
+  } catch {
+    logger.warn("Could not fetch integration for app", { appName });
+  }
+
+  const initParams: Record<string, unknown> = {
     appName,
     entityId: clientId,
     redirectUri: callbackUrl,
-  } as any);
+  };
 
-  logger.info("Composio connection initiated", { clientId, appName });
+  if (integrationId) {
+    initParams.integrationId = integrationId;
+  }
+
+  const connection = await client.connectedAccounts.initiate(initParams as any);
+
+  logger.info("Composio connection initiated", { clientId, appName, integrationId });
 
   return {
     redirectUrl: (connection as any).redirectUrl ?? (connection as any).redirect_url ?? "",
