@@ -192,7 +192,13 @@ export function CreateAgentForm({ composioApps }: { composioApps: ComposioApp[] 
     return true;
   };
 
-  const next = () => { if (canNext() && step < STEPS.length - 1) setStep(step + 1); };
+  const next = () => {
+    if (canNext() && step < STEPS.length - 1) {
+      const nextStep = step + 1;
+      if (nextStep === 2) loadAuthSchemes(); // Load auth schemes when entering Connect step
+      setStep(nextStep);
+    }
+  };
   const back = () => { if (step > 0) setStep(step - 1); };
 
   // Tool selection
@@ -213,6 +219,31 @@ export function CreateAgentForm({ composioApps }: { composioApps: ComposioApp[] 
       }));
       return [...prev, toolKey];
     });
+  };
+
+  // Auth scheme cache — fetched from Composio via Oracle
+  const [authSchemes, setAuthSchemes] = useState<Record<string, string>>({});
+
+  const fetchAuthScheme = async (appKey: string): Promise<string> => {
+    if (authSchemes[appKey]) return authSchemes[appKey];
+    try {
+      const oracleUrl = process.env.NEXT_PUBLIC_ORACLE_URL ?? "";
+      const res = await fetch(`${oracleUrl}/composio/auth-scheme/${encodeURIComponent(appKey)}`);
+      if (!res.ok) return "NONE";
+      const data = await res.json();
+      const scheme = data.authScheme ?? "NONE";
+      setAuthSchemes((prev) => ({ ...prev, [appKey]: scheme }));
+      return scheme;
+    } catch {
+      return "NONE";
+    }
+  };
+
+  // Fetch auth schemes for selected tools when entering Connect step
+  const loadAuthSchemes = async () => {
+    for (const key of selectedTools) {
+      await fetchAuthScheme(key);
+    }
   };
 
   // Verify connection status with Composio
@@ -392,6 +423,7 @@ export function CreateAgentForm({ composioApps }: { composioApps: ComposioApp[] 
           apps={mergedApps}
           selectedTools={selectedTools}
           connectionStatus={connectionStatus}
+          authSchemes={authSchemes}
           onConnect={connectTool}
           onConnectApiKey={connectToolApiKey}
           onTest={testTool}
@@ -661,6 +693,7 @@ function ConnectStep({
   onConnectApiKey,
   onTest,
   onDisconnect,
+  authSchemes,
 }: {
   apps: ComposioApp[];
   selectedTools: string[];
@@ -669,12 +702,9 @@ function ConnectStep({
   onConnectApiKey: (appKey: string, apiKey: string) => void;
   onTest: (appKey: string) => void;
   onDisconnect: (appKey: string) => void;
+  authSchemes: Record<string, string>;
 }) {
   const [apiKeys, setApiKeys] = useState<Record<string, string>>({});
-  // Tools that use API key auth (not OAuth popup)
-  // Tools that use API key auth — only list tools whose Composio auth config is API_KEY
-  // OAuth tools (supabase, slack, gmail, google sheets, etc.) use the popup flow
-  const API_KEY_TOOLS = new Set(["resend", "posthog", "sendgrid", "mailchimp", "stripe", "hubspot", "klaviyo", "ahrefs", "semrush", "amplitude", "mixpanel", "pipedrive", "freshdesk", "monday", "linear", "notion", "asana", "datadog", "shopify", "zendesk", "intercom"]);
   const selectedApps = selectedTools
     .map((key) => apps.find((a) => a.key === key))
     .filter(Boolean) as ComposioApp[];
@@ -703,7 +733,10 @@ function ConnectStep({
           const isFailed = status?.status === "failed";
           const isConnecting = status?.status === "connecting";
           const isTesting = status?.status === "testing";
-          const isApiKey = API_KEY_TOOLS.has(app.key);
+          const scheme = authSchemes[app.key];
+          const isApiKey = scheme === "API_KEY";
+          const isOAuth = scheme === "OAUTH2" || scheme === "OAUTH1";
+          const isLoading = !scheme;
 
           return (
             <div key={app.key} className={`bg-card border rounded-xl p-5 ${isConnected ? "border-emerald-500/20" : "border-border"}`}>
@@ -719,7 +752,9 @@ function ConnectStep({
                   </div>
                   <div>
                     <p className="text-foreground font-medium text-sm">{app.name}</p>
-                    <p className="text-muted-foreground/60 text-xs">{app.description?.slice(0, 60)}</p>
+                    <p className="text-muted-foreground/60 text-xs">
+                      {isLoading ? "Loading..." : isApiKey ? "API Key" : isOAuth ? "OAuth" : app.description?.slice(0, 40)}
+                    </p>
                   </div>
                 </div>
 
@@ -738,13 +773,13 @@ function ConnectStep({
                       </Button>
                     </>
                   )}
-                  {isFailed && !isApiKey && (
+                  {isFailed && (
                     <span className="flex items-center gap-1 text-[11px] font-semibold bg-red-500/10 text-red-400 ring-1 ring-red-500/20 px-2.5 py-1 rounded-md">
                       <XCircle className="size-3" />
                       Failed
                     </span>
                   )}
-                  {!isConnected && !isApiKey && (
+                  {!isConnected && isOAuth && (
                     <Button
                       variant="outline"
                       onClick={() => onConnect(app.key)}
@@ -759,6 +794,9 @@ function ConnectStep({
                         </>
                       )}
                     </Button>
+                  )}
+                  {isLoading && !isConnected && (
+                    <Loader2 className="size-4 animate-spin text-muted-foreground" />
                   )}
                 </div>
               </div>
