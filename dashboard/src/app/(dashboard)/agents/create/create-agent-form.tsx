@@ -672,7 +672,7 @@ function ConnectStep({
 }) {
   const [apiKeys, setApiKeys] = useState<Record<string, string>>({});
   // Tools that use API key auth (not OAuth popup)
-  const API_KEY_TOOLS = new Set(["resend", "posthog", "sendgrid", "mailchimp", "stripe", "hubspot", "klaviyo", "ahrefs", "semrush", "amplitude", "mixpanel", "pipedrive", "freshdesk", "monday", "linear", "notion", "asana"]);
+  const API_KEY_TOOLS = new Set(["resend", "posthog", "supabase", "sendgrid", "mailchimp", "stripe", "hubspot", "klaviyo", "ahrefs", "semrush", "amplitude", "mixpanel", "pipedrive", "freshdesk", "monday", "linear", "notion", "asana", "datadog", "github", "shopify", "zendesk", "intercom"]);
   const selectedApps = selectedTools
     .map((key) => apps.find((a) => a.key === key))
     .filter(Boolean) as ComposioApp[];
