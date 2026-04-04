@@ -149,11 +149,41 @@ Autonomy level: ${ctx.autonomyLevel}
 You are a dedicated member of the ${ctx.clientBusinessName} team. You communicate directly with the client via email. You sign every message as ${ctx.agentName}.`;
 }
 
+// Max characters for the memory section in the system prompt
+const MAX_MEMORY_CHARS = 8_000;
+
 function buildClientSection(ctx: AgentContext): string {
-  const memoryLines = Object.entries(ctx.clientMemory)
-    .filter(([, v]) => v !== null && v !== undefined && v !== "")
-    .map(([k, v]) => `- ${k}: ${typeof v === "string" ? v : JSON.stringify(v)}`)
+  // Separate document contents from general memory — docs are too large for system prompt
+  const filteredMemory = Object.entries(ctx.clientMemory)
+    .filter(([k, v]) => {
+      if (k === "documentContents") return false; // full text — never in system prompt
+      if (v === null || v === undefined || v === "") return false;
+      return true;
+    });
+
+  // Format documents as summaries only
+  const docs = ctx.clientMemory.documents as Array<{ filename: string; summary: string }> | undefined;
+  const docLines = docs && docs.length > 0
+    ? `\nUploaded documents (${docs.length}):\n${docs.map((d) => `- ${d.filename}: ${d.summary.slice(0, 200)}`).join("\n")}`
+    : "";
+
+  // Format other memory entries
+  const memoryLines = filteredMemory
+    .filter(([k]) => k !== "documents") // already handled above
+    .map(([k, v]) => {
+      const val = typeof v === "string" ? v : JSON.stringify(v);
+      return `- ${k}: ${val.slice(0, 500)}`;
+    })
     .join("\n");
+
+  let memorySection = "";
+  if (memoryLines || docLines) {
+    memorySection = `\nClient memory:\n${memoryLines}${docLines}`;
+    // Cap total memory size
+    if (memorySection.length > MAX_MEMORY_CHARS) {
+      memorySection = memorySection.slice(0, MAX_MEMORY_CHARS) + "\n[... memory truncated]";
+    }
+  }
 
   return `## Your Client
 
@@ -162,8 +192,7 @@ Industry: ${ctx.clientIndustry}
 Goal: ${ctx.clientBusinessGoal}
 Brand voice: ${ctx.clientBrandVoice}
 North star metric: ${ctx.clientNorthStar ?? "Not set"}
-Preferred channel: ${ctx.clientPreferredChannel}
-${memoryLines ? `\nClient memory:\n${memoryLines}` : ""}`;
+Preferred channel: ${ctx.clientPreferredChannel}${memorySection}`;
 }
 
 function buildToolSection(ctx: AgentContext): string {
