@@ -12,6 +12,7 @@ model Client {
   id                    String    @id @default(cuid())
   email                 String    @unique
   contactName           String?
+  preferredName         String?
   businessName          String
   industry              String
   businessGoal          String
@@ -31,12 +32,17 @@ model Client {
   pausedAt              DateTime?
   cancelledAt           DateTime?
 
+  overageEnabled        Boolean   @default(false)
+  overageRateCents      Int       @default(10)
+
   agents                Agent[]
   tasks                 Task[]
   recommendations       Recommendation[]
   outcomes              Outcome[]
   credentials           Credential[]
   conversationMessages  ConversationMessage[]
+  overageEvents         OverageEvent[]
+  scheduledEmails       ScheduledEmail[]
 
   @@index([stripeCustomerId])
   @@index([billingStatus])
@@ -92,6 +98,8 @@ model Agent {
   conversationMessages  ConversationMessage[]
   performanceSignals    PerformanceSignal[]
   apiUsage              ApiUsage[]
+  overageEvents         OverageEvent[]
+  scheduledEmails       ScheduledEmail[]
 
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
@@ -281,6 +289,10 @@ model ApiUsage {
   inputTokens           Int
   outputTokens          Int
   totalTokens           Int
+  cacheCreationTokens   Int       @default(0)
+  cacheReadTokens       Int       @default(0)
+  toolErrorCount        Int       @default(0)
+  isPrimaryRun          Boolean   @default(true)
   costInCents           Int
 
   taskType              String
@@ -291,6 +303,43 @@ model ApiUsage {
   @@index([agentId])
   @@index([model])
   @@index([createdAt])
+}
+
+model OverageEvent {
+  id                    String    @id @default(cuid())
+  clientId              String
+  client                Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  agentId               String
+  agent                 Agent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  unitCostCents         Int
+  billingCycleMonth     String
+  invoicedAt            DateTime?
+  createdAt             DateTime  @default(now())
+
+  @@index([clientId, billingCycleMonth])
+  @@index([agentId])
+  @@index([invoicedAt])
+}
+
+model ScheduledEmail {
+  id                    String    @id @default(cuid())
+  agentId               String
+  agent                 Agent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  clientId              String
+  client                Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  kind                  String
+  scheduledAt           DateTime
+  status                String    @default("pending")
+  sentAt                DateTime?
+  errorMessage          String?   @db.Text
+
+  createdAt             DateTime  @default(now())
+
+  @@index([status, scheduledAt])
+  @@index([agentId])
+  @@index([clientId])
 }
 
 model StripeEvent {

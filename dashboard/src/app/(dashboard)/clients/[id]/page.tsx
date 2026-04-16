@@ -1,6 +1,7 @@
 import prisma from "@/lib/db";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
+import { getClientEngagement, getClientChurnRisk } from "@/lib/health";
 
 export const dynamic = "force-dynamic";
 
@@ -75,6 +76,22 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
     .filter((a) => a.status === "active")
     .reduce((sum, a) => sum + a.monthlyRetainerCents, 0) / 100;
 
+  const [engagement, churn] = await Promise.all([
+    getClientEngagement(id, 30),
+    getClientChurnRisk(id),
+  ]);
+
+  const churnStyle: Record<string, string> = {
+    ok: "bg-emerald-500/10 text-emerald-400 ring-1 ring-emerald-500/20",
+    watching: "bg-amber-500/10 text-amber-400 ring-1 ring-amber-500/20",
+    at_risk: "bg-red-500/10 text-red-400 ring-1 ring-red-500/20",
+  };
+  const churnLabel: Record<string, string> = {
+    ok: "Healthy",
+    watching: "Watching",
+    at_risk: "At risk",
+  };
+
   return (
     <div className="p-6 space-y-6 max-w-7xl">
       {/* Breadcrumb */}
@@ -107,6 +124,36 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
         <KpiCard label="Active Agents" value={`${client.agents.filter((a) => a.status === "active").length}`} />
         <KpiCard label="Total Tasks" value={`${client.agents.reduce((sum, a) => sum + a.totalTasksCompleted, 0)}`} />
         <KpiCard label="Channel" value={client.preferredChannel} />
+      </div>
+
+      {/* Health row — engagement + churn signal */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="bg-card border border-border rounded-xl p-5">
+          <div className="flex items-baseline justify-between">
+            <p className="text-muted-foreground text-[11px] font-semibold uppercase tracking-wider">Engagement (30d)</p>
+            <p className="text-muted-foreground/60 text-[11px]">
+              {engagement.daysSinceLastReply !== null ? `Last reply ${engagement.daysSinceLastReply}d ago` : "No replies yet"}
+            </p>
+          </div>
+          <p className="text-3xl font-bold text-foreground mt-2 tabular-nums">
+            {engagement.agentMessages > 0 ? `${engagement.replyRatePct.toFixed(0)}%` : "—"}
+          </p>
+          <p className="text-muted-foreground/60 text-xs mt-1">
+            {engagement.clientMessages} replies · {engagement.agentMessages} outbound
+          </p>
+        </div>
+        <div className="bg-card border border-border rounded-xl p-5">
+          <div className="flex items-baseline justify-between">
+            <p className="text-muted-foreground text-[11px] font-semibold uppercase tracking-wider">Churn Signal</p>
+            <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider ${churnStyle[churn.level]}`}>
+              {churnLabel[churn.level]}
+            </span>
+          </div>
+          <p className="text-foreground text-sm font-medium mt-3">{churn.reason}</p>
+          <p className="text-muted-foreground/60 text-xs mt-1 tabular-nums">
+            {churn.thisMonthRuns} runs MTD · {churn.lastMonthRuns} last month
+          </p>
+        </div>
       </div>
 
       {/* Business Profile */}

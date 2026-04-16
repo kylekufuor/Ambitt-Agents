@@ -18,7 +18,7 @@ export interface ProgressEmailProps extends BaseEmailProps {
 }
 
 export function buildProgressEmail(props: ProgressEmailProps): string {
-  const { agentName, productName, dayNumber, totalDays, summary, progressItems, needsFromClient, ctaUrl } = props;
+  const { agentName, agentId, productName, dayNumber, totalDays, summary, progressItems, needsFromClient, ctaUrl } = props;
 
   const overallPct = Math.round((dayNumber / totalDays) * 100);
 
@@ -65,6 +65,6 @@ export function buildProgressEmail(props: ProgressEmailProps): string {
     ${primaryCta("View Full Progress", ctaUrl)}
   `;
 
-  const footer = footerBlock(agentName);
+  const footer = footerBlock(agentName, agentId);
   return emailWrapper("default", header, body, footer);
 }

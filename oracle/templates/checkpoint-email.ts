@@ -1,33 +1,41 @@
 // ---------------------------------------------------------------------------
-// Onboarding Email — "How to work with me"
+// Checkpoint Email — T+3 check-in, T+7 capability highlight, T+14 feedback
 // ---------------------------------------------------------------------------
-// Sent 5 minutes after the welcome email. Teaches the client how to operate
-// with their agent day-to-day: how to send tasks, how to share more docs,
-// when scheduled runs fire, how to escalate.
+// Single renderer for all three onboarding-checkpoint emails. Body is always
+// AI-personalized by oracle/onboarding-content.ts. Template is a dumb wrapper.
 //
-// Body is AI-personalized by oracle/onboarding-content.ts using what the
-// agent learned from the Zoom-collected business info. Template is a dumb
-// renderer — it just wraps the body in the Ambitt shell.
+// Each `kind` gets its own default subject line but otherwise shares the
+// same shell so the visual rhythm across the 14-day onboarding feels unified.
 // ---------------------------------------------------------------------------
 
 import { navFooterLinks } from "./_shared.js";
 
-interface OnboardingEmailOptions {
+export type CheckpointKind = "checkin_3day" | "highlight_7day" | "feedback_14day";
+
+interface CheckpointEmailOptions {
+  kind: CheckpointKind;
   agentName: string;
   agentId: string;
   preferredName: string;
   clientBusinessName: string;
   /** AI-generated body — plain text with "- " bullet lines for unordered lists. */
   body: string;
+  /** Optional subject override; defaults based on kind. */
+  subject?: string;
 }
 
-export function buildOnboardingEmail(options: OnboardingEmailOptions): {
+const DEFAULT_SUBJECTS: Record<CheckpointKind, string> = {
+  checkin_3day: "Quick check-in",
+  highlight_7day: "One more thing I can do",
+  feedback_14day: "Two weeks in — how's it going?",
+};
+
+export function buildCheckpointEmail(options: CheckpointEmailOptions): {
   subject: string;
   html: string;
 } {
-  const { agentName, agentId, preferredName, clientBusinessName, body } = options;
-
-  const subject = `How to work with ${agentName}`;
+  const { kind, agentName, agentId, preferredName, clientBusinessName, body } = options;
+  const subject = options.subject ?? DEFAULT_SUBJECTS[kind];
 
   const bodyHtml = renderBody(body);
 
@@ -107,7 +115,6 @@ export function buildOnboardingEmail(options: OnboardingEmailOptions): {
   return { subject, html };
 }
 
-/** Turn plain text with "- " bullets into basic email-safe HTML. */
 function renderBody(text: string): string {
   const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
   const rendered = lines

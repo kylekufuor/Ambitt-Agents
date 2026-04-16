@@ -36,7 +36,7 @@ export type EmailTrigger =
 // Union of all possible props — the router dispatches based on trigger type
 export type EmailProps =
   | { trigger: "welcome"; to: string; agentId: string; agentName: string; agentPurpose: string; clientFirstName: string; clientBusinessName: string; tools: string[]; capabilities: string[] }
-  | { trigger: "onboarding"; to: string; agentId: string; agentName: string; clientFirstName: string; clientBusinessName: string; agentType: string }
+  | { trigger: "onboarding"; to: string; agentId: string; agentName: string; preferredName: string; clientBusinessName: string; body: string }
   | { trigger: "agent-response"; to: string; agentId: string; agentName: string; agentRole: string; clientBusinessName: string; responseBody: string; toolsUsed: Array<{ serverId: string; toolName: string; success: boolean }>; stats?: AlertEmailProps["summary"] extends string ? any : never; [key: string]: any }
   | { trigger: "alert"; to: string } & AlertEmailProps
   | { trigger: "digest"; to: string } & DigestEmailProps
@@ -61,6 +61,7 @@ export async function sendAgentEmail(props: EmailProps): Promise<void> {
       const p = props as Extract<EmailProps, { trigger: "welcome" }>;
       const result = buildWelcomeEmail({
         agentName: p.agentName,
+        agentId: p.agentId,
         agentPurpose: p.agentPurpose,
         clientFirstName: p.clientFirstName,
         clientBusinessName: p.clientBusinessName,
@@ -78,9 +79,10 @@ export async function sendAgentEmail(props: EmailProps): Promise<void> {
       const p = props as Extract<EmailProps, { trigger: "onboarding" }>;
       const result = buildOnboardingEmail({
         agentName: p.agentName,
-        clientFirstName: p.clientFirstName,
+        agentId: p.agentId,
+        preferredName: p.preferredName,
         clientBusinessName: p.clientBusinessName,
-        agentType: p.agentType,
+        body: p.body,
       });
       html = result.html;
       subject = result.subject;
@@ -93,6 +95,7 @@ export async function sendAgentEmail(props: EmailProps): Promise<void> {
       const p = props as Extract<EmailProps, { trigger: "agent-response" }>;
       html = buildAgentResponseEmail({
         agentName: p.agentName,
+        agentId: p.agentId,
         agentRole: p.agentRole,
         clientBusinessName: p.clientBusinessName,
         responseBody: p.responseBody,

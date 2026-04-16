@@ -47,6 +47,6 @@ export function buildActionRequiredEmail(props: ActionRequiredEmailProps): strin
     ${secondaryCta("Ask a Question", `mailto:reply-${agentId}@ambitt.agency?subject=Question%20about%20${approveActionId}`, "Dismiss", `mailto:reply-${agentId}@ambitt.agency?subject=DISMISS%20${approveActionId}`)}
   `;
 
-  const footer = footerBlock(agentName);
+  const footer = footerBlock(agentName, agentId);
   return emailWrapper("warning", header, body, footer);
 }

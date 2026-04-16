@@ -50,7 +50,8 @@ app.post("/webhooks/stripe", express.raw({ type: "application/json" }), async (r
   }
 });
 
-app.use(express.json());
+// Raise body limit — scaffold endpoint accepts base64-encoded SOP uploads
+app.use(express.json({ limit: "30mb" }));
 
 function param(req: Request, key: string): string {
   const val = req.params[key];
@@ -121,6 +122,13 @@ app.post("/agents/:id/pause", async (req: Request, res: Response) => {
       where: { id },
       data: { status: "paused" },
     });
+    // Cancel pending onboarding checkpoints — pause means "stop the flow."
+    try {
+      const { cancelOnboardingCheckpoints } = await import("./scaffold.js");
+      await cancelOnboardingCheckpoints(id);
+    } catch (err) {
+      logger.warn("Failed to cancel checkpoints on pause", { agentId: id, error: err });
+    }
     res.json({ status: "paused" });
   } catch (error) {
     logger.error("Agent pause failed", { error, agentId: param(req, "id") });
@@ -138,6 +146,12 @@ app.post("/agents/:id/kill", async (req: Request, res: Response) => {
       where: { id },
       data: { status: "killed" },
     });
+    try {
+      const { cancelOnboardingCheckpoints } = await import("./scaffold.js");
+      await cancelOnboardingCheckpoints(id);
+    } catch (err) {
+      logger.warn("Failed to cancel checkpoints on kill", { agentId: id, error: err });
+    }
     res.json({ status: "killed" });
   } catch (error) {
     logger.error("Agent kill failed", { error, agentId: param(req, "id") });
@@ -473,6 +487,7 @@ app.post("/webhooks/email-inbound", async (req: Request, res: Response) => {
 
     const responseHtml = buildAgentResponseEmail({
       agentName: agent.name,
+      agentId,
       agentRole: agent.purpose,
       clientBusinessName: agent.client.businessName,
       responseBody: result.response,

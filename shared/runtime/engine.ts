@@ -6,7 +6,7 @@ import { generatePDF } from "../attachments/pdf.js";
 import { analyzePerformanceFull, formatPageSpeedResults } from "../platform-tools/pagespeed.js";
 import { scanSite, formatScanResults } from "../platform-tools/site-scanner.js";
 import { webSearch, formatSearchResults } from "../platform-tools/web-search.js";
-import { logUsage } from "../claude.js";
+import { logUsage, CLIENT_MODEL, TRIAGE_MODEL } from "../claude.js";
 import type { EmailAttachment } from "../email.js";
 import prisma from "../db.js";
 import logger from "../logger.js";
@@ -28,8 +28,13 @@ import logger from "../logger.js";
 // ---------------------------------------------------------------------------
 
 const MAX_TOOL_LOOPS = 10;
-const MODEL = "claude-sonnet-4-20250514";
 const MAX_TOKENS = 4096;
+
+// Triage routing: Haiku handles intermediate tool-selection loops (~10× cheaper
+// than Sonnet), then escalates to CLIENT_MODEL once Haiku decides research is
+// done, so the client-facing response is written by the stronger model. Set
+// DISABLE_TRIAGE_ROUTING=1 to force CLIENT_MODEL for the whole loop.
+const TRIAGE_ENABLED = process.env.DISABLE_TRIAGE_ROUTING !== "1";
 
 // Built-in tool names (not MCP — handled internally)
 // Built-in tools are platform-level capabilities that don't require a client
@@ -49,6 +54,10 @@ export interface RuntimeInput {
   channel: "email" | "whatsapp";
   threadId: string;
   senderEmail?: string;
+  // When false, this run does NOT count toward the client's monthly interaction
+  // quota and bypasses overage enforcement. Used for system-initiated onboarding
+  // and checkpoint emails ("on us"). API cost is still logged for accounting.
+  billable?: boolean;
 }
 
 export interface RuntimeOutput {
@@ -268,17 +277,29 @@ async function executeBuiltinTool(
 
 export async function runAgent(input: RuntimeInput): Promise<RuntimeOutput> {
   const { agentId, userMessage, channel, threadId } = input;
+  const billable = input.billable !== false; // default true
   const startTime = Date.now();
 
-  // Check interaction limit before running
+  // Check interaction limit before running. Overage is always on: when the
+  // agent passes its tier's interactionLimit, each extra interaction is
+  // charged at the tier's overage rate (see pricing.ts) and logged as an
+  // OverageEvent row for end-of-month invoicing.
   const agentRecord = await prisma.agent.findUnique({
     where: { id: agentId },
-    select: { interactionCount: true, interactionLimit: true, interactionResetAt: true, pricingTier: true },
+    select: {
+      interactionCount: true,
+      interactionLimit: true,
+      interactionResetAt: true,
+      pricingTier: true,
+      clientId: true,
+    },
   });
 
-  if (agentRecord) {
-    // Reset counter if past the reset date
+  let isOverageInteraction = false;
+
+  if (agentRecord && billable) {
     if (agentRecord.interactionResetAt && new Date() >= agentRecord.interactionResetAt) {
+      // Reset counter if past the reset date
       const nextReset = new Date();
       nextReset.setMonth(nextReset.getMonth() + 1);
       nextReset.setDate(1);
@@ -286,21 +307,14 @@ export async function runAgent(input: RuntimeInput): Promise<RuntimeOutput> {
 
       await prisma.agent.update({
         where: { id: agentId },
-        data: { interactionCount: 0, interactionResetAt: nextReset },
+        data: { interactionCount: 0, overageCount: 0, interactionResetAt: nextReset },
       });
     } else if (agentRecord.interactionLimit > 0 && agentRecord.interactionCount >= agentRecord.interactionLimit) {
-      // Limit reached — return limit message instead of running
-      const tierName = agentRecord.pricingTier.charAt(0).toUpperCase() + agentRecord.pricingTier.slice(1);
-      return {
-        response: `You've reached your ${tierName} plan limit of ${agentRecord.interactionLimit.toLocaleString()} interactions this month. Reply "upgrade" to increase your limit, or contact support@ambitt.agency.`,
-        toolsUsed: [],
-        attachments: [],
-        totalInputTokens: 0,
-        totalOutputTokens: 0,
-        loopCount: 0,
-      };
+      isOverageInteraction = true;
     }
   }
+  // Non-billable runs skip the counter bump and overage branch entirely —
+  // treated as free system work that still logs API cost for internal accounting.
 
   // Step 1: Load agent context
   const ctx = await loadAgentContext(agentId);
@@ -314,15 +328,47 @@ export async function runAgent(input: RuntimeInput): Promise<RuntimeOutput> {
   // Step 3: Assemble system prompt
   const systemPrompt = assembleSystemPrompt(ctx);
 
+  // Prompt caching — system prompt and tool definitions are stable across the
+  // tool loop and across runs until the agent's memory/tools change. Caching
+  // them cuts input cost by ~90% on repeat calls (5-min TTL).
+  const systemParam: Anthropic.Messages.MessageCreateParams["system"] = [
+    { type: "text", text: systemPrompt, cache_control: { type: "ephemeral" } },
+  ];
+  const cachedTools: Anthropic.Messages.Tool[] = allClaudeTools.length > 0
+    ? allClaudeTools.map((tool, idx) =>
+        idx === allClaudeTools.length - 1
+          ? { ...tool, cache_control: { type: "ephemeral" } }
+          : tool
+      )
+    : [];
+
   // Step 4: Build initial messages
   const messages: Anthropic.Messages.MessageParam[] = [
     { role: "user", content: userMessage },
   ];
 
-  // Step 5: Agentic loop
+  // Step 5: Agentic loop with triage routing (Haiku → Sonnet escalation).
+  // See TRIAGE_ENABLED comment for the pattern.
   const client = new Anthropic();
-  let totalInputTokens = 0;
-  let totalOutputTokens = 0;
+  interface ModelUsage {
+    inputTokens: number;
+    outputTokens: number;
+    cacheCreationTokens: number;
+    cacheReadTokens: number;
+  }
+  const usageByModel: Record<string, ModelUsage> = {};
+  const trackUsage = (model: string, u: Anthropic.Messages.Usage) => {
+    const bucket = usageByModel[model] ??= {
+      inputTokens: 0, outputTokens: 0, cacheCreationTokens: 0, cacheReadTokens: 0,
+    };
+    bucket.inputTokens += u.input_tokens;
+    bucket.outputTokens += u.output_tokens;
+    bucket.cacheCreationTokens += u.cache_creation_input_tokens ?? 0;
+    bucket.cacheReadTokens += u.cache_read_input_tokens ?? 0;
+  };
+
+  let currentModel = TRIAGE_ENABLED ? TRIAGE_MODEL : CLIENT_MODEL;
+  let hasEscalated = !TRIAGE_ENABLED; // if triage off, we're "already" at final model
   const toolsUsed: RuntimeOutput["toolsUsed"] = [];
   const attachments: EmailAttachment[] = [];
   let loopCount = 0;
@@ -332,16 +378,15 @@ export async function runAgent(input: RuntimeInput): Promise<RuntimeOutput> {
     loopCount = i + 1;
 
     const apiResponse = await client.messages.create({
-      model: MODEL,
+      model: currentModel,
       max_tokens: MAX_TOKENS,
       temperature: 0.7,
-      system: systemPrompt,
+      system: systemParam,
       messages,
-      tools: allClaudeTools.length > 0 ? allClaudeTools : undefined,
+      tools: cachedTools.length > 0 ? cachedTools : undefined,
     });
 
-    totalInputTokens += apiResponse.usage.input_tokens;
-    totalOutputTokens += apiResponse.usage.output_tokens;
+    trackUsage(currentModel, apiResponse.usage);
 
     // Extract text and tool_use blocks
     const textBlocks = apiResponse.content.filter(
@@ -351,8 +396,16 @@ export async function runAgent(input: RuntimeInput): Promise<RuntimeOutput> {
       (b): b is Anthropic.Messages.ToolUseBlock => b.type === "tool_use"
     );
 
-    // If no tool calls, we're done
+    // No tool calls — the model wants to respond.
     if (apiResponse.stop_reason === "end_turn" || toolUseBlocks.length === 0) {
+      // If Haiku finished research and we haven't escalated yet, escalate to
+      // CLIENT_MODEL to write the client-facing response. Haiku's text is
+      // discarded so Sonnet regenerates from the full tool context.
+      if (!hasEscalated && toolsUsed.length > 0) {
+        currentModel = CLIENT_MODEL;
+        hasEscalated = true;
+        continue;
+      }
       finalResponse = textBlocks.map((b) => b.text).join("\n\n");
       break;
     }
@@ -447,19 +500,58 @@ export async function runAgent(input: RuntimeInput): Promise<RuntimeOutput> {
     },
   });
 
-  // Increment interaction counter
-  await prisma.agent.update({
-    where: { id: agentId },
-    data: { interactionCount: { increment: 1 } },
-  });
+  // Increment interaction counter (only for billable runs). If this was an
+  // overage interaction, also bump overageCount and record an OverageEvent
+  // for end-of-month billing.
+  if (billable) {
+    await prisma.agent.update({
+      where: { id: agentId },
+      data: {
+        interactionCount: { increment: 1 },
+        ...(isOverageInteraction && { overageCount: { increment: 1 } }),
+      },
+    });
 
-  // Log API usage
-  await logUsage(agentId, "agent_runtime", {
-    content: finalResponse,
-    inputTokens: totalInputTokens,
-    outputTokens: totalOutputTokens,
-    totalTokens: totalInputTokens + totalOutputTokens,
-  });
+    if (isOverageInteraction && agentRecord) {
+      const { currentBillingCycleMonth, getOverageRate } = await import("../pricing.js");
+      const unitCostCents = getOverageRate(agentRecord.pricingTier as import("../pricing.js").PricingTier);
+      await prisma.overageEvent.create({
+        data: {
+          clientId: agentRecord.clientId,
+          agentId,
+          unitCostCents,
+          billingCycleMonth: currentBillingCycleMonth(),
+        },
+      });
+    }
+  }
+
+  const toolErrorCount = toolsUsed.filter((t) => !t.success).length;
+  // Log API usage per model — triage routing may have used both Haiku + Sonnet.
+  // The "primary" row represents this run for dashboard counts: it carries the
+  // tool error attribution and isPrimaryRun=true. Secondary rows (Haiku when
+  // Sonnet also wrote) set isPrimaryRun=false so run-level panels don't double.
+  const modelsWithUsage = Object.keys(usageByModel);
+  const primaryModel = modelsWithUsage.includes(CLIENT_MODEL) ? CLIENT_MODEL : modelsWithUsage[0];
+  for (const [model, u] of Object.entries(usageByModel)) {
+    const isPrimary = model === primaryModel;
+    await logUsage(agentId, "agent_runtime", {
+      content: finalResponse,
+      model,
+      inputTokens: u.inputTokens,
+      outputTokens: u.outputTokens,
+      totalTokens: u.inputTokens + u.outputTokens + u.cacheCreationTokens + u.cacheReadTokens,
+      cacheCreationTokens: u.cacheCreationTokens,
+      cacheReadTokens: u.cacheReadTokens,
+      toolErrorCount: isPrimary ? toolErrorCount : 0,
+      isPrimaryRun: isPrimary,
+    });
+  }
+
+  const totalInputTokens = Object.values(usageByModel).reduce((s, u) => s + u.inputTokens, 0);
+  const totalOutputTokens = Object.values(usageByModel).reduce((s, u) => s + u.outputTokens, 0);
+  const totalCacheCreationTokens = Object.values(usageByModel).reduce((s, u) => s + u.cacheCreationTokens, 0);
+  const totalCacheReadTokens = Object.values(usageByModel).reduce((s, u) => s + u.cacheReadTokens, 0);
 
   logger.info("Agent runtime complete", {
     agentId,
@@ -469,6 +561,10 @@ export async function runAgent(input: RuntimeInput): Promise<RuntimeOutput> {
     attachments: attachments.length,
     elapsed,
     tokens: totalInputTokens + totalOutputTokens,
+    cacheCreationTokens: totalCacheCreationTokens,
+    cacheReadTokens: totalCacheReadTokens,
+    escalated: hasEscalated,
+    modelsUsed: Object.keys(usageByModel),
   });
 
   return {

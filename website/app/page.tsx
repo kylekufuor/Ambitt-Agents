@@ -238,21 +238,21 @@ function Services() {
 
 const plans = [
   {
-    name: "Starter", price: "$497", period: "/month",
+    name: "Starter", price: "$499", period: "/month",
     description: "One agent, connected to your tools. Perfect for getting started.",
-    features: ["1 AI agent", "Up to 3 tool connections", "1,000 interactions/month", "Email delivery", "Weekly digest reports", "Web research"],
+    features: ["1 AI agent", "Unlimited tool connections", "1,000 interactions/month", "Overage at $0.60/interaction", "Email delivery", "Weekly digest reports", "Web research"],
     popular: false,
   },
   {
-    name: "Growth", price: "$697", period: "/month",
+    name: "Growth", price: "$999", period: "/month",
     description: "Multiple agents working together. Built for growing teams.",
-    features: ["Up to 3 AI agents", "Unlimited tool connections", "3,000 interactions/month", "Email + PDF reports", "Custom schedules", "Document memory", "Priority support"],
+    features: ["Up to 2 AI agents", "Unlimited tool connections", "3,000 interactions/month", "Overage at $0.40/interaction", "Email + PDF reports", "Custom schedules", "Document memory", "Priority support"],
     popular: true,
   },
   {
-    name: "Scale", price: "$997", period: "/month",
+    name: "Scale", price: "$2,499", period: "/month",
     description: "Full AI workforce. For businesses ready to operate differently.",
-    features: ["Unlimited AI agents", "Unlimited tool connections", "Unlimited interactions", "Email + PDF + CSV exports", "Custom schedules", "Document memory", "Dedicated onboarding", "Slack support"],
+    features: ["Up to 3 AI agents", "Unlimited tool connections", "10,000 interactions/month", "Overage at $0.30/interaction", "Email + PDF + CSV exports", "Custom schedules", "Document memory", "Dedicated onboarding", "Slack support"],
     popular: false,
   },
 ];

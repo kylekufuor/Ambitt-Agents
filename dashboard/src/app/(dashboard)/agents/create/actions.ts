@@ -63,8 +63,23 @@ export async function createAgentAction(
   _prevState: CreateAgentState,
   formData: FormData
 ): Promise<CreateAgentState> {
+  // Read any SOP files, base64-encode, forward to Oracle in the JSON body.
+  // Files arrive as File objects under the "sops" field.
+  const sopFiles = formData.getAll("sops").filter((f): f is File => f instanceof File && f.size > 0);
+  const sops = await Promise.all(
+    sopFiles.map(async (file) => {
+      const buffer = Buffer.from(await file.arrayBuffer());
+      return {
+        filename: file.name,
+        contentType: file.type || "application/octet-stream",
+        content: buffer.toString("base64"),
+      };
+    })
+  );
+
   const payload = {
     clientName: formData.get("clientName") as string,
+    preferredName: (formData.get("preferredName") as string) || undefined,
     clientEmail: formData.get("clientEmail") as string,
     businessName: formData.get("businessName") as string,
     businessWebsite: formData.get("businessWebsite") as string || undefined,
@@ -80,6 +95,7 @@ export async function createAgentAction(
       apiKey?: string;
       oauthToken?: string;
     }>,
+    sops,
   };
 
   try {

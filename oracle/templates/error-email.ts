@@ -63,6 +63,6 @@ export function buildErrorEmail(props: ErrorEmailProps): string {
     ${secondaryCta("View Logs", ctaUrl, "Dismiss", `mailto:reply-${agentId}@ambitt.agency?subject=DISMISS%20${retryActionId}`)}
   `;
 
-  const footer = footerBlock(agentName);
+  const footer = footerBlock(agentName, agentId);
   return emailWrapper("alert", header, body, footer);
 }

@@ -189,10 +189,50 @@ export function secondaryCta(label1: string, url1: string, label2: string, url2:
 </table>`;
 }
 
-export function footerBlock(agentName: string): string {
+// ---------------------------------------------------------------------------
+// Persistent nav footer — shown on every agent email.
+// Quiet links for the client to reach any part of the platform from any email.
+// ---------------------------------------------------------------------------
+
+const NAV_LINK_STYLE =
+  'color: #a1a1aa; text-decoration: none; border-bottom: 1px dotted #d4d4d8;';
+
+export function navFooterLinks(agentName: string, agentId: string): string {
+  const agentShort = agentName.length > 16 ? `${agentName.slice(0, 14)}…` : agentName;
+  const links = [
+    { label: `Chat with ${agentShort}`, href: `https://chat.ambitt.agency/${agentId}` },
+    { label: `Manage ${agentShort}`, href: `https://clients.ambitt.agency/agents/${agentId}` },
+    { label: "Billing", href: "https://clients.ambitt.agency/billing" },
+    {
+      label: "Request a tool",
+      href: `mailto:support@ambitt.agency?subject=${encodeURIComponent("Tool request")}`,
+    },
+    {
+      label: "Pause agent",
+      href: `mailto:reply-${agentId}@ambitt.agency?subject=${encodeURIComponent("PAUSE")}`,
+    },
+    { label: "Help", href: "mailto:support@ambitt.agency" },
+  ];
+  return links
+    .map((l) => `<a href="${l.href}" style="${NAV_LINK_STYLE}">${l.label}</a>`)
+    .join('<span style="color: #e4e4e7; margin: 0 6px;">·</span>');
+}
+
+export function footerBlock(
+  agentName: string,
+  agentId: string,
+  options: { systemEmail?: boolean } = {}
+): string {
+  const onUsLine = options.systemEmail
+    ? `<p style="margin: 8px 0 0 0; font-size: 11px; color: #86efac; font-style: italic;">This one is on us — it doesn't count toward your monthly interactions.</p>`
+    : "";
   return `
 <p style="margin: 0; font-size: 11px; color: #a1a1aa;">
   ${agentName} · <a href="https://ambitt.agency" style="color: #a1a1aa; text-decoration: none;">Ambitt Agents</a>
 </p>
-<p style="margin: 4px 0 0 0; font-size: 11px; color: #d4d4d8;">Reply to this email to respond to your agent.</p>`;
+<p style="margin: 4px 0 0 0; font-size: 11px; color: #d4d4d8;">Reply to this email to respond to your agent.</p>
+${onUsLine}
+<p style="margin: 10px 0 0 0; font-size: 11px; color: #a1a1aa; line-height: 1.8;">
+  ${navFooterLinks(agentName, agentId)}
+</p>`;
 }

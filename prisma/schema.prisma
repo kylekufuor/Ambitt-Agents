@@ -12,6 +12,7 @@ model Client {
   id                    String    @id @default(cuid())
   email                 String    @unique
   contactName           String?
+  preferredName         String?                             // what the client wants the agent to call them (e.g. "Kyle" even if contactName is "Kyle Kufuor")
   businessName          String
   industry              String
   businessGoal          String
@@ -31,6 +32,12 @@ model Client {
   pausedAt              DateTime?
   cancelledAt           DateTime?
 
+  // Overage billing — when true, agent keeps working past interactionLimit and
+  // we charge overageRateCents per extra interaction at end of month. When
+  // false (default), agent hard-stops at the limit.
+  overageEnabled        Boolean   @default(false)
+  overageRateCents      Int       @default(10) // 10¢/interaction by default ($0.05-0.10 range)
+
   agents                Agent[]
   tasks                 Task[]
   recommendations       Recommendation[]
@@ -38,6 +45,8 @@ model Client {
   credentials           Credential[]
   conversationMessages  ConversationMessage[]
   suppressions          Suppression[]
+  overageEvents         OverageEvent[]
+  scheduledEmails       ScheduledEmail[]
 
   @@index([stripeCustomerId])
   @@index([billingStatus])
@@ -56,7 +65,9 @@ model Agent {
 
   tools                 String[]
   schedule              String
-  autonomyLevel         String    @default("advisory")
+  autonomyLevel         String    @default("advisory")         // "advisory" | "copilot" | "autonomous"
+  timezone              String    @default("America/New_York") // IANA tz — governs cron firing + polite hours
+  deliveryFormat        String    @default("email_summary")    // "email_summary" | "email_with_attachments" | "email_plus_sheet"
   clientNorthStar       String?
 
   primaryModel          String    @default("claude-sonnet-4-6")
@@ -80,6 +91,7 @@ model Agent {
   // Interaction tracking
   interactionCount      Int       @default(0)         // current billing cycle
   interactionLimit      Int       @default(1000)      // per tier: 1000/3000/-1(unlimited)
+  overageCount          Int       @default(0)         // extra interactions past the limit (only if client opted into overage)
   interactionResetAt    DateTime?                     // next reset date (monthly)
 
   // Budget enforcement
@@ -102,6 +114,8 @@ model Agent {
   performanceSignals    PerformanceSignal[]
   apiUsage              ApiUsage[]
   suppressions          Suppression[]
+  overageEvents         OverageEvent[]
+  scheduledEmails       ScheduledEmail[]
 
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
@@ -298,10 +312,14 @@ model ApiUsage {
   agent                 Agent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
 
   model                 String
-  inputTokens           Int
+  inputTokens           Int                             // uncached input tokens only
   outputTokens          Int
   totalTokens           Int
-  costInCents           Int
+  cacheCreationTokens   Int       @default(0)           // billed at 1.25× base input rate
+  cacheReadTokens       Int       @default(0)           // billed at 0.10× base input rate
+  toolErrorCount        Int       @default(0)           // failed tool calls during this run — used for agent error rate
+  isPrimaryRun          Boolean   @default(true)        // false on secondary rows from multi-model runs (e.g. Haiku row when Sonnet also wrote) so run-level counts don't double
+  costInCents           Int                             // authoritative — computed at write time
 
   taskType              String
   taskId                String?
@@ -311,6 +329,47 @@ model ApiUsage {
   @@index([agentId])
   @@index([model])
   @@index([createdAt])
+}
+
+model OverageEvent {
+  id                    String    @id @default(cuid())
+  clientId              String
+  client                Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  agentId               String
+  agent                 Agent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  unitCostCents         Int                               // snapshot of overageRateCents at time of event
+  billingCycleMonth     String                            // "YYYY-MM" for end-of-month aggregation
+  invoicedAt            DateTime?                         // when this was rolled up into a Stripe invoice
+  createdAt             DateTime  @default(now())
+
+  @@index([clientId, billingCycleMonth])
+  @@index([agentId])
+  @@index([invoicedAt])
+}
+
+// ScheduledEmail — onboarding-checkpoint emails enqueued on agent approval
+// (T+3 check-in, T+7 capability highlight, T+14 feedback + 2nd-agent pitch).
+// A daily cron in oracle/scheduler.ts picks up rows where status=pending and
+// scheduledAt <= now() and fires them through the email router.
+model ScheduledEmail {
+  id                    String    @id @default(cuid())
+  agentId               String
+  agent                 Agent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  clientId              String
+  client                Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  kind                  String                                // "checkin_3day" | "highlight_7day" | "feedback_14day"
+  scheduledAt           DateTime
+  status                String    @default("pending")         // pending | sent | cancelled | failed
+  sentAt                DateTime?
+  errorMessage          String?   @db.Text
+
+  createdAt             DateTime  @default(now())
+
+  @@index([status, scheduledAt])
+  @@index([agentId])
+  @@index([clientId])
 }
 
 model StripeEvent {

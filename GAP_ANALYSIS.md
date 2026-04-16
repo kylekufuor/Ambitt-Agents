@@ -133,14 +133,15 @@
 
 | Component | Status | Details |
 |-----------|--------|---------|
-| Volume pricing engine | **EXISTS** | `shared/pricing.ts` — tier-based per-agent pricing with auto-recalc. |
-| v2 SMB pricing ($497/$697/$997) | **MISSING** | Current pricing is per-agent volume discount ($49-99). v2 has named tiers with interaction limits. Different model. |
-| Enterprise pricing | **MISSING** | No enterprise track. |
-| Interaction counting | **MISSING** | No concept of "interactions per month" or interaction limits. |
-| Setup fee logic | **PARTIAL** | `shared/pricing.ts` has setup fees ($199/agent or $499 batch). v2 wants $500-1,500 based on complexity. |
-| Annual billing | **MISSING** | No annual discount logic. |
+| SMB pricing ($499 / $999 / $2,499) | **EXISTS** | `shared/pricing.ts` is the source of truth. Starter 1K interactions, Growth 3K, Scale 10K. |
+| Enterprise pricing | **PARTIAL** | `enterprise` tier exists in code with custom billing, no fixed retainer math. Discovery/implementation ranges documented in pricing.ts header only. |
+| Interaction counting | **EXISTS** | `Agent.interactionCount`/`interactionLimit` + monthly reset via `interactionResetAt`. Enforced in runtime engine. |
+| Overage billing | **EXISTS** | Always-on per-tier overage ($0.60 / $0.40 / $0.30). Logged as `OverageEvent` rows for end-of-month roll-up. Stripe invoice automation NOT yet wired. |
+| Setup fee logic | **PARTIAL** | `shared/pricing.ts` stores tier setupFeeCentsMin/Max ($1,000–$2,500). Not yet collected via Stripe. |
+| Annual billing | **PARTIAL** | `getAnnualPrice()` returns 10× monthly (2 months free). No `billingCadence` field or Stripe annual price ID wired. |
+| Second-agent discount | **EXISTS** | 20% off 2nd+ agent, applied by `recalcClientRetainers` ordered by createdAt. |
 
-**Gap:** Pricing model is fundamentally different in v2. Needs a rewrite of `shared/pricing.ts`.
+**Gap:** Stripe plumbing for overage invoicing, annual upgrade flow, and setup fee collection.
 
 ---
 

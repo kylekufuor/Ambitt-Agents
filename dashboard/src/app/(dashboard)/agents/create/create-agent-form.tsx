@@ -12,6 +12,8 @@ import {
   Zap,
   ExternalLink,
   SearchIcon,
+  FileText,
+  Upload,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -142,11 +144,13 @@ export function CreateAgentForm({ composioApps }: { composioApps: ComposioApp[] 
   // Step 1 state
   const [agentName, setAgentName] = useState("");
   const [clientName, setClientName] = useState("");
+  const [preferredName, setPreferredName] = useState("");
   const [clientEmail, setClientEmail] = useState("");
   const [businessName, setBusinessName] = useState("");
   const [businessWebsite, setBusinessWebsite] = useState("");
   const [businessDescription, setBusinessDescription] = useState("");
   const [agentType, setAgentType] = useState("analytics");
+  const [sopFiles, setSopFiles] = useState<File[]>([]);
 
   // Step 2 state
   const [selectedTools, setSelectedTools] = useState<string[]>([]);
@@ -157,7 +161,7 @@ export function CreateAgentForm({ composioApps }: { composioApps: ComposioApp[] 
   >({});
 
   // Step 4 state
-  const [createState, createAction] = useActionState<CreateAgentState, FormData>(createAgentAction, {
+  const [createState, createAction, isCreating] = useActionState<CreateAgentState, FormData>(createAgentAction, {
     success: null,
     agentId: null,
     error: null,
@@ -188,7 +192,7 @@ export function CreateAgentForm({ composioApps }: { composioApps: ComposioApp[] 
   // Navigation
   const canNext = () => {
     if (step === 0) return agentName.length >= 2 && clientEmail.includes("@") && businessName.length >= 2;
-    if (step === 1) return selectedTools.length >= 1 && selectedTools.length <= MAX_TOOLS;
+    if (step === 1) return selectedTools.length <= MAX_TOOLS;
     if (step === 2) return true;
     return true;
   };
@@ -408,11 +412,13 @@ export function CreateAgentForm({ composioApps }: { composioApps: ComposioApp[] 
         <BasicInfoStep
           agentName={agentName} setAgentName={setAgentName}
           clientName={clientName} setClientName={setClientName}
+          preferredName={preferredName} setPreferredName={setPreferredName}
           clientEmail={clientEmail} setClientEmail={setClientEmail}
           businessName={businessName} setBusinessName={setBusinessName}
           businessWebsite={businessWebsite} setBusinessWebsite={setBusinessWebsite}
           businessDescription={businessDescription} setBusinessDescription={setBusinessDescription}
           agentType={agentType} setAgentType={setAgentType}
+          sopFiles={sopFiles} setSopFiles={setSopFiles}
         />
       )}
       {step === 1 && (
@@ -442,6 +448,7 @@ export function CreateAgentForm({ composioApps }: { composioApps: ComposioApp[] 
         <ReviewStep
           agentName={agentName}
           clientName={clientName}
+          preferredName={preferredName}
           clientEmail={clientEmail}
           businessName={businessName}
           businessWebsite={businessWebsite}
@@ -450,8 +457,10 @@ export function CreateAgentForm({ composioApps }: { composioApps: ComposioApp[] 
           selectedTools={selectedTools}
           apps={mergedApps}
           connectionStatus={connectionStatus}
+          sopFiles={sopFiles}
           createAction={createAction}
           createState={createState}
+          isCreating={isCreating}
         />
       )}
 
@@ -481,32 +490,40 @@ export function CreateAgentForm({ composioApps }: { composioApps: ComposioApp[] 
 function BasicInfoStep({
   agentName, setAgentName,
   clientName, setClientName,
+  preferredName, setPreferredName,
   clientEmail, setClientEmail,
   businessName, setBusinessName,
   businessWebsite, setBusinessWebsite,
   businessDescription, setBusinessDescription,
   agentType, setAgentType,
+  sopFiles, setSopFiles,
 }: {
   agentName: string; setAgentName: (v: string) => void;
   clientName: string; setClientName: (v: string) => void;
+  preferredName: string; setPreferredName: (v: string) => void;
   clientEmail: string; setClientEmail: (v: string) => void;
   businessName: string; setBusinessName: (v: string) => void;
   businessWebsite: string; setBusinessWebsite: (v: string) => void;
   businessDescription: string; setBusinessDescription: (v: string) => void;
   agentType: string; setAgentType: (v: string) => void;
+  sopFiles: File[]; setSopFiles: (v: File[]) => void;
 }) {
   return (
-    <div className="bg-card border border-border rounded-xl p-6 space-y-5 max-w-xl">
+    <div className="bg-card border border-border rounded-xl px-5 py-4 space-y-4 max-w-3xl">
       <div>
-        <h2 className="text-foreground font-semibold text-[15px]">Agent Identity</h2>
+        <h2 className="text-foreground font-medium text-base">Agent Identity</h2>
         <p className="text-muted-foreground text-sm mt-1">Name your agent and tell us who it&apos;s for.</p>
       </div>
-      <div className="space-y-4">
+      <div className="space-y-3">
         <Field label="Agent Name">
           <Input placeholder="e.g. Atlas" value={agentName} onChange={(e) => setAgentName(e.target.value)} />
         </Field>
         <Field label="Client Contact Name">
-          <Input placeholder="e.g. Kyle" value={clientName} onChange={(e) => setClientName(e.target.value)} />
+          <Input placeholder="Full name — e.g. Kyle Kufuor" value={clientName} onChange={(e) => setClientName(e.target.value)} />
+        </Field>
+        <Field label="What should the agent call them?">
+          <Input placeholder={`e.g. ${clientName.split(" ")[0] || "Kyle"}`} value={preferredName} onChange={(e) => setPreferredName(e.target.value)} />
+          <p className="text-muted-foreground/60 text-xs mt-1">Used in email greetings. Nickname, first name, whatever they prefer.</p>
         </Field>
         <Field label="Client Email">
           <Input type="email" placeholder="client@company.com" value={clientEmail} onChange={(e) => setClientEmail(e.target.value)} />
@@ -524,7 +541,78 @@ function BasicInfoStep({
         <Field label="Agent Type">
           <AgentTypeSelect value={agentType} onChange={setAgentType} />
         </Field>
+        <Field label="Operating Manual (SOPs)">
+          <SopUpload files={sopFiles} setFiles={setSopFiles} />
+          <p className="text-muted-foreground/50 text-[11px] mt-1">
+            Upload any playbooks, SOPs, or how-we-do-it docs. The agent reads these as its authoritative instructions. PDF, DOCX, TXT, MD. Up to 10 files, 20MB each.
+          </p>
+        </Field>
       </div>
+    </div>
+  );
+}
+
+function SopUpload({ files, setFiles }: { files: File[]; setFiles: (v: File[]) => void }) {
+  const MAX_FILES = 10;
+  const MAX_BYTES = 20 * 1024 * 1024;
+
+  const onPick = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const picked = Array.from(e.target.files ?? []);
+    const filtered = picked.filter((f) => f.size <= MAX_BYTES);
+    const merged = [...files, ...filtered].slice(0, MAX_FILES);
+    setFiles(merged);
+    // Reset the input so picking the same file again still triggers onChange
+    e.target.value = "";
+  };
+
+  const removeAt = (idx: number) => {
+    setFiles(files.filter((_, i) => i !== idx));
+  };
+
+  return (
+    <div className="space-y-2">
+      <label className="flex items-center justify-center gap-2 cursor-pointer bg-muted/50 hover:bg-muted border border-dashed border-border rounded-lg px-4 py-6 transition-colors">
+        <Upload className="size-4 text-muted-foreground" />
+        <span className="text-muted-foreground text-sm">
+          {files.length === 0
+            ? "Click to upload SOPs"
+            : files.length >= MAX_FILES
+              ? `Max ${MAX_FILES} files reached`
+              : `Add more (${files.length}/${MAX_FILES})`}
+        </span>
+        <input
+          type="file"
+          multiple
+          accept=".pdf,.docx,.doc,.txt,.md,.csv,.json"
+          className="hidden"
+          onChange={onPick}
+          disabled={files.length >= MAX_FILES}
+        />
+      </label>
+      {files.length > 0 && (
+        <div className="space-y-1.5">
+          {files.map((f, idx) => (
+            <div
+              key={`${f.name}-${idx}`}
+              className="flex items-center gap-2 bg-card border border-border rounded-md px-3 py-2"
+            >
+              <FileText className="size-3.5 text-muted-foreground shrink-0" />
+              <span className="text-foreground text-xs font-medium truncate flex-1">{f.name}</span>
+              <span className="text-muted-foreground/60 text-[11px] tabular-nums shrink-0">
+                {(f.size / 1024).toFixed(0)} KB
+              </span>
+              <button
+                type="button"
+                onClick={() => removeAt(idx)}
+                className="text-muted-foreground hover:text-red-400 transition-colors"
+                aria-label={`Remove ${f.name}`}
+              >
+                <XCircle className="size-3.5" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -860,6 +948,7 @@ function ConnectStep({
 function ReviewStep({
   agentName,
   clientName,
+  preferredName,
   clientEmail,
   businessName,
   businessWebsite,
@@ -868,11 +957,14 @@ function ReviewStep({
   selectedTools,
   apps,
   connectionStatus,
+  sopFiles,
   createAction,
   createState,
+  isCreating,
 }: {
   agentName: string;
   clientName: string;
+  preferredName: string;
   clientEmail: string;
   businessName: string;
   businessWebsite: string;
@@ -881,8 +973,10 @@ function ReviewStep({
   selectedTools: string[];
   apps: ComposioApp[];
   connectionStatus: Record<string, { status: string; error?: string }>;
+  sopFiles: File[];
   createAction: (payload: FormData) => void;
   createState: CreateAgentState;
+  isCreating: boolean;
 }) {
   const selectedApps = selectedTools
     .map((key) => apps.find((a) => a.key === key))
@@ -896,6 +990,7 @@ function ReviewStep({
     const formData = new FormData();
     formData.set("agentName", agentName);
     formData.set("clientName", clientName);
+    formData.set("preferredName", preferredName);
     formData.set("clientEmail", clientEmail);
     formData.set("businessName", businessName);
     formData.set("businessWebsite", businessWebsite);
@@ -903,20 +998,22 @@ function ReviewStep({
     formData.set("agentType", agentType);
     formData.set("tools", JSON.stringify(selectedTools));
     formData.set("credentials", JSON.stringify([])); // OAuth handled by Composio
+    for (const f of sopFiles) formData.append("sops", f);
 
     startTransition(() => createAction(formData));
   };
 
   return (
-    <div className="space-y-4 max-w-xl">
+    <div className="space-y-4 max-w-3xl">
       <div>
-        <h2 className="text-foreground font-semibold text-[15px]">Review & Activate</h2>
+        <h2 className="text-foreground font-medium text-base">Review & Activate</h2>
         <p className="text-muted-foreground text-sm mt-1">Confirm everything looks right, then activate your agent.</p>
       </div>
 
-      <div className="bg-card border border-border rounded-xl p-5 space-y-4">
+      <div className="bg-card border border-border rounded-xl px-5 py-4 space-y-3">
         <ReviewRow label="Agent Name" value={agentName} />
         <ReviewRow label="Client Contact" value={clientName} />
+        {preferredName && <ReviewRow label="Agent Calls Them" value={preferredName} />}
         <ReviewRow label="Client Email" value={clientEmail} />
         <ReviewRow label="Business" value={`${businessName} — ${businessDescription}`} />
         {businessWebsite && <ReviewRow label="Website" value={businessWebsite} />}
@@ -941,6 +1038,22 @@ function ReviewStep({
             })}
           </div>
         </div>
+        {sopFiles.length > 0 && (
+          <div>
+            <p className="text-muted-foreground text-[11px] font-semibold uppercase tracking-wider mb-2">Operating Manual</p>
+            <div className="space-y-1.5">
+              {sopFiles.map((f, idx) => (
+                <div key={`${f.name}-${idx}`} className="flex items-center gap-2 text-xs">
+                  <FileText className="size-3 text-muted-foreground shrink-0" />
+                  <span className="text-foreground font-medium truncate flex-1">{f.name}</span>
+                  <span className="text-muted-foreground/60 tabular-nums shrink-0">
+                    {(f.size / 1024).toFixed(0)} KB
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {unconnectedCount > 0 && (
@@ -959,10 +1072,24 @@ function ReviewStep({
         </div>
       )}
 
-      <Button onClick={handleActivate} size="lg" className="w-full">
-        <Zap className="size-4" />
-        Activate Agent
+      <Button onClick={handleActivate} size="lg" className="w-full" disabled={isCreating}>
+        {isCreating ? (
+          <>
+            <Loader2 className="size-4 animate-spin" />
+            {sopFiles.length > 0 ? "Uploading & scaffolding…" : "Scaffolding agent…"}
+          </>
+        ) : (
+          <>
+            <Zap className="size-4" />
+            Activate Agent
+          </>
+        )}
       </Button>
+      {isCreating && sopFiles.length > 0 && (
+        <p className="text-muted-foreground/60 text-[11px] text-center">
+          Parsing {sopFiles.length} SOP{sopFiles.length > 1 ? "s" : ""} — large PDFs can take a few seconds.
+        </p>
+      )}
     </div>
   );
 }

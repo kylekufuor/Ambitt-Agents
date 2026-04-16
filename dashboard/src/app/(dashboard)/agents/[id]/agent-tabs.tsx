@@ -48,6 +48,13 @@ interface DocumentItem {
   uploadedAt: string;
 }
 
+interface SopItem {
+  filename: string;
+  uploadedAt: string;
+  chars: number;
+  preview: string;
+}
+
 const tabs = ["Outputs", "Conversations", "Documents", "Memory", "Config"] as const;
 type Tab = (typeof tabs)[number];
 
@@ -58,6 +65,7 @@ export function AgentTabs({
   conversations,
   memoryEntries,
   documents,
+  sops,
   config,
 }: {
   agentId: string;
@@ -66,6 +74,7 @@ export function AgentTabs({
   conversations: ConversationItem[];
   memoryEntries: MemoryEntry[];
   documents: DocumentItem[];
+  sops: SopItem[];
   config: AgentConfig;
 }) {
   const [active, setActive] = useState<Tab>("Outputs");
@@ -91,7 +100,7 @@ export function AgentTabs({
 
       {active === "Outputs" && <OutputsTab tasks={tasks} />}
       {active === "Conversations" && <ConversationsTab conversations={conversations} />}
-      {active === "Documents" && <DocumentsTab agentId={agentId} documents={documents} />}
+      {active === "Documents" && <DocumentsTab agentId={agentId} documents={documents} sops={sops} />}
       {active === "Memory" && <MemoryTab entries={memoryEntries} />}
       {active === "Config" && <ConfigTab agentId={agentId} agentStatus={agentStatus} config={config} />}
     </div>
@@ -218,7 +227,16 @@ function MemoryTab({ entries }: { entries: MemoryEntry[] }) {
 
 // --- Documents Tab ---
 
-function DocumentsTab({ agentId, documents: initialDocs }: { agentId: string; documents: DocumentItem[] }) {
+function DocumentsTab({
+  agentId,
+  documents: initialDocs,
+  sops,
+}: {
+  agentId: string;
+  documents: DocumentItem[];
+  sops: SopItem[];
+}) {
+  const [expandedSop, setExpandedSop] = useState<string | null>(null);
   const [docs, setDocs] = useState(initialDocs);
   const [uploading, setUploading] = useState(false);
   const [uploadResult, setUploadResult] = useState<string | null>(null);
@@ -263,6 +281,65 @@ function DocumentsTab({ agentId, documents: initialDocs }: { agentId: string; do
 
   return (
     <div className="space-y-4">
+      {/* Operating Manual — SOPs uploaded at scaffold time */}
+      {sops.length > 0 && (
+        <div className="bg-card border border-emerald-500/20 rounded-xl overflow-hidden">
+          <div className="px-5 py-4 border-b border-border/40 bg-emerald-500/[0.03]">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-foreground font-semibold text-[15px]">Operating Manual</h3>
+                <p className="text-muted-foreground text-xs mt-1">
+                  Authoritative playbooks injected directly into the agent&apos;s system prompt as load-bearing instructions.
+                </p>
+              </div>
+              <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 ring-1 ring-emerald-500/20 shrink-0">
+                {sops.length} SOP{sops.length > 1 ? "s" : ""}
+              </span>
+            </div>
+          </div>
+          <div className="divide-y divide-border/40">
+            {sops.map((sop, i) => {
+              const key = `${sop.filename}-${i}`;
+              const isExpanded = expandedSop === key;
+              return (
+                <div key={key}>
+                  <button
+                    onClick={() => setExpandedSop(isExpanded ? null : key)}
+                    className="w-full px-5 py-3.5 text-left hover:bg-muted/30 transition-colors"
+                  >
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="min-w-0">
+                        <p className="text-foreground text-sm font-medium truncate">{sop.filename}</p>
+                        <p className="text-muted-foreground/60 text-[11px] mt-0.5">
+                          {sop.chars.toLocaleString()} chars
+                          {sop.uploadedAt && new Date(sop.uploadedAt).getTime() > 0 && (
+                            <> · uploaded {new Date(sop.uploadedAt).toLocaleDateString()}</>
+                          )}
+                        </p>
+                      </div>
+                      <span className="text-muted-foreground/40 text-xs shrink-0">{isExpanded ? "▲" : "▼"}</span>
+                    </div>
+                  </button>
+                  {isExpanded && (
+                    <div className="px-5 pb-4">
+                      <div className="bg-background border border-border rounded-lg p-4">
+                        <p className="text-muted-foreground/60 text-[10px] uppercase tracking-wider mb-2">
+                          Preview (first 400 chars)
+                        </p>
+                        <pre className="text-muted-foreground text-xs whitespace-pre-wrap font-mono leading-relaxed">
+                          {sop.preview}
+                          {sop.chars > 400 && "…"}
+                        </pre>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Upload */}
       <div className="bg-card border border-border rounded-xl p-5">
         <h3 className="text-foreground font-semibold text-[15px] mb-1">Upload Documents</h3>

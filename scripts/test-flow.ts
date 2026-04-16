@@ -89,6 +89,7 @@ async function main() {
 
   const html = buildAgentResponseEmail({
     agentName: agent.name,
+    agentId,
     agentRole: agent.purpose,
     clientBusinessName: agent.client.businessName,
     responseBody: result.response,

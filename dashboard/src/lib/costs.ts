@@ -1,23 +1,39 @@
 // Pricing in cents per million tokens — keep in sync with shared/claude.ts, gemini.ts, openai.ts
 export const MODEL_PRICING: Record<string, { inputPerMillion: number; outputPerMillion: number; label: string }> = {
+  "claude-opus-4-7": { inputPerMillion: 1500, outputPerMillion: 7500, label: "Claude Opus" },
+  "claude-opus": { inputPerMillion: 1500, outputPerMillion: 7500, label: "Claude Opus" },
   "claude-sonnet-4-6": { inputPerMillion: 300, outputPerMillion: 1500, label: "Claude Sonnet" },
   "claude-sonnet": { inputPerMillion: 300, outputPerMillion: 1500, label: "Claude Sonnet" },
+  "claude-haiku-4-5-20251001": { inputPerMillion: 100, outputPerMillion: 500, label: "Claude Haiku" },
+  "claude-haiku-4-5": { inputPerMillion: 100, outputPerMillion: 500, label: "Claude Haiku" },
+  "claude-haiku": { inputPerMillion: 100, outputPerMillion: 500, label: "Claude Haiku" },
   "gemini": { inputPerMillion: 7.5, outputPerMillion: 30, label: "Gemini Flash" },
   "gemini-flash": { inputPerMillion: 7.5, outputPerMillion: 30, label: "Gemini Flash" },
   "gemini-2.0-flash": { inputPerMillion: 7.5, outputPerMillion: 30, label: "Gemini Flash" },
   "gpt-4o": { inputPerMillion: 250, outputPerMillion: 1000, label: "GPT-4o" },
 };
 
-/** Recalculate cost in cents (float) from raw token counts. Falls back to stored value for unknown models. */
+/**
+ * Recalculate cost in cents (float) from raw token counts, including cache
+ * pricing (cache write = 1.25× input, cache read = 0.10× input). Falls back
+ * to stored value for unknown models.
+ */
 export function recalcCostCents(
   model: string,
   inputTokens: number,
   outputTokens: number,
-  fallbackCostInCents: number
+  fallbackCostInCents: number,
+  cacheCreationTokens = 0,
+  cacheReadTokens = 0
 ): number {
   const pricing = MODEL_PRICING[model];
   if (!pricing) return fallbackCostInCents;
-  return (inputTokens * pricing.inputPerMillion + outputTokens * pricing.outputPerMillion) / 1_000_000;
+  return (
+    inputTokens * pricing.inputPerMillion +
+    cacheCreationTokens * pricing.inputPerMillion * 1.25 +
+    cacheReadTokens * pricing.inputPerMillion * 0.1 +
+    outputTokens * pricing.outputPerMillion
+  ) / 1_000_000;
 }
 
 /** Predict month-end cost using weighted blend of current pace and last month baseline. */
@@ -93,6 +109,8 @@ interface UsageRow {
   model: string;
   inputTokens: number;
   outputTokens: number;
+  cacheCreationTokens?: number;
+  cacheReadTokens?: number;
   costInCents: number;
 }
 
@@ -125,7 +143,14 @@ export function aggregateCosts(
   let totalSpendCents = 0;
 
   for (const row of thisMonthRows) {
-    const cost = recalcCostCents(row.model, row.inputTokens, row.outputTokens, row.costInCents);
+    const cost = recalcCostCents(
+      row.model,
+      row.inputTokens,
+      row.outputTokens,
+      row.costInCents,
+      row.cacheCreationTokens ?? 0,
+      row.cacheReadTokens ?? 0
+    );
     totalSpendCents += cost;
 
     // By model
@@ -146,7 +171,14 @@ export function aggregateCosts(
   let lastMonthTotal = 0;
   const lastMonthByAgent: Record<string, number> = {};
   for (const row of lastMonthRows) {
-    const cost = recalcCostCents(row.model, row.inputTokens, row.outputTokens, row.costInCents);
+    const cost = recalcCostCents(
+      row.model,
+      row.inputTokens,
+      row.outputTokens,
+      row.costInCents,
+      row.cacheCreationTokens ?? 0,
+      row.cacheReadTokens ?? 0
+    );
     lastMonthTotal += cost;
     lastMonthByAgent[row.agentId] = (lastMonthByAgent[row.agentId] ?? 0) + cost;
   }

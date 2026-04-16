@@ -83,6 +83,6 @@ export function buildDigestEmail(props: DigestEmailProps): string {
     </div>
   `;
 
-  const footer = footerBlock(agentName);
+  const footer = footerBlock(agentName, agentId);
   return emailWrapper("default", header, body, footer);
 }

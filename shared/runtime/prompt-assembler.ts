@@ -1,5 +1,6 @@
 import prisma from "../db.js";
 import logger from "../logger.js";
+import { decrypt } from "../encryption.js";
 import type { MCPToolInfo } from "../mcp/types.js";
 
 // ---------------------------------------------------------------------------
@@ -56,12 +57,15 @@ export async function loadAgentContext(agentId: string): Promise<AgentContext> {
   if (!agent) throw new Error(`Agent not found: ${agentId}`);
   if (!agent.client) throw new Error(`Agent ${agentId} has no client`);
 
-  // Parse memory object safely
+  // Decrypt and parse memory object safely — memory is AES-GCM encrypted at rest
   let clientMemory: Record<string, unknown> = {};
-  try {
-    clientMemory = JSON.parse(agent.clientMemoryObject || "{}");
-  } catch {
-    logger.warn("Failed to parse client memory object", { agentId });
+  if (agent.clientMemoryObject) {
+    try {
+      const plaintext = decrypt(agent.clientMemoryObject);
+      clientMemory = JSON.parse(plaintext || "{}");
+    } catch (error) {
+      logger.warn("Failed to decrypt/parse client memory object", { agentId, error });
+    }
   }
 
   // Load recent conversation history (last 20 messages for context window)
@@ -107,7 +111,11 @@ export function assembleSystemPrompt(ctx: AgentContext): string {
   // 3. Client context
   sections.push(buildClientSection(ctx));
 
-  // 4. Tool expertise
+  // 4. Operating manual (SOPs uploaded at scaffold time)
+  const manual = buildOperatingManualSection(ctx);
+  if (manual) sections.push(manual);
+
+  // 5. Tool expertise
   if (ctx.tools.length > 0) {
     sections.push(buildToolSection(ctx));
   }
@@ -157,6 +165,7 @@ function buildClientSection(ctx: AgentContext): string {
   const filteredMemory = Object.entries(ctx.clientMemory)
     .filter(([k, v]) => {
       if (k === "documentContents") return false; // full text — never in system prompt
+      if (k === "sops") return false; // rendered separately in Operating Manual section
       if (v === null || v === undefined || v === "") return false;
       return true;
     });
@@ -193,6 +202,38 @@ Goal: ${ctx.clientBusinessGoal}
 Brand voice: ${ctx.clientBrandVoice}
 North star metric: ${ctx.clientNorthStar ?? "Not set"}
 Preferred channel: ${ctx.clientPreferredChannel}${memorySection}`;
+}
+
+// Max characters per SOP when injected into the prompt.
+// Full text, separate from the 8K ambient-memory cap — SOPs are load-bearing.
+const MAX_SOP_CHARS = 40_000;
+
+interface SOPEntry {
+  filename: string;
+  text: string;
+  uploadedAt?: string;
+}
+
+function buildOperatingManualSection(ctx: AgentContext): string | null {
+  const raw = ctx.clientMemory.sops;
+  if (!Array.isArray(raw) || raw.length === 0) return null;
+
+  const sops = raw as SOPEntry[];
+  const blocks = sops.map((sop) => {
+    let text = sop.text ?? "";
+    let trailer = "";
+    if (text.length > MAX_SOP_CHARS) {
+      text = text.slice(0, MAX_SOP_CHARS);
+      trailer = `\n\n[... SOP truncated at ${MAX_SOP_CHARS.toLocaleString()} characters]`;
+    }
+    return `### ${sop.filename}\n\n${text}${trailer}`;
+  });
+
+  return `## Your Operating Manual
+
+The following documents were provided by the client as your authoritative playbook. They describe exactly how the client does this work today and how they expect you to do it. Treat them as load-bearing instructions — not background context. When a procedure in the manual conflicts with a guess you'd otherwise make, the manual wins.
+
+${blocks.join("\n\n---\n\n")}`;
 }
 
 function buildToolSection(ctx: AgentContext): string {

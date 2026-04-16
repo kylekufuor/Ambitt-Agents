@@ -1,7 +1,12 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  experimental: {
+    serverActions: {
+      // SOP uploads at agent creation — multi-file PDFs can easily exceed 1MB.
+      bodySizeLimit: "25mb",
+    },
+  },
 };
 
 export default nextConfig;

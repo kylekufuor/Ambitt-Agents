@@ -3,6 +3,12 @@ import prisma from "../shared/db.js";
 import { processInboundMessage } from "../shared/runtime/index.js";
 import { sendEmail } from "../shared/email.js";
 import { buildAgentResponseEmail } from "./templates/agent-response.js";
+import { buildCheckpointEmail, type CheckpointKind } from "./templates/checkpoint-email.js";
+import {
+  generateCheckinBody,
+  generateHighlightBody,
+  generateFeedbackBody,
+} from "./onboarding-content.js";
 import logger from "../shared/logger.js";
 
 // ---------------------------------------------------------------------------
@@ -82,6 +88,7 @@ async function executeScheduledRun(agentId: string): Promise<void> {
   // Send results to client
   const responseHtml = buildAgentResponseEmail({
     agentName: agent.name,
+    agentId,
     agentRole: agent.purpose,
     clientBusinessName: agent.client.businessName,
     responseBody: result.response,
@@ -195,6 +202,8 @@ export async function initScheduler(): Promise<void> {
     }
   }
 
+  startCheckpointCron();
+
   logger.info("Scheduler initialized", {
     activeAgents: agents.length,
     scheduledJobs: registered,
@@ -217,4 +226,163 @@ export function stopAll(): void {
     logger.info("Agent unscheduled (shutdown)", { agentId });
   }
   activeJobs.clear();
+  if (checkpointCronTask) {
+    checkpointCronTask.stop();
+    checkpointCronTask = null;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Onboarding checkpoint cron — hourly sweep of ScheduledEmail
+// ---------------------------------------------------------------------------
+// Single hourly job (not per-agent) that picks up ALL pending checkpoint
+// emails whose scheduledAt has arrived. Respects agent timezone: only fires
+// during 9am–5pm local, Mon–Fri. Out-of-hours rows stay pending and get
+// retried on the next tick.
+//
+// Per-tick cap of 25 prevents a backlog burst from exhausting API quota.
+// A failed send marks the row `failed` and logs the error — it does NOT retry
+// automatically. Recovery is a manual op for now.
+// ---------------------------------------------------------------------------
+
+let checkpointCronTask: ScheduledTask | null = null;
+const CHECKPOINT_TICK_CAP = 25;
+
+function isInBusinessHours(now: Date, timezone: string): boolean {
+  try {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: timezone,
+      hour: "numeric",
+      weekday: "short",
+      hour12: false,
+    }).formatToParts(now);
+    const hour = parseInt(parts.find((p) => p.type === "hour")?.value ?? "0", 10);
+    const weekday = parts.find((p) => p.type === "weekday")?.value ?? "";
+    const isWeekday = !["Sat", "Sun"].includes(weekday);
+    return isWeekday && hour >= 9 && hour < 17;
+  } catch {
+    // Invalid timezone — fall back to US Eastern business hours (13-21 UTC, M-F).
+    const hour = now.getUTCHours();
+    const day = now.getUTCDay();
+    return day >= 1 && day <= 5 && hour >= 13 && hour < 21;
+  }
+}
+
+async function generateBodyForKind(kind: string, agentId: string): Promise<string> {
+  if (kind === "checkin_3day") return (await generateCheckinBody(agentId)).body;
+  if (kind === "highlight_7day") return (await generateHighlightBody(agentId)).body;
+  if (kind === "feedback_14day") return (await generateFeedbackBody(agentId)).body;
+  throw new Error(`unknown ScheduledEmail.kind: ${kind}`);
+}
+
+export async function processDueCheckpoints(): Promise<{
+  processed: number;
+  sent: number;
+  failed: number;
+  deferred: number;
+  cancelled: number;
+}> {
+  const now = new Date();
+  const rows = await prisma.scheduledEmail.findMany({
+    where: { status: "pending", scheduledAt: { lte: now } },
+    include: {
+      agent: { select: { id: true, name: true, status: true, timezone: true } },
+      client: {
+        select: {
+          email: true,
+          preferredName: true,
+          contactName: true,
+          businessName: true,
+        },
+      },
+    },
+    orderBy: { scheduledAt: "asc" },
+    take: CHECKPOINT_TICK_CAP,
+  });
+
+  const stats = { processed: rows.length, sent: 0, failed: 0, deferred: 0, cancelled: 0 };
+
+  for (const row of rows) {
+    // Agent no longer active → cancel the row; nothing to do.
+    if (row.agent.status !== "active") {
+      await prisma.scheduledEmail.update({
+        where: { id: row.id },
+        data: { status: "cancelled", errorMessage: `agent status: ${row.agent.status}` },
+      });
+      stats.cancelled++;
+      continue;
+    }
+
+    // Respect business hours — leave pending, retry next tick.
+    if (!isInBusinessHours(now, row.agent.timezone)) {
+      stats.deferred++;
+      continue;
+    }
+
+    try {
+      const body = await generateBodyForKind(row.kind, row.agentId);
+      if (!body) throw new Error("content generator returned empty body");
+
+      const preferredName =
+        row.client.preferredName ??
+        row.client.contactName?.split(" ")[0] ??
+        row.client.businessName;
+
+      const { subject, html } = buildCheckpointEmail({
+        kind: row.kind as CheckpointKind,
+        agentName: row.agent.name,
+        agentId: row.agentId,
+        preferredName,
+        clientBusinessName: row.client.businessName,
+        body,
+      });
+
+      await sendEmail({
+        agentId: row.agentId,
+        agentName: row.agent.name,
+        to: row.client.email,
+        subject,
+        html,
+        replyToAgentId: row.agentId,
+      });
+
+      await prisma.scheduledEmail.update({
+        where: { id: row.id },
+        data: { status: "sent", sentAt: new Date() },
+      });
+      stats.sent++;
+      logger.info("Checkpoint email sent", { agentId: row.agentId, kind: row.kind });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      await prisma.scheduledEmail.update({
+        where: { id: row.id },
+        data: { status: "failed", errorMessage: message },
+      });
+      stats.failed++;
+      logger.error("Checkpoint email failed", {
+        scheduledEmailId: row.id,
+        agentId: row.agentId,
+        kind: row.kind,
+        error: message,
+      });
+    }
+  }
+
+  if (stats.processed > 0) {
+    logger.info("Checkpoint cron tick complete", stats);
+  }
+  return stats;
+}
+
+/** Start the hourly checkpoint cron. Call once from initScheduler. */
+export function startCheckpointCron(): void {
+  if (checkpointCronTask) return; // idempotent
+  checkpointCronTask = cron.schedule("0 * * * *", async () => {
+    try {
+      await processDueCheckpoints();
+    } catch (error) {
+      logger.error("Checkpoint cron tick threw", { error });
+    }
+  });
+  logger.info("Checkpoint cron started", { schedule: "0 * * * *" });
 }

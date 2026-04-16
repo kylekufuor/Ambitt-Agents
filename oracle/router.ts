@@ -1,4 +1,9 @@
-import { callClaude, logUsage as logClaudeUsage } from "../shared/claude.js";
+import {
+  callClaude,
+  logUsage as logClaudeUsage,
+  ORCHESTRATION_MODEL,
+  CLIENT_MODEL,
+} from "../shared/claude.js";
 import { callGemini, logUsage as logGeminiUsage } from "../shared/gemini.js";
 import { callOpenAI, logUsage as logOpenAIUsage } from "../shared/openai.js";
 import logger from "../shared/logger.js";
@@ -39,12 +44,16 @@ export async function routeTask(
 ): Promise<RouteResult> {
   const target = resolveModel(taskType);
 
+  // Oracle orchestration gets the strongest model; client-facing stays cheap.
+  const claudeModel =
+    taskType === "orchestration" ? ORCHESTRATION_MODEL : CLIENT_MODEL;
+
   try {
     switch (target) {
       case "claude": {
-        const response = await callClaude({ systemPrompt, userMessage });
+        const response = await callClaude({ systemPrompt, userMessage, model: claudeModel });
         if (agentId) await logClaudeUsage(agentId, taskType, response);
-        return { ...response, model: "claude-sonnet-4-6" };
+        return { ...response, model: claudeModel };
       }
       case "gemini": {
         const response = await callGemini({
@@ -67,9 +76,9 @@ export async function routeTask(
         taskType,
         error,
       });
-      const response = await callClaude({ systemPrompt, userMessage });
+      const response = await callClaude({ systemPrompt, userMessage, model: claudeModel });
       if (agentId) await logClaudeUsage(agentId, taskType, response);
-      return { ...response, model: "claude-sonnet-4-6" };
+      return { ...response, model: claudeModel };
     }
     throw error;
   }

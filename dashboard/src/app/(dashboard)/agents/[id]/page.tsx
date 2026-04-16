@@ -2,6 +2,8 @@ import prisma from "@/lib/db";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { recalcCostCents, centsToUsd, projectMonthEnd } from "@/lib/costs";
+import { getAgentErrorRate } from "@/lib/health";
+import { decrypt } from "@/lib/encryption";
 import { AgentTabs } from "./agent-tabs";
 
 export const dynamic = "force-dynamic";
@@ -13,6 +15,7 @@ async function getAgentData(id: string) {
   const daysElapsed = Math.max(1, (now.getTime() - monthStart.getTime()) / (1000 * 60 * 60 * 24));
   const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
 
+  const errorRatePromise = getAgentErrorRate(id, 30);
   const [agent, tasks, conversations, thisMonthUsage, lastMonthUsage] = await Promise.all([
     prisma.agent.findUnique({
       where: { id },
@@ -32,52 +35,80 @@ async function getAgentData(id: string) {
     }),
     prisma.apiUsage.findMany({
       where: { agentId: id, createdAt: { gte: monthStart } },
-      select: { model: true, inputTokens: true, outputTokens: true, costInCents: true },
+      select: { model: true, inputTokens: true, outputTokens: true, cacheCreationTokens: true, cacheReadTokens: true, costInCents: true },
     }),
     prisma.apiUsage.findMany({
       where: { agentId: id, createdAt: { gte: lastMonthStart, lt: monthStart } },
-      select: { model: true, inputTokens: true, outputTokens: true, costInCents: true },
+      select: { model: true, inputTokens: true, outputTokens: true, cacheCreationTokens: true, cacheReadTokens: true, costInCents: true },
     }),
   ]);
 
   if (!agent) return null;
 
+  const errorRate = await errorRatePromise;
+
   // Recalculate costs accurately
   let thisMonthCost = 0;
   let thisMonthCalls = 0;
   for (const row of thisMonthUsage) {
-    thisMonthCost += recalcCostCents(row.model, row.inputTokens, row.outputTokens, row.costInCents);
+    thisMonthCost += recalcCostCents(
+      row.model,
+      row.inputTokens,
+      row.outputTokens,
+      row.costInCents,
+      row.cacheCreationTokens,
+      row.cacheReadTokens
+    );
     thisMonthCalls++;
   }
 
   let lastMonthCost = 0;
   for (const row of lastMonthUsage) {
-    lastMonthCost += recalcCostCents(row.model, row.inputTokens, row.outputTokens, row.costInCents);
+    lastMonthCost += recalcCostCents(
+      row.model,
+      row.inputTokens,
+      row.outputTokens,
+      row.costInCents,
+      row.cacheCreationTokens,
+      row.cacheReadTokens
+    );
   }
 
   const projectedCost = projectMonthEnd(thisMonthCost, daysElapsed, daysInMonth, lastMonthCost > 0 ? lastMonthCost : undefined);
   const burnPct = agent.budgetMonthlyCents > 0 ? Math.min((thisMonthCost / agent.budgetMonthlyCents) * 100, 100) : 0;
 
-  // Parse memory and documents
+  // Decrypt + parse memory — clientMemoryObject is AES-GCM at rest
   let memoryEntries: { key: string; value: string }[] = [];
   let documents: { filename: string; uploadedAt: string }[] = [];
+  let sops: { filename: string; uploadedAt: string; chars: number; preview: string }[] = [];
   try {
-    const parsed = JSON.parse(agent.clientMemoryObject);
-    // Extract documents separately
+    const plaintext = decrypt(agent.clientMemoryObject);
+    const parsed = JSON.parse(plaintext || "{}");
+
     if (Array.isArray(parsed.documents)) {
       documents = parsed.documents;
     }
+    if (Array.isArray(parsed.sops)) {
+      sops = (parsed.sops as Array<{ filename: string; text: string; uploadedAt?: string }>).map((s) => ({
+        filename: s.filename,
+        uploadedAt: s.uploadedAt ?? new Date(0).toISOString(),
+        chars: s.text?.length ?? 0,
+        preview: (s.text ?? "").slice(0, 400),
+      }));
+    }
+
     memoryEntries = Object.entries(parsed)
-      .filter(([key]) => key !== "documents" && key !== "documentContents")
+      .filter(([key]) => key !== "documents" && key !== "documentContents" && key !== "sops")
       .map(([key, value]) => ({
         key,
         value: typeof value === "string" ? value : JSON.stringify(value),
       }));
-  } catch { /* encrypted or empty */ }
+  } catch { /* corrupt, missing, or missing key */ }
 
   return {
     agent,
     documents,
+    sops,
     tasks: tasks.map((t) => ({
       id: t.id,
       taskType: t.taskType,
@@ -101,6 +132,7 @@ async function getAgentData(id: string) {
       lastMonthCost,
       thisMonthCalls,
       burnPct,
+      errorRate,
     },
   };
 }
@@ -120,7 +152,7 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
   const data = await getAgentData(id);
   if (!data) notFound();
 
-  const { agent, documents, tasks, conversations, memoryEntries, stats } = data;
+  const { agent, documents, sops, tasks, conversations, memoryEntries, stats } = data;
 
   const statusColors: Record<string, string> = {
     active: "bg-emerald-500/10 text-emerald-400 ring-1 ring-emerald-500/20",
@@ -213,7 +245,7 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
       </div>
 
       {/* KPI Row */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
         <div className="bg-card border border-border rounded-xl p-5">
           <p className="text-muted-foreground text-[11px] font-semibold uppercase tracking-wider">Tasks Completed</p>
           <p className="text-3xl font-bold text-foreground mt-2 tabular-nums">{agent.totalTasksCompleted}</p>
@@ -252,6 +284,17 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
             </p>
           )}
         </div>
+        <div className="bg-card border border-border rounded-xl p-5">
+          <p className="text-muted-foreground text-[11px] font-semibold uppercase tracking-wider">Error Rate (30d)</p>
+          <p className={`text-3xl font-bold mt-2 tabular-nums ${stats.errorRate.errorRatePct >= 20 ? "text-red-400" : stats.errorRate.errorRatePct >= 5 ? "text-amber-400" : "text-foreground"}`}>
+            {stats.errorRate.runs > 0 ? `${stats.errorRate.errorRatePct.toFixed(0)}%` : "—"}
+          </p>
+          <p className="text-muted-foreground/60 text-xs mt-1">
+            {stats.errorRate.runs > 0
+              ? `${stats.errorRate.runsWithErrors} of ${stats.errorRate.runs} runs`
+              : "No runs yet"}
+          </p>
+        </div>
       </div>
 
       {/* Tabs */}
@@ -262,6 +305,7 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
         conversations={conversations}
         memoryEntries={memoryEntries}
         documents={documents}
+        sops={sops}
         config={{
           personality: agent.personality,
           schedule: agent.schedule,

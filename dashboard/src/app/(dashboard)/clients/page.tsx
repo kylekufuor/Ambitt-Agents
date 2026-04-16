@@ -1,5 +1,6 @@
 import prisma from "@/lib/db";
 import Link from "next/link";
+import { getClientChurnRisk, type ChurnRiskLevel } from "@/lib/health";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +20,16 @@ export default async function ClientsPage() {
     orderBy: { createdAt: "desc" },
   });
 
+  // Compute churn risk in parallel for every client.
+  const churnByClient = new Map<string, { level: ChurnRiskLevel; reason: string }>(
+    await Promise.all(
+      clients.map(async (c) => {
+        const risk = await getClientChurnRisk(c.id);
+        return [c.id, { level: risk.level, reason: risk.reason }] as const;
+      })
+    )
+  );
+
   return (
     <div className="p-6 space-y-6 max-w-7xl">
       <div className="flex items-center justify-between">
@@ -37,6 +48,7 @@ export default async function ClientsPage() {
               .filter((a) => a.status === "active")
               .reduce((sum, a) => sum + a.monthlyRetainerCents, 0) / 100;
             const totalTasks = client.agents.reduce((sum, a) => sum + a.totalTasksCompleted, 0);
+            const churn = churnByClient.get(client.id);
 
             return (
               <Link
@@ -51,7 +63,10 @@ export default async function ClientsPage() {
                     </h3>
                     <p className="text-muted-foreground text-xs mt-0.5">{client.industry}</p>
                   </div>
-                  <StatusDot status={client.billingStatus} />
+                  <div className="flex items-center gap-2">
+                    {churn && churn.level !== "ok" && <ChurnBadge level={churn.level} reason={churn.reason} />}
+                    <StatusDot status={client.billingStatus} />
+                  </div>
                 </div>
                 <div className="grid grid-cols-3 gap-3 mt-4">
                   <MiniStat label="Agents" value={`${activeAgents}`} alert={pendingAgents > 0 ? `${pendingAgents} pending` : undefined} />
@@ -97,6 +112,18 @@ function AgentPill({ name, status }: { name: string; status: string }) {
   return (
     <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${colors[status] ?? "bg-muted text-muted-foreground"}`}>
       {name}
+    </span>
+  );
+}
+
+function ChurnBadge({ level, reason }: { level: ChurnRiskLevel; reason: string }) {
+  const style = level === "at_risk"
+    ? "bg-red-500/10 text-red-400 ring-1 ring-red-500/20"
+    : "bg-amber-500/10 text-amber-400 ring-1 ring-amber-500/20";
+  const label = level === "at_risk" ? "At risk" : "Watching";
+  return (
+    <span title={reason} className={`text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded ${style}`}>
+      {label}
     </span>
   );
 }

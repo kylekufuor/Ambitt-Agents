@@ -29,7 +29,7 @@ export interface AlertEmailProps extends BaseEmailProps {
 }
 
 export function buildAlertEmail(props: AlertEmailProps): string {
-  const { agentName, productName, summary, metricValue, metricLabel, metricDelta, detectedAt, checksTable, sourceLinks, ctaUrl } = props;
+  const { agentName, agentId, productName, summary, metricValue, metricLabel, metricDelta, detectedAt, checksTable, sourceLinks, ctaUrl } = props;
 
   const statusColors: Record<string, string> = { ok: "#16a34a", warn: "#f59e0b", critical: "#dc2626" };
   const statusIcons: Record<string, string> = { ok: "&#10003;", warn: "&#9888;", critical: "&#10007;" };
@@ -67,6 +67,6 @@ export function buildAlertEmail(props: AlertEmailProps): string {
     ${primaryCta("View Full Details", ctaUrl, "alert")}
   `;
 
-  const footer = footerBlock(agentName);
+  const footer = footerBlock(agentName, agentId);
   return emailWrapper("alert", header, body, footer);
 }

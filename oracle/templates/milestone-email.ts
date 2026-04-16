@@ -62,6 +62,6 @@ export function buildMilestoneEmail(props: MilestoneEmailProps): string {
     </div>
   `;
 
-  const footer = footerBlock(agentName);
+  const footer = footerBlock(agentName, agentId);
   return emailWrapper("success", header, body, footer);
 }

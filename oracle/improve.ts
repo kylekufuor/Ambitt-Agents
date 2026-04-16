@@ -1,5 +1,5 @@
 import prisma from "../shared/db.js";
-import { callClaude } from "../shared/claude.js";
+import { callClaude, ORCHESTRATION_MODEL } from "../shared/claude.js";
 import { sendKyleWhatsApp } from "../shared/whatsapp.js";
 import logger from "../shared/logger.js";
 
@@ -56,6 +56,7 @@ export async function runImprovementCycle(): Promise<ImprovementSuggestion[]> {
       .join("\n");
 
     const response = await callClaude({
+      model: ORCHESTRATION_MODEL,
       systemPrompt:
         "You are Oracle, the meta-agent for Ambitt Agents. Analyze performance signals and suggest ONE specific, actionable improvement to agent prompts or behavior. Be concise. Output JSON with fields: currentIssue, suggestedChange, confidence (low/medium/high).",
       userMessage:

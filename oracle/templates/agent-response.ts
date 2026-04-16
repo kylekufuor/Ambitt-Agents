@@ -1,4 +1,5 @@
 import type { RuntimeOutput } from "../../shared/runtime/index.js";
+import { navFooterLinks } from "./_shared.js";
 
 // ---------------------------------------------------------------------------
 // Agent Response Email Template
@@ -10,6 +11,7 @@ import type { RuntimeOutput } from "../../shared/runtime/index.js";
 
 interface AgentResponseOptions {
   agentName: string;
+  agentId: string;
   agentRole: string;
   clientBusinessName: string;
   responseBody: string;
@@ -28,7 +30,7 @@ interface AgentResponseOptions {
 }
 
 export function buildAgentResponseEmail(options: AgentResponseOptions): string {
-  const { agentName, agentRole, clientBusinessName, responseBody, toolsUsed, stats, tableHeaders, tableRows, sourceLinks, recommendations } = options;
+  const { agentName, agentId, agentRole, clientBusinessName, responseBody, toolsUsed, stats, tableHeaders, tableRows, sourceLinks, recommendations } = options;
 
   const bodyHtml = responseBody
     .split("\n")
@@ -188,6 +190,11 @@ export function buildAgentResponseEmail(options: AgentResponseOptions): string {
 
         <!-- Sub-footer -->
         <table role="presentation" style="max-width: 560px; margin: 16px auto 0 auto;">
+          <tr>
+            <td style="text-align: center; color: #9ca3af; font-size: 11px; line-height: 1.8; padding-bottom: 8px;">
+              ${navFooterLinks(agentName, agentId)}
+            </td>
+          </tr>
           <tr>
             <td style="text-align: center; color: #d1d5db; font-size: 11px;">
               <p style="margin: 0;">Powered by <a href="https://ambitt.agency" style="color: #9ca3af; text-decoration: none;">Ambitt Agents</a></p>
