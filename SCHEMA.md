@@ -353,16 +353,22 @@ model Credential {
 
 ### apiUsage
 
+**Note:** `prisma/schema.prisma` is the authoritative schema — this doc is reference. Run `npm run db:push` after any schema change.
+
 model ApiUsage {
   id                    String    @id @default(cuid())
   agentId               String
   agent                 Agent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
 
-  model                 String    // "claude-sonnet-4-6" | "gemini" | "gpt-4o"
-  inputTokens           Int
+  model                 String    // e.g. "claude-opus-4-7" | "claude-sonnet-4-6" | "claude-haiku-4-5-20251001" | "gemini" | "gpt-4o"
+  inputTokens           Int       // uncached input tokens only
   outputTokens          Int
   totalTokens           Int
-  costInCents           Int
+  cacheCreationTokens   Int       @default(0)  // billed at 1.25× base input rate
+  cacheReadTokens       Int       @default(0)  // billed at 0.10× base input rate
+  toolErrorCount        Int       @default(0)  // failed tool calls during this run (error-rate metric)
+  isPrimaryRun          Boolean   @default(true) // false on Haiku row when Sonnet also wrote (triage routing) — prevents run-count doubling
+  costInCents           Int                   // authoritative — computed at write time
 
   taskType              String
   taskId                String?
@@ -373,6 +379,69 @@ model ApiUsage {
   @@index([model])
   @@index([createdAt])
 }
+
+Triage routing writes two rows per run (Haiku + Sonnet). Run-count queries should filter `isPrimaryRun: true` to count logical runs. Cost / token queries should sum all rows.
+
+---
+
+### scheduledEmail
+
+Onboarding-checkpoint queue. Rows are enqueued in `approveAgent` for T+3 / T+7 / T+14. The hourly `processDueCheckpoints` cron picks up due rows, generates AI body via `oracle/onboarding-content.ts`, sends via `sendEmail`, marks `sent` / `failed`. Cancelled on agent pause / reject / kill.
+
+model ScheduledEmail {
+  id                    String    @id @default(cuid())
+  agentId               String
+  agent                 Agent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  clientId              String
+  client                Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  kind                  String    // "checkin_3day" | "highlight_7day" | "feedback_14day"
+  scheduledAt           DateTime
+  status                String    @default("pending") // pending | sent | cancelled | failed
+  sentAt                DateTime?
+  errorMessage          String?   @db.Text
+
+  createdAt             DateTime  @default(now())
+
+  @@index([status, scheduledAt])
+  @@index([agentId])
+  @@index([clientId])
+}
+
+---
+
+### overageEvent
+
+One row per interaction past the tier's `interactionLimit`. Grouped by `billingCycleMonth` ("YYYY-MM") for end-of-month Stripe invoicing (invoicing cron NOT yet wired).
+
+model OverageEvent {
+  id                    String    @id @default(cuid())
+  clientId              String
+  client                Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  agentId               String
+  agent                 Agent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  unitCostCents         Int       // snapshot of tier's overageRateCents at time of event
+  billingCycleMonth     String    // "YYYY-MM"
+  invoicedAt            DateTime? // set when rolled up into a Stripe invoice
+  createdAt             DateTime  @default(now())
+
+  @@index([clientId, billingCycleMonth])
+  @@index([agentId])
+  @@index([invoicedAt])
+}
+
+---
+
+### Fields added to existing models (see `prisma/schema.prisma` for full current state)
+
+**Client** — added:
+- `preferredName: String?` — what the agent calls the client in emails (e.g. "Kyle" even if contactName is "Kyle Kufuor")
+- `overageEnabled: Boolean @default(false)` — DEAD COLUMN. Overage is always on now; nothing reads this. Safe to drop in a future migration.
+- `overageRateCents: Int @default(10)` — DEAD COLUMN. Overage rate comes from the tier config (`getOverageRate(tier)`), not the client. Safe to drop.
+
+**Agent** — added:
+- `overageCount: Int @default(0)` — extra interactions past the limit, current cycle. Reset alongside `interactionCount` on monthly cycle rollover.
 
 ---
 

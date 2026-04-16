@@ -98,8 +98,9 @@ If you want an agent to query a CRM → connect Salesforce via Composio.
 
 | Template | File | Trigger | Header |
 |----------|------|---------|--------|
-| Welcome | welcome-email.ts | Agent activation | Dark |
-| Onboarding | onboarding-email.ts | 1hr after welcome | Dark |
+| Welcome | welcome-email.ts | Agent activation (includes AI brief + PDF) | Dark |
+| Onboarding | onboarding-email.ts | T+5min after welcome ("how to work with me", AI body) | Dark |
+| Checkpoint | checkpoint-email.ts | T+3 / T+7 / T+14 onboarding drip (AI body per kind) | Dark |
 | Agent Response | agent-response.ts | Runtime output | Dark |
 | Alert | alert-email.ts | Metric spike/anomaly | Red |
 | Digest | digest-email.ts | Weekly/periodic summary | Dark |
@@ -145,25 +146,32 @@ Agents have a `schedule` field (cron string, e.g. `"0 8 * * 1"` for Monday 8am).
 ## Multi-model routing rules
 
 Task type | Model | Reason
-All client-facing conversations | claude-sonnet-4-6 | Relationship quality
-Orchestration and agent building | claude-sonnet-4-6 | Best reasoning and code
+Oracle orchestration + improve cycle | claude-opus-4-7 | Strongest reasoning for meta-agent work
+Client-facing runtime synthesis | claude-sonnet-4-6 | Relationship-quality output
+Intermediate tool-selection loops | claude-haiku-4-5-20251001 | ~3× cheaper; escalates to Sonnet on end_turn with tools used (see `shared/runtime/engine.ts`). Kill switch: `DISABLE_TRIAGE_ROUTING=1`.
 Data analysis and summarization | Gemini | Speed and cost on large datasets
 Creative content and copywriting | GPT-4o | Strong creative output
 Fallback if any model fails | Claude | Always available
+
+Prompt caching: `cache_control: ephemeral` on system prompt + tool definitions in runtime engine. Metrics persisted to `ApiUsage.cacheCreationTokens` + `cacheReadTokens`. Cost model factors 1.25× write / 0.10× read.
 
 RULE: Gemini and OpenAI never communicate directly with clients. Claude owns every client relationship.
 
 ---
 
-## Client onboarding flow
+## Client onboarding flow (first 10 clients: Kyle + client co-setup on Zoom)
 
-1. Kyle creates agent via dashboard (dashboard.ambitt.agency)
-2. Connects tools via Composio (OAuth or API key)
-3. Oracle scaffolds agent, sends Kyle WhatsApp approval
-4. Kyle approves → agent activates, welcome email sent, site scanned
-5. Onboarding email sent 1hr later (context-gathering questions)
-6. Client replies with answers + attachments → agent parses and stores in memory
-7. Agent goes live on its cron schedule
+1. Kyle screen-shares the create-agent form and fills it with the client live (~15 min). Collects `preferredName` (what the agent calls them).
+2. Connects tools via Composio (OAuth mostly — happens on the call).
+3. Oracle scaffolds agent, sends Kyle WhatsApp approval.
+4. Kyle approves → agent activates, site scanned, welcome email fires with AI-authored strategic brief (PDF attached).
+5. **T+5min:** "how to work with me" email — AI-personalized from Zoom-collected context. Teaches reply mechanics, `DOCS` subject for new files, when scheduled runs fire, escalation path.
+6. **T+3 days:** Check-in email (AI-personalized, references a specific recent output).
+7. **T+7 days:** Capability highlight email (AI pitches one unused capability grounded in the business).
+8. **T+14 days:** Feedback + second-agent pitch (second agent only if tier has room).
+9. Agent continues on its cron schedule indefinitely.
+
+Checkpoints (T+3 / T+7 / T+14) fire via the hourly `processDueCheckpoints` cron in `oracle/scheduler.ts`. Respects agent timezone + 9am–5pm Mon–Fri business hours. Cancelled on pause/reject/kill. All onboarding emails (welcome + T+5min + checkpoints) pass `billable: false` to `runAgent` so they do NOT count toward the client's monthly interaction quota; footer tells the client that.
 
 ---
 
