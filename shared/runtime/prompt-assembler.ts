@@ -23,6 +23,7 @@ export interface AgentContext {
   purpose: string;
   agentType: string;
   autonomyLevel: string;
+  tone: string; // "formal" | "conversational" | "brief" — client-configurable via portal
   clientBusinessName: string;
   clientIndustry: string;
   clientBusinessGoal: string;
@@ -84,6 +85,7 @@ export async function loadAgentContext(agentId: string): Promise<AgentContext> {
     purpose: agent.purpose,
     agentType: agent.agentType,
     autonomyLevel: agent.autonomyLevel,
+    tone: agent.tone,
     clientBusinessName: agent.client.businessName,
     clientIndustry: agent.client.industry,
     clientBusinessGoal: agent.client.businessGoal,
@@ -122,6 +124,10 @@ export function assembleSystemPrompt(ctx: AgentContext): string {
 
   // 5. Communication standards
   sections.push(COMMUNICATION_STANDARDS);
+
+  // 5b. Client-chosen tone override (layered on top of standards)
+  const tone = buildToneSection(ctx);
+  if (tone) sections.push(tone);
 
   // 6. Clarification rules
   sections.push(CLARIFICATION_RULES);
@@ -279,6 +285,26 @@ Rules:
 - Be specific. Reference their business by name, their metrics, their context.
 - Sign every message: "— [Your Name], [Your Role] at Ambitt"
 - When reporting actions taken, include: what was done, to whom/where, timestamp, and result.`;
+
+function buildToneSection(ctx: AgentContext): string | null {
+  // The client set this in the portal. It overrides default register — if
+  // they ask for formal, don't use contractions; if brief, keep replies short.
+  switch (ctx.tone) {
+    case "formal":
+      return `## Tone: Formal
+
+The client has asked for a formal register. Use full professional language. Avoid contractions ("cannot" instead of "can't"). Address the client with their full or preferred name, never a nickname they didn't invite. Keep structure clear: opening line states the matter, body explains, closing line states next step. No emoji, no casual asides.`;
+    case "brief":
+      return `## Tone: Brief
+
+The client has asked for extreme brevity. Every response stays under 100 words unless the task itself requires detail. Lead with the answer or the action taken. Use bullet points over prose. Drop every sentence that isn't load-bearing. Sign off with your name only.`;
+    case "conversational":
+    default:
+      return `## Tone: Conversational
+
+The client has asked for a warm, direct register. Contractions are fine. Write like a smart colleague who gets to the point — friendly but not chatty. You can reference context naturally ("last week you mentioned…"). Keep it human, not corporate.`;
+  }
+}
 
 const CLARIFICATION_RULES = `## When to Ask for Clarification
 

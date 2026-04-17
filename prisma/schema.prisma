@@ -47,6 +47,7 @@ model Client {
   suppressions          Suppression[]
   overageEvents         OverageEvent[]
   scheduledEmails       ScheduledEmail[]
+  toolRequests          ToolRequest[]
 
   @@index([stripeCustomerId])
   @@index([billingStatus])
@@ -68,6 +69,8 @@ model Agent {
   autonomyLevel         String    @default("advisory")         // "advisory" | "copilot" | "autonomous"
   timezone              String    @default("America/New_York") // IANA tz — governs cron firing + polite hours
   deliveryFormat        String    @default("email_summary")    // "email_summary" | "email_with_attachments" | "email_plus_sheet"
+  tone                  String    @default("conversational")   // "formal" | "conversational" | "brief" — client-configurable voice register
+  emailFrequency        String    @default("immediate")        // "immediate" | "daily_digest" | "weekly_digest" — reserved for future digest batching; runtime currently sends per-run
   clientNorthStar       String?
 
   primaryModel          String    @default("claude-sonnet-4-6")
@@ -116,6 +119,7 @@ model Agent {
   suppressions          Suppression[]
   overageEvents         OverageEvent[]
   scheduledEmails       ScheduledEmail[]
+  toolRequests          ToolRequest[]
 
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
@@ -414,6 +418,31 @@ model Suppression {
   @@index([agentId])
   @@index([clientId])
   @@index([suppressUntil])
+}
+
+// ToolRequest — client asks for a tool that isn't in Composio's OAuth catalog.
+// Submitted from the portal's agent detail page. Kyle gets a WhatsApp ping on
+// every new row; he resolves manually (white-glove path). Lean by design — no
+// URL or category fields; Kyle asks for more context in the follow-up.
+model ToolRequest {
+  id                    String    @id @default(cuid())
+  clientId              String
+  client                Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  agentId               String
+  agent                 Agent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  toolName              String
+  reason                String    @db.Text
+
+  status                String    @default("pending") // "pending" | "resolved" | "dismissed"
+  resolvedAt            DateTime?
+  resolvedNote          String?   @db.Text
+
+  createdAt             DateTime  @default(now())
+
+  @@index([clientId, status])
+  @@index([agentId])
+  @@index([createdAt])
 }
 
 model OracleAction {

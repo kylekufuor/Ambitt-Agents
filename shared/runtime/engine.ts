@@ -51,7 +51,7 @@ const BUILTIN_TOOLS = new Set([
 export interface RuntimeInput {
   agentId: string;
   userMessage: string;
-  channel: "email" | "whatsapp";
+  channel: "email" | "whatsapp" | "chat";
   threadId: string;
   senderEmail?: string;
   // When false, this run does NOT count toward the client's monthly interaction

@@ -1,6 +1,8 @@
 import { sendEmail } from "../../shared/email.js";
 import { logRecommendations, type RecommendationEntry } from "./logRecommendations.js";
 import logger from "../../shared/logger.js";
+import prisma from "../../shared/db.js";
+import { signChatToken } from "../../shared/chat-token.js";
 
 // Template imports
 import { buildWelcomeEmail } from "../templates/welcome-email.js";
@@ -187,6 +189,27 @@ export async function sendAgentEmail(props: EmailProps): Promise<void> {
 
     default:
       throw new Error(`Unknown email trigger: ${trigger}`);
+  }
+
+  // Inject a fresh HMAC-signed chat token into the footer's chat link so
+  // "Chat with {agent}" lands the client straight into chat.ambitt.agency
+  // already authenticated. Best-effort — if the secret isn't configured or
+  // the DB lookup fails, we send the email with the bare (unsigned) link.
+  try {
+    if (!clientId) {
+      const a = await prisma.agent.findUnique({
+        where: { id: agentId },
+        select: { clientId: true },
+      });
+      clientId = a?.clientId;
+    }
+    if (clientId && process.env.CHAT_TOKEN_SECRET) {
+      const token = signChatToken(clientId, agentId);
+      const bareUrl = `https://chat.ambitt.agency/${agentId}`;
+      html = html.split(bareUrl).join(`${bareUrl}?t=${token}`);
+    }
+  } catch (err) {
+    logger.warn("Chat token injection skipped", { agentId, error: err instanceof Error ? err.message : String(err) });
   }
 
   // Send via Resend

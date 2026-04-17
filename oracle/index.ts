@@ -136,6 +136,43 @@ app.post("/agents/:id/pause", async (req: Request, res: Response) => {
   }
 });
 
+// Resume a paused agent — reactivates status + re-registers schedule
+app.post("/agents/:id/resume", async (req: Request, res: Response) => {
+  try {
+    const id = param(req, "id");
+    const agent = await prisma.agent.findUnique({
+      where: { id },
+      select: { status: true, schedule: true },
+    });
+
+    if (!agent) {
+      res.status(404).json({ error: "Agent not found" });
+      return;
+    }
+
+    if (agent.status !== "paused") {
+      res.status(400).json({ error: `Cannot resume — agent status is '${agent.status}'` });
+      return;
+    }
+
+    await prisma.agent.update({
+      where: { id },
+      data: { status: "active" },
+    });
+
+    if (agent.schedule && agent.schedule !== "manual") {
+      const { registerAgent } = await import("./scheduler.js");
+      registerAgent(id, agent.schedule);
+    }
+
+    logger.info("Agent resumed", { agentId: id });
+    res.json({ status: "active" });
+  } catch (error) {
+    logger.error("Agent resume failed", { error, agentId: param(req, "id") });
+    res.status(500).json({ error: "Resume failed" });
+  }
+});
+
 // Kill agent
 app.post("/agents/:id/kill", async (req: Request, res: Response) => {
   try {
@@ -200,6 +237,256 @@ app.patch("/agents/:id/schedule", async (req: Request, res: Response) => {
   } catch (error) {
     logger.error("Schedule update failed", { error, agentId: param(req, "id") });
     res.status(500).json({ error: "Schedule update failed" });
+  }
+});
+
+// Update client-configurable agent config (tone, emailFrequency).
+// Strict allowlist — never trust body keys blindly. Adding a new client-safe
+// field means updating the allowlist here AND the portal's config editor.
+const AGENT_CONFIG_ALLOWED_TONES = new Set(["formal", "conversational", "brief"]);
+const AGENT_CONFIG_ALLOWED_FREQUENCIES = new Set(["immediate", "daily_digest", "weekly_digest"]);
+
+app.patch("/agents/:id/config", async (req: Request, res: Response) => {
+  try {
+    const id = param(req, "id");
+    const { tone, emailFrequency } = req.body ?? {};
+    const updates: { tone?: string; emailFrequency?: string } = {};
+
+    if (tone !== undefined) {
+      if (typeof tone !== "string" || !AGENT_CONFIG_ALLOWED_TONES.has(tone)) {
+        res.status(400).json({ error: `Invalid tone. Allowed: ${[...AGENT_CONFIG_ALLOWED_TONES].join(", ")}` });
+        return;
+      }
+      updates.tone = tone;
+    }
+
+    if (emailFrequency !== undefined) {
+      if (typeof emailFrequency !== "string" || !AGENT_CONFIG_ALLOWED_FREQUENCIES.has(emailFrequency)) {
+        res.status(400).json({ error: `Invalid emailFrequency. Allowed: ${[...AGENT_CONFIG_ALLOWED_FREQUENCIES].join(", ")}` });
+        return;
+      }
+      updates.emailFrequency = emailFrequency;
+    }
+
+    if (Object.keys(updates).length === 0) {
+      res.status(400).json({ error: "No valid config fields provided" });
+      return;
+    }
+
+    const agent = await prisma.agent.update({
+      where: { id },
+      data: updates,
+      select: { id: true, tone: true, emailFrequency: true },
+    });
+
+    logger.info("Agent config updated", { agentId: id, updates });
+    res.json({ status: "updated", agent });
+  } catch (error) {
+    logger.error("Agent config update failed", { error, agentId: param(req, "id") });
+    res.status(500).json({ error: "Config update failed" });
+  }
+});
+
+// Submit a tool-request row + ping Kyle on WhatsApp. White-glove fallback
+// for anything not covered by Composio OAuth — Kyle resolves manually.
+app.post("/agents/:id/tool-requests", async (req: Request, res: Response) => {
+  try {
+    const id = param(req, "id");
+    const { toolName, reason } = req.body ?? {};
+
+    if (typeof toolName !== "string" || toolName.trim().length === 0) {
+      res.status(400).json({ error: "Missing 'toolName'" });
+      return;
+    }
+    if (typeof reason !== "string" || reason.trim().length === 0) {
+      res.status(400).json({ error: "Missing 'reason'" });
+      return;
+    }
+
+    const agent = await prisma.agent.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        name: true,
+        clientId: true,
+        client: { select: { id: true, businessName: true, email: true, contactName: true } },
+      },
+    });
+    if (!agent) {
+      res.status(404).json({ error: "Agent not found" });
+      return;
+    }
+
+    const request = await prisma.toolRequest.create({
+      data: {
+        clientId: agent.clientId,
+        agentId: agent.id,
+        toolName: toolName.trim().slice(0, 200),
+        reason: reason.trim().slice(0, 2000),
+      },
+      select: { id: true, toolName: true, reason: true, createdAt: true },
+    });
+
+    // Best-effort Kyle ping — failure doesn't block the request creation.
+    try {
+      const { sendKyleWhatsApp } = await import("../shared/whatsapp.js");
+      await sendKyleWhatsApp(
+        `🛠  Tool request\n` +
+          `Client: ${agent.client.businessName} (${agent.client.contactName ?? agent.client.email})\n` +
+          `Agent: ${agent.name}\n` +
+          `Tool: ${request.toolName}\n` +
+          `Why: ${request.reason}\n` +
+          `Request id: ${request.id}`
+      );
+    } catch (notifyError) {
+      logger.warn("Kyle WhatsApp notification failed for tool-request", {
+        requestId: request.id,
+        error: notifyError instanceof Error ? notifyError.message : String(notifyError),
+      });
+    }
+
+    logger.info("Tool request submitted", {
+      requestId: request.id,
+      agentId: agent.id,
+      clientId: agent.clientId,
+      toolName: request.toolName,
+    });
+    res.json({ status: "submitted", request });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    logger.error("Tool request submission failed", { error: message, agentId: param(req, "id") });
+    res.status(500).json({ error: "Tool request failed" });
+  }
+});
+
+// Chat: send a message from chat.ambitt.agency. Token in query/body is the
+// HMAC-signed { clientId, agentId } binding generated for this client by
+// shared/chat-token.ts. The token carrier IS the auth — we never trust the
+// agentId path param alone. Replies go back in the response; we also persist
+// both sides as ConversationMessage rows with channel="chat" via the runtime.
+app.post("/chat/:agentId/messages", async (req: Request, res: Response) => {
+  try {
+    const agentIdParam = param(req, "agentId");
+    const token = (req.query.t as string) ?? (req.body?.token as string) ?? "";
+    const message = typeof req.body?.message === "string" ? req.body.message.trim() : "";
+
+    if (!token) {
+      res.status(401).json({ error: "Missing chat token" });
+      return;
+    }
+    if (!message) {
+      res.status(400).json({ error: "Message is required" });
+      return;
+    }
+
+    const { verifyChatToken } = await import("../shared/chat-token.js");
+    let claims;
+    try {
+      claims = verifyChatToken(token);
+    } catch (err) {
+      logger.warn("Chat token verify failed", { agentId: agentIdParam, error: err instanceof Error ? err.message : String(err) });
+      res.status(401).json({ error: "Invalid chat token" });
+      return;
+    }
+
+    if (claims.agentId !== agentIdParam) {
+      res.status(403).json({ error: "Token does not bind to this agent" });
+      return;
+    }
+
+    const agent = await prisma.agent.findUnique({
+      where: { id: claims.agentId },
+      select: { id: true, status: true, name: true, clientId: true, client: { select: { email: true } } },
+    });
+    if (!agent) {
+      res.status(404).json({ error: "Agent not found" });
+      return;
+    }
+    if (agent.clientId !== claims.clientId) {
+      res.status(403).json({ error: "Token does not bind to this agent's client" });
+      return;
+    }
+    if (agent.status !== "active") {
+      res.status(400).json({ error: `Agent is ${agent.status}` });
+      return;
+    }
+
+    const threadId = `thread-${agent.id}-${agent.clientId}`;
+    const { processInboundMessage } = await import("../shared/runtime/index.js");
+    const result = await processInboundMessage({
+      agentId: agent.id,
+      userMessage: message,
+      channel: "chat",
+      threadId,
+      senderEmail: agent.client.email,
+    });
+
+    logger.info("Chat message processed", { agentId: agent.id, clientId: agent.clientId, length: message.length });
+    res.json({
+      response: result.response,
+      threadId,
+    });
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    logger.error("Chat message failed", { error: msg, agentId: param(req, "agentId") });
+    res.status(500).json({ error: "Chat processing failed" });
+  }
+});
+
+// Chat: load the full conversation history for this agent-client thread.
+// Email + chat messages appear together (unified thread, channel differentiates).
+app.get("/chat/:agentId/history", async (req: Request, res: Response) => {
+  try {
+    const agentIdParam = param(req, "agentId");
+    const token = (req.query.t as string) ?? "";
+
+    if (!token) {
+      res.status(401).json({ error: "Missing chat token" });
+      return;
+    }
+
+    const { verifyChatToken } = await import("../shared/chat-token.js");
+    let claims;
+    try {
+      claims = verifyChatToken(token);
+    } catch (err) {
+      res.status(401).json({ error: "Invalid chat token" });
+      return;
+    }
+
+    if (claims.agentId !== agentIdParam) {
+      res.status(403).json({ error: "Token does not bind to this agent" });
+      return;
+    }
+
+    const agent = await prisma.agent.findUnique({
+      where: { id: claims.agentId },
+      select: { id: true, name: true, clientId: true, status: true },
+    });
+    if (!agent || agent.clientId !== claims.clientId) {
+      res.status(404).json({ error: "Agent not found" });
+      return;
+    }
+
+    const threadId = `thread-${agent.id}-${agent.clientId}`;
+    const messages = await prisma.conversationMessage.findMany({
+      where: { threadId, archivedAt: null },
+      orderBy: { createdAt: "asc" },
+      take: 200,
+      select: { id: true, role: true, content: true, channel: true, createdAt: true },
+    });
+
+    res.json({
+      agentId: agent.id,
+      agentName: agent.name,
+      agentStatus: agent.status,
+      threadId,
+      messages,
+    });
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    logger.error("Chat history failed", { error: msg, agentId: param(req, "agentId") });
+    res.status(500).json({ error: "History load failed" });
   }
 });
 

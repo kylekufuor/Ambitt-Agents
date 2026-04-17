@@ -10,20 +10,20 @@ Full scope decisions documented in `.claude/projects/-Users-kylekufuor-Projects-
 - [x] Revised pricing model in code — `shared/pricing.ts` is source of truth. Tiers: Starter $499 (1K, 1 agent), Growth $999 (3K, 2 agents), Scale $2,499 (10K, 3 agents). Tool limit removed. Overage always on at tier-specific rates ($0.60 / $0.40 / $0.30). Second-agent 20% discount. `OverageEvent` table rolls up for end-of-month billing.
 - [x] Onboarding flow — full sequence built. T+0 welcome email with AI-authored strategic brief (PDF attached) + T+5min "how to work with me" (AI-personalized) + T+3 check-in + T+7 capability highlight + T+14 feedback + 2nd-agent pitch. All AI-generated via `oracle/onboarding-content.ts`. Non-billable (`runAgent({ billable: false })`). Cancelled on pause/reject/kill. Hourly cron in `oracle/scheduler.ts` respects agent timezone + 9-5 M-F business hours. `preferredName` field used for greetings.
 - [x] Email footer with persistent navigation links in all 10 templates (`_shared.ts::navFooterLinks`, `footerBlock(agentName, agentId, { systemEmail })`)
-- [x] Interaction counter — tracked per agent (`Agent.interactionCount`/`interactionLimit`/`overageCount`). Surfaced on admin dashboard `/agents/[id]`. Client-portal surface deferred to Phase 2 ("Client portal expansion") — data exists, UI home is part of that build.
+- [x] Interaction counter — tracked per agent (`Agent.interactionCount`/`interactionLimit`/`overageCount`). Runtime enforcement live (`shared/runtime/engine.ts`), monthly reset via `interactionResetAt`. No UI surface yet — admin-dashboard and client-portal surfacing both land in Phase 2 ("Client portal expansion"); data exists, UI home is part of that build.
 - [x] Operator dashboard panels — `dashboard/src/lib/health.ts` — agent error rate panel on `/agents/[id]`, client engagement + churn signal on `/clients/[id]`, churn-risk badges on `/clients` list. Costs page covers per-client API cost / revenue / margin / MRR from earlier work.
 - [x] Prompt caching — `cache_control: ephemeral` on system prompt + tool definitions. Per-run cache metrics logged (`cacheCreationTokens` / `cacheReadTokens`). Cost model in `dashboard/src/lib/costs.ts::recalcCostCents` factors 1.25× write / 0.10× read rates.
 - [x] Haiku triage routing — escalation pattern: Haiku 4.5 drives tool-selection loops; on end_turn with tools used, escalates to Sonnet for synthesis. Kill switch: `DISABLE_TRIAGE_ROUTING=1`. Per-model usage logged as separate `ApiUsage` rows, with `isPrimaryRun` flag so run-count metrics don't double.
 
 ## Phase 2 — Client interaction
 
+- [x] Client portal expansion — agent detail page at `/agents/[id]` (pause/resume, schedule editor, interaction counter with progress bar, doc upload moved here), billing view on home (MRR + cycle usage aggregated across agents + overage cost from `OverageEvent`), "Voice & email" section (tone editor wires into `prompt-assembler`, `emailFrequency` stored+editable; digest options UI-disabled until pipeline built). Ownership enforced via portal proxy routes + Supabase session.
+- [x] "Request new tool" form in client portal — `ToolRequest` table, submit form on agent detail page, WhatsApp ping to Kyle on submit, previous-requests list with status.
 - [ ] Chat page (chat.ambitt.agency) — lightweight web UI, token-based auth, unified conversation history
-- [ ] Oracle HTTP POST endpoint (same as inbound email flow, triggered by chat instead of Resend webhook)
+- [ ] Oracle HTTP POST endpoint for chat (mirrors inbound-email flow, triggered by chat instead of Resend webhook)
 - [ ] `channel` field on ConversationMessage ("email" | "chat")
-- [ ] Client portal expansion — agent config: schedule, tone, email frequency
-- [ ] Overage billing toggle in portal (hard stop vs overage at ~$0.05-0.10/interaction)
-- [ ] Tool connection flow — agent detects missing tool, sends Composio OAuth Connect Link to client
-- [ ] "Request new tool" form in client portal (routes to Kyle)
+- [ ] Tool connection flow — agent detects missing tool mid-run, sends Composio OAuth Connect Link to client
+- [ ] Email digest pipeline — honor `Agent.emailFrequency` (`daily_digest` / `weekly_digest`). Today `immediate` is the only functional value; portal disables the other options until this is built. Needs: ScheduledEmail "digest" type, aggregator cron, combined template.
 
 ## Phase 3 — Advanced capabilities
 
