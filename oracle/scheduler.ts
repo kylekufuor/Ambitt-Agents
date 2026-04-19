@@ -3,6 +3,7 @@ import prisma from "../shared/db.js";
 import { processInboundMessage } from "../shared/runtime/index.js";
 import { sendEmail } from "../shared/email.js";
 import { dispatchAgentResponse } from "./lib/dispatchAgentResponse.js";
+import { processDueDigests } from "./lib/digestCron.js";
 import { buildCheckpointEmail, type CheckpointKind } from "./templates/checkpoint-email.js";
 import {
   generateCheckinBody,
@@ -191,6 +192,7 @@ export async function initScheduler(): Promise<void> {
   }
 
   startCheckpointCron();
+  startDigestCron();
 
   logger.info("Scheduler initialized", {
     activeAgents: agents.length,
@@ -217,6 +219,10 @@ export function stopAll(): void {
   if (checkpointCronTask) {
     checkpointCronTask.stop();
     checkpointCronTask = null;
+  }
+  if (digestCronTask) {
+    digestCronTask.stop();
+    digestCronTask = null;
   }
 }
 
@@ -373,4 +379,24 @@ export function startCheckpointCron(): void {
     }
   });
   logger.info("Checkpoint cron started", { schedule: "0 * * * *" });
+}
+
+// ---------------------------------------------------------------------------
+// Digest cron — hourly sweep of agents whose emailFrequency isn't immediate.
+// Full logic in oracle/lib/digestCron.ts. Runs independently of the checkpoint
+// cron; same :00 schedule is fine because each handles different rows.
+// ---------------------------------------------------------------------------
+
+let digestCronTask: ScheduledTask | null = null;
+
+export function startDigestCron(): void {
+  if (digestCronTask) return;
+  digestCronTask = cron.schedule("0 * * * *", async () => {
+    try {
+      await processDueDigests();
+    } catch (error) {
+      logger.error("Digest cron tick threw", { error });
+    }
+  });
+  logger.info("Digest cron started", { schedule: "0 * * * *" });
 }
