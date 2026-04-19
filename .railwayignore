@@ -2,3 +2,14 @@ dashboard/node_modules
 dashboard/.next
 client-portal/node_modules
 client-portal/.next
+
+# Secrets — Railway provides env vars via its dashboard; never ship .env
+.env
+.env.*
+!.env.example
+
+# Local developer state — not needed in the image
+.git/
+.claude/
+.DS_Store
+
