@@ -1,5 +1,5 @@
 # Ambitt Agents — Build Phases
-Last updated: 2026-04-17
+Last updated: 2026-04-19
 
 Full scope decisions documented in `.claude/projects/-Users-kylekufuor-Projects-Ambitt-Agents/memory/project_client_interaction_scope.md`
 
@@ -19,9 +19,9 @@ Full scope decisions documented in `.claude/projects/-Users-kylekufuor-Projects-
 
 - [x] Client portal expansion — agent detail page at `/agents/[id]` (pause/resume, schedule editor, interaction counter with progress bar, doc upload moved here), billing view on home (MRR + cycle usage aggregated across agents + overage cost from `OverageEvent`), "Voice & email" section (tone editor wires into `prompt-assembler`, `emailFrequency` stored+editable; digest options UI-disabled until pipeline built). Ownership enforced via portal proxy routes + Supabase session.
 - [x] "Request new tool" form in client portal — `ToolRequest` table, submit form on agent detail page, WhatsApp ping to Kyle on submit, previous-requests list with status.
-- [ ] Chat page (chat.ambitt.agency) — lightweight web UI, token-based auth, unified conversation history
-- [ ] Oracle HTTP POST endpoint for chat (mirrors inbound-email flow, triggered by chat instead of Resend webhook)
-- [ ] `channel` field on ConversationMessage ("email" | "chat")
+- [x] Chat page (chat.ambitt.agency) — lightweight web UI, token-based auth, unified conversation history
+- [x] Oracle HTTP POST endpoint for chat (mirrors inbound-email flow, triggered by chat instead of Resend webhook)
+- [x] `channel` field on ConversationMessage ("email" | "chat")
 - [ ] Tool connection flow — agent detects missing tool mid-run, sends Composio OAuth Connect Link to client
 - [ ] Email digest pipeline — honor `Agent.emailFrequency` (`daily_digest` / `weekly_digest`). Today `immediate` is the only functional value; portal disables the other options until this is built. Needs: ScheduledEmail "digest" type, aggregator cron, combined template.
 
