@@ -1,5 +1,5 @@
 # Ambitt Agents — Build Phases
-Last updated: 2026-04-19 (mid-run tool connection flow — handler + wiring)
+Last updated: 2026-04-19 (email digest pipeline landed; Phase 2 done except the deferred tool-connection OAuth click-through)
 
 Full scope decisions documented in `.claude/projects/-Users-kylekufuor-Projects-Ambitt-Agents/memory/project_client_interaction_scope.md`
 
@@ -30,8 +30,8 @@ Full scope decisions documented in `.claude/projects/-Users-kylekufuor-Projects-
   - [x] Composio callback reconciliation — `/composio/callback` looks up `ToolConnectionRequest` by `composioConnectionId`, verifies with Composio (`getConnectedAccounts`) that the connection is ACTIVE, then flips `status="connected"` + `connectedAt`. Forged callbacks can't flip rows without a real active connection at Composio.
   - [x] Deploy Oracle — live as of 2026-04-19 (`df192477`); callback endpoint smoke-tested in prod (no-param + unknown-id both 200, correct log lines fire)
   - [x] `already_connected` branch verified in prod against real Composio (supabase/posthog)
-  - [ ] Happy-path E2E click-through: client clicks OAuth email → Composio completes → row flips `status="connected"` + next run picks up the tool (blocked only on a human click; probe is `scripts/test-tool-connection-live.ts`)
-- [ ] Email digest pipeline — honor `Agent.emailFrequency` (`daily_digest` / `weekly_digest`). Today `immediate` is the only functional value; portal disables the other options until this is built. Needs: ScheduledEmail "digest" type, aggregator cron, combined template.
+  - [~] Happy-path E2E click-through — **deferred 2026-04-19**. Only unknown is which query param name Composio uses on its callback redirect; `/composio/callback` accepts four common names as a guess. If wrong, Oracle logs immediately flag it (one-line fix). Worst case first paying client's row sits at `status="emailed"` until the log surfaces. Probe is `scripts/test-tool-connection-live.ts`.
+- [x] Email digest pipeline — `daily_digest` / `weekly_digest` live. Per-run output routes through `oracle/lib/dispatchAgentResponse.ts`: immediate sends email now, non-immediate queues a `ScheduledEmail(kind="digest_pending")` with a JSON payload of the run. Hourly `processDueDigests` cron (in `oracle/lib/digestCron.ts`) rolls up pending rows into one `digest-email.ts` send per agent at `digestHour` (and `digestDayOfWeek` for weekly) in agent timezone, with a Sonnet-synthesized 1-2 sentence summary. Portal config editor exposes frequency + hour + day pickers. Attachments dropped in digest mode (metadata kept for counts).
 
 ## Phase 3 — Advanced capabilities
 

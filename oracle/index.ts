@@ -249,8 +249,8 @@ const AGENT_CONFIG_ALLOWED_FREQUENCIES = new Set(["immediate", "daily_digest", "
 app.patch("/agents/:id/config", async (req: Request, res: Response) => {
   try {
     const id = param(req, "id");
-    const { tone, emailFrequency } = req.body ?? {};
-    const updates: { tone?: string; emailFrequency?: string } = {};
+    const { tone, emailFrequency, digestHour, digestDayOfWeek } = req.body ?? {};
+    const updates: { tone?: string; emailFrequency?: string; digestHour?: number; digestDayOfWeek?: number } = {};
 
     if (tone !== undefined) {
       if (typeof tone !== "string" || !AGENT_CONFIG_ALLOWED_TONES.has(tone)) {
@@ -268,6 +268,22 @@ app.patch("/agents/:id/config", async (req: Request, res: Response) => {
       updates.emailFrequency = emailFrequency;
     }
 
+    if (digestHour !== undefined) {
+      if (typeof digestHour !== "number" || !Number.isInteger(digestHour) || digestHour < 0 || digestHour > 23) {
+        res.status(400).json({ error: "digestHour must be an integer 0-23" });
+        return;
+      }
+      updates.digestHour = digestHour;
+    }
+
+    if (digestDayOfWeek !== undefined) {
+      if (typeof digestDayOfWeek !== "number" || !Number.isInteger(digestDayOfWeek) || digestDayOfWeek < 0 || digestDayOfWeek > 6) {
+        res.status(400).json({ error: "digestDayOfWeek must be an integer 0-6 (Sun=0..Sat=6)" });
+        return;
+      }
+      updates.digestDayOfWeek = digestDayOfWeek;
+    }
+
     if (Object.keys(updates).length === 0) {
       res.status(400).json({ error: "No valid config fields provided" });
       return;
@@ -276,7 +292,7 @@ app.patch("/agents/:id/config", async (req: Request, res: Response) => {
     const agent = await prisma.agent.update({
       where: { id },
       data: updates,
-      select: { id: true, tone: true, emailFrequency: true },
+      select: { id: true, tone: true, emailFrequency: true, digestHour: true, digestDayOfWeek: true },
     });
 
     logger.info("Agent config updated", { agentId: id, updates });

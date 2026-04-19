@@ -49,6 +49,9 @@ export default async function AgentDetailPage(
       schedule: true,
       tone: true,
       emailFrequency: true,
+      digestHour: true,
+      digestDayOfWeek: true,
+      timezone: true,
       pricingTier: true,
       interactionCount: true,
       interactionLimit: true,
@@ -198,6 +201,9 @@ export default async function AgentDetailPage(
             agentId={agent.id}
             initialTone={agent.tone}
             initialFrequency={agent.emailFrequency}
+            initialDigestHour={agent.digestHour}
+            initialDigestDayOfWeek={agent.digestDayOfWeek}
+            agentTimezone={agent.timezone}
           />
         </div>
       </section>
