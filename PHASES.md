@@ -27,7 +27,7 @@ Full scope decisions documented in `.claude/projects/-Users-kylekufuor-Projects-
   - [x] `shared/platform-tools/request-tool-connection.ts` handler (5 outcome states: emailed / already_pending / already_connected / unavailable / error; verified via `scripts/test-request-tool-connection.ts` against real Composio + real DB)
   - [x] `permission-email.ts` honors `ctaUrl` (previously dead prop; now drives the "Grant Access" button to the OAuth URL)
   - [x] Engine wiring — new built-in tool exposed to every agent via `BUILTIN_CLAUDE_TOOLS` in `shared/runtime/engine.ts`; `AgentContext` carries `clientId` + `clientName` so the permission-email payload satisfies `BaseEmailProps`
-  - [ ] Composio callback reconciliation — `/composio/callback` in `oracle/index.ts` must look up `ToolConnectionRequest` by `composioConnectionId` and mark `status="connected"` + `connectedAt` when the client authorizes
+  - [x] Composio callback reconciliation — `/composio/callback` looks up `ToolConnectionRequest` by `composioConnectionId`, verifies with Composio (`getConnectedAccounts`) that the connection is ACTIVE, then flips `status="connected"` + `connectedAt`. Forged callbacks can't flip rows without a real active connection at Composio.
   - [ ] Deploy Oracle + run end-to-end: bot agent requests a real tool → client clicks → row goes to `connected` → next run has the tool
 - [ ] Email digest pipeline — honor `Agent.emailFrequency` (`daily_digest` / `weekly_digest`). Today `immediate` is the only functional value; portal disables the other options until this is built. Needs: ScheduledEmail "digest" type, aggregator cron, combined template.
 

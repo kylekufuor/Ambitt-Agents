@@ -1084,14 +1084,68 @@ app.get("/composio/auth-scheme/:appName", async (req: Request, res: Response) =>
   }
 });
 
-// OAuth callback — Composio redirects here after client authorizes
+// OAuth callback — Composio redirects here after client authorizes.
+// Reconciles any open ToolConnectionRequest row: looks up the row by the
+// Composio connection id, verifies with Composio that the connection is now
+// ACTIVE, flips status="connected" + connectedAt. The Composio verification
+// step prevents forged callbacks from flipping rows — an attacker guessing
+// this URL can't satisfy the ACTIVE check unless the OAuth really completed.
 app.get("/composio/callback", async (req: Request, res: Response) => {
-  // Composio handles the token exchange; this just confirms to the user
+  const connectionId = String(
+    req.query.connectedAccountId ??
+    req.query.connection_id ??
+    req.query.connectionId ??
+    req.query.id ??
+    ""
+  ).trim();
+
+  if (connectionId) {
+    try {
+      const row = await prisma.toolConnectionRequest.findFirst({
+        where: { composioConnectionId: connectionId },
+        orderBy: { createdAt: "desc" },
+      });
+
+      if (row && row.status !== "connected") {
+        const { getConnectedAccounts } = await import("../shared/mcp/composio.js");
+        const connections = await getConnectedAccounts(row.clientId);
+        const isActive = connections.some((c) => c.id === connectionId && c.status === "ACTIVE");
+
+        if (isActive) {
+          await prisma.toolConnectionRequest.update({
+            where: { id: row.id },
+            data: { status: "connected", connectedAt: new Date() },
+          });
+          logger.info("ToolConnectionRequest marked connected", {
+            requestId: row.id, clientId: row.clientId, appName: row.appName, connectionId,
+          });
+        } else {
+          // Composio claims not-yet-active. Could be race with their webhook;
+          // leave the row at "emailed" — a later callback retry or the 24h
+          // dedup window expiring will let us pick this up again.
+          logger.warn("Callback fired but connection not ACTIVE in Composio", {
+            requestId: row.id, clientId: row.clientId, appName: row.appName, connectionId,
+          });
+        }
+      } else if (!row) {
+        // Unknown connectionId — test click, legacy connection from before
+        // this flow existed, or a param-name mismatch. Log but don't fail UX.
+        logger.info("Callback for unknown ToolConnectionRequest", { connectionId, query: req.query });
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      logger.error("ToolConnectionRequest reconciliation failed", { connectionId, error: message });
+      // Fall through to success page — the row can be reconciled later.
+    }
+  } else {
+    logger.info("Composio callback with no connection id", { query: req.query });
+  }
+
   res.send(`
     <html>
       <body style="font-family: system-ui; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #0a0a0a; color: #fff;">
         <div style="text-align: center;">
-          <div style="font-size: 48px; margin-bottom: 16px;">✓</div>
+          <div style="font-size: 48px; margin-bottom: 16px;">&#10003;</div>
           <h1 style="font-size: 20px; font-weight: 600;">Tool Connected</h1>
           <p style="color: #888; margin-top: 8px;">You can close this window and return to the dashboard.</p>
         </div>
