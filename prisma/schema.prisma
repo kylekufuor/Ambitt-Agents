@@ -71,7 +71,11 @@ model Agent {
   timezone              String    @default("America/New_York") // IANA tz — governs cron firing + polite hours
   deliveryFormat        String    @default("email_summary")    // "email_summary" | "email_with_attachments" | "email_plus_sheet"
   tone                  String    @default("conversational")   // "formal" | "conversational" | "brief" — client-configurable voice register
-  emailFrequency        String    @default("immediate")        // "immediate" | "daily_digest" | "weekly_digest" — reserved for future digest batching; runtime currently sends per-run
+  emailFrequency        String    @default("immediate")        // "immediate" | "daily_digest" | "weekly_digest" — when non-immediate, runs queue to ScheduledEmail (kind="digest_pending") and the hourly processDueDigests cron rolls them up
+  // Digest cadence (ignored when emailFrequency="immediate"). Client-configurable via portal; defaults are 8am agent-timezone / Monday.
+  digestHour            Int       @default(8)                  // 0-23 in agent timezone
+  digestDayOfWeek       Int       @default(1)                  // 0=Sun..6=Sat, used only for weekly_digest
+  lastDigestSentAt      DateTime?                              // prevents double-send within a period
   clientNorthStar       String?
 
   primaryModel          String    @default("claude-sonnet-4-6")
@@ -365,17 +369,24 @@ model ScheduledEmail {
   clientId              String
   client                Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
-  kind                  String                                // "checkin_3day" | "highlight_7day" | "feedback_14day"
+  kind                  String                                // "checkin_3day" | "highlight_7day" | "feedback_14day" | "digest_pending" | "digest"
   scheduledAt           DateTime
   status                String    @default("pending")         // pending | sent | cancelled | failed
   sentAt                DateTime?
   errorMessage          String?   @db.Text
+
+  // Used by kind="digest_pending": JSON snapshot of one queued run
+  // ({ response, toolsUsed, attachmentMeta, recommendations, ranAt }). Rolled up
+  // by processDueDigests cron into a single kind="digest" email. Null for
+  // checkpoint rows.
+  payload               String?   @db.Text
 
   createdAt             DateTime  @default(now())
 
   @@index([status, scheduledAt])
   @@index([agentId])
   @@index([clientId])
+  @@index([agentId, kind, status])
 }
 
 model StripeEvent {
