@@ -768,31 +768,17 @@ app.post("/webhooks/email-inbound", async (req: Request, res: Response) => {
       senderEmail: from,
     });
 
-    // Build and send response email
-    const { buildAgentResponseEmail } = await import("./templates/agent-response.js");
-    const { sendEmail } = await import("../shared/email.js");
-
-    const responseHtml = buildAgentResponseEmail({
-      agentName: agent.name,
+    // Dispatch — immediate send OR queue for digest, based on agent.emailFrequency
+    const { dispatchAgentResponse } = await import("./lib/dispatchAgentResponse.js");
+    const dispatch = await dispatchAgentResponse({
       agentId,
-      agentRole: agent.purpose,
-      clientBusinessName: agent.client.businessName,
-      responseBody: result.response,
-      toolsUsed: result.toolsUsed,
+      runtimeOutput: result,
+      isReply: true,
     });
 
-    await sendEmail({
+    logger.info("Agent email reply dispatched", {
       agentId,
-      agentName: agent.name,
-      to: agent.client.email,
-      subject: `Re: ${agent.name} — ${agent.client.businessName}`,
-      html: responseHtml,
-      replyToAgentId: agentId,
-      attachments: result.attachments.length > 0 ? result.attachments : undefined,
-    });
-
-    logger.info("Agent email reply sent", {
-      agentId,
+      mode: dispatch.mode,
       to: agent.client.email,
       toolsUsed: result.toolsUsed.length,
       loopCount: result.loopCount,

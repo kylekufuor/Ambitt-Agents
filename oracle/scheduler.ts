@@ -2,7 +2,7 @@ import cron, { type ScheduledTask } from "node-cron";
 import prisma from "../shared/db.js";
 import { processInboundMessage } from "../shared/runtime/index.js";
 import { sendEmail } from "../shared/email.js";
-import { buildAgentResponseEmail } from "./templates/agent-response.js";
+import { dispatchAgentResponse } from "./lib/dispatchAgentResponse.js";
 import { buildCheckpointEmail, type CheckpointKind } from "./templates/checkpoint-email.js";
 import {
   generateCheckinBody,
@@ -85,24 +85,11 @@ async function executeScheduledRun(agentId: string): Promise<void> {
     threadId,
   });
 
-  // Send results to client
-  const responseHtml = buildAgentResponseEmail({
-    agentName: agent.name,
+  // Dispatch — immediate send OR queue for digest, based on agent.emailFrequency
+  const dispatch = await dispatchAgentResponse({
     agentId,
-    agentRole: agent.purpose,
-    clientBusinessName: agent.client.businessName,
-    responseBody: result.response,
-    toolsUsed: result.toolsUsed,
-  });
-
-  await sendEmail({
-    agentId,
-    agentName: agent.name,
-    to: agent.client.email,
-    subject: `${agent.name} — ${agent.client.businessName}`,
-    html: responseHtml,
-    replyToAgentId: agentId,
-    attachments: result.attachments.length > 0 ? result.attachments : undefined,
+    runtimeOutput: result,
+    isReply: false,
   });
 
   // Update last run timestamp
@@ -125,6 +112,7 @@ async function executeScheduledRun(agentId: string): Promise<void> {
   logger.info("Scheduled run completed", {
     agentId,
     agentName: agent.name,
+    dispatchMode: dispatch.mode,
     toolsUsed: result.toolsUsed.length,
   });
 }
