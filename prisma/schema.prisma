@@ -48,6 +48,7 @@ model Client {
   overageEvents         OverageEvent[]
   scheduledEmails       ScheduledEmail[]
   toolRequests          ToolRequest[]
+  toolConnectionRequests ToolConnectionRequest[]
 
   @@index([stripeCustomerId])
   @@index([billingStatus])
@@ -120,6 +121,7 @@ model Agent {
   overageEvents         OverageEvent[]
   scheduledEmails       ScheduledEmail[]
   toolRequests          ToolRequest[]
+  toolConnectionRequests ToolConnectionRequest[]
 
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
@@ -442,6 +444,37 @@ model ToolRequest {
 
   @@index([clientId, status])
   @@index([agentId])
+  @@index([createdAt])
+}
+
+// ToolConnectionRequest — agent realized mid-run it needs an OAuth tool it
+// doesn't have, invoked the request_tool_connection platform tool, and we've
+// emailed the client a Composio OAuth link. Distinct from ToolRequest (which
+// is the portal white-glove path fulfilled by Kyle). De-dup window: don't
+// re-email the same (clientId, appName) if an open row exists from the last
+// 24h — see shared/runtime/tools/request-tool-connection.ts.
+model ToolConnectionRequest {
+  id                    String    @id @default(cuid())
+  clientId              String
+  client                Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  agentId               String
+  agent                 Agent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  appName               String    // Composio app slug, e.g. "gmail", "googlecalendar"
+  reason                String    @db.Text // agent-authored explanation of why it needs this, surfaced in the email
+
+  composioConnectionId  String?   // returned by initiateOAuthConnection(); null until we've called Composio
+  redirectUrl           String?   @db.Text // the OAuth URL the client clicks; null until emailed
+
+  status                String    @default("pending") // "pending" | "emailed" | "connected" | "expired" | "declined"
+  emailSentAt           DateTime?
+  connectedAt           DateTime?
+
+  createdAt             DateTime  @default(now())
+
+  @@index([clientId, appName, status])
+  @@index([agentId])
+  @@index([composioConnectionId])
   @@index([createdAt])
 }
 

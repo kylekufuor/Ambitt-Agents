@@ -17,6 +17,7 @@ import type { MCPToolInfo } from "../mcp/types.js";
 
 export interface AgentContext {
   agentId: string;
+  clientId: string;
   agentName: string;
   agentEmail: string;
   personality: string;
@@ -25,6 +26,7 @@ export interface AgentContext {
   autonomyLevel: string;
   tone: string; // "formal" | "conversational" | "brief" — client-configurable via portal
   clientBusinessName: string;
+  clientName: string; // preferredName || contactName || businessName — for email salutations + BaseEmailProps
   clientIndustry: string;
   clientBusinessGoal: string;
   clientBrandVoice: string;
@@ -45,6 +47,8 @@ export async function loadAgentContext(agentId: string): Promise<AgentContext> {
       client: {
         select: {
           businessName: true,
+          contactName: true,
+          preferredName: true,
           industry: true,
           businessGoal: true,
           brandVoice: true,
@@ -79,6 +83,7 @@ export async function loadAgentContext(agentId: string): Promise<AgentContext> {
 
   return {
     agentId,
+    clientId: agent.clientId,
     agentName: agent.name,
     agentEmail: agent.email,
     personality: agent.personality,
@@ -87,6 +92,7 @@ export async function loadAgentContext(agentId: string): Promise<AgentContext> {
     autonomyLevel: agent.autonomyLevel,
     tone: agent.tone,
     clientBusinessName: agent.client.businessName,
+    clientName: agent.client.preferredName ?? agent.client.contactName ?? agent.client.businessName,
     clientIndustry: agent.client.industry,
     clientBusinessGoal: agent.client.businessGoal,
     clientBrandVoice: agent.client.brandVoice,

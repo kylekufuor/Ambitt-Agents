@@ -68,7 +68,7 @@ export function buildPermissionEmail(props: PermissionEmailProps): string {
       </div>`).join("")}
     </div>` : ""}
 
-    ${primaryCta("Grant Access", `mailto:reply-${agentId}@ambitt.agency?subject=APPROVE%20${approveActionId}`)}
+    ${primaryCta("Grant Access", ctaUrl || `mailto:reply-${agentId}@ambitt.agency?subject=APPROVE%20${approveActionId}`)}
     ${secondaryCta("Ask a Question", `mailto:reply-${agentId}@ambitt.agency?subject=Question%20about%20${approveActionId}`, "Deny", `mailto:reply-${agentId}@ambitt.agency?subject=DISMISS%20${approveActionId}`)}
   `;
 

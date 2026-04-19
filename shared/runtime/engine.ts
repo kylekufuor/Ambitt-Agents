@@ -6,6 +6,8 @@ import { generatePDF } from "../attachments/pdf.js";
 import { analyzePerformanceFull, formatPageSpeedResults } from "../platform-tools/pagespeed.js";
 import { scanSite, formatScanResults } from "../platform-tools/site-scanner.js";
 import { webSearch, formatSearchResults } from "../platform-tools/web-search.js";
+import { requestToolConnection } from "../platform-tools/request-tool-connection.js";
+import { sendAgentEmail } from "../../oracle/lib/emailRouter.js";
 import { logUsage, CLIENT_MODEL, TRIAGE_MODEL } from "../claude.js";
 import type { EmailAttachment } from "../email.js";
 import prisma from "../db.js";
@@ -46,6 +48,7 @@ const BUILTIN_TOOLS = new Set([
   "generate_pdf",
   "analyze_website_performance",
   "analyze_website_technology",
+  "request_tool_connection",
 ]);
 
 export interface RuntimeInput {
@@ -180,6 +183,31 @@ const BUILTIN_CLAUDE_TOOLS: Anthropic.Messages.Tool[] = [
       required: ["filename", "title", "content"],
     },
   },
+  // --- Tool connection request ---
+  // Emails the client a one-click Composio OAuth link for a specific app.
+  // Full handler (de-dup, DB row, email dispatch) lives in
+  // shared/platform-tools/request-tool-connection.ts.
+  {
+    name: "request_tool_connection",
+    description:
+      "Ask the client to connect an external tool (app) you need. Call this ONLY when you genuinely need a specific app (e.g. Gmail, Google Calendar, Slack, HubSpot, Salesforce, Calendly, Notion) to complete the task, and it is NOT already available to you as one of your MCP tools. The client receives an email with a one-click OAuth link and authorizes in ~30 seconds. You will NOT get access inside this run — continue the task with what you can do without it, and the tool will be available on your next run once they authorize. Do not call this preemptively or for tools already in your toolset. If the same app has been requested recently (last 24 hours), this is a no-op.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        app_name: {
+          type: "string",
+          description:
+            "Composio app slug — lowercase, no spaces. Common values: 'gmail', 'googlecalendar', 'googlesheets', 'googledrive', 'slack', 'hubspot', 'salesforce', 'calendly', 'linkedin', 'notion', 'airtable', 'shopify', 'stripe'. If you're unsure of the slug, use the common lowercase form of the app name (the handler normalizes it).",
+        },
+        reason: {
+          type: "string",
+          description:
+            "Plain-English reason you need this tool, written as you'd explain it to the client. Example: 'send your weekly client reports for you' or 'check your calendar availability before booking meetings'. This text goes verbatim into the email the client receives, so it should be action-oriented and benefit-focused — not technical.",
+        },
+      },
+      required: ["app_name", "reason"],
+    },
+  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -189,7 +217,10 @@ const BUILTIN_CLAUDE_TOOLS: Anthropic.Messages.Tool[] = [
 async function executeBuiltinTool(
   toolName: string,
   args: Record<string, unknown>,
+  agentId: string,
+  clientId: string,
   agentName: string,
+  clientName: string,
   clientBusinessName: string,
   attachments: EmailAttachment[]
 ): Promise<{ content: string; isError: boolean }> {
@@ -241,6 +272,44 @@ async function executeBuiltinTool(
       return {
         content: `CSV generated: ${filename} (${rows.length} rows, ${headers.length} columns). It will be attached to your email response.`,
         isError: false,
+      };
+    }
+
+    if (toolName === "request_tool_connection") {
+      const { app_name, reason } = args as { app_name: string; reason: string };
+      const result = await requestToolConnection({
+        agentId,
+        clientId,
+        appName: app_name,
+        reason,
+        sendPermissionEmail: async ({ to, summary, appName, ctaUrl, approveActionId, reason: why }) => {
+          await sendAgentEmail({
+            trigger: "permission",
+            to,
+            agentName,
+            agentId,
+            clientName,
+            clientId,
+            productName: clientBusinessName,
+            summary,
+            permissions: [
+              {
+                toolName: appName,
+                accessLevel: "OAuth",
+                description: `Access to your ${appName} account to ${why}.`,
+              },
+            ],
+            intentSteps: [{ step: why }],
+            approveActionId,
+            ctaUrl,
+          });
+        },
+      });
+      return {
+        content: result.message,
+        // Not an error from Claude's perspective — these are expected outcomes.
+        // We only flag true failures (status="error") as tool errors.
+        isError: result.status === "error",
       };
     }
 
@@ -420,7 +489,10 @@ export async function runAgent(input: RuntimeInput): Promise<RuntimeOutput> {
       const result = await executeBuiltinTool(
         block.name,
         (block.input as Record<string, unknown>) ?? {},
+        ctx.agentId,
+        ctx.clientId,
         ctx.agentName,
+        ctx.clientName,
         ctx.clientBusinessName,
         attachments
       );

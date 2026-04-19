@@ -1,5 +1,5 @@
 # Ambitt Agents — Build Phases
-Last updated: 2026-04-19
+Last updated: 2026-04-19 (mid-run tool connection flow — handler + wiring)
 
 Full scope decisions documented in `.claude/projects/-Users-kylekufuor-Projects-Ambitt-Agents/memory/project_client_interaction_scope.md`
 
@@ -22,7 +22,13 @@ Full scope decisions documented in `.claude/projects/-Users-kylekufuor-Projects-
 - [x] Chat page (chat.ambitt.agency) — lightweight web UI, token-based auth, unified conversation history
 - [x] Oracle HTTP POST endpoint for chat (mirrors inbound-email flow, triggered by chat instead of Resend webhook)
 - [x] `channel` field on ConversationMessage ("email" | "chat")
-- [ ] Tool connection flow — agent detects missing tool mid-run, sends Composio OAuth Connect Link to client
+- [~] Tool connection flow — agent requests a missing tool mid-run via the `request_tool_connection` platform tool, which sends the client a Composio OAuth Connect Link.
+  - [x] `ToolConnectionRequest` table (dedupes 24h window on `(clientId, appName)`)
+  - [x] `shared/platform-tools/request-tool-connection.ts` handler (5 outcome states: emailed / already_pending / already_connected / unavailable / error; verified via `scripts/test-request-tool-connection.ts` against real Composio + real DB)
+  - [x] `permission-email.ts` honors `ctaUrl` (previously dead prop; now drives the "Grant Access" button to the OAuth URL)
+  - [x] Engine wiring — new built-in tool exposed to every agent via `BUILTIN_CLAUDE_TOOLS` in `shared/runtime/engine.ts`; `AgentContext` carries `clientId` + `clientName` so the permission-email payload satisfies `BaseEmailProps`
+  - [ ] Composio callback reconciliation — `/composio/callback` in `oracle/index.ts` must look up `ToolConnectionRequest` by `composioConnectionId` and mark `status="connected"` + `connectedAt` when the client authorizes
+  - [ ] Deploy Oracle + run end-to-end: bot agent requests a real tool → client clicks → row goes to `connected` → next run has the tool
 - [ ] Email digest pipeline — honor `Agent.emailFrequency` (`daily_digest` / `weekly_digest`). Today `immediate` is the only functional value; portal disables the other options until this is built. Needs: ScheduledEmail "digest" type, aggregator cron, combined template.
 
 ## Phase 3 — Advanced capabilities
