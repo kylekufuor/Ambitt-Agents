@@ -1,5 +1,5 @@
 # Ambitt Agents — Build Phases
-Last updated: 2026-04-19 (email digest pipeline landed; Phase 2 done except the deferred tool-connection OAuth click-through)
+Last updated: 2026-04-20 (autonomy modes + proactive insights shipped)
 
 Full scope decisions documented in `.claude/projects/-Users-kylekufuor-Projects-Ambitt-Agents/memory/project_client_interaction_scope.md`
 
@@ -39,8 +39,8 @@ Full scope decisions documented in `.claude/projects/-Users-kylekufuor-Projects-
 - [ ] 1Password SDK integration — per-client vaults, credential fetch at runtime
 - [ ] Secret injection layer — credentials fill form fields via Playwright, never pass through Claude
 - [ ] Custom email domain support — Resend multi-domain, subdomain approach, DNS verification flow
-- [ ] Autonomy modes — supervised (approve/reject entire action) and autonomous (mirror + execute)
-- [ ] Proactive insights — system prompt instruction for scheduled runs, optional section in agent emails
+- [x] Autonomy modes — `autonomyLevel` narrowed to `"supervised" | "autonomous"` (legacy advisory/copilot map to supervised). Supervised gate built end-to-end: `request_approval` platform tool (`shared/platform-tools/request-approval.ts`) creates a `Recommendation` row + fires `action-required` email; engine pauses on `isPause` signal and embeds the plan into conversation history so resume sees it. APPROVE/RETRY/DISMISS subject replies in `oracle/index.ts` resume the agent run. Autonomy section in `prompt-assembler.ts` instructs Claude when to call the tool. Portal `ConfigEditor` exposes the toggle; Oracle `/agents/:id/config` validates the field. Atlas + Zay migrated `advisory → supervised` in prod (commits `1cc40ea`, `c2c9481`).
+- [x] Proactive insights — system prompt teaches Claude to surface actionable/relevant/non-obvious observations at the end of any response as a trailing `## Proactive insights` bullet list. `dispatchAgentResponse.ts::extractProactiveInsights` parses the trailing section out of response text and passes it to `agent-response.ts` as `proactiveInsights: string[]`, which renders a highlighted amber block above the reply-prompt. 1-3 bullets max, empty sections suppressed entirely. In supervised mode, action-implying insights flow through `request_approval` like any other side-effectful work.
 
 ## Phase 4 — Voice + multi-agent
 

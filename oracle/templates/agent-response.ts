@@ -27,10 +27,16 @@ interface AgentResponseOptions {
     approveLabel: string;
     approveActionId: string;
   }>;
+  // Optional "Proactive Insights" section — items Claude surfaces beyond the
+  // assigned task (competitor moves, opportunities, risks). Rendered as a
+  // subtle bullet list at the bottom of the email; only present when the
+  // parser in dispatchAgentResponse extracted a non-empty trailing
+  // "## Proactive insights" block from the response text.
+  proactiveInsights?: string[];
 }
 
 export function buildAgentResponseEmail(options: AgentResponseOptions): string {
-  const { agentName, agentId, agentRole, clientBusinessName, responseBody, toolsUsed, stats, tableHeaders, tableRows, sourceLinks, recommendations } = options;
+  const { agentName, agentId, agentRole, clientBusinessName, responseBody, toolsUsed, stats, tableHeaders, tableRows, sourceLinks, recommendations, proactiveInsights } = options;
 
   const bodyHtml = responseBody
     .split("\n")
@@ -162,6 +168,19 @@ export function buildAgentResponseEmail(options: AgentResponseOptions): string {
                 <p style="margin: 0 0 10px 0; font-size: 12px; color: #71717a; font-style: italic;">${rec.reasoning}</p>
                 <a href="mailto:reply-\${agentId}@ambitt.agency?subject=APPROVE ${rec.approveActionId}" style="display: inline-block; background: #0f1117; color: #f0f2f7; padding: 8px 16px; border-radius: 6px; font-size: 12px; font-weight: 500; text-decoration: none;">${rec.approveLabel}</a>
               </div>`).join("")}
+            </td>
+          </tr>` : ""}
+
+          ${proactiveInsights && proactiveInsights.length > 0 ? `
+          <!-- Proactive Insights -->
+          <tr>
+            <td style="padding: 0 40px 20px 40px;">
+              <div style="background: #fffbeb; border-left: 3px solid #f59e0b; border-radius: 6px; padding: 14px 16px;">
+                <p style="margin: 0 0 8px 0; font-size: 10px; font-weight: 600; color: #92400e; text-transform: uppercase; letter-spacing: 1.2px;">Proactive Insights</p>
+                <ul style="margin: 0; padding-left: 18px; color: #78350f; font-size: 13px; line-height: 1.6;">
+                  ${proactiveInsights.map((i) => `<li style="margin: 0 0 4px 0;">${i}</li>`).join("")}
+                </ul>
+              </div>
             </td>
           </tr>` : ""}
 

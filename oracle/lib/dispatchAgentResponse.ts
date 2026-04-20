@@ -55,13 +55,19 @@ export async function dispatchAgentResponse(input: DispatchInput): Promise<
   const mode = agent.emailFrequency === "immediate" ? "immediate" : "queued";
 
   if (mode === "immediate") {
+    // Split any trailing "## Proactive insights" section off the response so
+    // it renders in a dedicated email block rather than inline prose. Claude
+    // is instructed to use this heading (see prompt-assembler.ts).
+    const { body: responseBody, insights: proactiveInsights } = extractProactiveInsights(runtimeOutput.response);
+
     const responseHtml = buildAgentResponseEmail({
       agentName: agent.name,
       agentId,
       agentRole: agent.purpose,
       clientBusinessName: agent.client.businessName,
-      responseBody: runtimeOutput.response,
+      responseBody,
       toolsUsed: runtimeOutput.toolsUsed,
+      proactiveInsights: proactiveInsights.length > 0 ? proactiveInsights : undefined,
     });
 
     await sendEmail({
@@ -114,4 +120,31 @@ export async function dispatchAgentResponse(input: DispatchInput): Promise<
   });
 
   return { mode: "queued", scheduledEmailId: row.id };
+}
+
+// Extract a trailing "## Proactive insights" (case-insensitive, any pluralization)
+// section from Claude's response text. Returns the body with that section
+// stripped + the insight bullets as an array. If no such section exists,
+// returns the original body and an empty insights array. Tolerant of minor
+// formatting variance since Claude's output is free-form markdown.
+export function extractProactiveInsights(raw: string): { body: string; insights: string[] } {
+  const headingRegex = /\n?#+\s*proactive\s+insights?\s*\n/i;
+  const match = raw.match(headingRegex);
+  if (!match || match.index === undefined) {
+    return { body: raw.trim(), insights: [] };
+  }
+
+  const before = raw.slice(0, match.index).trim();
+  const after = raw.slice(match.index + match[0].length);
+
+  // Pull bullet items until we hit a blank double-newline or another heading.
+  const nextHeading = after.search(/\n#+\s/);
+  const section = nextHeading === -1 ? after : after.slice(0, nextHeading);
+
+  const insights = section
+    .split(/\n/)
+    .map((line) => line.replace(/^\s*[-•*]\s*/, "").trim())
+    .filter((line) => line.length > 0 && !line.match(/^#+/));
+
+  return { body: before, insights };
 }

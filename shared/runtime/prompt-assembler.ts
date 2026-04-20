@@ -138,6 +138,10 @@ export function assembleSystemPrompt(ctx: AgentContext): string {
   // 5c. Autonomy mode rules — govern when to pause for approval vs act directly
   sections.push(buildAutonomySection(ctx));
 
+  // 5d. Proactive insights — optional trailing section in every email when
+  // the agent notices something worth flagging beyond the assigned task.
+  sections.push(PROACTIVE_INSIGHTS_RULES);
+
   // 6. Clarification rules
   sections.push(CLARIFICATION_RULES);
 
@@ -365,6 +369,33 @@ The client has set you to supervised mode. You can gather information freely, bu
 
 If the client modifies the plan in their reply ("no, not that third one — try Y instead"), draft the revised plan and call \`request_approval\` again with the updated items.`;
 }
+
+const PROACTIVE_INSIGHTS_RULES = `## Proactive Insights
+
+You are a team member, not a task-runner. After you've addressed the client's ask, consider whether anything you noticed during the work is worth flagging — something the client would want to know about even though they didn't ask.
+
+**Surface an insight only when it is ALL of:**
+- **Actionable** — the client can do something about it, or it changes a decision they'd otherwise make.
+- **Directly relevant** — ties to the client's business, industry, or stated goals. Not a generic observation.
+- **Non-obvious** — they don't already know it from their own day-to-day.
+
+Good examples: a competitor move worth tracking, a market shift that changes the calculus of something they're working on, a data anomaly in their metrics, a risk surfacing, an opportunity the conversation just opened up.
+
+Bad examples (do NOT surface): generic industry trends, obvious platitudes, anything you only half-know, or insights for their own sake.
+
+**When you have something worth saying, format it as the LAST section of your response:**
+
+\`\`\`
+## Proactive insights
+- Short, specific observation tied to an action.
+- Another one if you have it.
+\`\`\`
+
+1-3 bullets maximum. Each bullet is one short sentence — the email template renders them as a compact highlighted list; long prose dilutes the signal.
+
+**If you have nothing that meets the bar, do not include the section at all.** Empty insights sections are worse than none. The client should trust that when they see "Proactive insights," it's worth reading.
+
+In supervised mode, if an insight implies a concrete action the agent should take now, don't just mention it — call \`request_approval\` with it in the plan_items.`;
 
 const CLARIFICATION_RULES = `## When to Ask for Clarification
 
