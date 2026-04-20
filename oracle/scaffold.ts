@@ -50,12 +50,18 @@ interface DashboardBrief {
   }>;
   // Phase 1 operating config
   schedule?: string;           // cron expression or "manual"
-  autonomyLevel?: string;      // "advisory" | "copilot" | "autonomous"
+  autonomyLevel?: string;      // "supervised" | "autonomous" — legacy "advisory"/"copilot" accepted and mapped to "supervised"
   timezone?: string;           // IANA (e.g. "America/New_York")
   deliveryFormat?: string;     // "email_summary" | "email_with_attachments" | "email_plus_sheet"
 }
 
-const VALID_AUTONOMY = new Set(["advisory", "copilot", "autonomous"]);
+const VALID_AUTONOMY = new Set(["supervised", "autonomous"]);
+// Legacy values accepted on scaffold input + normalized to the new vocabulary.
+// "advisory" and "copilot" both meant "wait for me before acting" → supervised.
+const LEGACY_AUTONOMY_MAP: Record<string, string> = {
+  advisory: "supervised",
+  copilot: "supervised",
+};
 const VALID_DELIVERY = new Set(["email_summary", "email_with_attachments", "email_plus_sheet"]);
 
 function isDashboardBrief(brief: AgentBrief | DashboardBrief): brief is DashboardBrief {
@@ -122,7 +128,10 @@ export async function scaffoldAgent(input: AgentBrief | DashboardBrief): Promise
       schedule = "0 8 * * 1"; // Weekly Monday 8am default
     }
 
-    autonomyLevel = VALID_AUTONOMY.has(input.autonomyLevel ?? "") ? input.autonomyLevel! : "advisory";
+    // Accept legacy values ("advisory"/"copilot") by mapping them to supervised.
+    const rawAutonomy = input.autonomyLevel ?? "";
+    const mapped = LEGACY_AUTONOMY_MAP[rawAutonomy] ?? rawAutonomy;
+    autonomyLevel = VALID_AUTONOMY.has(mapped) ? mapped : "supervised";
     deliveryFormat = VALID_DELIVERY.has(input.deliveryFormat ?? "") ? input.deliveryFormat! : "email_summary";
 
     // Timezone — trust what came in (browser-detected), fall back to US East
@@ -162,7 +171,7 @@ export async function scaffoldAgent(input: AgentBrief | DashboardBrief): Promise
     purpose = input.purpose;
     personality = input.personality;
     schedule = input.schedule;
-    autonomyLevel = input.autonomyLevel ?? "advisory";
+    autonomyLevel = LEGACY_AUTONOMY_MAP[input.autonomyLevel ?? ""] ?? input.autonomyLevel ?? "supervised";
     timezone = "America/New_York";
     deliveryFormat = "email_summary";
     monthlyRetainerCents = input.monthlyRetainerCents;

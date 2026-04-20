@@ -67,7 +67,7 @@ model Agent {
 
   tools                 String[]
   schedule              String
-  autonomyLevel         String    @default("advisory")         // "advisory" | "copilot" | "autonomous"
+  autonomyLevel         String    @default("supervised")       // "supervised" | "autonomous" — supervised is default (plan-then-approve); client toggles to autonomous once they trust the agent. Legacy values "advisory" / "copilot" are migrated on-read in scaffold.ts.
   timezone              String    @default("America/New_York") // IANA tz — governs cron firing + polite hours
   deliveryFormat        String    @default("email_summary")    // "email_summary" | "email_with_attachments" | "email_plus_sheet"
   tone                  String    @default("conversational")   // "formal" | "conversational" | "brief" — client-configurable voice register
