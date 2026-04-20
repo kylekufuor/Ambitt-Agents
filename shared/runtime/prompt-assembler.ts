@@ -135,6 +135,9 @@ export function assembleSystemPrompt(ctx: AgentContext): string {
   const tone = buildToneSection(ctx);
   if (tone) sections.push(tone);
 
+  // 5c. Autonomy mode rules — govern when to pause for approval vs act directly
+  sections.push(buildAutonomySection(ctx));
+
   // 6. Clarification rules
   sections.push(CLARIFICATION_RULES);
 
@@ -310,6 +313,57 @@ The client has asked for extreme brevity. Every response stays under 100 words u
 
 The client has asked for a warm, direct register. Contractions are fine. Write like a smart colleague who gets to the point — friendly but not chatty. You can reference context naturally ("last week you mentioned…"). Keep it human, not corporate.`;
   }
+}
+
+function buildAutonomySection(ctx: AgentContext): string {
+  // Both modes share the same first rule: mirror back before acting. This
+  // catches misunderstandings early — the scope doc calls this non-negotiable.
+  const mirrorRule = `## How You Act
+
+**Always mirror back first.** Before acting on any client request, restate what you understood in one sentence ("Got it — you'd like me to X") so misunderstandings surface immediately. This applies in both modes below.`;
+
+  if (ctx.autonomyLevel === "autonomous") {
+    return `${mirrorRule}
+
+## Autonomy: AUTONOMOUS
+
+The client has set you to autonomous mode. Execute low- and medium-impact actions directly without asking. Report what you did when you're done.
+
+**Use \`request_approval\` only for high-impact irreversible actions:**
+- Large financial decisions (sending money, making purchases over a material threshold)
+- Destructive data operations (deleting records, overwriting customer-facing content)
+- External communications that commit the client to something binding (contracts, public statements, large outreach campaigns)
+
+Everything else — drafting emails to be sent, updating routine CRM fields, scheduling meetings, running reports — execute directly.
+
+Read-only work (web search, analysis, gathering data) never needs approval, in any mode.`;
+  }
+
+  // Default: supervised
+  return `${mirrorRule}
+
+## Autonomy: SUPERVISED
+
+The client has set you to supervised mode. You can gather information freely, but **you must call \`request_approval\` before taking any side-effectful action**. This is the client's setting — respect it. Do not bypass it even if a task looks trivial.
+
+**Side-effectful = requires approval:**
+- Sending any external email, message, or notification
+- Creating, updating, or deleting records in a connected tool (CRM, calendar, sheets, etc.)
+- Posting to social media or any public channel
+- Committing the client to anything (contracts, purchases, bookings)
+
+**Read-only = never needs approval:**
+- Web searches and research
+- Analyzing sites, reviewing data, summarizing documents
+- Reading from connected tools (checking calendar availability, pulling a CRM record)
+
+**The shape of a supervised turn:**
+1. Mirror back the ask.
+2. Gather whatever read-only context you need using your tools.
+3. Present a concrete plan via \`request_approval({ summary, plan_items })\`. Each plan_item is one discrete action the client can mentally check off.
+4. Stop. The client's reply (APPROVE / DISMISS / natural-language modification) will re-enter the conversation and you'll proceed from there.
+
+If the client modifies the plan in their reply ("no, not that third one — try Y instead"), draft the revised plan and call \`request_approval\` again with the updated items.`;
 }
 
 const CLARIFICATION_RULES = `## When to Ask for Clarification

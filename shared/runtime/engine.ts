@@ -7,6 +7,7 @@ import { analyzePerformanceFull, formatPageSpeedResults } from "../platform-tool
 import { scanSite, formatScanResults } from "../platform-tools/site-scanner.js";
 import { webSearch, formatSearchResults } from "../platform-tools/web-search.js";
 import { requestToolConnection } from "../platform-tools/request-tool-connection.js";
+import { requestApproval } from "../platform-tools/request-approval.js";
 import { sendAgentEmail } from "../../oracle/lib/emailRouter.js";
 import { logUsage, CLIENT_MODEL, TRIAGE_MODEL } from "../claude.js";
 import type { EmailAttachment } from "../email.js";
@@ -49,6 +50,7 @@ const BUILTIN_TOOLS = new Set([
   "analyze_website_performance",
   "analyze_website_technology",
   "request_tool_connection",
+  "request_approval",
 ]);
 
 export interface RuntimeInput {
@@ -183,6 +185,40 @@ const BUILTIN_CLAUDE_TOOLS: Anthropic.Messages.Tool[] = [
       required: ["filename", "title", "content"],
     },
   },
+  // --- Approval gate (supervised mode) ---
+  // Pauses the run and emails the client an action-required plan with
+  // Approve / Ask / Dismiss buttons. In supervised mode, any side-effectful
+  // action must call this first and wait for the client's reply. In
+  // autonomous mode, Claude is told to execute directly and only call this
+  // for high-impact irreversible actions. See prompt-assembler.ts for the
+  // per-mode guidance Claude receives.
+  {
+    name: "request_approval",
+    description:
+      "Ask the client to approve a plan before you execute any side-effectful action (send emails, update CRM/calendar, post anywhere, create/modify/delete external records). In SUPERVISED mode this is mandatory before any write action. In AUTONOMOUS mode only call this for high-impact irreversible actions (large financial moves, destructive data changes). Read-only research, analysis, and web search are always fine without approval in both modes. After calling this, do NOT make any more tool calls — end your turn with a brief note to the client. Their APPROVE / DISMISS reply will re-enter the runtime with the full conversation, and you'll execute (or adjust) then.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        summary: {
+          type: "string",
+          description:
+            "One-sentence headline of what you're proposing, in the client's voice. Example: 'I'd like to send these 3 follow-up emails to leads from last week.' or 'I've drafted the monthly report — approve to send it to your list.' Under 200 characters.",
+        },
+        plan_items: {
+          type: "array",
+          items: { type: "string" },
+          description:
+            "Ordered concrete steps you'll take on approval. Each item should be a single action the client can mentally check off. Example: ['Send email to Alice re: Q3 proposal', 'Send email to Bob re: contract renewal', 'Log both in HubSpot as touched today']. 1-8 items.",
+        },
+        reasoning: {
+          type: "string",
+          description:
+            "Optional 1-2 sentence why — surfaced in the email under 'Reasoning'. Explain why this action makes sense now.",
+        },
+      },
+      required: ["summary", "plan_items"],
+    },
+  },
   // --- Tool connection request ---
   // Emails the client a one-click Composio OAuth link for a specific app.
   // Full handler (de-dup, DB row, email dispatch) lives in
@@ -223,7 +259,7 @@ async function executeBuiltinTool(
   clientName: string,
   clientBusinessName: string,
   attachments: EmailAttachment[]
-): Promise<{ content: string; isError: boolean }> {
+): Promise<{ content: string; isError: boolean; isPause?: boolean }> {
   try {
     if (toolName === "web_search") {
       const { query, max_results, search_depth } = args as {
@@ -272,6 +308,43 @@ async function executeBuiltinTool(
       return {
         content: `CSV generated: ${filename} (${rows.length} rows, ${headers.length} columns). It will be attached to your email response.`,
         isError: false,
+      };
+    }
+
+    if (toolName === "request_approval") {
+      const { summary, plan_items, reasoning } = args as {
+        summary: string;
+        plan_items: string[];
+        reasoning?: string;
+      };
+      const result = await requestApproval({
+        agentId,
+        clientId,
+        summary,
+        planItems: plan_items,
+        reasoning,
+        sendActionRequiredEmail: async ({ to, summary: s, planItems, reasoning: why, approveActionId }) => {
+          await sendAgentEmail({
+            trigger: "action-required",
+            to,
+            agentName,
+            agentId,
+            clientName,
+            clientId,
+            productName: clientBusinessName,
+            summary: s,
+            actionSteps: planItems.map((step) => ({ step })),
+            reasoning: why,
+            impactStatement: "These changes will be made on your behalf once you approve.",
+            approveActionId,
+            ctaUrl: `mailto:reply-${agentId}@ambitt.agency?subject=APPROVE%20${approveActionId}`,
+          });
+        },
+      });
+      return {
+        content: result.message,
+        isError: result.status === "error",
+        isPause: result.isPause,
       };
     }
 
@@ -485,6 +558,8 @@ export async function runAgent(input: RuntimeInput): Promise<RuntimeOutput> {
 
     // Execute built-in tools
     const builtinResults: Anthropic.Messages.ToolResultBlockParam[] = [];
+    let pauseRequested = false;
+    let pausePlanText: string | null = null;
     for (const block of builtinCalls) {
       const result = await executeBuiltinTool(
         block.name,
@@ -507,6 +582,22 @@ export async function runAgent(input: RuntimeInput): Promise<RuntimeOutput> {
         toolName: block.name,
         success: !result.isError,
       });
+      if (result.isPause) {
+        pauseRequested = true;
+        // Capture the plan so it persists in ConversationMessage — otherwise
+        // the next run (triggered by the client's APPROVE reply) sees history
+        // without the plan items and Claude can't execute it.
+        if (block.name === "request_approval") {
+          const input = (block.input as { summary?: string; plan_items?: string[] }) ?? {};
+          const items = Array.isArray(input.plan_items) ? input.plan_items : [];
+          pausePlanText = [
+            input.summary ? input.summary : "Here's the plan I'd like to run:",
+            ...items.map((s) => `- ${s}`),
+            "",
+            "Approve and I'll proceed. Reply with changes if you'd like it adjusted.",
+          ].join("\n");
+        }
+      }
     }
 
     // Execute MCP tools
@@ -548,6 +639,16 @@ export async function runAgent(input: RuntimeInput): Promise<RuntimeOutput> {
     // If there was text alongside tool calls, capture it
     if (textBlocks.length > 0) {
       finalResponse = textBlocks.map((b) => b.text).join("\n\n");
+    }
+
+    // Approval gate fired — run ends here. The client's reply re-enters
+    // the runtime with full conversation history; Claude picks up from
+    // "plan approved/rejected" and proceeds. Final response embeds the
+    // plan items so they persist in ConversationMessage for the next run.
+    if (pauseRequested) {
+      finalResponse = pausePlanText ?? finalResponse
+        ?? "I've drafted a plan and sent it over for your approval. I'll proceed as soon as you reply.";
+      break;
     }
   }
 

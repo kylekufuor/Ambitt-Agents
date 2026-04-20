@@ -15,6 +15,11 @@ const FREQUENCY_OPTIONS: Array<{ value: string; label: string; description: stri
   { value: "weekly_digest", label: "Weekly digest", description: "One roll-up email per week" },
 ];
 
+const AUTONOMY_OPTIONS: Array<{ value: string; label: string; description: string }> = [
+  { value: "supervised", label: "Supervised", description: "Agent shows the plan and waits for your approval before acting" },
+  { value: "autonomous", label: "Autonomous", description: "Agent acts directly on routine work; asks only for high-impact actions" },
+];
+
 const DAY_OPTIONS: Array<{ value: number; label: string }> = [
   { value: 0, label: "Sun" },
   { value: 1, label: "Mon" },
@@ -37,6 +42,7 @@ export function ConfigEditor({
   initialFrequency,
   initialDigestHour,
   initialDigestDayOfWeek,
+  initialAutonomyLevel,
   agentTimezone,
 }: {
   agentId: string;
@@ -44,6 +50,7 @@ export function ConfigEditor({
   initialFrequency: string;
   initialDigestHour: number;
   initialDigestDayOfWeek: number;
+  initialAutonomyLevel: string;
   agentTimezone: string;
 }) {
   const router = useRouter();
@@ -51,6 +58,7 @@ export function ConfigEditor({
   const [frequency, setFrequency] = useState(initialFrequency);
   const [digestHour, setDigestHour] = useState(initialDigestHour);
   const [digestDayOfWeek, setDigestDayOfWeek] = useState(initialDigestDayOfWeek);
+  const [autonomyLevel, setAutonomyLevel] = useState(initialAutonomyLevel);
   const [saving, setSaving] = useState(false);
   const [result, setResult] = useState<string | null>(null);
   const [, startTransition] = useTransition();
@@ -72,6 +80,7 @@ export function ConfigEditor({
         if ("emailFrequency" in patch) setFrequency(patch.emailFrequency as string);
         if ("digestHour" in patch) setDigestHour(patch.digestHour as number);
         if ("digestDayOfWeek" in patch) setDigestDayOfWeek(patch.digestDayOfWeek as number);
+        if ("autonomyLevel" in patch) setAutonomyLevel(patch.autonomyLevel as string);
         setResult("Saved");
         startTransition(() => router.refresh());
       }
@@ -86,6 +95,30 @@ export function ConfigEditor({
 
   return (
     <div className="space-y-6">
+      {/* Autonomy */}
+      <div>
+        <p className="text-sm font-medium text-zinc-900 mb-2">Autonomy</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {AUTONOMY_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              onClick={() => update({ autonomyLevel: opt.value })}
+              disabled={saving}
+              className={`text-left px-4 py-3 rounded-lg border transition ${
+                autonomyLevel === opt.value
+                  ? "border-emerald-500 bg-emerald-50 ring-1 ring-emerald-500/20"
+                  : "border-zinc-200 hover:border-zinc-400"
+              } disabled:opacity-50`}
+            >
+              <p className={`text-sm font-medium ${autonomyLevel === opt.value ? "text-emerald-700" : "text-zinc-900"}`}>
+                {opt.label}
+              </p>
+              <p className="text-xs text-zinc-500 mt-0.5">{opt.description}</p>
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Tone */}
       <div>
         <p className="text-sm font-medium text-zinc-900 mb-2">Tone</p>

@@ -3,7 +3,7 @@ import { verifyAgentOwnership, oracleUrl } from "@/lib/agent-auth";
 
 // Client-configurable agent config. Mirrors Oracle's allowlist — anything
 // not listed here is rejected before we even reach Oracle.
-const ALLOWED_KEYS = new Set(["tone", "emailFrequency", "digestHour", "digestDayOfWeek"]);
+const ALLOWED_KEYS = new Set(["tone", "emailFrequency", "digestHour", "digestDayOfWeek", "autonomyLevel"]);
 
 export async function PATCH(req: NextRequest, ctx: RouteContext<"/api/agents/[id]/config">) {
   const { id } = await ctx.params;

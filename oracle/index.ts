@@ -245,12 +245,13 @@ app.patch("/agents/:id/schedule", async (req: Request, res: Response) => {
 // field means updating the allowlist here AND the portal's config editor.
 const AGENT_CONFIG_ALLOWED_TONES = new Set(["formal", "conversational", "brief"]);
 const AGENT_CONFIG_ALLOWED_FREQUENCIES = new Set(["immediate", "daily_digest", "weekly_digest"]);
+const AGENT_CONFIG_ALLOWED_AUTONOMY = new Set(["supervised", "autonomous"]);
 
 app.patch("/agents/:id/config", async (req: Request, res: Response) => {
   try {
     const id = param(req, "id");
-    const { tone, emailFrequency, digestHour, digestDayOfWeek } = req.body ?? {};
-    const updates: { tone?: string; emailFrequency?: string; digestHour?: number; digestDayOfWeek?: number } = {};
+    const { tone, emailFrequency, digestHour, digestDayOfWeek, autonomyLevel } = req.body ?? {};
+    const updates: { tone?: string; emailFrequency?: string; digestHour?: number; digestDayOfWeek?: number; autonomyLevel?: string } = {};
 
     if (tone !== undefined) {
       if (typeof tone !== "string" || !AGENT_CONFIG_ALLOWED_TONES.has(tone)) {
@@ -284,6 +285,14 @@ app.patch("/agents/:id/config", async (req: Request, res: Response) => {
       updates.digestDayOfWeek = digestDayOfWeek;
     }
 
+    if (autonomyLevel !== undefined) {
+      if (typeof autonomyLevel !== "string" || !AGENT_CONFIG_ALLOWED_AUTONOMY.has(autonomyLevel)) {
+        res.status(400).json({ error: `Invalid autonomyLevel. Allowed: ${[...AGENT_CONFIG_ALLOWED_AUTONOMY].join(", ")}` });
+        return;
+      }
+      updates.autonomyLevel = autonomyLevel;
+    }
+
     if (Object.keys(updates).length === 0) {
       res.status(400).json({ error: "No valid config fields provided" });
       return;
@@ -292,7 +301,7 @@ app.patch("/agents/:id/config", async (req: Request, res: Response) => {
     const agent = await prisma.agent.update({
       where: { id },
       data: updates,
-      select: { id: true, tone: true, emailFrequency: true, digestHour: true, digestDayOfWeek: true },
+      select: { id: true, tone: true, emailFrequency: true, digestHour: true, digestDayOfWeek: true, autonomyLevel: true },
     });
 
     logger.info("Agent config updated", { agentId: id, updates });
@@ -683,28 +692,62 @@ app.post("/webhooks/email-inbound", async (req: Request, res: Response) => {
             },
           });
 
-          // Confirm back to client
-          const agent = await prisma.agent.findUnique({
-            where: { id: agentId },
-            select: { name: true, client: { select: { email: true } } },
-          });
+          // Supervised-mode re-entry: on APPROVE or RETRY, feed a synthetic
+          // message into the agent runtime so Claude executes the plan it
+          // previously proposed. The conversation history already carries the
+          // plan items (engine.ts embeds them in finalResponse on pause).
+          // DISMISS is a dead-end: just confirm and stop.
+          if (action !== "dismissed") {
+            const actionWord = action === "approved" ? "APPROVED" : "RETRY";
+            const syntheticMessage =
+              action === "approved"
+                ? `${actionWord} — please proceed with the plan you presented.`
+                : `${actionWord} — please try that plan again.`;
+            const threadId = `thread-${agentId}-${recommendation.clientId}`;
 
-          if (agent) {
-            const { sendEmail: sendConfirm } = await import("../shared/email.js");
-            const actionLabel = action === "approved" ? "approved" : action === "dismissed" ? "dismissed" : "queued for retry";
-            await sendConfirm({
+            const { processInboundMessage } = await import("../shared/runtime/index.js");
+            const result = await processInboundMessage({
               agentId,
-              agentName: agent.name,
-              to: agent.client?.email ?? from,
-              subject: `${agent.name} — Action ${actionLabel}`,
-              html: `<div style="font-family: -apple-system, sans-serif; max-width: 560px; margin: 0 auto; padding: 24px;">
-                <p>Got it. I've <strong>${actionLabel}</strong> the recommendation: "${recommendation.title}".</p>
-                ${action === "approved" ? "<p>I'll proceed with this action and follow up with results.</p>" : ""}
-                ${action === "retry" ? "<p>I'll retry this action now.</p>" : ""}
-                <p style="color: #9ca3af; font-size: 13px;">— ${agent.name}, your AI agent at Ambitt</p>
-              </div>`,
-              replyToAgentId: agentId,
+              userMessage: syntheticMessage,
+              channel: "email",
+              threadId,
+              senderEmail: from,
             });
+
+            const { dispatchAgentResponse } = await import("./lib/dispatchAgentResponse.js");
+            await dispatchAgentResponse({
+              agentId,
+              runtimeOutput: result,
+              isReply: true,
+            });
+
+            logger.info("Supervised plan resumed", {
+              agentId,
+              actionId,
+              action,
+              toolsUsed: result.toolsUsed.length,
+              loopCount: result.loopCount,
+            });
+          } else {
+            // DISMISS — light confirmation only, no runtime re-entry
+            const agent = await prisma.agent.findUnique({
+              where: { id: agentId },
+              select: { name: true, client: { select: { email: true } } },
+            });
+            if (agent) {
+              const { sendEmail: sendConfirm } = await import("../shared/email.js");
+              await sendConfirm({
+                agentId,
+                agentName: agent.name,
+                to: agent.client?.email ?? from,
+                subject: `${agent.name} — Action dismissed`,
+                html: `<div style="font-family: -apple-system, sans-serif; max-width: 560px; margin: 0 auto; padding: 24px;">
+                  <p>Got it. I've <strong>dismissed</strong>: "${recommendation.title}". I won't proceed.</p>
+                  <p style="color: #9ca3af; font-size: 13px;">— ${agent.name}, your AI agent at Ambitt</p>
+                </div>`,
+                replyToAgentId: agentId,
+              });
+            }
           }
 
           logger.info("Recommendation action processed", { agentId, actionId, action });

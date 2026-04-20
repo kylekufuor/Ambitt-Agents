@@ -7,3 +7,8 @@ export type {
   RequestToolConnectionInput,
   RequestToolConnectionResult,
 } from "./request-tool-connection.js";
+export { requestApproval } from "./request-approval.js";
+export type {
+  RequestApprovalInput,
+  RequestApprovalResult,
+} from "./request-approval.js";
