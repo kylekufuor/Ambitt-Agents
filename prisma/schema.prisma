@@ -49,6 +49,7 @@ model Client {
   scheduledEmails       ScheduledEmail[]
   toolRequests          ToolRequest[]
   toolConnectionRequests ToolConnectionRequest[]
+  browserSessions       BrowserSession[]
 
   @@index([stripeCustomerId])
   @@index([billingStatus])
@@ -126,6 +127,7 @@ model Agent {
   scheduledEmails       ScheduledEmail[]
   toolRequests          ToolRequest[]
   toolConnectionRequests ToolConnectionRequest[]
+  browserSessions       BrowserSession[]
 
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
@@ -487,6 +489,36 @@ model ToolConnectionRequest {
   @@index([agentId])
   @@index([composioConnectionId])
   @@index([createdAt])
+}
+
+// BrowserSession — audit trail for one Stagehand/Browserbase session run by
+// the `browse` platform tool. Written on open, updated on close. Transcript
+// is a short summary of what Claude saw/did (not the full page HTML). Use
+// for debugging + cost visibility. browserbaseSessionId lets us jump to the
+// Browserbase dashboard for the same session when triaging a failure.
+model BrowserSession {
+  id                    String    @id @default(cuid())
+  agentId               String
+  agent                 Agent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  clientId              String
+  client                Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  goal                  String    @db.Text
+  startingUrl           String?
+  browserbaseSessionId  String?   // set once the session starts
+
+  startedAt             DateTime  @default(now())
+  endedAt               DateTime?
+  durationMs            Int?
+
+  status                String    @default("running") // "running" | "success" | "failed" | "timeout"
+  resultSummary         String?   @db.Text // short summary of what the agent did / extracted
+  errorMessage          String?   @db.Text
+
+  @@index([agentId, startedAt])
+  @@index([clientId, startedAt])
+  @@index([status])
+  @@index([browserbaseSessionId])
 }
 
 model OracleAction {
