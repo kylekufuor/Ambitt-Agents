@@ -8,6 +8,7 @@ import { scanSite, formatScanResults } from "../platform-tools/site-scanner.js";
 import { webSearch, formatSearchResults } from "../platform-tools/web-search.js";
 import { requestToolConnection } from "../platform-tools/request-tool-connection.js";
 import { requestApproval } from "../platform-tools/request-approval.js";
+import { runBrowserTask } from "../platform-tools/browser.js";
 import { sendAgentEmail } from "../../oracle/lib/emailRouter.js";
 import { logUsage, CLIENT_MODEL, TRIAGE_MODEL } from "../claude.js";
 import type { EmailAttachment } from "../email.js";
@@ -51,6 +52,7 @@ const BUILTIN_TOOLS = new Set([
   "analyze_website_technology",
   "request_tool_connection",
   "request_approval",
+  "browse",
 ]);
 
 export interface RuntimeInput {
@@ -185,6 +187,32 @@ const BUILTIN_CLAUDE_TOOLS: Anthropic.Messages.Tool[] = [
       required: ["filename", "title", "content"],
     },
   },
+  // --- Browser agent (Stagehand on Browserbase) ---
+  // Single tool that opens a remote browser, hands a natural-language goal
+  // to Stagehand's agent() loop, returns a compact summary. Full handler
+  // (session lifecycle, BrowserSession logging) lives in
+  // shared/platform-tools/browser.ts.
+  {
+    name: "browse",
+    description:
+      "Use a real web browser to complete a task on a website. Unlike web_search (which returns snippets), this actually navigates pages, clicks buttons, fills forms, and extracts data from dynamic/JS-rendered sites. Use when the information or action isn't available through a plain search or API — e.g. logging into a dashboard, submitting a form, scraping a dynamic page, or checking a site that blocks scrapers. 5-minute hard timeout per call; 25-step maximum. In SUPERVISED mode, any browse task with side effects (submitting forms, posting, modifying external state) must go through request_approval first — browse itself does not gate on that. Read-only browsing (pulling data, summarizing pages) is fine directly in either mode.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        goal: {
+          type: "string",
+          description:
+            "The task for the browser agent, in plain English. Be specific and concrete. Example: 'Go to hackernews.com and return the title and URL of the top 5 stories.' or 'On example.com/pricing, find the current monthly price of the Pro plan.' Avoid multi-task instructions — one clear goal per call.",
+        },
+        starting_url: {
+          type: "string",
+          description:
+            "Optional URL to land on before the agent starts. Saves steps when you already know the target page. Omit when the agent needs to discover or search for the site.",
+        },
+      },
+      required: ["goal"],
+    },
+  },
   // --- Approval gate (supervised mode) ---
   // Pauses the run and emails the client an action-required plan with
   // Approve / Ask / Dismiss buttons. In supervised mode, any side-effectful
@@ -308,6 +336,28 @@ async function executeBuiltinTool(
       return {
         content: `CSV generated: ${filename} (${rows.length} rows, ${headers.length} columns). It will be attached to your email response.`,
         isError: false,
+      };
+    }
+
+    if (toolName === "browse") {
+      const { goal, starting_url } = args as { goal: string; starting_url?: string };
+      const result = await runBrowserTask({
+        agentId,
+        clientId,
+        goal,
+        startingUrl: starting_url,
+      });
+      // Compact summary for Claude — full action list + transcript live in
+      // the BrowserSession row for debugging, not in the LLM context.
+      const summary = [
+        `Browser task ${result.status}.`,
+        `Duration: ${(result.durationMs / 1000).toFixed(1)}s, ${result.actionCount} action(s).`,
+        result.message ? `Result: ${result.message.slice(0, 1500)}` : "",
+        result.browserbaseSessionId ? `Session: ${result.browserbaseSessionId}` : "",
+      ].filter(Boolean).join("\n");
+      return {
+        content: summary,
+        isError: result.status !== "success",
       };
     }
 

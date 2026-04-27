@@ -12,3 +12,8 @@ export type {
   RequestApprovalInput,
   RequestApprovalResult,
 } from "./request-approval.js";
+export { runBrowserTask } from "./browser.js";
+export type {
+  RunBrowserTaskInput,
+  RunBrowserTaskResult,
+} from "./browser.js";

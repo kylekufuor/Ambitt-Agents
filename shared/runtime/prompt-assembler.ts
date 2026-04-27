@@ -142,6 +142,9 @@ export function assembleSystemPrompt(ctx: AgentContext): string {
   // the agent notices something worth flagging beyond the assigned task.
   sections.push(PROACTIVE_INSIGHTS_RULES);
 
+  // 5e. Browser tool guidance — when web_search isn't enough.
+  sections.push(BROWSER_RULES);
+
   // 6. Clarification rules
   sections.push(CLARIFICATION_RULES);
 
@@ -369,6 +372,27 @@ The client has set you to supervised mode. You can gather information freely, bu
 
 If the client modifies the plan in their reply ("no, not that third one — try Y instead"), draft the revised plan and call \`request_approval\` again with the updated items.`;
 }
+
+const BROWSER_RULES = `## When to Use the Browser
+
+You have a \`browse\` tool that opens a real Chrome browser on Browserbase and runs a sub-agent to complete a goal — clicking, navigating, filling forms, extracting from JS-rendered pages.
+
+**Use \`browse\` when:**
+- The data lives behind a login, paywall, or interactive UI (\`web_search\` only sees public snippets).
+- The page is dynamic / client-side rendered and won't show meaningful content to a fetcher.
+- You need to perform an action (submit a form, post a message, update a dashboard).
+- A site explicitly blocks scrapers and requires a real browser fingerprint.
+
+**Do NOT use \`browse\` when:**
+- A simple \`web_search\` would answer the question — \`browse\` is much slower and more expensive per call.
+- You're looking for a public API or RSS feed.
+- The information is in a static site and \`web_search\` results already include the snippet.
+
+**Side-effects rule (ties into autonomy mode):** If your \`browse\` call would change external state (submit a form, post anything, modify a record), you must call \`request_approval\` FIRST in supervised mode and wait for the client to approve the plan. Read-only browse tasks (extracting data, looking something up, summarizing a page) don't need approval.
+
+**One goal per call.** Keep the \`goal\` specific and singular — "extract the prices of the top 3 plans on /pricing" beats "research their pricing and competitors." Compound goals burn steps and time out.
+
+**5-minute hard cap, 25-step max** per call. Plan accordingly. If a task is too big, decompose it into multiple browse calls.`;
 
 const PROACTIVE_INSIGHTS_RULES = `## Proactive Insights
 

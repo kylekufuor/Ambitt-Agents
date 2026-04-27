@@ -1,5 +1,5 @@
 # Ambitt Agents — Build Phases
-Last updated: 2026-04-20 (autonomy modes + proactive insights shipped)
+Last updated: 2026-04-27 (browser cluster Phase A complete — public-web browse tool live)
 
 Full scope decisions documented in `.claude/projects/-Users-kylekufuor-Projects-Ambitt-Agents/memory/project_client_interaction_scope.md`
 
@@ -35,9 +35,13 @@ Full scope decisions documented in `.claude/projects/-Users-kylekufuor-Projects-
 
 ## Phase 3 — Advanced capabilities
 
-- [ ] Browser automation — Browserbase + Stagehand (`shared/platform-tools/browser.ts`)
-- [ ] 1Password SDK integration — per-client vaults, credential fetch at runtime
-- [ ] Secret injection layer — credentials fill form fields via Playwright, never pass through Claude
+- [~] Browser cluster — sliced into Phase A (public-web browser tool), Phase B (1Password plumbing), Phase C (secret injection bridge). Tool shape decision: one big `browse(goal, starting_url?)` tool calling Stagehand's `agent()` internally (not three granular tools) — Stagehand already does multi-model routing + fewer tokens per task.
+  - [~] **Phase A — public-web browser tool**
+    - [x] Step 1: scaffold — `@browserbasehq/stagehand@3.2.1` installed, `BrowserSession` model live on prod DB (audit row per run; schema mirrored across root/client-portal/dashboard), type-check clean (`c28cd10`).
+    - [x] Step 2: `shared/platform-tools/browser.ts` — `runBrowserTask({agentId, clientId, goal, startingUrl?})`, 5-min Promise.race timeout, Stagehand `agent.execute()` with `anthropic/claude-sonnet-4-5-20250929` (4-6 hits AI_NoObjectGeneratedError), `startingUrl` folded into instruction (avoiding Stagehand's brittle gateway-routed `act()`). Logs `BrowserSession`. Registered in `BUILTIN_CLAUDE_TOOLS` + engine executor branch. System-prompt `BROWSER_RULES` section: when to browse vs web_search, side-effect approval rule for supervised mode.
+    - [x] Step 3: local probe verified end-to-end against real Browserbase + real DB. example.com goal → success in 13s, 3 actions, "Example Domain" extracted, BrowserSession row populated correctly. `scripts/test-browser-probe.ts` is the probe.
+  - [ ] **Phase B** — 1Password SDK, per-client vaults, server-side credential resolver (no consumer path yet).
+  - [ ] **Phase C** — secret injection bridge: browser tool detects `{{secret:op://vault/item/field}}`, resolves via 1Password SDK, injects via Playwright `.fill()` — value never passes through Claude.
 - [ ] Custom email domain support — Resend multi-domain, subdomain approach, DNS verification flow
 - [x] Autonomy modes — `autonomyLevel` narrowed to `"supervised" | "autonomous"` (legacy advisory/copilot map to supervised). Supervised gate built end-to-end: `request_approval` platform tool (`shared/platform-tools/request-approval.ts`) creates a `Recommendation` row + fires `action-required` email; engine pauses on `isPause` signal and embeds the plan into conversation history so resume sees it. APPROVE/RETRY/DISMISS subject replies in `oracle/index.ts` resume the agent run. Autonomy section in `prompt-assembler.ts` instructs Claude when to call the tool. Portal `ConfigEditor` exposes the toggle; Oracle `/agents/:id/config` validates the field. Atlas + Zay migrated `advisory → supervised` in prod (commits `1cc40ea`, `c2c9481`).
 - [x] Proactive insights — system prompt teaches Claude to surface actionable/relevant/non-obvious observations at the end of any response as a trailing `## Proactive insights` bullet list. `dispatchAgentResponse.ts::extractProactiveInsights` parses the trailing section out of response text and passes it to `agent-response.ts` as `proactiveInsights: string[]`, which renders a highlighted amber block above the reply-prompt. 1-3 bullets max, empty sections suppressed entirely. In supervised mode, action-implying insights flow through `request_approval` like any other side-effectful work.
