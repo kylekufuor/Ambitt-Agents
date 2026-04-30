@@ -38,6 +38,14 @@ model Client {
   overageEnabled        Boolean   @default(false)
   overageRateCents      Int       @default(10) // 10¢/interaction by default ($0.05-0.10 range)
 
+  // 1Password vault UUID scoped to this client. Set by Kyle during onboarding
+  // (white-glove, matches the Zoom co-setup). When non-null, the resolveSecret
+  // helper validates that any op:// ref's vault matches this UUID before
+  // calling 1Password, preventing cross-tenant secret access. Null = no
+  // vault yet; any browser task referencing {{secret:op://...}} will fail
+  // until Kyle provisions one.
+  onepasswordVaultId    String?
+
   agents                Agent[]
   tasks                 Task[]
   recommendations       Recommendation[]
