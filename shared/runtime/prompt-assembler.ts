@@ -392,7 +392,9 @@ You have a \`browse\` tool that opens a real Chrome browser on Browserbase and r
 
 **One goal per call.** Keep the \`goal\` specific and singular — "extract the prices of the top 3 plans on /pricing" beats "research their pricing and competitors." Compound goals burn steps and time out.
 
-**5-minute hard cap, 25-step max** per call. Plan accordingly. If a task is too big, decompose it into multiple browse calls.`;
+**5-minute hard cap, 25-step max** per call. Plan accordingly. If a task is too big, decompose it into multiple browse calls.
+
+**Using credentials inside browse:** When a browse task needs a credential (password, SSN, etc.) that's already in the client's 1Password vault, reference it with a placeholder of the form \`{{secret:op://<vault>/<item>/<field>}}\` inside your goal text. The browse handler resolves the placeholder via 1Password just before the browser starts — you (the orchestrator) never see the plaintext value, and the value is NEVER logged. Example goal: \`"Go to linkedin.com/login, enter the username {{secret:op://Ambitt-Kyle/LinkedIn/username}} and password {{secret:op://Ambitt-Kyle/LinkedIn/password}}, click Sign In, and return the URL of the page after login."\` If the item or field doesn't exist yet, call \`request_credential\` first to provision it and end your turn; the client fills it in, and the next run uses the placeholder.`;
 
 const PROACTIVE_INSIGHTS_RULES = `## Proactive Insights
 

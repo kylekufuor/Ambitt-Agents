@@ -1,6 +1,7 @@
 import { Stagehand } from "@browserbasehq/stagehand";
 import prisma from "../db.js";
 import logger from "../logger.js";
+import { resolveSecrets } from "../secrets/onepassword.js";
 
 // ---------------------------------------------------------------------------
 // browse — Stagehand-on-Browserbase browser agent (single-tool shape)
@@ -12,17 +13,33 @@ import logger from "../logger.js";
 //
 // Session lifecycle per call:
 //   1. Create `BrowserSession` row (status="running").
-//   2. `new Stagehand({ env: "BROWSERBASE" }).init()` — spins up a remote
+//   2. Pre-process goal: extract any {{secret:op://...}} refs, resolve them
+//      via the 1Password resolver, substitute into the goal text. Ambitt's
+//      Claude never sees the resolved value — by the time the goal gets to
+//      this layer, Claude has already committed to its tool call with only
+//      the op:// refs.
+//   3. `new Stagehand({ env: "BROWSERBASE" }).init()` — spins up a remote
 //      Chrome on Browserbase. Capture their session id for the audit row.
-//   3. `stagehand.agent({ model }).execute({ instruction, signal, maxSteps })`
-//      — Stagehand drives the browser with its own LLM (Sonnet here). Time
-//      cap enforced via AbortController.
-//   4. `stagehand.close()` always runs in finally.
-//   5. Update the row: status, durationMs, resultSummary, errorMessage.
+//   4. `stagehand.agent({ model }).execute(instruction)` — Stagehand drives
+//      the browser with its own LLM. Time cap enforced via Promise.race.
+//   5. `stagehand.close()` always runs in finally.
+//   6. Update the row: status, durationMs, resultSummary, errorMessage.
 //
 // Return to Claude: compact text summary (Stagehand's own `message` +
 // action count + success flag). The full actions array + page-level HTML
 // never reach Claude — blow-up risk otherwise.
+//
+// SECURITY TRUST BOUNDARY (Phase C):
+// - Ambitt's Claude (orchestrator): NEVER sees resolved secret values.
+//   Claude commits to its tool call referencing op:// strings only.
+// - Stagehand's internal LLM (Browserbase gateway, ZDR-enabled): sees
+//   resolved values briefly when driving form fills. This is the v1
+//   trade-off. Migration path: Browserbase + 1Password's native "Secure
+//   Agentic Autofill" (announced Oct 2025, currently Director.ai-only).
+//   When they expose it as a generic SDK, swap the substitution + fill
+//   path for their API and the value never enters any LLM context.
+// - Logs: secrets are NEVER written to logger.* output. We log only that
+//   N refs were resolved.
 // ---------------------------------------------------------------------------
 
 const DEFAULT_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes — matches scope-doc cap
@@ -44,6 +61,59 @@ export interface RunBrowserTaskResult {
   actionCount: number;
 }
 
+/**
+ * Find every `{{secret:op://vault/item/field}}` placeholder in a goal string.
+ * Returns the list of unique op:// references in encounter order. Used by
+ * the secret-substitution preprocessor.
+ */
+export function extractSecretRefs(goal: string): string[] {
+  const refs: string[] = [];
+  const seen = new Set<string>();
+  // Greedy regex match — placeholder is exactly {{secret:op://...}}, no
+  // nested braces. Spaces around the ref are tolerated.
+  const pattern = /\{\{\s*secret\s*:\s*(op:\/\/[^}\s]+)\s*\}\}/g;
+  let m: RegExpExecArray | null;
+  while ((m = pattern.exec(goal)) !== null) {
+    const ref = m[1];
+    if (!seen.has(ref)) {
+      seen.add(ref);
+      refs.push(ref);
+    }
+  }
+  return refs;
+}
+
+/**
+ * Resolve every `{{secret:op://...}}` placeholder in a goal string into its
+ * real 1Password value. Vault gating is enforced by resolveSecrets at the
+ * resolver layer. Returns the substituted string + count of refs resolved.
+ *
+ * Do not log the returned string — it contains plaintext secrets.
+ */
+async function substituteSecrets(
+  clientId: string,
+  goal: string
+): Promise<{ substituted: string; resolvedCount: number }> {
+  const refs = extractSecretRefs(goal);
+  if (refs.length === 0) {
+    return { substituted: goal, resolvedCount: 0 };
+  }
+  const values = await resolveSecrets(clientId, refs);
+  let substituted = goal;
+  for (let i = 0; i < refs.length; i++) {
+    const ref = refs[i];
+    const value = values[i];
+    // Replace ALL occurrences of this exact placeholder. Use split/join to
+    // avoid any regex-escaping subtleties on the ref content.
+    const placeholderPattern = new RegExp(
+      `\\{\\{\\s*secret\\s*:\\s*${ref.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*\\}\\}`,
+      "g"
+    );
+    substituted = substituted.replace(placeholderPattern, value);
+  }
+  return { substituted, resolvedCount: refs.length };
+}
+
 export async function runBrowserTask(input: RunBrowserTaskInput): Promise<RunBrowserTaskResult> {
   const { agentId, clientId, goal, startingUrl } = input;
 
@@ -54,6 +124,9 @@ export async function runBrowserTask(input: RunBrowserTaskInput): Promise<RunBro
     throw new Error("browse: goal is required");
   }
 
+  // Store the goal-with-placeholders (not the substituted version) so the
+  // audit row never holds plaintext secrets. Goal value in DB is what
+  // Claude actually committed to, opaque op:// refs and all.
   const row = await prisma.browserSession.create({
     data: {
       agentId,
@@ -64,6 +137,43 @@ export async function runBrowserTask(input: RunBrowserTaskInput): Promise<RunBro
     },
     select: { id: true, startedAt: true },
   });
+
+  // Resolve any {{secret:op://...}} placeholders BEFORE handing the goal to
+  // Stagehand. resolveSecrets enforces vault gating per the client's
+  // pinned vault. If any ref fails (vault mismatch, missing item) we abort
+  // the whole task — partial-fill would leak credentials into the wrong
+  // form.
+  let resolvedGoal: string;
+  let resolvedRefCount = 0;
+  try {
+    const sub = await substituteSecrets(clientId, goal);
+    resolvedGoal = sub.substituted;
+    resolvedRefCount = sub.resolvedCount;
+    if (resolvedRefCount > 0) {
+      logger.info("Browser task: secret placeholders resolved", {
+        agentId, clientId, sessionRowId: row.id, count: resolvedRefCount,
+      });
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    logger.error("Browser task: secret resolution failed", { agentId, clientId, err: msg });
+    await prisma.browserSession.update({
+      where: { id: row.id },
+      data: {
+        endedAt: new Date(),
+        durationMs: Date.now() - row.startedAt.getTime(),
+        status: "failed",
+        errorMessage: `Secret resolution failed: ${msg.slice(0, 600)}`,
+      },
+    });
+    return {
+      status: "failed",
+      message: `Browser task aborted: secret resolution failed (${msg.slice(0, 200)}). Check that the referenced 1Password items exist and the client's vault is set correctly.`,
+      sessionRowId: row.id,
+      durationMs: Date.now() - row.startedAt.getTime(),
+      actionCount: 0,
+    };
+  }
 
   const startedAt = row.startedAt;
 
@@ -96,9 +206,11 @@ export async function runBrowserTask(input: RunBrowserTaskInput): Promise<RunBro
     // stagehand.act() separately — act() uses Stagehand's own gateway
     // model + a stricter inner-tool schema that mis-fires on simple nav
     // commands. The agent loop handles navigation as a first step natively.
+    // resolvedGoal carries any 1Password values substituted in for
+    // {{secret:op://...}} placeholders — do not log this string.
     const fullInstruction = startingUrl
-      ? `Start by navigating to ${startingUrl}. Then: ${goal}`
-      : goal;
+      ? `Start by navigating to ${startingUrl}. Then: ${resolvedGoal}`
+      : resolvedGoal;
 
     // Note: Stagehand v3's `signal` option is experimental and requires
     // disableAPI=true + experimental=true on the constructor. Easier to
