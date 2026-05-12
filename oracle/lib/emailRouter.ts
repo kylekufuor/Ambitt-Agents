@@ -49,7 +49,26 @@ export type EmailProps =
   | { trigger: "error"; to: string } & ErrorEmailProps
   | { trigger: "permission"; to: string } & PermissionEmailProps
   | { trigger: "milestone"; to: string } & MilestoneEmailProps
-  | { trigger: "credential-request"; to: string } & CredentialRequestEmailProps;
+  | {
+      trigger: "credential-request";
+      to: string;
+      agentId: string;
+      agentName: string;
+      clientId: string;
+      // Accepts the same BaseEmailProps shape as other templates (callers
+      // pass these uniformly) plus credential-specific fields. The
+      // conversational template uses only what it needs.
+      clientName?: string;
+      productName?: string;
+      itemTitle: string;
+      fieldTitles?: string[];
+      summary?: string;
+      headline?: string;
+      body?: string;
+      steps?: string[];
+      openUrl: string;
+      approveActionId: string;
+    };
 
 export async function sendAgentEmail(props: EmailProps): Promise<void> {
   const { trigger, to } = props;
@@ -192,8 +211,16 @@ export async function sendAgentEmail(props: EmailProps): Promise<void> {
 
     case "credential-request": {
       const p = props as Extract<EmailProps, { trigger: "credential-request" }>;
-      html = buildCredentialRequestEmail(p);
-      subject = `${p.agentName} — Credential Request: ${p.itemTitle}`;
+      html = buildCredentialRequestEmail({
+        agentName: p.agentName,
+        agentId: p.agentId,
+        headline: p.headline ?? `I need your ${p.itemTitle} login`,
+        body: p.body ?? p.summary ?? "",
+        openUrl: p.openUrl,
+        approveActionId: p.approveActionId,
+        steps: p.steps,
+      });
+      subject = `${p.agentName} needs your ${p.itemTitle} login`;
       agentId = p.agentId;
       agentName = p.agentName;
       clientId = p.clientId;
