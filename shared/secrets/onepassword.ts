@@ -11,6 +11,15 @@ import logger from "../logger.js";
 // targets the client's pinned vault before calling 1Password — so a buggy
 // agent or a client-supplied secret ref can't read another tenant's secrets.
 //
+// IMPORTANT — field naming gotcha (verified 2026-05-12):
+// Despite the column being named `onepasswordVaultId`, the value stored
+// MUST be the vault's NAME (e.g. "Ambitt-Kyle"), not its URL-style UUID.
+// The 1Password SDK's secrets.resolve() expects vault names in op:// refs
+// and rejects the 26-char base32 UUID with "no vault matched the secret
+// reference query". When the platform graduates to multi-tenant, generate
+// distinct vault names per client (e.g. "Ambitt-<clientId-prefix>") so the
+// gating constraint stays meaningful.
+//
 // Secret values returned by resolve() are NEVER logged. Callers that pass
 // values into Claude prompts will leak them; consume them in the secret
 // injection layer (Phase C) where they go straight into Playwright field
