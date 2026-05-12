@@ -58,6 +58,7 @@ model Client {
   toolRequests          ToolRequest[]
   toolConnectionRequests ToolConnectionRequest[]
   browserSessions       BrowserSession[]
+  credentialAccesses    CredentialAccess[]
 
   @@index([stripeCustomerId])
   @@index([billingStatus])
@@ -136,6 +137,7 @@ model Agent {
   toolRequests          ToolRequest[]
   toolConnectionRequests ToolConnectionRequest[]
   browserSessions       BrowserSession[]
+  credentialAccesses    CredentialAccess[]
 
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
@@ -527,6 +529,29 @@ model BrowserSession {
   @@index([clientId, startedAt])
   @@index([status])
   @@index([browserbaseSessionId])
+}
+
+// CredentialAccess — audit row written every time resolveSecret() returns a
+// value to a caller. Powers the per-row "last accessed Apr 22" audit trail
+// on the portal Tools page and underwrites the trust contract ("we can
+// only ask 1Password to use them; here's exactly when we did"). NEVER
+// stores the secret value itself — only metadata.
+model CredentialAccess {
+  id          String    @id @default(cuid())
+  clientId    String
+  client      Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  agentId     String?
+  agent       Agent?    @relation(fields: [agentId], references: [id], onDelete: SetNull)
+
+  vaultName   String    // Client.onepasswordVaultId at time of access
+  itemTitle   String    // 1P item title (e.g. "LinkedIn")
+  field       String    // field name within the item (e.g. "password")
+
+  accessedAt  DateTime  @default(now())
+
+  @@index([clientId, vaultName, itemTitle, accessedAt])
+  @@index([agentId, accessedAt])
+  @@index([accessedAt])
 }
 
 model OracleAction {
