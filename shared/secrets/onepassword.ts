@@ -73,10 +73,17 @@ export function parseSecretReference(ref: string): ParsedSecretReference {
  * Resolve a single secret reference for a specific client. Validates the
  * ref's vault matches the client's pinned vault.
  *
+ * @param agentId optional — if the caller knows which agent is requesting
+ *   the secret, pass it so the audit row attributes correctly. Pass null
+ *   for system-initiated reads (cron jobs, manual probes, etc.).
  * @throws if the client has no vault provisioned, the ref targets a
  * different vault, or 1Password rejects the call.
  */
-export async function resolveSecret(clientId: string, ref: string): Promise<string> {
+export async function resolveSecret(
+  clientId: string,
+  ref: string,
+  agentId?: string | null
+): Promise<string> {
   const parsed = parseSecretReference(ref);
 
   const client = await prisma.client.findUnique({
@@ -112,6 +119,24 @@ export async function resolveSecret(clientId: string, ref: string): Promise<stri
     field: parsed.field,
     valueLength: value.length,
   });
+  // Best-effort audit write. The secret resolve must succeed even if the
+  // audit insert fails — never block credential delivery on metadata.
+  try {
+    await prisma.credentialAccess.create({
+      data: {
+        clientId,
+        agentId: agentId ?? null,
+        vaultName: parsed.vault,
+        itemTitle: parsed.item,
+        field: parsed.field,
+      },
+    });
+  } catch (err) {
+    logger.warn("CredentialAccess audit write failed", {
+      clientId, vault: parsed.vault, item: parsed.item, field: parsed.field,
+      err: err instanceof Error ? err.message : String(err),
+    });
+  }
   return value;
 }
 
@@ -312,4 +337,56 @@ export async function deleteItem(clientId: string, itemId: string): Promise<void
   const vaultId = await getVaultIdByName(dbClient.onepasswordVaultId);
   const op = await getOnePasswordClient();
   await op.items.delete(vaultId, itemId);
+}
+
+/**
+ * Populate an existing (empty) 1Password item with values supplied by the
+ * client through the portal form. Only fields that match a key in
+ * fieldValues are updated; other fields are left as-is. Field matching is
+ * case-insensitive on title.
+ *
+ * Used by the portal's POST /agents/:id/tools/credentials/:itemId endpoint.
+ * The values pass through Oracle process memory once (for the SDK call) and
+ * are never written to our DB or logs.
+ */
+export async function populateItem(
+  clientId: string,
+  itemId: string,
+  fieldValues: Record<string, string>
+): Promise<{ updatedFields: string[]; itemTitle: string }> {
+  const dbClient = await prisma.client.findUnique({
+    where: { id: clientId },
+    select: { onepasswordVaultId: true },
+  });
+  if (!dbClient?.onepasswordVaultId) {
+    throw new Error(`Client ${clientId} has no 1Password vault provisioned.`);
+  }
+  const vaultId = await getVaultIdByName(dbClient.onepasswordVaultId);
+  const op = await getOnePasswordClient();
+
+  const item = await op.items.get(vaultId, itemId);
+  const lowerFieldValues: Record<string, string> = {};
+  for (const [k, v] of Object.entries(fieldValues)) {
+    lowerFieldValues[k.toLowerCase()] = v;
+  }
+
+  const updatedFields: string[] = [];
+  for (const f of item.fields) {
+    const value = lowerFieldValues[f.title.toLowerCase()];
+    if (value !== undefined) {
+      f.value = value;
+      updatedFields.push(f.title);
+    }
+  }
+
+  await op.items.put(item);
+
+  logger.info("Credential item populated", {
+    clientId,
+    itemId,
+    title: item.title,
+    updatedFields, // field NAMES only, never values
+  });
+
+  return { updatedFields, itemTitle: item.title };
 }
