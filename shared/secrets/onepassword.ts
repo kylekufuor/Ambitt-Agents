@@ -327,6 +327,56 @@ function buildItemOpenUrl(vaultId: string, itemId: string): string {
   return `https://${domain}/vaults/${vaultId}/allitems/${itemId}`;
 }
 
+/**
+ * Item overview as the portal Tools page needs it — id, title, and a
+ * per-field {title, filled} list. `filled` is true if 1Password returns
+ * a non-empty value for the field. Lightweight: lists overviews, then
+ * fetches each item (1 call per item) to read field shape + values.
+ * For realistic vault sizes (dozens of items per client) this is fine.
+ * If a client ever has >50 credentials, switch to a less-detailed view.
+ */
+export interface VaultItemSummary {
+  id: string;
+  title: string;
+  fields: Array<{ title: string; fieldType: string; filled: boolean }>;
+}
+
+export async function listVaultItems(clientId: string): Promise<VaultItemSummary[]> {
+  const dbClient = await prisma.client.findUnique({
+    where: { id: clientId },
+    select: { onepasswordVaultId: true },
+  });
+  if (!dbClient?.onepasswordVaultId) return [];
+
+  const vaultId = await getVaultIdByName(dbClient.onepasswordVaultId);
+  const op = await getOnePasswordClient();
+  const overviews = await op.items.list(vaultId, {
+    type: "ByState",
+    content: { active: true, archived: false },
+  });
+
+  const summaries: VaultItemSummary[] = [];
+  for (const o of overviews) {
+    try {
+      const item = await op.items.get(vaultId, o.id);
+      summaries.push({
+        id: item.id,
+        title: item.title,
+        fields: item.fields.map((f) => ({
+          title: f.title,
+          fieldType: String(f.fieldType),
+          filled: typeof f.value === "string" && f.value.length > 0,
+        })),
+      });
+    } catch (err) {
+      logger.warn("listVaultItems: skipping item due to fetch error", {
+        clientId, itemId: o.id, err: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+  return summaries;
+}
+
 /** Test-only: delete an item from a vault by id. Used by probes for cleanup. */
 export async function deleteItem(clientId: string, itemId: string): Promise<void> {
   const dbClient = await prisma.client.findUnique({

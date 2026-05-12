@@ -989,6 +989,191 @@ app.get("/agents/:id/documents", async (req: Request, res: Response) => {
   }
 });
 
+// ---------------------------------------------------------------------------
+// GET /agents/:id/tools — derived view for the portal Tools page
+// ---------------------------------------------------------------------------
+// Merges four signal sources into a unified list:
+//   1. Composio connected accounts for the client (OAuth done)
+//   2. Composio app catalog (logos, OAuth availability, names)
+//   3. 1Password vault items for the client (credential storage)
+//   4. CredentialAccess audit (last accessed per item)
+//
+// Output: two arrays — `tools` (anything matching a Composio app, may have
+// OAuth and/or credentials) and `personalInfo` (1Password items that don't
+// map to a Composio app — SSN, security answers, custom credentials).
+//
+// Generic platform endpoint — not job-applier specific; serves any agent.
+// ---------------------------------------------------------------------------
+
+interface ToolsListItem {
+  id: string;                                   // stable client-side id
+  name: string;
+  logoUrl: string | null;
+  category: string | null;
+  authMethods: Array<"oauth" | "credentials">;  // what's possible
+  status: "connected" | "needs_setup" | "partial";
+  oauth: { connectionId: string; connectedAt: string | null } | null;
+  credentials: {
+    itemId: string;
+    fields: Array<{ title: string; fieldType: string; filled: boolean }>;
+    allFilled: boolean;
+    lastAccessedAt: string | null;
+  } | null;
+}
+
+interface PersonalInfoItem {
+  itemId: string;
+  title: string;
+  fields: Array<{ title: string; fieldType: string; filled: boolean }>;
+  allFilled: boolean;
+  lastAccessedAt: string | null;
+}
+
+app.get("/agents/:id/tools", async (req: Request, res: Response) => {
+  try {
+    const agentId = param(req, "id");
+    const agent = await prisma.agent.findUnique({
+      where: { id: agentId },
+      select: { id: true, clientId: true, tools: true },
+    });
+    if (!agent) {
+      res.status(404).json({ error: "Agent not found" });
+      return;
+    }
+    const clientId = agent.clientId;
+
+    const [connectedAccounts, composioApps, vaultItems, audits] = await Promise.all([
+      (async () => {
+        try {
+          const { getConnectedAccounts } = await import("../shared/mcp/composio.js");
+          return await getConnectedAccounts(clientId);
+        } catch (err) {
+          logger.warn("Tools endpoint: Composio connected accounts fetch failed", { err: (err as Error).message });
+          return [];
+        }
+      })(),
+      (async () => {
+        try {
+          const { listApps } = await import("../shared/mcp/composio.js");
+          return await listApps();
+        } catch (err) {
+          logger.warn("Tools endpoint: Composio app catalog fetch failed", { err: (err as Error).message });
+          return [];
+        }
+      })(),
+      (async () => {
+        try {
+          const { listVaultItems } = await import("../shared/secrets/onepassword.js");
+          return await listVaultItems(clientId);
+        } catch (err) {
+          logger.warn("Tools endpoint: 1Password vault listing failed", { err: (err as Error).message });
+          return [];
+        }
+      })(),
+      prisma.credentialAccess.findMany({
+        where: { clientId },
+        orderBy: { accessedAt: "desc" },
+        select: { itemTitle: true, accessedAt: true },
+      }),
+    ]);
+
+    // last-accessed lookup, keyed by item title (case-insensitive)
+    const lastAccessByTitle = new Map<string, string>();
+    for (const a of audits) {
+      const key = a.itemTitle.toLowerCase();
+      if (!lastAccessByTitle.has(key)) {
+        lastAccessByTitle.set(key, a.accessedAt.toISOString());
+      }
+    }
+
+    // Composio app lookup by normalized name. Helps us match 1P item titles
+    // (e.g. "LinkedIn", "Linked In", "LINKEDIN") to a known tool.
+    const normalize = (s: string) => s.toLowerCase().replace(/[\s_-]/g, "");
+    const composioAppByName = new Map<string, typeof composioApps[number]>();
+    for (const app of composioApps) {
+      composioAppByName.set(normalize(app.name), app);
+      if (app.key) composioAppByName.set(normalize(app.key), app);
+    }
+
+    // Build tools list. Start from Composio connections (OAuth done).
+    const tools: ToolsListItem[] = [];
+    const usedComposioKeys = new Set<string>();
+    for (const conn of connectedAccounts) {
+      const key = normalize(conn.appName);
+      const app = composioAppByName.get(key);
+      tools.push({
+        id: `composio:${conn.id}`,
+        name: app?.name ?? conn.appName,
+        logoUrl: null, // listApps() return shape doesn't include logo today
+        category: (app?.categories ?? [])[0] ?? null,
+        authMethods: ["oauth"],
+        status: "connected",
+        oauth: { connectionId: conn.id, connectedAt: null },
+        credentials: null,
+      });
+      usedComposioKeys.add(key);
+    }
+
+    // Walk 1P items. If the title matches a Composio app, either merge into
+    // the existing tool row (dual-mode) or create a credentials-only row.
+    // Items without a Composio match become "personalInfo" rows.
+    const personalInfo: PersonalInfoItem[] = [];
+    for (const item of vaultItems) {
+      const key = normalize(item.title);
+      const app = composioAppByName.get(key);
+      const lastAccessedAt = lastAccessByTitle.get(item.title.toLowerCase()) ?? null;
+      const allFilled = item.fields.length > 0 && item.fields.every((f) => f.filled);
+
+      if (!app) {
+        personalInfo.push({
+          itemId: item.id,
+          title: item.title,
+          fields: item.fields,
+          allFilled,
+          lastAccessedAt,
+        });
+        continue;
+      }
+
+      // 1P item maps to a Composio tool. Merge into existing OAuth row if
+      // there is one (dual-mode), otherwise create a credentials-only row.
+      const existing = tools.find((t) => normalize(t.name) === key);
+      if (existing) {
+        existing.authMethods = Array.from(new Set([...existing.authMethods, "credentials"])) as ToolsListItem["authMethods"];
+        existing.credentials = {
+          itemId: item.id,
+          fields: item.fields,
+          allFilled,
+          lastAccessedAt,
+        };
+        existing.status = existing.oauth && allFilled ? "connected" : "partial";
+      } else {
+        tools.push({
+          id: `op:${item.id}`,
+          name: app.name,
+          logoUrl: null,
+          category: (app.categories ?? [])[0] ?? null,
+          authMethods: ["credentials"],
+          status: allFilled ? "connected" : "needs_setup",
+          oauth: null,
+          credentials: {
+            itemId: item.id,
+            fields: item.fields,
+            allFilled,
+            lastAccessedAt,
+          },
+        });
+      }
+    }
+
+    res.json({ tools, personalInfo });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    logger.error("Tools endpoint failed", { error: message });
+    res.status(500).json({ error: "Tools list failed" });
+  }
+});
+
 // Run agent manually — triggers the universal runtime engine
 app.post("/agents/:id/run", async (req: Request, res: Response) => {
   try {
