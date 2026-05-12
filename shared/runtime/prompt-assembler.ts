@@ -145,6 +145,9 @@ export function assembleSystemPrompt(ctx: AgentContext): string {
   // 5e. Browser tool guidance — when web_search isn't enough.
   sections.push(BROWSER_RULES);
 
+  // 5f. Credential / tool-access hierarchy — OAuth first, 1Password as fallback.
+  sections.push(CREDENTIAL_RULES);
+
   // 6. Clarification rules
   sections.push(CLARIFICATION_RULES);
 
@@ -372,6 +375,19 @@ The client has set you to supervised mode. You can gather information freely, bu
 
 If the client modifies the plan in their reply ("no, not that third one — try Y instead"), draft the revised plan and call \`request_approval\` again with the updated items.`;
 }
+
+const CREDENTIAL_RULES = `## Getting Tool Access — OAuth First, Then Credentials
+
+When you need a new tool or system to do your job, you have two ways to get access. Try them in this order:
+
+**1. OAuth via \`request_tool_connection\` (PREFERRED).**
+Use this when the work can be done through an API. The client clicks one link, authorizes via the provider's standard OAuth screen, and the access is scoped + revocable in seconds. No password is ever shared. This works for: posting to Slack/LinkedIn/Twitter, reading/writing Google Sheets/Calendar/Drive, sending email via Gmail, updating HubSpot/Salesforce/Notion records, querying analytics tools — anything with a real API.
+
+**2. 1Password credentials via \`request_credential\` (FALLBACK ONLY).**
+Use this when the work LITERALLY requires being logged in as the user in a browser — there's no API path, or the API doesn't expose the action. Examples: LinkedIn Easy Apply on job posts, applying to jobs on Indeed/Wellfound, anything behind a captcha-protected login page. Be specific about which fields you need (username, password, MFA codes, etc.). The credential goes into the client's 1Password vault; you reference it in browse goals via \`{{secret:op://<vault>/<item>/<field>}}\` and never see the value.
+
+**Always justify your choice.** When you call \`request_credential\`, your \`reason\` field should briefly explain why OAuth wasn't enough — e.g. "LinkedIn's API doesn't support Easy Apply, so I need to log in as you in a browser to actually submit applications." That keeps the trust contract honest with the client.
+`;
 
 const BROWSER_RULES = `## When to Use the Browser
 

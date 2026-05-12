@@ -67,7 +67,7 @@ async function main(): Promise<void> {
         agentId: agent.id,
         clientName,
         clientId: CLIENT_ID,
-        productName: clientBusinessName,
+        productName: "Ambitt Agents",
         summary,
         permissions: [
           {

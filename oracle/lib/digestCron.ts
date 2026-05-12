@@ -252,7 +252,7 @@ async function rollUpAndSend(opts: {
     agentId: agent.id,
     clientName,
     clientId: agent.clientId,
-    productName: agent.client.businessName,
+    productName: "Ambitt Agents",
     periodLabel,
     summary,
     stats,

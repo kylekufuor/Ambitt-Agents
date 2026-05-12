@@ -15,6 +15,7 @@ import { buildProgressEmail, type ProgressEmailProps } from "../templates/progre
 import { buildErrorEmail, type ErrorEmailProps } from "../templates/error-email.js";
 import { buildPermissionEmail, type PermissionEmailProps } from "../templates/permission-email.js";
 import { buildMilestoneEmail, type MilestoneEmailProps } from "../templates/milestone-email.js";
+import { buildCredentialRequestEmail, type CredentialRequestEmailProps } from "../templates/credential-request-email.js";
 
 // ---------------------------------------------------------------------------
 // Email Router — single dispatch for all agent emails
@@ -33,7 +34,8 @@ export type EmailTrigger =
   | "progress"
   | "error"
   | "permission"
-  | "milestone";
+  | "milestone"
+  | "credential-request";
 
 // Union of all possible props — the router dispatches based on trigger type
 export type EmailProps =
@@ -46,7 +48,8 @@ export type EmailProps =
   | { trigger: "progress"; to: string } & ProgressEmailProps
   | { trigger: "error"; to: string } & ErrorEmailProps
   | { trigger: "permission"; to: string } & PermissionEmailProps
-  | { trigger: "milestone"; to: string } & MilestoneEmailProps;
+  | { trigger: "milestone"; to: string } & MilestoneEmailProps
+  | { trigger: "credential-request"; to: string } & CredentialRequestEmailProps;
 
 export async function sendAgentEmail(props: EmailProps): Promise<void> {
   const { trigger, to } = props;
@@ -184,6 +187,16 @@ export async function sendAgentEmail(props: EmailProps): Promise<void> {
       agentName = p.agentName;
       clientId = p.clientId;
       recommendations = p.recommendations;
+      break;
+    }
+
+    case "credential-request": {
+      const p = props as Extract<EmailProps, { trigger: "credential-request" }>;
+      html = buildCredentialRequestEmail(p);
+      subject = `${p.agentName} — Credential Request: ${p.itemTitle}`;
+      agentId = p.agentId;
+      agentName = p.agentName;
+      clientId = p.clientId;
       break;
     }
 

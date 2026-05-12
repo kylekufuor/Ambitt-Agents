@@ -397,19 +397,18 @@ async function executeBuiltinTool(
         reason,
         sendActionRequiredEmail: async ({ to, itemTitle, fieldTitles, reason: why, openUrl, approveActionId }) => {
           await sendAgentEmail({
-            trigger: "action-required",
+            trigger: "credential-request",
             to,
             agentName,
             agentId,
             clientName,
             clientId,
-            productName: clientBusinessName,
-            summary: `I need a credential from you: ${itemTitle}. ${why}`,
-            actionSteps: fieldTitles.map((title) => ({ step: `Fill in "${title}" in the 1Password item I created.` })),
-            reasoning: why,
-            impactStatement: "Your secret never passes through me — I read it directly from 1Password when I need it, and you can revoke access anytime by editing or deleting the item.",
+            productName: "Ambitt Agents",
+            summary: why,
+            itemTitle,
+            fieldTitles,
+            openUrl,
             approveActionId,
-            ctaUrl: openUrl,
           });
         },
       });
@@ -462,7 +461,7 @@ async function executeBuiltinTool(
             agentId,
             clientName,
             clientId,
-            productName: clientBusinessName,
+            productName: "Ambitt Agents",
             summary: s,
             actionSteps: planItems.map((step) => ({ step })),
             reasoning: why,
@@ -494,7 +493,7 @@ async function executeBuiltinTool(
             agentId,
             clientName,
             clientId,
-            productName: clientBusinessName,
+            productName: "Ambitt Agents",
             summary,
             permissions: [
               {

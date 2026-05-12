@@ -34,7 +34,17 @@ export async function sendEmail(
 ): Promise<EmailResult> {
   const { agentId, agentName, to, subject, html, replyToAgentId } = options;
   const domain = process.env.EMAIL_DOMAIN || "ambitt.agency";
-  const from = `${agentName} <noreply@${domain}>`;
+  // FROM local-part is a slug of the agent name (e.g. "Atlas" → "atlas",
+  // "Marketing Bot" → "marketing-bot"). Looks personal to the recipient
+  // and reinforces the "I'm a real teammate named X" framing. Reply-To
+  // keeps the agentId-routable form so the inbound webhook can dispatch
+  // replies back to the right agent.
+  const fromSlug = agentName
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")   // non-alphanum → hyphen
+    .replace(/^-+|-+$/g, "")        // trim leading/trailing hyphens
+    .slice(0, 32) || "agent";       // hard cap; fallback if name was all symbols
+  const from = `${agentName} <${fromSlug}@${domain}>`;
   const replyTo = replyToAgentId
     ? `reply-${replyToAgentId}@${domain}`
     : `reply-${agentId}@${domain}`;
