@@ -8,6 +8,7 @@ import { scanSite, formatScanResults } from "../platform-tools/site-scanner.js";
 import { webSearch, formatSearchResults } from "../platform-tools/web-search.js";
 import { requestToolConnection } from "../platform-tools/request-tool-connection.js";
 import { requestApproval } from "../platform-tools/request-approval.js";
+import { requestCredential } from "../platform-tools/request-credential.js";
 import { runBrowserTask } from "../platform-tools/browser.js";
 import { sendAgentEmail } from "../../oracle/lib/emailRouter.js";
 import { logUsage, CLIENT_MODEL, TRIAGE_MODEL } from "../claude.js";
@@ -52,6 +53,7 @@ const BUILTIN_TOOLS = new Set([
   "analyze_website_technology",
   "request_tool_connection",
   "request_approval",
+  "request_credential",
   "browse",
 ]);
 
@@ -185,6 +187,48 @@ const BUILTIN_CLAUDE_TOOLS: Anthropic.Messages.Tool[] = [
         },
       },
       required: ["filename", "title", "content"],
+    },
+  },
+  // --- Credential request (1Password-provisioned item) ---
+  // Creates an empty 1Password item in the client's pinned vault and emails
+  // them the link to fill it in. On next run, agent fetches the value via
+  // resolveSecret() — never seeing the plaintext through Claude.
+  {
+    name: "request_credential",
+    description:
+      "Ask the client to provide a credential or piece of PII (password, SSN, security answers, etc.) by adding it to their 1Password vault. The client gets an email with a direct link to a pre-shaped empty 1Password item. They fill it in via 1Password's own UI; you fetch the value on a subsequent run when you actually need it. Use this for ANY sensitive data: passwords for sites you need to log into, SSN/DOB for application forms, security question answers, MFA backup codes. NEVER ask the client to type these into chat or email — always route through this tool. After calling this, do NOT continue trying to access the gated thing — end your turn and pick it up next run.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        item_title: {
+          type: "string",
+          description:
+            "Short, human-readable name for the credential as it'll appear in 1Password. Examples: 'LinkedIn', 'Indeed Login', 'SSN', 'GitHub Personal Access Token'. Keep it under 40 chars. The same title is used to retrieve the value later, so be consistent — 'LinkedIn' once and 'Linked In' the next time creates two items.",
+        },
+        fields: {
+          type: "array",
+          description:
+            "Fields the client should fill in. Each field has a title and a type. Use Concealed for passwords / SSN / tokens / keys. Use Text for usernames / non-sensitive answers. Use Email for email addresses. Use Url for URLs. Use Totp for TOTP codes. Use Phone for phone numbers.",
+          items: {
+            type: "object" as const,
+            properties: {
+              title: { type: "string", description: "Field name shown in 1Password, e.g. 'username', 'password', 'SSN'." },
+              fieldType: {
+                type: "string",
+                enum: ["Text", "Concealed", "Email", "Url", "Phone", "Totp"],
+                description: "1Password field type. Concealed for anything sensitive.",
+              },
+            },
+            required: ["title", "fieldType"],
+          },
+        },
+        reason: {
+          type: "string",
+          description:
+            "One sentence explaining why you need this credential. Goes into the email so the client understands the ask. Example: 'I need your LinkedIn password to apply to the Senior DevOps role at Stripe on your behalf.'",
+        },
+      },
+      required: ["item_title", "fields", "reason"],
     },
   },
   // --- Browser agent (Stagehand on Browserbase) ---
@@ -336,6 +380,43 @@ async function executeBuiltinTool(
       return {
         content: `CSV generated: ${filename} (${rows.length} rows, ${headers.length} columns). It will be attached to your email response.`,
         isError: false,
+      };
+    }
+
+    if (toolName === "request_credential") {
+      const { item_title, fields, reason } = args as {
+        item_title: string;
+        fields: Array<{ title: string; fieldType: "Text" | "Concealed" | "Email" | "Url" | "Phone" | "Totp" }>;
+        reason: string;
+      };
+      const result = await requestCredential({
+        agentId,
+        clientId,
+        itemTitle: item_title,
+        fields,
+        reason,
+        sendActionRequiredEmail: async ({ to, itemTitle, fieldTitles, reason: why, openUrl, approveActionId }) => {
+          await sendAgentEmail({
+            trigger: "action-required",
+            to,
+            agentName,
+            agentId,
+            clientName,
+            clientId,
+            productName: clientBusinessName,
+            summary: `I need a credential from you: ${itemTitle}. ${why}`,
+            actionSteps: fieldTitles.map((title) => ({ step: `Fill in "${title}" in the 1Password item I created.` })),
+            reasoning: why,
+            impactStatement: "Your secret never passes through me — I read it directly from 1Password when I need it, and you can revoke access anytime by editing or deleting the item.",
+            approveActionId,
+            ctaUrl: openUrl,
+          });
+        },
+      });
+      return {
+        content: result.message,
+        isError: result.status === "error",
+        isPause: result.isPause,
       };
     }
 

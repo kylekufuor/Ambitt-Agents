@@ -1,4 +1,4 @@
-import { createClient, type Client, Secrets } from "@1password/sdk";
+import { createClient, type Client, Secrets, ItemCategory, ItemFieldType, type Item, type ItemField } from "@1password/sdk";
 import prisma from "../db.js";
 import logger from "../logger.js";
 
@@ -163,4 +163,153 @@ export async function resolveSecrets(clientId: string, refs: string[]): Promise<
     out.push(entry.content.secret);
   }
   return out;
+}
+
+// ---------------------------------------------------------------------------
+// Write helpers (used by request_credential platform tool)
+// ---------------------------------------------------------------------------
+
+/** Description of a single field to provision on an empty credential item. */
+export interface CredentialFieldDef {
+  title: string;                 // e.g. "username", "password", "SSN"
+  fieldType: "Text" | "Concealed" | "Email" | "Url" | "Phone" | "Totp";
+}
+
+/** Resolve a vault name → its UUID via the SDK. Cached per-process. */
+const vaultIdCache = new Map<string, string>();
+async function getVaultIdByName(vaultName: string): Promise<string> {
+  const cached = vaultIdCache.get(vaultName);
+  if (cached) return cached;
+  const op = await getOnePasswordClient();
+  const vaults = await op.vaults.list();
+  const match = vaults.find((v) => v.title === vaultName);
+  if (!match) {
+    throw new Error(
+      `1Password vault "${vaultName}" not found. Either the name is wrong or the service account doesn't have access to it.`
+    );
+  }
+  vaultIdCache.set(vaultName, match.id);
+  return match.id;
+}
+
+/**
+ * Look up an item by title within the client's pinned vault. Returns the
+ * item if found, null otherwise. Used by request_credential for idempotency
+ * — don't create a second "LinkedIn" item if the agent already asked for it
+ * and the client hasn't filled it in yet.
+ */
+export async function findItemByTitle(
+  clientId: string,
+  itemTitle: string
+): Promise<Item | null> {
+  const client = await prisma.client.findUnique({
+    where: { id: clientId },
+    select: { onepasswordVaultId: true },
+  });
+  if (!client?.onepasswordVaultId) {
+    throw new Error(`Client ${clientId} has no 1Password vault provisioned.`);
+  }
+  const vaultId = await getVaultIdByName(client.onepasswordVaultId);
+  const op = await getOnePasswordClient();
+  // SDK filter only supports ByState (active/archived); list all active and
+  // filter by title client-side. Fine for realistic vault sizes (dozens of
+  // items per client).
+  const overviews = await op.items.list(vaultId, {
+    type: "ByState",
+    content: { active: true, archived: false },
+  });
+  const overview = overviews.find((o) => o.title === itemTitle);
+  if (!overview) return null;
+  return op.items.get(vaultId, overview.id);
+}
+
+/**
+ * Create an empty credential item in the client's pinned vault with the
+ * given title and field definitions. Each field is initialized with an
+ * empty string value — the client fills them in via 1Password's UI by
+ * clicking the URL returned here.
+ *
+ * Returns { itemId, openUrl } where openUrl deep-links to the item in
+ * 1Password's web UI for the configured account domain. The 1Password
+ * desktop/mobile app + browser extension also intercept this URL and
+ * open the item in the native app.
+ */
+export async function createCredentialItem(
+  clientId: string,
+  itemTitle: string,
+  fields: CredentialFieldDef[]
+): Promise<{ itemId: string; vaultId: string; openUrl: string }> {
+  const dbClient = await prisma.client.findUnique({
+    where: { id: clientId },
+    select: { onepasswordVaultId: true },
+  });
+  if (!dbClient?.onepasswordVaultId) {
+    throw new Error(`Client ${clientId} has no 1Password vault provisioned.`);
+  }
+  const vaultId = await getVaultIdByName(dbClient.onepasswordVaultId);
+  const op = await getOnePasswordClient();
+
+  const fieldTypeMap: Record<CredentialFieldDef["fieldType"], ItemFieldType> = {
+    Text: ItemFieldType.Text,
+    Concealed: ItemFieldType.Concealed,
+    Email: ItemFieldType.Email,
+    Url: ItemFieldType.Url,
+    Phone: ItemFieldType.Phone,
+    Totp: ItemFieldType.Totp,
+  };
+
+  const itemFields: ItemField[] = fields.map((f, i) => ({
+    id: `field-${i}-${f.title.toLowerCase().replace(/\s+/g, "-")}`,
+    title: f.title,
+    fieldType: fieldTypeMap[f.fieldType],
+    value: "", // empty — client fills via 1Password UI
+  }));
+
+  const created = await op.items.create({
+    vaultId,
+    title: itemTitle,
+    category: ItemCategory.Login,
+    fields: itemFields,
+  });
+
+  const openUrl = buildItemOpenUrl(vaultId, created.id);
+
+  logger.info("Credential item created", {
+    clientId,
+    vaultName: dbClient.onepasswordVaultId,
+    itemId: created.id,
+    title: itemTitle,
+    fieldCount: itemFields.length,
+  });
+
+  return { itemId: created.id, vaultId, openUrl };
+}
+
+/**
+ * Construct the 1Password web URL for a specific item. The 1Password
+ * desktop app + browser extension intercept these URLs and open the item
+ * natively. Falls back to web UI if no client is installed.
+ *
+ * Requires ONEPASSWORD_ACCOUNT_DOMAIN env var (e.g. "kufgroup.1password.com").
+ * For Ambitt's multi-tenant production this stays one value (Ambitt's own
+ * Business account hosts all client vaults).
+ */
+function buildItemOpenUrl(vaultId: string, itemId: string): string {
+  const domain = process.env.ONEPASSWORD_ACCOUNT_DOMAIN;
+  if (!domain) {
+    throw new Error("ONEPASSWORD_ACCOUNT_DOMAIN is not set");
+  }
+  return `https://${domain}/vaults/${vaultId}/allitems/${itemId}`;
+}
+
+/** Test-only: delete an item from a vault by id. Used by probes for cleanup. */
+export async function deleteItem(clientId: string, itemId: string): Promise<void> {
+  const dbClient = await prisma.client.findUnique({
+    where: { id: clientId },
+    select: { onepasswordVaultId: true },
+  });
+  if (!dbClient?.onepasswordVaultId) throw new Error(`Client ${clientId} has no vault`);
+  const vaultId = await getVaultIdByName(dbClient.onepasswordVaultId);
+  const op = await getOnePasswordClient();
+  await op.items.delete(vaultId, itemId);
 }

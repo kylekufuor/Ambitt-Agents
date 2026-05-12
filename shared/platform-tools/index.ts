@@ -17,3 +17,8 @@ export type {
   RunBrowserTaskInput,
   RunBrowserTaskResult,
 } from "./browser.js";
+export { requestCredential } from "./request-credential.js";
+export type {
+  RequestCredentialInput,
+  RequestCredentialResult,
+} from "./request-credential.js";
