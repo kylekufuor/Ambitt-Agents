@@ -1174,6 +1174,96 @@ app.get("/agents/:id/tools", async (req: Request, res: Response) => {
   }
 });
 
+// ---------------------------------------------------------------------------
+// POST /agents/:id/tools/credentials/:itemId — write credential values
+// ---------------------------------------------------------------------------
+// Accepts the portal's form submission, populates the matching 1Password
+// item via the SDK, marks the open Recommendation row (if any) fulfilled.
+// Auth is delegated to the portal proxy (Supabase session + agent
+// ownership check happens upstream).
+//
+// Trust contract: values pass through Oracle process memory ONLY for the
+// duration of the SDK call. Never persisted to our DB or logs. Per-field
+// names are logged on success; values are not.
+// ---------------------------------------------------------------------------
+app.post("/agents/:id/tools/credentials/:itemId", async (req: Request, res: Response) => {
+  try {
+    const agentId = param(req, "id");
+    const itemId = param(req, "itemId");
+    const fieldValues = (req.body?.fieldValues ?? {}) as Record<string, string>;
+
+    if (!fieldValues || typeof fieldValues !== "object" || Array.isArray(fieldValues)) {
+      res.status(400).json({ error: "fieldValues object required" });
+      return;
+    }
+    if (Object.keys(fieldValues).length === 0) {
+      res.status(400).json({ error: "fieldValues is empty" });
+      return;
+    }
+    for (const [k, v] of Object.entries(fieldValues)) {
+      if (typeof v !== "string") {
+        res.status(400).json({ error: `field "${k}" must be a string` });
+        return;
+      }
+    }
+
+    const agent = await prisma.agent.findUnique({
+      where: { id: agentId },
+      select: { id: true, clientId: true },
+    });
+    if (!agent) {
+      res.status(404).json({ error: "Agent not found" });
+      return;
+    }
+
+    const { populateItem } = await import("../shared/secrets/onepassword.js");
+    const { updatedFields, itemTitle } = await populateItem(agent.clientId, itemId, fieldValues);
+
+    // Best-effort: mark the matching pending Recommendation as approved so
+    // the agent knows the credential is now available. Matched by item
+    // title because that's what the agent provided when requesting.
+    const matchingRec = await prisma.recommendation.findFirst({
+      where: {
+        clientId: agent.clientId,
+        emailType: "credential-request",
+        status: "pending",
+        title: { contains: itemTitle },
+      },
+      orderBy: { sentAt: "desc" },
+    });
+    if (matchingRec) {
+      await prisma.recommendation.update({
+        where: { id: matchingRec.id },
+        data: {
+          status: "approved",
+          clientAction: "approved",
+          clientActionAt: new Date(),
+          resolvedAt: new Date(),
+        },
+      });
+    }
+
+    logger.info("Credential values saved via portal", {
+      agentId,
+      clientId: agent.clientId,
+      itemId,
+      itemTitle,
+      updatedFields, // field NAMES only, never values
+      recommendationFulfilled: !!matchingRec,
+    });
+
+    res.json({
+      status: "saved",
+      updatedFields,
+      itemTitle,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    logger.error("Credential save failed", { error: message, agentId: param(req, "id"), itemId: param(req, "itemId") });
+    res.status(500).json({ error: "Credential save failed" });
+  }
+});
+
 // Run agent manually — triggers the universal runtime engine
 app.post("/agents/:id/run", async (req: Request, res: Response) => {
   try {
