@@ -1,6 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server";
 import prisma from "@/lib/db";
 
+function oracleUrl(): string {
+  return process.env.ORACLE_URL
+    ?? process.env.NEXT_PUBLIC_ORACLE_URL
+    ?? "https://ambitt-agents-production.up.railway.app";
+}
+
 /**
  * Prospect form submission.
  *
@@ -56,7 +62,16 @@ export async function POST(
     },
   });
 
-  // TODO: trigger Atlas via Oracle (task #27)
+  // Fire-and-forget — Atlas generation can take 20–60s. We return 200 to the
+  // browser immediately so the prospect sees the "Got it" confirmation; the
+  // presentation email lands in their inbox when Atlas finishes.
+  fetch(`${oracleUrl()}/onboarding/prospects/${prospect.id}/event`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ type: "form_submitted" }),
+  }).catch((err) => {
+    console.error("[onboard/submit] Oracle ping failed", err);
+  });
 
   return NextResponse.json({ ok: true });
 }

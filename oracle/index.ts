@@ -921,6 +921,187 @@ app.post("/onboard", async (req: Request, res: Response) => {
   }
 });
 
+// ---------------------------------------------------------------------------
+// Atlas (onboarding agent) — web → runtime bridge
+// ---------------------------------------------------------------------------
+//
+// Called by the client portal when a prospect interacts with the onboarding
+// flow (form submission, chat message, requested changes). The endpoint
+// constructs an Atlas message from the event + the prospect's intake data,
+// runs Atlas via the standard runtime engine, and (for form_submitted)
+// emails the resulting presentation to the prospect.
+//
+// Event types:
+//   - form_submitted: prospect finished the intake form; generate presentation
+//   - chat_message: Phase 2 (SOP-aware chat)
+//   - requested_changes: Phase 2 (regenerate after edits)
+app.post("/onboarding/prospects/:id/event", async (req: Request, res: Response) => {
+  try {
+    const prospectId = param(req, "id");
+    const { type } = req.body as { type?: string };
+
+    if (!type) {
+      res.status(400).json({ error: "type is required" });
+      return;
+    }
+
+    const prospect = await prisma.prospect.findUnique({ where: { id: prospectId } });
+    if (!prospect) {
+      res.status(404).json({ error: "Prospect not found" });
+      return;
+    }
+    if (prospect.status === "archived" || prospect.status === "ghosted") {
+      res.status(403).json({ error: "Prospect onboarding is closed" });
+      return;
+    }
+
+    const atlas = await prisma.agent.findUnique({
+      where: { email: "atlas@ambitt.agency" },
+      select: { id: true, clientId: true, name: true, status: true },
+    });
+    if (!atlas || atlas.status !== "active") {
+      res.status(500).json({ error: "Atlas is not seeded or not active" });
+      return;
+    }
+
+    if (type === "form_submitted") {
+      const userMessage = formatProspectForAtlas(prospect);
+      const threadId = `prospect-${prospect.id}`;
+
+      const { processInboundMessage } = await import("../shared/runtime/index.js");
+      const result = await processInboundMessage({
+        agentId: atlas.id,
+        userMessage,
+        channel: "chat",
+        threadId,
+        senderEmail: prospect.email,
+        billable: false,
+      });
+
+      await prisma.prospect.update({
+        where: { id: prospect.id },
+        data: {
+          presentationHtml: result.response,
+          presentationGeneratedAt: new Date(),
+          status: "presentation_sent",
+          lastActivityAt: new Date(),
+        },
+      });
+
+      const { sendEmail } = await import("../shared/email.js");
+      const portalBase = process.env.CLIENT_PORTAL_URL ?? "https://client-portal-production-77a9.up.railway.app";
+      await sendEmail({
+        agentId: atlas.id,
+        agentName: atlas.name,
+        to: prospect.email,
+        subject: "Your custom agent — proposal from Atlas",
+        html: wrapPresentationEmail(result.response, prospect, portalBase),
+        replyToAgentId: atlas.id,
+      });
+
+      logger.info("Atlas: presentation sent", {
+        prospectId: prospect.id,
+        atlasId: atlas.id,
+        toolsUsed: result.toolsUsed.length,
+        loopCount: result.loopCount,
+      });
+
+      res.json({ status: "presentation_sent", prospectId: prospect.id });
+      return;
+    }
+
+    res.status(501).json({ error: `Event type "${type}" not yet supported` });
+  } catch (error) {
+    logger.error("Onboarding event handler failed", { error });
+    res.status(500).json({ error: "Onboarding event failed" });
+  }
+});
+
+function formatProspectForAtlas(prospect: {
+  id: string;
+  email: string;
+  contactName: string | null;
+  businessName: string | null;
+  role: string | null;
+  website: string | null;
+  formData: unknown;
+}): string {
+  const fd = (prospect.formData ?? {}) as Record<string, string>;
+  return `A new prospect just completed the Ambitt onboarding form. Read their answers carefully, then produce a sales-style presentation of the agent we'd build for them.
+
+# Prospect basics
+- Email: ${prospect.email}
+- Name: ${prospect.contactName ?? "(not provided)"}
+- Role: ${prospect.role ?? "(not provided)"}
+- Business: ${prospect.businessName ?? "(not provided)"}
+- Website: ${prospect.website ?? "(not provided)"}
+
+# Their answers
+- What their business does: ${fd.industry ?? "(not provided)"}
+- What the agent should do (their pitch): ${fd.agentPitch ?? "(not provided)"}
+- Today vs with the agent: ${fd.todayVsAgent ?? "(not provided)"}
+- Success in 3 months: ${fd.successCriteria ?? "(not provided)"}
+- Cadence: ${fd.cadence ?? "(not provided)"}
+- Volume: ${fd.volume ?? "(not provided)"}
+- Communication channel: ${fd.channel ?? "(not provided)"}
+- Autonomy preference: ${fd.autonomy ?? "(not provided)"}
+- Brand voice samples: ${fd.brandVoice ?? "(not provided)"}
+- Tools they use: ${fd.tools ?? "(not provided)"}
+- Red lines (what NOT to do): ${fd.redLines ?? "(not provided)"}
+- What to call them: ${fd.preferredName ?? "(not provided)"}
+- Budget bucket: ${fd.budget ?? "(not provided)"}
+
+# Their SOPs / docs
+${fd.sops ? fd.sops : "(They didn't paste any SOPs.)"}
+
+# Your task
+Produce a **sales-style presentation** — not a dry consultant brief. It should feel like a senior peer put together a proposal that makes them excited to work with you. Cover sections like:
+
+1. **What we'd build** — name the agent, describe its job in their language
+2. **How it'd work** — concrete daily/weekly flow, what they receive
+3. **Sample output** — show 1–2 examples of what an email/digest from this agent would actually look like, mimicking their brand voice if you can detect it
+4. **What they'd get** — outcomes mapped to their success criteria, in their terms
+5. **Tools we'd plug in** — name the systems we'd connect, explain why
+6. **Communication + control** — channel, autonomy, how they stay in the loop
+7. **Next step** — point them to the Approve / Make changes buttons at the bottom of the email
+
+**Hard rules:**
+- Do NOT include pricing, retainer, setup fee, or timeline. Kyle handles those after you confirm scope.
+- Do NOT promise capabilities the platform doesn't have. If they asked for something we genuinely can't do, name it gently and offer a realistic alternative.
+- Return ONLY the HTML body content as a single \`<div>\` with inline styles. NO \`<!DOCTYPE>\`, \`<html>\`, \`<head>\`. Target ~560px width. White background, dark text. Clean typography.`;
+}
+
+function wrapPresentationEmail(
+  body: string,
+  prospect: { id: string; contactName: string | null; email: string; token?: string | null },
+  portalBase: string
+): string {
+  const firstName = (prospect.contactName ?? "").trim().split(/\s+/)[0] || "there";
+  const changesUrl = prospect.token ? `${portalBase}/onboard/${prospect.token}` : portalBase;
+  return `<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; background: #ffffff;">
+  <p style="font-size: 14px; color: #525252; margin: 0 0 24px;">Hi ${firstName},</p>
+  <p style="font-size: 14px; color: #525252; margin: 0 0 24px;">Here's the agent I'd build for you, based on what you told me. Have a read — if it feels right, hit Approve. If anything's off, hit Make changes and you can update your answers.</p>
+
+  ${body}
+
+  <div style="margin-top: 40px; padding-top: 24px; border-top: 1px solid #e5e5e5;">
+    <table cellpadding="0" cellspacing="0" border="0" role="presentation">
+      <tr>
+        <td style="padding-right: 12px;">
+          <a href="mailto:atlas@ambitt.agency?subject=APPROVE%20PRESENTATION%20${prospect.id}&body=Looks%20good%20%E2%80%94%20approved." style="display: inline-block; padding: 12px 24px; background: #18181b; color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 14px; font-weight: 500;">Approve</a>
+        </td>
+        <td>
+          <a href="${changesUrl}" style="display: inline-block; padding: 12px 24px; background: #ffffff; color: #18181b; border: 1px solid #d4d4d8; text-decoration: none; border-radius: 6px; font-size: 14px; font-weight: 500;">Make changes</a>
+        </td>
+      </tr>
+    </table>
+    <p style="font-size: 12px; color: #a1a1aa; margin: 16px 0 0;">Pricing and timeline come after you approve scope — Kyle handles those personally.</p>
+  </div>
+
+  <p style="font-size: 13px; color: #a1a1aa; margin: 32px 0 0;">— Atlas, Ambitt's onboarding agent</p>
+</div>`;
+}
+
 // Store client credentials
 app.post("/credentials/:clientId", async (req: Request, res: Response) => {
   try {
