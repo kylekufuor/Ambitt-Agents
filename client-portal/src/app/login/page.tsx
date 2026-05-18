@@ -80,6 +80,13 @@ export default function LoginPage() {
             >
               {loading ? "Sending..." : "Send Login Code"}
             </button>
+            <button
+              type="button"
+              onClick={() => { if (email) setStep("code"); else setError("Enter your email first"); }}
+              className="w-full text-zinc-500 text-sm hover:text-zinc-700 transition"
+            >
+              I already have a code
+            </button>
           </form>
         ) : (
           <form onSubmit={handleVerifyCode} className="space-y-4">
@@ -92,15 +99,15 @@ export default function LoginPage() {
               type="text"
               value={token}
               onChange={(e) => setToken(e.target.value)}
-              placeholder="Enter 6-digit code"
+              placeholder="Enter code"
               required
-              maxLength={6}
+              maxLength={8}
               className="w-full border border-zinc-300 rounded-lg px-4 py-3 text-zinc-900 text-center text-2xl tracking-[0.5em] font-mono placeholder:text-zinc-400 placeholder:text-base placeholder:tracking-normal focus:outline-none focus:border-zinc-500 transition"
             />
             {error && <p className="text-red-500 text-sm">{error}</p>}
             <button
               type="submit"
-              disabled={loading || token.length < 6}
+              disabled={loading || token.length < 4}
               className="w-full bg-zinc-900 text-white font-medium rounded-lg px-4 py-3 hover:bg-zinc-800 transition disabled:opacity-50"
             >
               {loading ? "Verifying..." : "Verify & Login"}
