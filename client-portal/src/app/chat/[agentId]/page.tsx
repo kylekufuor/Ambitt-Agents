@@ -14,7 +14,7 @@ interface HistoryResponse {
 function oracleUrl(): string {
   return process.env.ORACLE_URL
     ?? process.env.NEXT_PUBLIC_ORACLE_URL
-    ?? "https://ambitt-agents-production.up.railway.app";
+    ?? "https://oracle-production-c0ff.up.railway.app";
 }
 
 export default async function ChatPage(
