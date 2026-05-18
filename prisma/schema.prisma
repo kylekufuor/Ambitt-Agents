@@ -59,6 +59,7 @@ model Client {
   toolConnectionRequests ToolConnectionRequest[]
   browserSessions       BrowserSession[]
   credentialAccesses    CredentialAccess[]
+  prospectsConvertedFrom Prospect[]
 
   @@index([stripeCustomerId])
   @@index([billingStatus])
@@ -74,6 +75,12 @@ model Agent {
   personality           String    @db.Text
   purpose               String    @db.Text
   agentType             String
+
+  // Platform-level flag — when true, this agent accepts emails from any active
+  // Prospect (not just its owner client). Used for Atlas-style onboarding
+  // agents that need to talk to non-clients. See inbound webhook auth in
+  // oracle/index.ts.
+  acceptFromProspects   Boolean   @default(false)
 
   tools                 String[]
   schedule              String
@@ -552,6 +559,59 @@ model CredentialAccess {
   @@index([clientId, vaultName, itemTitle, accessedAt])
   @@index([agentId, accessedAt])
   @@index([accessedAt])
+}
+
+// Prospect — a lead going through the onboarding flow with Atlas. Lives
+// separately from Client until the deal closes (quote accepted + paid), at
+// which point a Client row is created and Prospect.convertedClientId is set.
+// All intake state (form answers, SOPs, chat with Atlas, generated
+// presentation, drafted quote) hangs off this row. Token gates web access to
+// /onboard/[token] — no Supabase auth required for prospects.
+model Prospect {
+  id                       String    @id @default(cuid())
+  email                    String    @unique
+  token                    String    @unique
+
+  // Convenience fields lifted out of formData for indexing + display
+  contactName              String?
+  businessName             String?
+  role                     String?
+  website                  String?
+
+  status                   String    @default("discovery")
+  // discovery | presentation_sent | revising | quote_pending | quote_sent | accepted | ghosted | archived
+
+  // Structured intake answers — keys match the onboarding form spec
+  formData                 Json      @default("{}")
+
+  // Uploaded SOPs / docs — [{filename, url, sizeBytes, uploadedAt}]
+  sopFiles                 Json      @default("[]")
+
+  // Atlas <-> prospect conversation — [{role, content, ts}]
+  chatLog                  Json      @default("[]")
+
+  // Latest generated presentation (HTML rendered server-side, viewed at
+  // /onboard/[token]/presentation). Regenerated on each "make changes" loop.
+  presentationHtml         String?   @db.Text
+  presentationGeneratedAt  DateTime?
+
+  // Atlas-drafted quote, pending Kyle's review. Shape:
+  // { setupFeeCents, monthlyRetainerCents, pricingTier, reasoning, terms }
+  quoteDraft               Json?
+  quoteSentAt              DateTime?
+
+  // Once accepted + paid, link to the freshly-created Client row.
+  convertedClientId        String?
+  convertedClient          Client?   @relation(fields: [convertedClientId], references: [id], onDelete: SetNull)
+
+  lastActivityAt           DateTime  @default(now())
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
+
+  @@index([status])
+  @@index([token])
+  @@index([lastActivityAt])
+  @@index([convertedClientId])
 }
 
 model OracleAction {

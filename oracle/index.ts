@@ -58,6 +58,51 @@ function param(req: Request, key: string): string {
   return Array.isArray(val) ? val[0] : val;
 }
 
+// Extracts the bare email from a "Name <email@x.com>" header, or returns the
+// trimmed lowercase address if no angle brackets. Returns null if the header
+// can't be parsed.
+function parseEmailFromHeader(fromHeader: string): string | null {
+  if (!fromHeader) return null;
+  const angle = fromHeader.match(/<([^>]+)>/);
+  const candidate = angle ? angle[1] : fromHeader;
+  const trimmed = candidate.trim().toLowerCase();
+  return trimmed.includes("@") ? trimmed : null;
+}
+
+// Inbound-email authorization. An agent only accepts mail from its owning
+// client. Platform agents (acceptFromProspects=true, e.g. Atlas) also accept
+// mail from any active Prospect — by design, since prospects are not yet
+// clients. Anything else is silently dropped.
+async function checkInboundAuth(
+  agentId: string,
+  fromHeader: string
+): Promise<{ ok: true; senderType: "client" | "prospect"; prospectId?: string } | { ok: false; reason: string }> {
+  const senderEmail = parseEmailFromHeader(fromHeader);
+  if (!senderEmail) return { ok: false, reason: "Cannot parse sender" };
+
+  const agent = await prisma.agent.findUnique({
+    where: { id: agentId },
+    select: { acceptFromProspects: true, client: { select: { email: true } } },
+  });
+  if (!agent) return { ok: false, reason: "Agent not found" };
+
+  if (senderEmail === agent.client.email.toLowerCase()) {
+    return { ok: true, senderType: "client" };
+  }
+
+  if (agent.acceptFromProspects) {
+    const prospect = await prisma.prospect.findUnique({
+      where: { email: senderEmail },
+      select: { id: true, status: true },
+    });
+    if (prospect && prospect.status !== "ghosted" && prospect.status !== "archived") {
+      return { ok: true, senderType: "prospect", prospectId: prospect.id };
+    }
+  }
+
+  return { ok: false, reason: "Sender not authorized for this agent" };
+}
+
 // ---------------------------------------------------------------------------
 // Standard endpoints
 // ---------------------------------------------------------------------------
@@ -599,6 +644,16 @@ app.post("/webhooks/email-inbound", async (req: Request, res: Response) => {
     const emailData = await emailRes.json();
     const from = emailData.from ?? event.data?.from ?? "";
     const subject = (emailData.subject ?? event.data?.subject ?? "").toUpperCase().trim();
+
+    // Sender authorization. Only the agent's owner client (or, for platform
+    // agents like Atlas, an active Prospect) can drive an agent run. Anyone
+    // else is silently dropped — 200 so Resend doesn't retry, but no work.
+    const auth = await checkInboundAuth(agentId, from);
+    if (!auth.ok) {
+      logger.warn("Inbound email rejected — unauthorized sender", { agentId, from, reason: auth.reason });
+      res.json({ status: "ignored", reason: auth.reason });
+      return;
+    }
 
     // DOCS subject — route attachments to agent memory instead of runtime
     if (subject.includes("DOCS") && Array.isArray(emailData.attachments) && emailData.attachments.length > 0) {
