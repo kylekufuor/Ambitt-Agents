@@ -590,8 +590,12 @@ model Prospect {
   // Atlas <-> prospect conversation — [{role, content, ts}]
   chatLog                  Json      @default("[]")
 
-  // Latest generated presentation (HTML rendered server-side, viewed at
-  // /onboard/[token]/presentation). Regenerated on each "make changes" loop.
+  // Latest generated presentation. `presentationData` holds the structured
+  // `ProposalEmailData` JSON Atlas emits (consumed by the Handlebars template
+  // and, later, Vera's design-verify pass). `presentationHtml` is the rendered
+  // HTML actually emailed to the prospect. Regenerated on each
+  // "make changes" loop.
+  presentationData         Json?
   presentationHtml         String?   @db.Text
   presentationGeneratedAt  DateTime?
 

@@ -965,23 +965,66 @@ app.post("/onboarding/prospects/:id/event", async (req: Request, res: Response) 
     }
 
     if (type === "form_submitted") {
-      const userMessage = formatProspectForAtlas(prospect);
       const threadId = `prospect-${prospect.id}`;
-
       const { processInboundMessage } = await import("../shared/runtime/index.js");
-      const result = await processInboundMessage({
+      const { renderProposalEmail, parseAtlasJsonOutput, ProposalEmailValidationError } =
+        await import("./templates/proposal-email/render.js");
+
+      // Pass 1 — Atlas reads the intake and emits ProposalEmailData JSON.
+      const pass1 = await processInboundMessage({
         agentId: atlas.id,
-        userMessage,
+        userMessage: buildAtlasProposalPrompt(prospect),
         channel: "chat",
         threadId,
         senderEmail: prospect.email,
         billable: false,
       });
 
+      // Parse → validate. One retry on validation failure (re-uses thread so
+      // Atlas sees its previous output + the validation error).
+      const tryRender = (raw: string): { html: string; data: unknown } => {
+        const parsed = parseAtlasJsonOutput(raw);
+        if (parsed === null) {
+          throw new ProposalEmailValidationError([
+            { path: [], code: "custom", message: "No JSON block found in response" } as any,
+          ]);
+        }
+        return { html: renderProposalEmail(parsed), data: parsed };
+      };
+
+      let rendered: { html: string; data: unknown };
+      let toolsUsed = pass1.toolsUsed.length;
+      let loopCount = pass1.loopCount;
+
+      try {
+        rendered = tryRender(pass1.response);
+      } catch (err) {
+        if (!(err instanceof ProposalEmailValidationError)) throw err;
+        logger.warn("Atlas first-pass JSON invalid — retrying once", {
+          prospectId: prospect.id,
+          issues: err.issues.map((i) => `${i.path.join(".")}: ${i.message}`),
+        });
+        const correction = `Your previous response didn't pass schema validation. Issues:\n${err.issues
+          .map((i, n) => `${n + 1}. ${i.path.join(".") || "(root)"}: ${i.message}`)
+          .join("\n")}\n\nRe-emit the COMPLETE ProposalEmailData JSON with these fixed. Output ONLY the JSON object, no commentary, no code fences.`;
+        const pass2 = await processInboundMessage({
+          agentId: atlas.id,
+          userMessage: correction,
+          channel: "chat",
+          threadId,
+          senderEmail: prospect.email,
+          billable: false,
+        });
+        rendered = tryRender(pass2.response);
+        toolsUsed += pass2.toolsUsed.length;
+        loopCount += pass2.loopCount;
+      }
+
       await prisma.prospect.update({
         where: { id: prospect.id },
         data: {
-          presentationHtml: result.response,
+          presentationData: rendered.data as object,
+          presentationHtml: rendered.html,
           presentationGeneratedAt: new Date(),
           status: "presentation_sent",
           lastActivityAt: new Date(),
@@ -989,21 +1032,21 @@ app.post("/onboarding/prospects/:id/event", async (req: Request, res: Response) 
       });
 
       const { sendEmail } = await import("../shared/email.js");
-      const portalBase = process.env.CLIENT_PORTAL_URL ?? "https://client-portal-production-77a9.up.railway.app";
+      const subject = (rendered.data as { subject?: string }).subject ?? "Your custom agent — proposal from Atlas";
       await sendEmail({
         agentId: atlas.id,
         agentName: atlas.name,
         to: prospect.email,
-        subject: "Your custom agent — proposal from Atlas",
-        html: wrapPresentationEmail(result.response, prospect, portalBase),
+        subject,
+        html: rendered.html,
         replyToAgentId: atlas.id,
       });
 
       logger.info("Atlas: presentation sent", {
         prospectId: prospect.id,
         atlasId: atlas.id,
-        toolsUsed: result.toolsUsed.length,
-        loopCount: result.loopCount,
+        toolsUsed,
+        loopCount,
       });
 
       res.json({ status: "presentation_sent", prospectId: prospect.id });
@@ -1017,9 +1060,10 @@ app.post("/onboarding/prospects/:id/event", async (req: Request, res: Response) 
   }
 });
 
-function formatProspectForAtlas(prospect: {
+function buildAtlasProposalPrompt(prospect: {
   id: string;
   email: string;
+  token: string;
   contactName: string | null;
   businessName: string | null;
   role: string | null;
@@ -1027,11 +1071,20 @@ function formatProspectForAtlas(prospect: {
   formData: unknown;
 }): string {
   const fd = (prospect.formData ?? {}) as Record<string, string>;
-  return `A new prospect just completed the Ambitt onboarding form. Read their answers carefully, then produce a sales-style presentation of the agent we'd build for them.
+  const portalBase = process.env.CLIENT_PORTAL_URL ?? "https://client-portal-production-77a9.up.railway.app";
+  const firstName = (prospect.contactName ?? "").trim().split(/\s+/)[0] || (fd.preferredName ?? "there");
+  const approveSubject = encodeURIComponent(`APPROVE PRESENTATION ${prospect.id}`);
+  const approveBody = encodeURIComponent("Looks good — approved.");
+  const approveUrl = `mailto:atlas@ambitt.agency?subject=${approveSubject}&body=${approveBody}`;
+  const changesUrl = `${portalBase}/onboard/${prospect.token}`;
+  const talkUrl = "mailto:team@ambitt.agency?subject=Question%20about%20my%20Ambitt%20Agents%20proposal";
+
+  return `A new prospect just completed the Ambitt Agents onboarding form. Read their answers carefully, then **emit a structured JSON object** matching the ProposalEmailData contract below. Our Handlebars template renders the JSON into the email — you never write HTML.
 
 # Prospect basics
 - Email: ${prospect.email}
 - Name: ${prospect.contactName ?? "(not provided)"}
+- Preferred name (use this in greeting): ${fd.preferredName ?? firstName}
 - Role: ${prospect.role ?? "(not provided)"}
 - Business: ${prospect.businessName ?? "(not provided)"}
 - Website: ${prospect.website ?? "(not provided)"}
@@ -1048,71 +1101,135 @@ function formatProspectForAtlas(prospect: {
 - Brand voice samples: ${fd.brandVoice ?? "(not provided)"}
 - Tools they use: ${fd.tools ?? "(not provided)"}
 - Red lines (what NOT to do): ${fd.redLines ?? "(not provided)"}
-- What to call them: ${fd.preferredName ?? "(not provided)"}
 - Budget bucket: ${fd.budget ?? "(not provided)"}
 
 # Their SOPs / docs
 ${fd.sops ? fd.sops : "(They didn't paste any SOPs.)"}
 
-# Your task
-Produce a **sales-style presentation** — not a dry consultant brief. It should feel like a senior peer put together a proposal that makes them excited to work with you. Cover sections like:
+# CTA URLs to use VERBATIM in your output
+- cta.primaryUrl (Approve): ${approveUrl}
+- cta.secondaryUrl (Make changes): ${changesUrl}
+- cta.tertiaryUrl (Talk to a human): ${talkUrl}
 
-1. **What we'd build** — name the agent, describe its job in their language
-2. **How it'd work** — concrete daily/weekly flow, what they receive
-3. **Sample output** — show 1–2 examples of what an email/digest from this agent would actually look like, mimicking their brand voice if you can detect it
-4. **What they'd get** — outcomes mapped to their success criteria, in their terms
-5. **Tools we'd plug in** — name the systems we'd connect, explain why
-6. **Communication + control** — channel, autonomy, how they stay in the loop
-7. **Next step** — point them to the Approve / Make changes buttons at the bottom of the email
+# JSON SCHEMA — your output must match this shape exactly
 
-**Hard rules:**
-- Do NOT include pricing, retainer, setup fee, or timeline. Our team handles those after we confirm scope.
-- Do NOT promise capabilities the platform doesn't have. If they asked for something we genuinely can't do, name it gently and offer a realistic alternative.
-- Speak as **we** / **our team** throughout. NEVER name an individual operator (no "Kyle", no first names of staff). The brand is Ambitt Agents.
-- **Write like a human, not like AI.** Avoid: "leverage", "comprehensive", "robust", "seamless", "delve into", "in today's fast-paced world", "it's worth noting", "furthermore", "moreover", "indeed". Avoid tricolon reflex ("X, Y, and Z" everywhere) and em-dash overuse. Use contractions. Vary sentence length. Sometimes start with "And" or "But". If a sentence reads like a press release, rewrite it shorter. If you'd say it that way in a Slack DM to a smart colleague, ship it.
-- Return ONLY the HTML body content as a single \`<div>\` with inline styles. NO \`<!DOCTYPE>\`, \`<html>\`, \`<head>\`. Target ~560px width. White background, dark text. Clean typography.`;
+\`\`\`ts
+interface ProposalEmailData {
+  subject: string;                       // e.g. "Your custom agent — proposal from Atlas"
+  greeting: { name: string; body: string };
+  hero: {
+    label: string;                       // e.g. "YOUR CUSTOM AGENT" (uppercase, short)
+    title: string;                       // supports <br> for line break, e.g. "Meet Kwame,<br>your new lead-gen agent."
+    status?: { text: string; tone: "info" | "warn" | "success" | "neutral" };  // for review: tone="warn", text="Pending your review"
+    specs: Array<{ label: string; value: string }>;   // 3–7 rows. Value supports <span class=\"accent\">…</span> for cyan emphasis on ONE phrase
+  };
+  introQuote?: { text: string };         // pull-quote, supports <em>…</em> for one italic-teal word
+  whatWeBuild: {
+    headline: string;                    // job-title style, e.g. "The Prospect Hunter"
+    paragraphs: string[];                // 1–3 plain-text paragraphs
+  };
+  flow: {
+    headline: string;                    // e.g. "The daily flow"
+    steps: Array<{ number: number; title: string; description: string }>;  // 3–7 steps. title 1–2 words, description ≤ 280 chars
+  };
+  sample?: {                             // sample artifact card (email / ticket reply / etc.)
+    headline: string;
+    introText: string;
+    card: {
+      headerRows?: Array<{ label: string; value: string; type?: "link" | "subject" | "text" }>;  // e.g. From/To/Subject
+      body: string;                      // HTML allowed: <p>, <strong>, <em>, <a>. Wrap each paragraph in <p>.
+      signature?: string;                // HTML allowed
+    };
+  };
+  digest?: {                             // recurring digest table preview
+    headline: string;
+    introText: string;
+    cardTitle: string;                   // e.g. "Kwame's Daily Report"
+    cardMeta: string;                    // supports <span class=\"accent\">…</span>
+    columns: Array<{ key: string; label: string }>;   // 3–5
+    rows: Array<Array<{ value: string; type?: "pill" }>>;   // each row matches columns; type:"pill" renders as a teal pill (status col)
+  };
+  cta: {
+    headline: string;                    // e.g. "If this feels right, approve it."
+    subtext: string;                     // 1 sentence, explains what happens next
+    primaryLabel: string;                // "Approve"
+    primaryUrl: string;                  // use the value above
+    secondaryLabel: string;              // "Make changes"
+    secondaryUrl: string;                // use the value above
+    tertiaryLabel?: string;              // "Talk to a human"
+    tertiaryUrl?: string;                // use the value above
+  };
+  footer: {
+    domain: string;                      // "ambitt.agency"
+    location: string;                    // "Dallas, TX"
+    note?: string;
+  };
 }
+\`\`\`
 
-function wrapPresentationEmail(
-  body: string,
-  prospect: { id: string; contactName: string | null; email: string; token?: string | null },
-  portalBase: string
-): string {
-  const firstName = (prospect.contactName ?? "").trim().split(/\s+/)[0] || "there";
-  const changesUrl = prospect.token ? `${portalBase}/onboard/${prospect.token}` : portalBase;
-  // Claude often emits a conversational preamble before the requested HTML
-  // ("I have everything I need. Let me now build the presentation."). Strip
-  // anything before the first `<div`. Also strip trailing markdown fences if
-  // Claude wrapped the whole thing in ```html ... ```.
-  let cleanBody = body;
-  const firstDiv = cleanBody.indexOf("<div");
-  if (firstDiv > 0) cleanBody = cleanBody.slice(firstDiv);
-  cleanBody = cleanBody.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim();
-  return `<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; background: #ffffff;">
-  <div style="margin-bottom: 28px;">
-    <img src="${portalBase}/brand/ambitt-agents-lockup.svg" alt="Ambitt Agents" width="220" height="27" style="display: block; max-width: 220px; height: auto;" />
-  </div>
-  <p style="font-size: 14px; color: #525252; margin: 0 0 24px;">Hi ${firstName},</p>
-  <p style="font-size: 14px; color: #525252; margin: 0 0 24px;">Here's the agent we'd build for you, based on what you told us. Have a read — if it feels right, hit Approve. If anything's off, hit Make changes and you can update your answers.</p>
+# One example (lead-gen agent, abridged) — DO NOT COPY VERBATIM, use as shape reference
 
-  ${cleanBody}
+\`\`\`json
+{
+  "subject": "Your custom agent — proposal from Atlas",
+  "greeting": { "name": "Kyle", "body": "Based on your form, here's the agent we'd build for you. Have a read — if it feels right, hit Approve. If anything's off, hit Make changes and you can update your answers." },
+  "hero": {
+    "label": "YOUR CUSTOM AGENT",
+    "title": "Meet Kwame,<br>your new lead-gen agent.",
+    "status": { "text": "Pending your review", "tone": "warn" },
+    "specs": [
+      { "label": "Targets", "value": "Small businesses · No website yet" },
+      { "label": "Cadence", "value": "Daily mornings · <span class=\\"accent\\">10 prospects/day</span>" },
+      { "label": "Mode", "value": "Supervised — approval before sending" },
+      { "label": "Stack", "value": "Google Maps · Gmail · Notion" }
+    ]
+  },
+  "introQuote": { "text": "Every day, thousands of small businesses collect Google reviews — and still don't have a website. Kwame finds them, researches them, and sends a cold email that actually looks like it was written for <em>them</em>." },
+  "whatWeBuild": {
+    "headline": "The Prospect Hunter",
+    "paragraphs": ["Kwame is a daily outbound agent. Find small businesses with Google reviews but no website, locate a contact email, send them a personalised cold email."]
+  },
+  "flow": {
+    "headline": "The daily flow",
+    "steps": [
+      { "number": 1, "title": "Hunt", "description": "Searches Google Maps for businesses in target categories that have reviews but no linked website. Pulls 10 per day." },
+      { "number": 2, "title": "Research", "description": "Finds a contact email and notes their category, location, review count, and rating so the email feels specific." },
+      { "number": 3, "title": "Draft", "description": "Writes a short, personalised cold email in your voice, mentioning the business by name and referencing their reviews." },
+      { "number": 4, "title": "Your approval", "description": "Because you've chosen supervised mode, you see all 10 drafts each morning before anything goes out." }
+    ]
+  },
+  "cta": {
+    "headline": "If this feels right, approve it.",
+    "subtext": "Pricing and timeline come after you approve scope — we'll handle those next.",
+    "primaryLabel": "Approve",
+    "primaryUrl": "<approve url goes here>",
+    "secondaryLabel": "Make changes",
+    "secondaryUrl": "<make-changes url goes here>",
+    "tertiaryLabel": "Talk to a human",
+    "tertiaryUrl": "<talk url goes here>"
+  },
+  "footer": {
+    "domain": "ambitt.agency",
+    "location": "Dallas, TX",
+    "note": "You're getting this because you submitted a form on ambitt.agency."
+  }
+}
+\`\`\`
 
-  <div style="margin-top: 40px; padding-top: 24px; border-top: 1px solid #e5e5e5;">
-    <table cellpadding="0" cellspacing="0" border="0" role="presentation">
-      <tr>
-        <td style="padding-right: 12px;">
-          <a href="mailto:atlas@ambitt.agency?subject=APPROVE%20PRESENTATION%20${prospect.id}&body=Looks%20good%20%E2%80%94%20approved." style="display: inline-block; padding: 12px 24px; background: #00b3b3; color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 14px; font-weight: 500;">Approve</a>
-        </td>
-        <td>
-          <a href="${changesUrl}" style="display: inline-block; padding: 12px 24px; background: #ffffff; color: #18181b; border: 1px solid #d4d4d8; text-decoration: none; border-radius: 6px; font-size: 14px; font-weight: 500;">Make changes</a>
-        </td>
-      </tr>
-    </table>
-    <p style="font-size: 12px; color: #a1a1aa; margin: 16px 0 0;">Pricing and timeline come after you approve scope — we'll handle those after.</p>
-  </div>
+# Hard rules
 
-  <p style="font-size: 13px; color: #a1a1aa; margin: 32px 0 0;">— Atlas, your onboarding agent at Ambitt Agents</p>
-</div>`;
+- **Output ONLY the JSON object.** No prose before or after. No code fences. No "here you go". Just the raw object, starting with \`{\` and ending with \`}\`.
+- **Use the CTA URLs from the section above verbatim.** Do not invent URLs.
+- **Footer domain = "ambitt.agency", location = "Dallas, TX".**
+- **greeting.name = the prospect's preferred first name** ("${fd.preferredName ?? firstName}").
+- **hero.status = { text: "Pending your review", tone: "warn" }.**
+- **Do NOT include pricing, retainer, setup fee, or timeline.** That's the cta.subtext's reassurance only.
+- **Do NOT promise capabilities the platform doesn't have.** If they asked for something genuinely impossible, soften it in whatWeBuild and propose a realistic version.
+- **Speak as we / our team.** Never name an individual operator. The brand is Ambitt Agents.
+- **Write like a human, not like AI.** Avoid: "leverage", "comprehensive", "robust", "seamless", "delve into", "in today's fast-paced world", "it's worth noting", "furthermore", "moreover", "indeed", "truly", "incredibly". Avoid tricolon reflex ("X, Y, and Z" everywhere) and em-dash overuse. Use contractions. Vary sentence length. Sometimes start with "And" or "But". If you'd say it that way in a Slack DM to a smart colleague, ship it. If it reads like a press release, rewrite shorter.
+- **Sample output**: include if useful — pick the artifact type that matches their work (cold email for lead-gen, ticket reply for support, article draft for content, etc.). Omit \`sample\` field entirely if the agent doesn't produce a discrete artifact.
+- **Digest**: include if the agent produces a recurring report. Omit \`digest\` field entirely otherwise.
+- **Length limits**: hero title ≤ 60 chars across both lines, spec value ≤ 50 chars, flow step description ≤ 280 chars.`;
 }
 
 // Store client credentials

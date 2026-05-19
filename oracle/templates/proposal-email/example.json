@@ -1,0 +1,122 @@
+{
+  "subject": "Your custom agent — proposal from Atlas",
+  "greeting": {
+    "name": "Kyle",
+    "body": "Based on your form, here's the agent I'd build for you. Have a read — if it feels right, hit Approve. If anything's off, hit Make changes and you can update your answers."
+  },
+  "hero": {
+    "label": "YOUR CUSTOM AGENT",
+    "title": "Meet Kwame,<br>your new lead-gen agent.",
+    "status": {
+      "text": "Pending your review",
+      "tone": "warn"
+    },
+    "specs": [
+      { "label": "Targets", "value": "Small businesses · No website yet" },
+      { "label": "Cadence", "value": "Daily mornings · <span class=\"accent\">10 prospects/day</span>" },
+      { "label": "Mode", "value": "Supervised — approval before sending" },
+      { "label": "Voice", "value": "Ambitt Media tone · Brand-aligned" },
+      { "label": "Stack", "value": "Google Maps · Gmail · Notion" }
+    ]
+  },
+  "introQuote": {
+    "text": "Every day, thousands of small businesses collect Google reviews — and still don't have a website. They're already credible. They just haven't been asked yet. Kwame finds them, researches them, and sends a cold email that actually looks like it was written for <em>them</em>. Not a blast. A pitch."
+  },
+  "whatWeBuild": {
+    "headline": "The Prospect Hunter",
+    "paragraphs": [
+      "Kwame is a daily outbound agent. His one job: find small businesses with Google reviews but no website, locate a contact email, and send them a personalised cold email on Ambitt Media's behalf — complete with a sample one-pager showing what their site could look like.",
+      "He runs every morning. By the time you start your day, 10 qualified prospects have already heard from you."
+    ]
+  },
+  "flow": {
+    "headline": "The daily flow",
+    "steps": [
+      {
+        "number": 1,
+        "title": "Hunt",
+        "description": "Kwame searches Google Maps for businesses in your target categories — restaurants, salons, contractors, shops — that have reviews but no linked website. He pulls 10 per day."
+      },
+      {
+        "number": 2,
+        "title": "Research",
+        "description": "For each business, he finds a contact email — from Google, their social profiles, or their listing. He notes their category, location, review count, and rating so the email feels specific."
+      },
+      {
+        "number": 3,
+        "title": "Draft",
+        "description": "He writes a short, personalised cold email in Ambitt Media's voice — mentioning the business by name, referencing their reviews, and attaching a sample one-pager of what their site could look like. No price discussions, ever."
+      },
+      {
+        "number": 4,
+        "title": "Your approval",
+        "description": "Because you've chosen supervised mode, Kwame sends you the 10 drafted emails each morning before anything goes out. You approve the batch, skip any you don't like, and he sends the rest via Gmail."
+      },
+      {
+        "number": 5,
+        "title": "Log & track",
+        "description": "Every prospect, email sent, and reply gets logged in Notion automatically. You always know what's in the pipeline, what's been sent, and who's responded."
+      }
+    ]
+  },
+  "sample": {
+    "headline": "What an email looks like",
+    "introText": "Here's the kind of email Kwame would draft — based on a real business type, a local barbershop in Dallas with 87 Google reviews and no website.",
+    "card": {
+      "headerRows": [
+        { "label": "From", "value": "team@ambittmedia.com", "type": "link" },
+        { "label": "To", "value": "owner@freshcutsbarber.com", "type": "link" },
+        { "label": "Subject", "value": "Fresh Cuts has 87 reviews — but no website yet 👀", "type": "subject" }
+      ],
+      "body": "<p>Hey Fresh Cuts team,</p><p>I came across your shop on Google — 87 reviews and a 4.8 rating. That's a serious reputation. But when someone searches for you and wants to book or check your hours, there's no website to land on.</p><p>We put together a quick sample of what a site for Fresh Cuts could look like — nothing generic, something built around your brand. It's attached.</p><p>We're Ambitt Media — a Dallas-based agency that's helped 200+ businesses get online and grow. We handle the whole thing: design, build, and ongoing support.</p><p>Worth a 15-minute call to see if it's a fit?</p>",
+      "signature": "— Ambitt Media Team<br><a href=\"https://ambittmedia.com\">ambittmedia.com</a> · Dallas, TX"
+    }
+  },
+  "digest": {
+    "headline": "What you'd see before approving",
+    "introText": "Each morning, you'll get a summary like this with all 10 drafts ready to review. Approve the batch, or click into any one to edit before it sends.",
+    "cardTitle": "Kwame's Daily Report",
+    "cardMeta": "Wednesday<span class=\"accent\"> · 10 prospects ready</span>",
+    "columns": [
+      { "key": "business", "label": "Business" },
+      { "key": "type", "label": "Type" },
+      { "key": "reviews", "label": "Reviews" },
+      { "key": "status", "label": "Status" }
+    ],
+    "rows": [
+      [
+        { "value": "Fresh Cuts Barber" },
+        { "value": "Barbershop" },
+        { "value": "87 ★ 4.8" },
+        { "value": "Draft ready", "type": "pill" }
+      ],
+      [
+        { "value": "Mama Cee's Kitchen" },
+        { "value": "Restaurant" },
+        { "value": "142 ★ 4.6" },
+        { "value": "Draft ready", "type": "pill" }
+      ],
+      [
+        { "value": "Bloom Nail Studio" },
+        { "value": "Nail salon" },
+        { "value": "63 ★ 4.9" },
+        { "value": "Draft ready", "type": "pill" }
+      ]
+    ]
+  },
+  "cta": {
+    "headline": "If this feels right, approve it.",
+    "subtext": "Pricing and timeline come after you approve scope — we'll handle those next.",
+    "primaryLabel": "Approve",
+    "primaryUrl": "https://ambitt.agency/approve/kwame-12af",
+    "secondaryLabel": "Make changes",
+    "secondaryUrl": "https://ambitt.agency/edit/kwame-12af",
+    "tertiaryLabel": "Talk to a human",
+    "tertiaryUrl": "https://ambitt.agency/contact"
+  },
+  "footer": {
+    "domain": "ambitt.agency",
+    "location": "Dallas, TX",
+    "note": "You're getting this because you submitted a form on ambitt.agency."
+  }
+}
