@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import "./form.css";
 
 // Brand mark — kept inline as JSX so the agent silhouette + visor render in
@@ -94,17 +94,24 @@ const NEVER_DO_OPTIONS = [
   "Re-contact anyone messaged in 90 days", "Mention competitors by name", "Send outside business hours",
   "Discuss legal or compliance matters", "Reference clients without permission",
 ];
-const TOOL_OPTIONS = [
-  "Gmail", "Slack", "Notion", "HubSpot", "Salesforce", "Google Sheets", "Airtable",
-  "Google Maps", "Zendesk", "Calendly", "Stripe", "ClickUp", "Asana",
-];
-
 interface UploadedFile {
   id: string;
   filename: string;
   sizeBytes: number;
   contentType: string;
   extractedText: string;
+}
+
+interface ToolSelection {
+  source: "composio" | "custom";
+  slug?: string;
+  name: string;
+}
+
+interface ComposioApp {
+  key: string;
+  name: string;
+  categories: string[];
 }
 
 function parseList(raw: string | undefined): string[] {
@@ -139,8 +146,15 @@ export function OnboardForm({ token, prospectId, initial, status }: OnboardFormP
     successOutcomes: parseList(initial.successOutcomes),
     toneTags: parseList(initial.toneTags),
     neverDoTags: parseList(initial.neverDoTags),
-    toolTags: parseList(initial.toolTags),
   }));
+  const [tools, setTools] = useState<ToolSelection[]>(() => {
+    // Pre-fill from existing prospect.formData.tools if present (array shape).
+    const raw = (initial as unknown as { tools?: unknown }).tools;
+    if (Array.isArray(raw)) {
+      return (raw as ToolSelection[]).filter((t) => t && typeof t.name === "string");
+    }
+    return [];
+  });
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -204,6 +218,10 @@ export function OnboardForm({ token, prospectId, initial, status }: OnboardFormP
       for (const [k, arr] of Object.entries(multi)) {
         merged[k] = arr.join(", ");
       }
+      // tools stays structured — array of {source, slug?, name}. Atlas uses
+      // the source field to distinguish Composio integrations (oauth path
+      // exists) from custom apps (humans wire up during build).
+      merged.tools = tools;
       merged.sopFiles = files.map((f) => ({
         filename: f.filename,
         sizeBytes: f.sizeBytes,
@@ -253,8 +271,8 @@ export function OnboardForm({ token, prospectId, initial, status }: OnboardFormP
           <ToolsSlide
             values={values}
             set={set}
-            multi={multi}
-            toggleMulti={toggleMulti}
+            tools={tools}
+            setTools={setTools}
             files={files}
             onUpload={uploadFile}
             onRemoveFile={removeFile}
@@ -267,6 +285,7 @@ export function OnboardForm({ token, prospectId, initial, status }: OnboardFormP
           <ReviewSlide
             values={values}
             multi={multi}
+            tools={tools}
             files={files}
             email={initial.email ?? ""}
             onEdit={jumpTo}
@@ -507,6 +526,146 @@ function CheckPills({ options, selected, onToggle }: { options: string[]; select
 
 function OptionalDetail({ children }: { children: React.ReactNode }) {
   return <div className="fa-optional-detail">{children}</div>;
+}
+
+function ToolPicker({ tools, setTools }: { tools: ToolSelection[]; setTools: React.Dispatch<React.SetStateAction<ToolSelection[]>> }) {
+  const [catalog, setCatalog] = useState<ComposioApp[]>([]);
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+  const [highlight, setHighlight] = useState(0);
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/composio/catalog")
+      .then((r) => r.json())
+      .then((body) => {
+        if (cancelled) return;
+        const items = Array.isArray(body.items) ? (body.items as ComposioApp[]) : [];
+        setCatalog(items);
+      })
+      .catch(() => { /* fail silently — custom-add still works */ });
+    return () => { cancelled = true; };
+  }, []);
+
+  // Close dropdown on outside click.
+  useEffect(() => {
+    function onClick(e: MouseEvent) {
+      if (!wrapRef.current) return;
+      if (!wrapRef.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, []);
+
+  const selectedKeys = useMemo(() => new Set(tools.map((t) => (t.source === "composio" ? `c:${t.slug}` : `x:${t.name.toLowerCase()}`))), [tools]);
+
+  const matches = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return [];
+    const hits = catalog
+      .filter((app) => !selectedKeys.has(`c:${app.key}`))
+      .filter((app) => app.name.toLowerCase().includes(q) || app.key.toLowerCase().includes(q))
+      .slice(0, 8);
+    return hits;
+  }, [catalog, query, selectedKeys]);
+
+  function addComposio(app: ComposioApp) {
+    setTools((prev) => [...prev, { source: "composio", slug: app.key, name: app.name }]);
+    setQuery("");
+    setOpen(false);
+    setHighlight(0);
+  }
+
+  function addCustom(name: string) {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    if (selectedKeys.has(`x:${trimmed.toLowerCase()}`)) return;
+    setTools((prev) => [...prev, { source: "custom", name: trimmed }]);
+    setQuery("");
+    setOpen(false);
+    setHighlight(0);
+  }
+
+  function removeTool(index: number) {
+    setTools((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setHighlight((h) => Math.min(matches.length, h + 1));
+      setOpen(true);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setHighlight((h) => Math.max(0, h - 1));
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      if (matches.length > 0 && highlight < matches.length) {
+        addComposio(matches[highlight]);
+      } else {
+        addCustom(query);
+      }
+    } else if (e.key === "Backspace" && query === "" && tools.length > 0) {
+      // remove last chip on backspace from empty input
+      setTools((prev) => prev.slice(0, -1));
+    } else if (e.key === "Escape") {
+      setOpen(false);
+    }
+  }
+
+  const showCustomHint = query.trim().length > 0 && !matches.some((m) => m.name.toLowerCase() === query.trim().toLowerCase());
+
+  return (
+    <div className="fa-tool-picker" ref={wrapRef}>
+      <div className="fa-tool-tags">
+        {tools.map((t, i) => (
+          <span key={`${t.source}:${t.slug ?? t.name}:${i}`} className={`fa-tool-tag${t.source === "custom" ? " custom" : ""}`}>
+            <span className="fa-tool-tag-source">{t.source === "composio" ? "OAuth" : "Custom"}</span>
+            {t.name}
+            <button type="button" className="fa-tool-tag-x" onClick={() => removeTool(i)} aria-label={`Remove ${t.name}`}>×</button>
+          </span>
+        ))}
+      </div>
+      <Input
+        value={query}
+        onChange={(e) => { setQuery(e.target.value); setOpen(true); setHighlight(0); }}
+        onFocus={() => setOpen(true)}
+        onKeyDown={onKeyDown}
+        placeholder={catalog.length === 0 ? "Loading tool catalog…" : "Type a tool name — Gmail, Linear, your custom app…"}
+      />
+      {open && (matches.length > 0 || showCustomHint) && (
+        <div className="fa-tool-dropdown" role="listbox">
+          {matches.map((app, i) => (
+            <button
+              type="button"
+              key={app.key}
+              className={`fa-tool-item${i === highlight ? " highlight" : ""}`}
+              onMouseEnter={() => setHighlight(i)}
+              onClick={() => addComposio(app)}
+              role="option"
+              aria-selected={i === highlight}
+            >
+              <span className="fa-tool-item-name">{app.name}</span>
+              {app.categories?.[0] && <span className="fa-tool-item-cat">{app.categories[0]}</span>}
+            </button>
+          ))}
+          {showCustomHint && (
+            <button
+              type="button"
+              className={`fa-tool-item${highlight === matches.length ? " highlight" : ""}`}
+              onMouseEnter={() => setHighlight(matches.length)}
+              onClick={() => addCustom(query)}
+            >
+              <span className="fa-tool-item-name fa-tool-item-custom">
+                Add <strong>&ldquo;{query.trim()}&rdquo;</strong> as a custom tool
+              </span>
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function UploadDropzone({
@@ -787,12 +946,12 @@ function LimitsSlide({
 // ---------------------------------------------------------------------------
 
 function ToolsSlide({
-  values, set, multi, toggleMulti, files, onUpload, onRemoveFile, uploading, onBack, onNext,
+  values, set, tools, setTools, files, onUpload, onRemoveFile, uploading, onBack, onNext,
 }: {
   values: Record<string, string>;
   set: (k: string, v: string) => void;
-  multi: Record<string, string[]>;
-  toggleMulti: (k: string, v: string) => void;
+  tools: ToolSelection[];
+  setTools: React.Dispatch<React.SetStateAction<ToolSelection[]>>;
   files: UploadedFile[];
   onUpload: (f: File) => void;
   onRemoveFile: (id: string) => void;
@@ -811,10 +970,11 @@ function ToolsSlide({
       onBack={onBack}
       onNext={onNext}
     >
-      <Field label="What tools will the agent need access to?" helper="Pick all that apply. We'll figure out OAuth vs login during the build.">
-        <CheckPills options={TOOL_OPTIONS} selected={multi.toolTags ?? []} onToggle={(v) => toggleMulti("toolTags", v)} />
-        <OptionalDetail>Any other tools, internal systems, or apps?</OptionalDetail>
-        <Textarea value={values.tools ?? ""} onChange={(e) => set("tools", e.target.value)} placeholder="Custom dashboards, internal apps, anything not in the list above…" />
+      <Field
+        label="What tools will the agent need access to?"
+        helper="Start typing — we'll match against 250+ Composio integrations. Don't see your tool? Type it and press Enter to add it as a custom app."
+      >
+        <ToolPicker tools={tools} setTools={setTools} />
       </Field>
       <Field
         label="Got any SOPs, playbooks, or docs?"
@@ -833,10 +993,11 @@ function ToolsSlide({
 // ---------------------------------------------------------------------------
 
 function ReviewSlide({
-  values, multi, files, email, onEdit, onBack, onSend, submitting, error,
+  values, multi, tools, files, email, onEdit, onBack, onSend, submitting, error,
 }: {
   values: Record<string, string>;
   multi: Record<string, string[]>;
+  tools: ToolSelection[];
   files: UploadedFile[];
   email: string;
   onEdit: (slideIndex: number) => void;
@@ -849,7 +1010,7 @@ function ReviewSlide({
   const success = (multi.successOutcomes ?? []).join(", ");
   const tone = (multi.toneTags ?? []).join(", ");
   const neverDo = (multi.neverDoTags ?? []).join(", ");
-  const toolTags = (multi.toolTags ?? []).join(", ");
+  const toolList = tools.map((t) => `${t.name}${t.source === "custom" ? " (custom)" : ""}`).join(", ");
 
   const sopSummary = files.length > 0
     ? `${files.length} file${files.length === 1 ? "" : "s"} uploaded${values.sops ? " · plus pasted notes" : ""}`
@@ -912,8 +1073,7 @@ function ReviewSlide({
       section: "06 · Tools & procedures",
       editSlide: 6,
       rows: [
-        { key: "Tools", value: toolTags || "—", muted: !toolTags },
-        { key: "Other tools", value: values.tools || "None specified", muted: !values.tools },
+        { key: "Tools", value: toolList || "—", muted: !toolList },
         { key: "SOPs", value: sopSummary, muted: files.length === 0 && !values.sops },
       ],
     },

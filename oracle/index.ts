@@ -112,6 +112,31 @@ app.get("/health", (_req: Request, res: Response) => {
   res.json({ status: "ok", service: "oracle", timestamp: new Date().toISOString() });
 });
 
+// Composio app catalog — public-ish (no auth), backed by in-memory cache so
+// the onboarding form can pull it cheaply on every page load. Composio
+// catalog rarely changes; 12-hour TTL is safe.
+let composioCatalogCache: { items: Array<{ name: string; key: string; categories: string[] }>; fetchedAt: number } | null = null;
+const COMPOSIO_CATALOG_TTL_MS = 12 * 60 * 60 * 1000;
+
+app.get("/composio/catalog", async (_req: Request, res: Response) => {
+  try {
+    const now = Date.now();
+    if (!composioCatalogCache || now - composioCatalogCache.fetchedAt > COMPOSIO_CATALOG_TTL_MS) {
+      const { listApps } = await import("../shared/mcp/composio.js");
+      const apps = await listApps();
+      composioCatalogCache = {
+        items: apps.map((a) => ({ name: a.name, key: a.key, categories: a.categories ?? [] })),
+        fetchedAt: now,
+      };
+      logger.info("Composio catalog refreshed", { count: composioCatalogCache.items.length });
+    }
+    res.json({ items: composioCatalogCache.items, fetchedAt: composioCatalogCache.fetchedAt });
+  } catch (err) {
+    logger.error("Composio catalog fetch failed", { error: err });
+    res.status(500).json({ items: [], error: err instanceof Error ? err.message : "fetch failed" });
+  }
+});
+
 // Fleet status
 app.get("/fleet", async (_req: Request, res: Response) => {
   try {
@@ -1164,8 +1189,11 @@ function buildAtlasProposalPrompt(prospect: {
 - Autonomy preference: ${get("autonomy") || "(not provided)"}
 - Tone tags (multi-select chips): ${get("toneTags") || "(none selected)"}
 - Brand voice samples (optional paste): ${get("brandVoice") || "(not provided)"}
-- Tools selected (multi-select chips): ${get("toolTags") || "(none selected)"}
-- Other tools / internal systems (optional): ${get("tools") || "(not provided)"}
+- Tools (structured list, Composio = OAuth path exists, custom = humans wire it up): ${(() => {
+  const t = Array.isArray(fd.tools) ? (fd.tools as Array<{ source: string; slug?: string; name: string }>) : [];
+  if (t.length === 0) return "(none selected)";
+  return t.map((x) => `${x.name} [${x.source === "composio" ? `Composio:${x.slug ?? "?"}` : "custom"}]`).join(", ");
+})()}
 - Never-do guardrails (multi-select chips): ${get("neverDoTags") || "(none selected)"}
 - Other rules (optional): ${get("redLines") || "(not provided)"}
 - Budget bucket: ${get("budget") || "(not provided)"}

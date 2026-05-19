@@ -528,6 +528,103 @@
   font-weight: 500;
 }
 
+/* ============ TOOL PICKER (Composio typeahead) ============ */
+.fa-tool-picker { position: relative; }
+.fa-tool-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.fa-tool-tags:empty { display: none; }
+.fa-tool-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(0, 179, 179, 0.08);
+  border: 1px solid #00b3b3;
+  color: #007373;
+  padding: 5px 6px 5px 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 500;
+}
+.fa-tool-tag.custom {
+  background: #f5f5f5;
+  border-color: #d4d4d4;
+  color: #525252;
+}
+.fa-tool-tag-source {
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: #00b3b3;
+  background: rgba(0, 179, 179, 0.12);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+.fa-tool-tag.custom .fa-tool-tag-source {
+  color: #737373;
+  background: #ececec;
+}
+.fa-tool-tag-x {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  font-size: 14px;
+  line-height: 1;
+  color: inherit !important;
+  background: rgba(0, 0, 0, 0.04) !important;
+}
+.fa-tool-tag-x:hover { background: rgba(0, 0, 0, 0.12) !important; }
+.fa-tool-dropdown {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  margin-top: 4px;
+  background: #ffffff;
+  border: 1px solid #d4d4d4;
+  border-radius: 9px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.08);
+  max-height: 280px;
+  overflow-y: auto;
+  z-index: 10;
+}
+.fa-tool-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  font-size: 13.5px;
+  color: #171717;
+  cursor: pointer;
+  border-bottom: 1px solid #f5f5f5;
+  background: #ffffff;
+  width: 100%;
+  text-align: left;
+}
+.fa-tool-item:last-child { border-bottom: none; }
+.fa-tool-item:hover, .fa-tool-item.highlight { background: #f8fdfd; color: #007373; }
+.fa-tool-item-name { flex: 1; }
+.fa-tool-item-cat {
+  font-size: 11px;
+  color: #a3a3a3;
+  font-weight: 500;
+}
+.fa-tool-item-custom { color: #525252; font-style: italic; }
+.fa-tool-empty {
+  padding: 14px;
+  font-size: 13px;
+  color: #a3a3a3;
+  text-align: center;
+  background: #ffffff;
+}
+
 /* File upload dropzone — `display: block` is critical because <label> is
    inline by default and the dropzone would otherwise wrap inline with
    surrounding helper text + textareas and render as overlapping fragments. */
