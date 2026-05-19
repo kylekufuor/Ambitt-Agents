@@ -57,10 +57,13 @@ export async function middleware(request: NextRequest) {
   if (
     request.nextUrl.pathname === "/login" ||
     request.nextUrl.pathname.startsWith("/api/auth") ||
-    request.nextUrl.pathname.startsWith("/onboard")
+    request.nextUrl.pathname.startsWith("/onboard") ||
+    request.nextUrl.pathname.startsWith("/api/onboard")
   ) {
-    // /onboard/[token] is token-gated (the path itself is the auth) — prospects
-    // don't have Supabase accounts yet. Server validates the token.
+    // /onboard/[token] (page) and /api/onboard/[token]/* (form submit + future
+    // chat/events) are token-gated — the URL token itself is the auth.
+    // Prospects don't have Supabase accounts yet; the server-side route
+    // handler validates the token.
     return supabaseResponse;
   }
 
