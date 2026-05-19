@@ -286,14 +286,59 @@ function WelcomeSlide({ onBegin }: { onBegin: () => void }) {
           Once you&apos;re done, I&apos;ll review everything and email over a tailored presentation of what we can build for you — usually within 30 minutes.
         </p>
 
-        <div className="fa-preview">
-          <span className="fa-preview-label">You&apos;ll cover</span>
-          <span className="fa-preview-step">About you</span><span className="fa-preview-arrow">→</span>
-          <span className="fa-preview-step">The job</span><span className="fa-preview-arrow">→</span>
-          <span className="fa-preview-step">How it works</span><span className="fa-preview-arrow">→</span>
-          <span className="fa-preview-step">Limits</span><span className="fa-preview-arrow">→</span>
-          <span className="fa-preview-step">Tools</span><span className="fa-preview-arrow">→</span>
-          <span className="fa-preview-step">Review</span>
+        <div className="fa-toc">
+          <div className="fa-toc-label">The 7-chapter brief</div>
+          <div className="fa-toc-list">
+            <div className="fa-toc-row">
+              <div className="fa-toc-num">01</div>
+              <div className="fa-toc-body">
+                <div className="fa-toc-name">About you</div>
+                <div className="fa-toc-desc">Quick facts so the proposal lands with the right person</div>
+              </div>
+            </div>
+            <div className="fa-toc-row">
+              <div className="fa-toc-num">02</div>
+              <div className="fa-toc-body">
+                <div className="fa-toc-name">The one sentence</div>
+                <div className="fa-toc-desc">The agent&apos;s core job, in your own words</div>
+              </div>
+            </div>
+            <div className="fa-toc-row">
+              <div className="fa-toc-num">03</div>
+              <div className="fa-toc-body">
+                <div className="fa-toc-name">The job, deeper</div>
+                <div className="fa-toc-desc">Success metrics, cadence, volume</div>
+              </div>
+            </div>
+            <div className="fa-toc-row">
+              <div className="fa-toc-num">04</div>
+              <div className="fa-toc-body">
+                <div className="fa-toc-name">How it works</div>
+                <div className="fa-toc-desc">Channel, autonomy, voice</div>
+              </div>
+            </div>
+            <div className="fa-toc-row">
+              <div className="fa-toc-num">05</div>
+              <div className="fa-toc-body">
+                <div className="fa-toc-name">Hard limits</div>
+                <div className="fa-toc-desc">Budget and what the agent should never do</div>
+              </div>
+            </div>
+            <div className="fa-toc-row">
+              <div className="fa-toc-num">06</div>
+              <div className="fa-toc-body">
+                <div className="fa-toc-name">Tools</div>
+                <div className="fa-toc-desc">What the agent needs access to</div>
+              </div>
+            </div>
+            <div className="fa-toc-row">
+              <div className="fa-toc-num">07</div>
+              <div className="fa-toc-body">
+                <div className="fa-toc-name">Review</div>
+                <div className="fa-toc-desc">Final check, then off to Atlas</div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div className="fa-begin-wrap">
