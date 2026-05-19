@@ -202,8 +202,26 @@ export function OnboardForm({ token, prospectId, initial, status }: OnboardFormP
 
   const headerClass = slide === 0 ? "fa-header welcome" : slide === 8 ? "fa-header sent" : "fa-header";
 
+  // Enter-to-continue. Bare Enter advances unless the focus is in a
+  // textarea (where Enter inserts a newline). Cmd/Ctrl-Enter advances from
+  // anywhere, even inside a textarea, for power users. Review slide submits
+  // on Enter; Sent slide does nothing.
+  function handleKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
+    if (e.key !== "Enter") return;
+    const target = e.target as HTMLElement;
+    const inTextarea = target.tagName === "TEXTAREA";
+    if (inTextarea && !(e.metaKey || e.ctrlKey)) return;
+    if (slide === 8) return;
+    e.preventDefault();
+    if (slide === 7) {
+      if (!submitting) submit();
+    } else {
+      next();
+    }
+  }
+
   return (
-    <div className="fa-onboard">
+    <div className="fa-onboard" onKeyDown={handleKeyDown}>
       <div className="fa-progress">
         <div className="fa-progress-fill" style={{ width: `${STEP_PERCENT[slide]}%` }} />
       </div>
@@ -268,10 +286,10 @@ function WelcomeSlide({ onBegin }: { onBegin: () => void }) {
         <div className="fa-agent-frame"><AtlasSingle width={50} height={72} /></div>
         <div className="fa-h-title">Let&apos;s build<br />your agent.</div>
         <p className="fa-hero-body">
-          Hi — I&apos;m <strong>Atlas</strong>, Ambitt&apos;s onboarding agent. The more you tell me here, the sharper the proposal I&apos;ll put together.
+          Hey there! I&apos;m <strong>Atlas</strong> from the Ambitt team. The more detail you can share here, the better your custom proposal will be.
         </p>
         <p className="fa-hero-body">
-          When you finish, I&apos;ll review your answers and email you a presentation of the agent we&apos;d build — usually within a day.
+          Once you&apos;re done, I&apos;ll review everything and email over a tailored presentation of what we can build for you — usually within 30 minutes.
         </p>
 
         <div className="fa-preview">
@@ -285,7 +303,10 @@ function WelcomeSlide({ onBegin }: { onBegin: () => void }) {
         </div>
 
         <div className="fa-begin-wrap">
-          <button type="button" className="fa-begin" onClick={onBegin}>Let&apos;s begin →</button>
+          <button type="button" className="fa-begin" onClick={onBegin}>
+            Let&apos;s begin
+            <span className="fa-begin-arrow" aria-hidden="true">→</span>
+          </button>
         </div>
         <div className="fa-meta">5–10 minutes<span className="dot">·</span>Progress saved automatically</div>
       </div>
@@ -831,7 +852,7 @@ function ReviewSlide({
         <div className="fa-content-tag" style={{ textAlign: "center" }}>07 / 07 · FINAL STEP</div>
         <div className="fa-h-title" style={{ fontSize: 36, textAlign: "center", marginBottom: 12 }}>Here&apos;s what you&apos;ve told me.</div>
         <p className="fa-hero-body" style={{ textAlign: "center", marginBottom: 36 }}>
-          Take one last look. Edit any section — I&apos;ll have your proposal in your inbox within ~24h.
+          Take one last look. Edit any section — I&apos;ll have your proposal in your inbox within 30 minutes.
         </p>
 
         {blocks.map((block) => (
@@ -857,7 +878,7 @@ function ReviewSlide({
             <button type="button" className="fa-continue fa-send" onClick={onSend} disabled={submitting}>
               {submitting ? "Sending…" : "Send to Atlas →"}
             </button>
-            <div className="fa-microcopy">Proposal in your inbox within ~24h</div>
+            <div className="fa-microcopy">Proposal in your inbox within 30 minutes</div>
           </div>
         </div>
       </div>
@@ -877,7 +898,7 @@ function SentSlide({ email }: { email: string }) {
         <div className="fa-hero-pill"><span className="fa-hero-pill-dot" />Brief received</div>
         <div className="fa-h-title">Your brief is in.</div>
         <p className="fa-hero-body">
-          Atlas is reviewing your answers right now. I&apos;ll have your proposal in your inbox within <strong>~24 hours</strong> — usually much sooner.
+          Atlas is reviewing your answers right now. I&apos;ll have your proposal in your inbox within <strong>30 minutes</strong>.
         </p>
         {email && (
           <p className="fa-hero-body">
@@ -898,7 +919,7 @@ function SentSlide({ email }: { email: string }) {
             <div className="fa-tl-num">2</div>
             <div className="fa-tl-body">
               <div className="fa-tl-title">Atlas drafts your proposal</div>
-              <div className="fa-tl-sub">Within 24 hours</div>
+              <div className="fa-tl-sub">Within 30 minutes</div>
             </div>
           </div>
           <div className="fa-tl-row">
