@@ -37,39 +37,21 @@ export default async function OnboardPage(
     );
   }
 
+  // The form owns the full layout (progress bar, header lockup, slideshow).
+  // No outer Next layout wrappers here — the design needs edge-to-edge canvas.
   return (
-    <main className="min-h-screen bg-zinc-50 py-12 px-4">
-      <div className="max-w-2xl mx-auto">
-        <header className="mb-10">
-          <div className="mb-6">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/brand/ambitt-agents-lockup.svg" alt="Ambitt Agents" width={220} height={27} />
-            <p className="text-xs uppercase tracking-wider text-[#00b3b3] font-semibold mt-3">Onboarding</p>
-          </div>
-          <h1 className="text-3xl font-semibold text-zinc-900 mb-3">Let&apos;s build your agent.</h1>
-          <p className="text-sm text-zinc-700 leading-relaxed mb-2">
-            Hi — I&apos;m <strong>Atlas</strong>, Ambitt&apos;s onboarding agent. The more you tell me here, the sharper the proposal I&apos;ll put together for you.
-          </p>
-          <p className="text-sm text-zinc-600 leading-relaxed">
-            When you hit send, I&apos;ll review your answers and email you a presentation of the agent we&apos;d build — usually within a day.
-            Pricing comes after our team reviews the scope. Take your time; progress is saved.
-          </p>
-        </header>
-
-        <OnboardForm
-          token={token}
-          prospectId={prospect.id}
-          initial={{
-            contactName: prospect.contactName ?? "",
-            email: prospect.email,
-            businessName: prospect.businessName ?? "",
-            role: prospect.role ?? "",
-            website: prospect.website ?? "",
-            ...((prospect.formData as Record<string, string>) ?? {}),
-          }}
-          status={prospect.status}
-        />
-      </div>
-    </main>
+    <OnboardForm
+      token={token}
+      prospectId={prospect.id}
+      initial={{
+        contactName: prospect.contactName ?? "",
+        email: prospect.email,
+        businessName: prospect.businessName ?? "",
+        role: prospect.role ?? "",
+        website: prospect.website ?? "",
+        ...((prospect.formData as Record<string, string>) ?? {}),
+      }}
+      status={prospect.status}
+    />
   );
 }
