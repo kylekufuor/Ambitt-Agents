@@ -56,6 +56,17 @@ const AUTONOMY_OPTIONS = [
 ];
 const BUDGET_OPTIONS = ["$500 – $1k", "$1k – $2.5k", "$2.5k – $5k", "$5k – $10k", "$10k+", "Not sure yet"];
 
+const AUDIENCE_OPTIONS = [
+  "Small businesses (1–50)",
+  "Mid-market (50–500)",
+  "Enterprises (500+)",
+  "Consumers (B2C)",
+  "Startups / early-stage",
+  "Local businesses",
+  "Agencies / freelancers",
+  "Creators / influencers",
+  "Non-profits",
+];
 const TODAY_HANDLER_OPTIONS = ["I do it myself", "Someone on my team", "We outsource it", "It doesn't get done", "We don't do this yet"];
 const SUCCESS_OUTCOMES = [
   "More qualified leads", "Faster response time", "Reduced manual work", "Higher conversion rate",
@@ -110,6 +121,7 @@ export function OnboardForm({ token, prospectId, initial, status }: OnboardFormP
     ...initial,
   });
   const [multi, setMulti] = useState<Record<string, string[]>>(() => ({
+    audienceTags: parseList(initial.audienceTags),
     successOutcomes: parseList(initial.successOutcomes),
     toneTags: parseList(initial.toneTags),
     neverDoTags: parseList(initial.neverDoTags),
@@ -236,7 +248,7 @@ export function OnboardForm({ token, prospectId, initial, status }: OnboardFormP
 
       <div className="fa-stage">
         {slide === 0 && <WelcomeSlide onBegin={next} />}
-        {slide === 1 && <AboutYouSlide values={values} set={set} onNext={next} onBack={back} />}
+        {slide === 1 && <AboutYouSlide values={values} set={set} multi={multi} toggleMulti={toggleMulti} onNext={next} onBack={back} />}
         {slide === 2 && <OneSentenceSlide values={values} set={set} onNext={next} onBack={back} />}
         {slide === 3 && <JobDeeperSlide values={values} set={set} multi={multi} toggleMulti={toggleMulti} onNext={next} onBack={back} />}
         {slide === 4 && <HowItWorksSlide values={values} set={set} multi={multi} toggleMulti={toggleMulti} onNext={next} onBack={back} />}
@@ -528,7 +540,16 @@ function UploadDropzone({
 // Slide 1 — ABOUT YOU
 // ---------------------------------------------------------------------------
 
-function AboutYouSlide({ values, set, onBack, onNext }: { values: Record<string, string>; set: (k: string, v: string) => void; onBack: () => void; onNext: () => void }) {
+function AboutYouSlide({
+  values, set, multi, toggleMulti, onBack, onNext,
+}: {
+  values: Record<string, string>;
+  set: (k: string, v: string) => void;
+  multi: Record<string, string[]>;
+  toggleMulti: (k: string, v: string) => void;
+  onBack: () => void;
+  onNext: () => void;
+}) {
   return (
     <ChapterShell
       num="01"
@@ -557,6 +578,11 @@ function AboutYouSlide({ values, set, onBack, onNext }: { values: Record<string,
       </Field>
       <Field label="What does your business actually do?" helper="One paragraph. Industry + what you sell + who buys.">
         <Textarea value={values.industry ?? ""} onChange={(e) => set("industry", e.target.value)} placeholder="We help [audience] do [job] by [solution] — keep it to a paragraph." />
+      </Field>
+      <Field label="Who is your target audience?" helper="Pick all that apply — Atlas will tune the agent's voice and outputs to fit them.">
+        <CheckPills options={AUDIENCE_OPTIONS} selected={multi.audienceTags ?? []} onToggle={(v) => toggleMulti("audienceTags", v)} />
+        <OptionalDetail>Anything more specific? (industry, role, size)</OptionalDetail>
+        <Textarea value={values.audienceDetail ?? ""} onChange={(e) => set("audienceDetail", e.target.value)} placeholder={`e.g., "DTC e-commerce founders doing $1–10M/yr", "HR directors at 200+ employee SaaS companies"`} />
       </Field>
       <Field label="What should the agent call you?">
         <Input value={values.preferredName ?? ""} onChange={(e) => set("preferredName", e.target.value)} placeholder="First name" />
@@ -775,6 +801,7 @@ function ReviewSlide({
   submitting: boolean;
   error: string | null;
 }) {
+  const audience = (multi.audienceTags ?? []).join(", ");
   const success = (multi.successOutcomes ?? []).join(", ");
   const tone = (multi.toneTags ?? []).join(", ");
   const neverDo = (multi.neverDoTags ?? []).join(", ");
@@ -796,6 +823,7 @@ function ReviewSlide({
         { key: "Role", value: values.role || "—", muted: !values.role },
         { key: "Business", value: [values.businessName, values.website].filter(Boolean).join(" · ") || "—", muted: !values.businessName && !values.website },
         { key: "What you do", value: values.industry || "—", muted: !values.industry },
+        { key: "Audience", value: [audience, values.audienceDetail].filter(Boolean).join(" · ") || "—", muted: !audience && !values.audienceDetail },
         { key: "Call you", value: values.preferredName || "—", muted: !values.preferredName },
       ],
     },

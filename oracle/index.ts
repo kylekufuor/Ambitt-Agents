@@ -1105,6 +1105,8 @@ function buildAtlasProposalPrompt(prospect: {
 
 # Their answers
 - What their business does: ${get("industry") || "(not provided)"}
+- Target audience (multi-select chips): ${get("audienceTags") || "(none selected)"}
+- Audience detail (optional, more specific): ${get("audienceDetail") || "(not provided)"}
 - What the agent should do (their pitch): ${get("agentPitch") || "(not provided)"}
 - Who handles this today: ${get("todayHandler") || "(not provided)"}
 - Today details (optional): ${get("todayVsAgent") || "(not provided)"}
