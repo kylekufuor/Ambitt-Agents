@@ -1103,6 +1103,10 @@ function buildAtlasProposalPrompt(prospect: {
 - Business: ${prospect.businessName ?? "(not provided)"}
 - Website: ${prospect.website ?? "(not provided)"}
 
+# The agent the prospect is asking us to build
+- Their chosen name for the agent: ${get("agentName") || "(not provided — propose one)"}
+- Their chosen role / job title for the agent: ${get("agentRole") || "(not provided — infer from their pitch)"}
+
 # Their answers
 - What their business does: ${get("industry") || "(not provided)"}
 - Target audience (multi-select chips): ${get("audienceTags") || "(none selected)"}
@@ -1242,7 +1246,8 @@ interface ProposalEmailData {
 - **Output ONLY the JSON object.** No prose before or after. No code fences. No "here you go". Just the raw object, starting with \`{\` and ending with \`}\`.
 - **Use the CTA URLs from the section above verbatim.** Do not invent URLs.
 - **Footer domain = "ambitt.agency", location = "Dallas, TX".**
-- **greeting.name = the prospect's preferred first name** ("${fd.preferredName ?? firstName}").
+- **greeting.name = the prospect's preferred first name** ("${get("preferredName") || firstName}").
+- **Name the agent throughout.** If the prospect gave a name (\`${get("agentName") || "(none)"}\`) and role (\`${get("agentRole") || "(none)"}\`), use them in: \`hero.title\` (e.g. "Meet Bob,<br>your lead-gen agent."), \`whatWeBuild.headline\` (a job-title that builds on their chosen role), \`flow.steps[].description\` (refer to the agent BY NAME — "Bob hunts…", "Bob drafts…"), \`digest.cardTitle\` (e.g., "Bob's Daily Report"), and \`sample.card.signature\` if the sample artifact is sent from your client's brand (NOT from the agent itself — sign as the client's business, never as the agent). If the prospect did NOT provide a name, propose one in your response that fits their brand voice; if they did NOT provide a role, infer one from their pitch.
 - **hero.status = { text: "Pending your review", tone: "warn" }.**
 - **Do NOT include pricing, retainer, setup fee, or timeline.** That's the cta.subtext's reassurance only.
 - **Do NOT promise capabilities the platform doesn't have.** If they asked for something genuinely impossible, soften it in whatWeBuild and propose a realistic version.

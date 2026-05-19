@@ -609,6 +609,12 @@ function AboutYouSlide({
       <Field label="What should the agent call you?">
         <Input value={values.preferredName ?? ""} onChange={(e) => set("preferredName", e.target.value)} placeholder="First name" />
       </Field>
+      <Field label="What should we call your agent?" helper="Pick a name — Atlas, Bob, Iris, anything. Atlas will use it throughout the proposal.">
+        <Input value={values.agentName ?? ""} onChange={(e) => set("agentName", e.target.value)} placeholder="e.g., Bob" />
+      </Field>
+      <Field label="What's their role?" helper="A few words so Atlas can frame the agent as a teammate with a job — e.g., 'lead-gen agent', 'support assistant', 'research analyst'.">
+        <Input value={values.agentRole ?? ""} onChange={(e) => set("agentRole", e.target.value)} placeholder="e.g., lead-gen agent" />
+      </Field>
     </ChapterShell>
   );
 }
@@ -847,6 +853,7 @@ function ReviewSlide({
         { key: "What you do", value: values.industry || "—", muted: !values.industry },
         { key: "Audience", value: [audience, values.audienceDetail].filter(Boolean).join(" · ") || "—", muted: !audience && !values.audienceDetail },
         { key: "Call you", value: values.preferredName || "—", muted: !values.preferredName },
+        { key: "Your agent", value: [values.agentName, values.agentRole].filter(Boolean).join(" · ") || "—", muted: !values.agentName && !values.agentRole },
       ],
     },
     {
