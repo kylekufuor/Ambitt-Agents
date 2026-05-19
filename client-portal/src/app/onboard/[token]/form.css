@@ -528,8 +528,12 @@
   font-weight: 500;
 }
 
-/* File upload dropzone */
+/* File upload dropzone — `display: block` is critical because <label> is
+   inline by default and the dropzone would otherwise wrap inline with
+   surrounding helper text + textareas and render as overlapping fragments. */
 .fa-upload {
+  display: block;
+  width: 100%;
   border: 1.5px dashed #d4d4d4;
   border-radius: 10px;
   padding: 22px 18px;
