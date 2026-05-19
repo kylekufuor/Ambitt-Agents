@@ -1078,11 +1078,19 @@ function wrapPresentationEmail(
 ): string {
   const firstName = (prospect.contactName ?? "").trim().split(/\s+/)[0] || "there";
   const changesUrl = prospect.token ? `${portalBase}/onboard/${prospect.token}` : portalBase;
+  // Claude often emits a conversational preamble before the requested HTML
+  // ("I have everything I need. Let me now build the presentation."). Strip
+  // anything before the first `<div`. Also strip trailing markdown fences if
+  // Claude wrapped the whole thing in ```html ... ```.
+  let cleanBody = body;
+  const firstDiv = cleanBody.indexOf("<div");
+  if (firstDiv > 0) cleanBody = cleanBody.slice(firstDiv);
+  cleanBody = cleanBody.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim();
   return `<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; background: #ffffff;">
   <p style="font-size: 14px; color: #525252; margin: 0 0 24px;">Hi ${firstName},</p>
   <p style="font-size: 14px; color: #525252; margin: 0 0 24px;">Here's the agent I'd build for you, based on what you told me. Have a read — if it feels right, hit Approve. If anything's off, hit Make changes and you can update your answers.</p>
 
-  ${body}
+  ${cleanBody}
 
   <div style="margin-top: 40px; padding-top: 24px; border-top: 1px solid #e5e5e5;">
     <table cellpadding="0" cellspacing="0" border="0" role="presentation">
