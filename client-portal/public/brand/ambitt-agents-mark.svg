@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 86 42" width="86" height="42">
+  <defs>
+    <g id="agent">
+      <rect x="-9" y="-2" width="18" height="18" rx="5" fill="#171717"/>
+      <circle cx="0" cy="-11" r="6.5" fill="#171717"/>
+      <rect x="-4" y="-12.25" width="8" height="2.5" rx="1.25" fill="#00b3b3"/>
+    </g>
+  </defs>
+  <g transform="translate(43, 22)">
+    <use href="#agent" transform="translate(-28, 0)"/>
+    <use href="#agent"/>
+    <use href="#agent" transform="translate(28, 0)"/>
+  </g>
+</svg>

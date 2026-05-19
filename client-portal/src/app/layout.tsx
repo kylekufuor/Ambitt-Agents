@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Ambitt — Client Portal",
+  title: "Ambitt Agents — Client Portal",
   description: "Manage your Ambitt agents and billing",
 };
 

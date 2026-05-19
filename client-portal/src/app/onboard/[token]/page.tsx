@@ -41,10 +41,10 @@ export default async function OnboardPage(
     <main className="min-h-screen bg-zinc-50 py-12 px-4">
       <div className="max-w-2xl mx-auto">
         <header className="mb-10">
-          <div className="flex items-center gap-2 mb-4">
-            {/* Logo slot — will be replaced with the real Ambitt Agents mark when provided */}
-            <div className="w-8 h-8 rounded-lg bg-[#00b3b3] text-white flex items-center justify-center text-sm font-bold">A</div>
-            <p className="text-xs uppercase tracking-wider text-[#00b3b3] font-semibold">Ambitt Agents · Onboarding</p>
+          <div className="mb-6">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/brand/ambitt-agents-lockup.svg" alt="Ambitt Agents" width={220} height={27} />
+            <p className="text-xs uppercase tracking-wider text-[#00b3b3] font-semibold mt-3">Onboarding</p>
           </div>
           <h1 className="text-3xl font-semibold text-zinc-900 mb-3">Let&apos;s build your agent.</h1>
           <p className="text-sm text-zinc-700 leading-relaxed mb-2">

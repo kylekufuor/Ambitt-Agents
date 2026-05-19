@@ -1089,8 +1089,11 @@ function wrapPresentationEmail(
   if (firstDiv > 0) cleanBody = cleanBody.slice(firstDiv);
   cleanBody = cleanBody.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim();
   return `<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; background: #ffffff;">
+  <div style="margin-bottom: 28px;">
+    <img src="${portalBase}/brand/ambitt-agents-lockup.svg" alt="Ambitt Agents" width="220" height="27" style="display: block; max-width: 220px; height: auto;" />
+  </div>
   <p style="font-size: 14px; color: #525252; margin: 0 0 24px;">Hi ${firstName},</p>
-  <p style="font-size: 14px; color: #525252; margin: 0 0 24px;">Here's the agent I'd build for you, based on what you told me. Have a read — if it feels right, hit Approve. If anything's off, hit Make changes and you can update your answers.</p>
+  <p style="font-size: 14px; color: #525252; margin: 0 0 24px;">Here's the agent we'd build for you, based on what you told us. Have a read — if it feels right, hit Approve. If anything's off, hit Make changes and you can update your answers.</p>
 
   ${cleanBody}
 
@@ -1108,7 +1111,7 @@ function wrapPresentationEmail(
     <p style="font-size: 12px; color: #a1a1aa; margin: 16px 0 0;">Pricing and timeline come after you approve scope — we'll handle those after.</p>
   </div>
 
-  <p style="font-size: 13px; color: #a1a1aa; margin: 32px 0 0;">— Atlas, Ambitt's onboarding agent</p>
+  <p style="font-size: 13px; color: #a1a1aa; margin: 32px 0 0;">— Atlas, your onboarding agent at Ambitt Agents</p>
 </div>`;
 }
 
