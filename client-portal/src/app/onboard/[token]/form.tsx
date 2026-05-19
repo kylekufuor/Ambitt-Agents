@@ -47,7 +47,7 @@ interface OnboardFormProps {
   status: string;
 }
 
-const CADENCE_OPTIONS = ["Daily", "Multiple per day", "Weekly", "On demand", "Continuously"];
+const CADENCE_OPTIONS = ["On a schedule", "When triggered"];
 const CHANNEL_OPTIONS = ["Email", "Slack", "WhatsApp"];
 const AUTONOMY_OPTIONS = [
   { key: "Supervised", title: "Supervised", desc: "Asks me before doing anything important. Drafts go in a queue for approval." },
@@ -127,7 +127,7 @@ export function OnboardForm({ token, prospectId, initial, status }: OnboardFormP
     status === "discovery_complete" || status === "presentation_sent" || status === "revising" ? 8 : 0
   );
   const [values, setValues] = useState<Record<string, string>>({
-    cadence: "Daily",
+    cadence: "On a schedule",
     channel: "Email",
     autonomy: "Supervised",
     budget: "$500 – $1k",
@@ -694,8 +694,8 @@ function JobDeeperSlide({
         <OptionalDetail>Add concrete numbers if you have them:</OptionalDetail>
         <Textarea value={values.successCriteria ?? ""} onChange={(e) => set("successCriteria", e.target.value)} placeholder={`e.g., "3 new clients/month", "20 hours saved each week"`} />
       </Field>
-      <Field label="How often should it work?">
-        <Pills options={CADENCE_OPTIONS} value={values.cadence ?? "Daily"} onChange={(v) => set("cadence", v)} />
+      <Field label="How does it run?" helper="Scheduled = fires at set times (daily morning, weekly Monday, etc.). Triggered = reacts to inbound events (a new email, a form fill, a webhook). Exact timing gets set in your portal after launch.">
+        <Pills options={CADENCE_OPTIONS} value={values.cadence ?? "On a schedule"} onChange={(v) => set("cadence", v)} />
       </Field>
       <Field label="Rough volume" helper={`Best guess. e.g., "10–20 emails per day", "500 listings reviewed per week".`}>
         <Input value={values.volume ?? ""} onChange={(e) => set("volume", e.target.value)} placeholder="Best guess on volume" />

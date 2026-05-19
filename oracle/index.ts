@@ -1158,7 +1158,7 @@ function buildAtlasProposalPrompt(prospect: {
 - Today details (optional): ${get("todayVsAgent") || "(not provided)"}
 - Success outcomes (multi-select chips): ${get("successOutcomes") || "(none selected)"}
 - Concrete success numbers (optional): ${get("successCriteria") || "(not provided)"}
-- Cadence: ${get("cadence") || "(not provided)"}
+- Run mode: ${get("cadence") || "(not provided)"} — either "On a schedule" (fires at set times — exact cron set later in the portal) or "When triggered" (reacts to inbound events: an email, a webhook, a form fill, etc.). Mention naturally in the proposal — e.g., "Bob runs every morning" for scheduled, "Bob kicks in the moment a ticket lands" for triggered.
 - Volume: ${get("volume") || "(not provided)"}
 - Communication channel: ${get("channel") || "(not provided)"}
 - Autonomy preference: ${get("autonomy") || "(not provided)"}
