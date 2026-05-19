@@ -1076,13 +1076,19 @@ app.post("/onboarding/prospects/:id/event", async (req: Request, res: Response) 
         },
       });
 
-      const subject = (rendered.data as { subject?: string }).subject ?? "Your custom agent — proposal from Atlas";
+      // Slim teaser email — the FULL proposal lives at /proposals/[token].
+      // This email just lights up the link. Pixel-perfect rendering happens
+      // on the hosted page; email becomes a tiny envelope that can't get
+      // mangled by Gmail/Outlook/etc.
+      const subject = (rendered.data as { subject?: string }).subject ?? "Your custom agent proposal is ready";
+      const heroTitle = (rendered.data as { hero?: { title?: string } }).hero?.title ?? "";
+      const proposalUrl = `${portalBase}/proposals/${prospect.token}`;
       await sendEmail({
         agentId: atlas.id,
         agentName: atlas.name,
         to: prospect.email,
         subject,
-        html: rendered.html,
+        html: renderProposalTeaserEmail(prospect, proposalUrl, heroTitle, portalBase),
         replyToAgentId: atlas.id,
       });
 
@@ -1103,6 +1109,40 @@ app.post("/onboarding/prospects/:id/event", async (req: Request, res: Response) 
     res.status(500).json({ error: "Onboarding event failed" });
   }
 });
+
+function renderProposalTeaserEmail(
+  prospect: { contactName: string | null; businessName: string | null },
+  proposalUrl: string,
+  heroTitle: string,
+  portalBase: string
+): string {
+  const firstName = (prospect.contactName ?? "").trim().split(/\s+/)[0] || "there";
+  // hero.title may contain <br> — strip for the email preview line.
+  const previewTitle = heroTitle.replace(/<br\s*\/?>/gi, " ").replace(/<[^>]+>/g, "").trim();
+  const businessLine = prospect.businessName ? ` for ${prospect.businessName}` : "";
+  return `<div style="font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; max-width: 560px; margin: 0 auto; padding: 32px 24px; background: #ffffff; color: #171717;">
+  <div style="margin-bottom: 28px;">
+    <img src="${portalBase}/brand/ambitt-agents-lockup.svg" alt="Ambitt Agents" width="220" height="27" style="display: block; max-width: 220px; height: auto;" />
+  </div>
+  <p style="font-size: 15px; color: #404040; margin: 0 0 16px; line-height: 1.6;">Hey ${firstName},</p>
+  <p style="font-size: 15px; color: #404040; margin: 0 0 24px; line-height: 1.6;">
+    Your custom agent proposal${businessLine} is ready. ${previewTitle ? `<strong style="color: #171717;">${previewTitle}</strong>` : ""}
+  </p>
+  <p style="font-size: 15px; color: #404040; margin: 0 0 28px; line-height: 1.6;">
+    Take a few minutes to read through it. If it feels right, you can approve right on the page. If anything's off, hit Make changes and update your answers.
+  </p>
+  <div style="margin: 0 0 32px;">
+    <a href="${proposalUrl}" style="display: inline-block; padding: 14px 30px; background: #00b3b3; color: #ffffff; text-decoration: none; border-radius: 9px; font-size: 15px; font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,0.05), 0 4px 12px rgba(0, 179, 179, 0.28);">View your proposal →</a>
+  </div>
+  <p style="font-size: 13px; color: #737373; margin: 0 0 8px; line-height: 1.6;">
+    Pricing and timeline come after you approve scope — we'll handle those next.
+  </p>
+  <p style="font-size: 13px; color: #a3a3a3; margin: 32px 0 0; line-height: 1.6;">
+    Questions? Hit reply or email <a href="mailto:team@ambitt.agency" style="color: #00b3b3; text-decoration: none;">team@ambitt.agency</a>.
+  </p>
+  <p style="font-size: 13px; color: #a3a3a3; margin: 16px 0 0;">— Atlas, your onboarding agent at Ambitt Agents</p>
+</div>`;
+}
 
 function renderThanksEmail(
   prospect: { contactName: string | null; email: string; businessName: string | null; formData: unknown },

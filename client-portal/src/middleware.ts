@@ -59,7 +59,8 @@ export async function middleware(request: NextRequest) {
     request.nextUrl.pathname.startsWith("/api/auth") ||
     request.nextUrl.pathname.startsWith("/onboard") ||
     request.nextUrl.pathname.startsWith("/api/onboard") ||
-    request.nextUrl.pathname.startsWith("/api/composio")
+    request.nextUrl.pathname.startsWith("/api/composio") ||
+    request.nextUrl.pathname.startsWith("/proposals")
   ) {
     // /onboard/[token] (page) and /api/onboard/[token]/* (form submit + future
     // chat/events) are token-gated — the URL token itself is the auth.
