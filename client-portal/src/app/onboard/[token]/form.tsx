@@ -130,9 +130,18 @@ const STEP_LABELS = ["WELCOME", "STEP 1 OF 7", "STEP 2 OF 7", "STEP 3 OF 7", "ST
 const STEP_PERCENT = [0, 14, 28, 43, 57, 72, 86, 100, 100];
 
 export function OnboardForm({ token, prospectId, initial, status }: OnboardFormProps) {
-  const [slide, setSlide] = useState<number>(
-    status === "discovery_complete" || status === "presentation_sent" || status === "revising" ? 8 : 0
-  );
+  const [slide, setSlide] = useState<number>(() => {
+    // Status determines landing slide:
+    //   discovery → Welcome (slide 0) — fresh prospect
+    //   discovery_complete → Sent (slide 8) — just submitted, proposal pending
+    //   presentation_sent / revising → Review (slide 7) — returning to edit;
+    //     they can see their answers and jump to any chapter to change them.
+    //   accepted / quote_* → Sent (slide 8) — deal is downstream
+    if (status === "discovery_complete") return 8;
+    if (status === "presentation_sent" || status === "revising") return 7;
+    if (status === "accepted" || status === "quote_pending" || status === "quote_sent") return 8;
+    return 0;
+  });
   const [values, setValues] = useState<Record<string, string>>({
     cadence: "On a schedule",
     channel: "Email",
@@ -1171,9 +1180,6 @@ function SentSlide({ email }: { email: string }) {
           </div>
         </div>
 
-        <div className="fa-meta">
-          <a href="mailto:team@ambitt.agency" style={{ color: "#00b3b3", fontWeight: 500 }}>Talk to a human →</a>
-        </div>
       </div>
     </div>
   );

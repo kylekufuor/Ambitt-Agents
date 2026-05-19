@@ -1103,6 +1103,26 @@ app.post("/onboarding/prospects/:id/event", async (req: Request, res: Response) 
       return;
     }
 
+    if (type === "scope_approved") {
+      // Best-effort WhatsApp ping to Kyle. Atlas's portal approve route already
+      // flipped status → quote_pending; this is the human-loop notification so
+      // Kyle knows to draft the quote.
+      try {
+        const { sendKyleWhatsApp } = await import("../shared/whatsapp.js");
+        const portalBase = process.env.CLIENT_PORTAL_URL ?? "https://client-portal-production-77a9.up.railway.app";
+        const proposalUrl = `${portalBase}/proposals/${prospect.token}`;
+        const businessLine = prospect.businessName ? ` (${prospect.businessName})` : "";
+        const contactLine = prospect.contactName ? ` from ${prospect.contactName}` : "";
+        await sendKyleWhatsApp(
+          `🎯 Scope approved${contactLine}${businessLine}. Draft a quote and send.\n\nProposal: ${proposalUrl}`
+        );
+      } catch (err) {
+        logger.warn("Scope-approved WhatsApp ping failed", { prospectId: prospect.id, error: err });
+      }
+      res.json({ status: "scope_approved", prospectId: prospect.id });
+      return;
+    }
+
     res.status(501).json({ error: `Event type "${type}" not yet supported` });
   } catch (error) {
     logger.error("Onboarding event handler failed", { error });
@@ -1137,10 +1157,7 @@ function renderProposalTeaserEmail(
   <p style="font-size: 13px; color: #737373; margin: 0 0 8px; line-height: 1.6;">
     Pricing and timeline come after you approve scope — we'll handle those next.
   </p>
-  <p style="font-size: 13px; color: #a3a3a3; margin: 32px 0 0; line-height: 1.6;">
-    Questions? Hit reply or email <a href="mailto:team@ambitt.agency" style="color: #00b3b3; text-decoration: none;">team@ambitt.agency</a>.
-  </p>
-  <p style="font-size: 13px; color: #a3a3a3; margin: 16px 0 0;">— Atlas, your onboarding agent at Ambitt Agents</p>
+  <p style="font-size: 13px; color: #a3a3a3; margin: 32px 0 0;">— Atlas, your onboarding agent at Ambitt Agents</p>
 </div>`;
 }
 
@@ -1181,11 +1198,8 @@ function buildAtlasProposalPrompt(prospect: {
   const get = (k: string) => (typeof fd[k] === "string" ? (fd[k] as string) : "");
   const portalBase = process.env.CLIENT_PORTAL_URL ?? "https://client-portal-production-77a9.up.railway.app";
   const firstName = (prospect.contactName ?? "").trim().split(/\s+/)[0] || (get("preferredName") || "there");
-  const approveSubject = encodeURIComponent(`APPROVE PRESENTATION ${prospect.id}`);
-  const approveBody = encodeURIComponent("Looks good — approved.");
-  const approveUrl = `mailto:atlas@ambitt.agency?subject=${approveSubject}&body=${approveBody}`;
+  const approveUrl = `${portalBase}/proposals/${prospect.token}/approve`;
   const changesUrl = `${portalBase}/onboard/${prospect.token}`;
-  const talkUrl = "mailto:team@ambitt.agency?subject=Question%20about%20my%20Ambitt%20Agents%20proposal";
 
   // SOPs come from two surfaces: pasted textarea (fd.sops) + uploaded files
   // (fd.sopFiles[].extractedText). Concatenate both with labels so Atlas can
@@ -1244,7 +1258,7 @@ ${sopBlock}
 # CTA URLs to use VERBATIM in your output
 - cta.primaryUrl (Approve): ${approveUrl}
 - cta.secondaryUrl (Make changes): ${changesUrl}
-- cta.tertiaryUrl (Talk to a human): ${talkUrl}
+- DO NOT include cta.tertiaryLabel or cta.tertiaryUrl — omit those fields entirely.
 
 # JSON SCHEMA — your output must match this shape exactly
 
@@ -1291,8 +1305,7 @@ interface ProposalEmailData {
     primaryUrl: string;                  // use the value above
     secondaryLabel: string;              // "Make changes"
     secondaryUrl: string;                // use the value above
-    tertiaryLabel?: string;              // "Talk to a human"
-    tertiaryUrl?: string;                // use the value above
+    // tertiaryLabel / tertiaryUrl — DO NOT INCLUDE. Omit these fields.
   };
   footer: {
     domain: string;                      // "ambitt.agency"
@@ -1339,9 +1352,7 @@ interface ProposalEmailData {
     "primaryLabel": "Approve",
     "primaryUrl": "<approve url goes here>",
     "secondaryLabel": "Make changes",
-    "secondaryUrl": "<make-changes url goes here>",
-    "tertiaryLabel": "Talk to a human",
-    "tertiaryUrl": "<talk url goes here>"
+    "secondaryUrl": "<make-changes url goes here>"
   },
   "footer": {
     "domain": "ambitt.agency",
