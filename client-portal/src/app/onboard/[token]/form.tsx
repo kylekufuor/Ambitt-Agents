@@ -56,6 +56,20 @@ const AUTONOMY_OPTIONS = [
 ];
 const BUDGET_OPTIONS = ["$500 – $1k", "$1k – $2.5k", "$2.5k – $5k", "$5k – $10k", "$10k+", "Not sure yet"];
 
+const AGENT_ROLE_OPTIONS = [
+  "Lead generation / outreach",
+  "Sales follow-up",
+  "Customer support",
+  "Customer success / onboarding",
+  "Content / copywriting",
+  "Social media / marketing",
+  "Research / intelligence",
+  "Operations / admin",
+  "Data entry / cleanup",
+  "Scheduling / calendar",
+  "Recruiting / HR",
+  "Personal assistant",
+];
 const AUDIENCE_OPTIONS = [
   "Small businesses (1–50)",
   "Mid-market (50–500)",
@@ -612,8 +626,10 @@ function AboutYouSlide({
       <Field label="What should we call your agent?" helper="Pick a name — Atlas, Bob, Iris, anything. Atlas will use it throughout the proposal.">
         <Input value={values.agentName ?? ""} onChange={(e) => set("agentName", e.target.value)} placeholder="e.g., Bob" />
       </Field>
-      <Field label="What's their role?" helper="A few words so Atlas can frame the agent as a teammate with a job — e.g., 'lead-gen agent', 'support assistant', 'research analyst'.">
-        <Input value={values.agentRole ?? ""} onChange={(e) => set("agentRole", e.target.value)} placeholder="e.g., lead-gen agent" />
+      <Field label="What's their role?" helper="Pick the closest match. If nothing fits, type your own below.">
+        <Pills options={AGENT_ROLE_OPTIONS} value={values.agentRole ?? ""} onChange={(v) => set("agentRole", v)} />
+        <OptionalDetail>Or describe it yourself:</OptionalDetail>
+        <Input value={values.agentRole ?? ""} onChange={(e) => set("agentRole", e.target.value)} placeholder="e.g., outbound SDR for yacht charters" />
       </Field>
     </ChapterShell>
   );

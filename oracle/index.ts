@@ -967,8 +967,28 @@ app.post("/onboarding/prospects/:id/event", async (req: Request, res: Response) 
     if (type === "form_submitted") {
       const threadId = `prospect-${prospect.id}`;
       const { processInboundMessage } = await import("../shared/runtime/index.js");
+      const { sendEmail } = await import("../shared/email.js");
       const { renderProposalEmail, parseAtlasJsonOutput, ProposalEmailValidationError } =
         await import("./templates/proposal-email/render.js");
+      const portalBase = process.env.CLIENT_PORTAL_URL ?? "https://client-portal-production-77a9.up.railway.app";
+
+      // Immediate "thanks, working on it" email — fires synchronously before
+      // Atlas runs (which takes 2–3 min). Lands in the prospect's inbox by
+      // the time their browser confirmation finishes its scroll. Best-effort:
+      // if the send fails, log it but don't abort — the proposal email is the
+      // real deliverable and we don't want to lose the run over a courtesy.
+      try {
+        await sendEmail({
+          agentId: atlas.id,
+          agentName: atlas.name,
+          to: prospect.email,
+          subject: "Got your brief — proposal incoming",
+          html: renderThanksEmail(prospect, portalBase),
+          replyToAgentId: atlas.id,
+        });
+      } catch (err) {
+        logger.warn("Atlas thank-you email failed (continuing)", { prospectId: prospect.id, error: err });
+      }
 
       // Pass 1 — Atlas reads the intake and emits ProposalEmailData JSON.
       const pass1 = await processInboundMessage({
@@ -1031,7 +1051,6 @@ app.post("/onboarding/prospects/:id/event", async (req: Request, res: Response) 
         },
       });
 
-      const { sendEmail } = await import("../shared/email.js");
       const subject = (rendered.data as { subject?: string }).subject ?? "Your custom agent — proposal from Atlas";
       await sendEmail({
         agentId: atlas.id,
@@ -1059,6 +1078,29 @@ app.post("/onboarding/prospects/:id/event", async (req: Request, res: Response) 
     res.status(500).json({ error: "Onboarding event failed" });
   }
 });
+
+function renderThanksEmail(
+  prospect: { contactName: string | null; email: string; businessName: string | null; formData: unknown },
+  portalBase: string
+): string {
+  const fd = (prospect.formData ?? {}) as Record<string, unknown>;
+  const preferred = typeof fd.preferredName === "string" ? fd.preferredName : "";
+  const firstName = (prospect.contactName ?? "").trim().split(/\s+/)[0] || preferred || "there";
+  const business = prospect.businessName ? ` for ${prospect.businessName}` : "";
+  return `<div style="font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; max-width: 560px; margin: 0 auto; padding: 32px 24px; background: #ffffff; color: #171717;">
+  <div style="margin-bottom: 28px;">
+    <img src="${portalBase}/brand/ambitt-agents-lockup.svg" alt="Ambitt Agents" width="220" height="27" style="display: block; max-width: 220px; height: auto;" />
+  </div>
+  <p style="font-size: 15px; color: #404040; margin: 0 0 16px; line-height: 1.6;">Hey ${firstName},</p>
+  <p style="font-size: 15px; color: #404040; margin: 0 0 16px; line-height: 1.6;">
+    Got your brief${business} — thanks for laying it all out. I'm reading through your answers now.
+  </p>
+  <p style="font-size: 15px; color: #404040; margin: 0 0 24px; line-height: 1.6;">
+    Your proposal will land in this inbox within <strong style="color: #171717;">30 minutes</strong>. When it does, you'll be able to approve the scope or ask for changes — pricing comes after.
+  </p>
+  <p style="font-size: 13px; color: #a3a3a3; margin: 32px 0 0;">— Atlas, your onboarding agent at Ambitt Agents</p>
+</div>`;
+}
 
 function buildAtlasProposalPrompt(prospect: {
   id: string;
