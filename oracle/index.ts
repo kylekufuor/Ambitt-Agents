@@ -1096,7 +1096,7 @@ function wrapPresentationEmail(
     <table cellpadding="0" cellspacing="0" border="0" role="presentation">
       <tr>
         <td style="padding-right: 12px;">
-          <a href="mailto:atlas@ambitt.agency?subject=APPROVE%20PRESENTATION%20${prospect.id}&body=Looks%20good%20%E2%80%94%20approved." style="display: inline-block; padding: 12px 24px; background: #18181b; color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 14px; font-weight: 500;">Approve</a>
+          <a href="mailto:atlas@ambitt.agency?subject=APPROVE%20PRESENTATION%20${prospect.id}&body=Looks%20good%20%E2%80%94%20approved." style="display: inline-block; padding: 12px 24px; background: #00b3b3; color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 14px; font-weight: 500;">Approve</a>
         </td>
         <td>
           <a href="${changesUrl}" style="display: inline-block; padding: 12px 24px; background: #ffffff; color: #18181b; border: 1px solid #d4d4d8; text-decoration: none; border-radius: 6px; font-size: 14px; font-weight: 500;">Make changes</a>

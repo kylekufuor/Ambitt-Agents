@@ -171,7 +171,7 @@ export function OnboardForm({ token, prospectId, initial, status }: OnboardFormP
         <button
           type="submit"
           disabled={submitting}
-          className="px-6 py-3 bg-zinc-900 text-white text-sm font-medium rounded-lg hover:bg-zinc-800 disabled:opacity-50"
+          className="px-6 py-3 bg-[#00b3b3] text-white text-sm font-medium rounded-lg hover:bg-[#099] transition-colors disabled:opacity-50"
         >
           {submitting ? "Sending to Atlas…" : "Send to Atlas"}
         </button>
@@ -218,7 +218,7 @@ function Input({
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
       disabled={disabled}
-      className="w-full px-3 py-2 text-sm border border-zinc-300 rounded-md bg-white focus:outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-400 disabled:bg-zinc-100 disabled:text-zinc-500"
+      className="w-full px-3 py-2 text-sm border border-zinc-300 rounded-md bg-white focus:outline-none focus:border-[#00b3b3] focus:ring-2 focus:ring-[#00b3b3]/20 disabled:bg-zinc-100 disabled:text-zinc-500"
     />
   );
 }
@@ -237,7 +237,7 @@ function Textarea({
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
       rows={rows}
-      className="w-full px-3 py-2 text-sm border border-zinc-300 rounded-md bg-white focus:outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-400 resize-y"
+      className="w-full px-3 py-2 text-sm border border-zinc-300 rounded-md bg-white focus:outline-none focus:border-[#00b3b3] focus:ring-2 focus:ring-[#00b3b3]/20 resize-y"
     />
   );
 }
@@ -253,7 +253,7 @@ function Select({
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="w-full px-3 py-2 text-sm border border-zinc-300 rounded-md bg-white focus:outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-400"
+      className="w-full px-3 py-2 text-sm border border-zinc-300 rounded-md bg-white focus:outline-none focus:border-[#00b3b3] focus:ring-2 focus:ring-[#00b3b3]/20"
     >
       <option value="">— Select —</option>
       {options.map((o) => (
