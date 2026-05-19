@@ -30,7 +30,7 @@ export default async function OnboardPage(
         <div className="max-w-md text-center">
           <h1 className="text-xl font-semibold text-zinc-900 mb-2">This onboarding link is closed</h1>
           <p className="text-sm text-zinc-600">
-            Reach out to Kyle if you&apos;d like to revisit your custom agent setup.
+            Get in touch if you&apos;d like to revisit your custom agent setup.
           </p>
         </div>
       </main>
@@ -52,7 +52,7 @@ export default async function OnboardPage(
           </p>
           <p className="text-sm text-zinc-600 leading-relaxed">
             When you hit send, I&apos;ll review your answers and email you a presentation of the agent we&apos;d build — usually within a day.
-            Pricing comes after Kyle approves scope. Take your time; progress is saved.
+            Pricing comes after our team reviews the scope. Take your time; progress is saved.
           </p>
         </header>
 

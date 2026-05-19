@@ -106,7 +106,7 @@ export function OnboardForm({ token, prospectId, initial, status }: OnboardFormP
           <Textarea value={values.industry ?? ""} onChange={(v) => set("industry", v)} rows={3} />
         </Field>
         <Field label="What should the agent call you?" hint="Just your first name is usually right.">
-          <Input value={values.preferredName ?? ""} onChange={(v) => set("preferredName", v)} placeholder="e.g. Kyle" />
+          <Input value={values.preferredName ?? ""} onChange={(v) => set("preferredName", v)} placeholder="e.g. your first name" />
         </Field>
       </Section>
 

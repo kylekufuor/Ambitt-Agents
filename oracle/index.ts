@@ -1066,8 +1066,10 @@ Produce a **sales-style presentation** — not a dry consultant brief. It should
 7. **Next step** — point them to the Approve / Make changes buttons at the bottom of the email
 
 **Hard rules:**
-- Do NOT include pricing, retainer, setup fee, or timeline. Kyle handles those after you confirm scope.
+- Do NOT include pricing, retainer, setup fee, or timeline. Our team handles those after we confirm scope.
 - Do NOT promise capabilities the platform doesn't have. If they asked for something we genuinely can't do, name it gently and offer a realistic alternative.
+- Speak as **we** / **our team** throughout. NEVER name an individual operator (no "Kyle", no first names of staff). The brand is Ambitt Agents.
+- **Write like a human, not like AI.** Avoid: "leverage", "comprehensive", "robust", "seamless", "delve into", "in today's fast-paced world", "it's worth noting", "furthermore", "moreover", "indeed". Avoid tricolon reflex ("X, Y, and Z" everywhere) and em-dash overuse. Use contractions. Vary sentence length. Sometimes start with "And" or "But". If a sentence reads like a press release, rewrite it shorter. If you'd say it that way in a Slack DM to a smart colleague, ship it.
 - Return ONLY the HTML body content as a single \`<div>\` with inline styles. NO \`<!DOCTYPE>\`, \`<html>\`, \`<head>\`. Target ~560px width. White background, dark text. Clean typography.`;
 }
 
@@ -1103,7 +1105,7 @@ function wrapPresentationEmail(
         </td>
       </tr>
     </table>
-    <p style="font-size: 12px; color: #a1a1aa; margin: 16px 0 0;">Pricing and timeline come after you approve scope — Kyle handles those personally.</p>
+    <p style="font-size: 12px; color: #a1a1aa; margin: 16px 0 0;">Pricing and timeline come after you approve scope — we'll handle those after.</p>
   </div>
 
   <p style="font-size: 13px; color: #a1a1aa; margin: 32px 0 0;">— Atlas, Ambitt's onboarding agent</p>
