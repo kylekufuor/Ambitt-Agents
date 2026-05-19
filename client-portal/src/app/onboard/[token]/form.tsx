@@ -48,7 +48,7 @@ interface OnboardFormProps {
 }
 
 const CADENCE_OPTIONS = ["Daily", "Multiple per day", "Weekly", "On demand", "Continuously"];
-const CHANNEL_OPTIONS = ["Email", "Slack", "SMS / WhatsApp", "In-app"];
+const CHANNEL_OPTIONS = ["Email", "Slack", "WhatsApp"];
 const AUTONOMY_OPTIONS = [
   { key: "Supervised", title: "Supervised", desc: "Asks me before doing anything important. Drafts go in a queue for approval." },
   { key: "Semi-autonomous", title: "Semi-autonomous", desc: "Informs me but doesn't ask. I see what it did each day, but it doesn't wait on me." },
@@ -331,7 +331,7 @@ function AboutYouSlide({ values, set, onBack, onNext }: { values: Record<string,
       onNext={onNext}
     >
       <Field label="Your name">
-        <Input value={values.contactName ?? ""} onChange={(e) => set("contactName", e.target.value)} placeholder="Kyle Kufuor" />
+        <Input value={values.contactName ?? ""} onChange={(e) => set("contactName", e.target.value)} placeholder="Your full name" />
       </Field>
       <Field label="Email" helper="I'll send the proposal here.">
         <Input type="email" value={values.email ?? ""} disabled placeholder="you@company.com" />
@@ -340,16 +340,16 @@ function AboutYouSlide({ values, set, onBack, onNext }: { values: Record<string,
         <Input value={values.role ?? ""} onChange={(e) => set("role", e.target.value)} placeholder="Founder, CMO, Head of Sales…" />
       </Field>
       <Field label="Business name">
-        <Input value={values.businessName ?? ""} onChange={(e) => set("businessName", e.target.value)} placeholder="Ambitt Media" />
+        <Input value={values.businessName ?? ""} onChange={(e) => set("businessName", e.target.value)} placeholder="Your business name" />
       </Field>
       <Field label="Website">
         <Input type="url" value={values.website ?? ""} onChange={(e) => set("website", e.target.value)} placeholder="https://yourcompany.com" />
       </Field>
       <Field label="What does your business actually do?" helper="One paragraph. Industry + what you sell + who buys.">
-        <Textarea value={values.industry ?? ""} onChange={(e) => set("industry", e.target.value)} placeholder="We're a Dallas-based agency that builds custom websites and digital marketing for small businesses…" />
+        <Textarea value={values.industry ?? ""} onChange={(e) => set("industry", e.target.value)} placeholder="We help [audience] do [job] by [solution] — keep it to a paragraph." />
       </Field>
       <Field label="What should the agent call you?">
-        <Input value={values.preferredName ?? ""} onChange={(e) => set("preferredName", e.target.value)} placeholder="Kyle" />
+        <Input value={values.preferredName ?? ""} onChange={(e) => set("preferredName", e.target.value)} placeholder="First name" />
       </Field>
     </ChapterShell>
   );
@@ -373,7 +373,7 @@ function OneSentenceSlide({ values, set, onBack, onNext }: { values: Record<stri
       onNext={onNext}
     >
       <Field>
-        <Textarea anchor value={values.agentPitch ?? ""} onChange={(e) => set("agentPitch", e.target.value)} placeholder="e.g., Find small businesses with Google reviews but no website and send them a personalised cold email every morning." />
+        <Textarea anchor value={values.agentPitch ?? ""} onChange={(e) => set("agentPitch", e.target.value)} placeholder="e.g., Reply to inbound support tickets within 5 minutes with a draft response for me to approve." />
       </Field>
     </ChapterShell>
   );
@@ -396,16 +396,16 @@ function JobDeeperSlide({ values, set, onBack, onNext }: { values: Record<string
       onNext={onNext}
     >
       <Field label="Today vs with the agent" helper="What do you (or your team) do today, and what changes when the agent's in place?">
-        <Textarea value={values.todayVsAgent ?? ""} onChange={(e) => set("todayVsAgent", e.target.value)} placeholder="Right now I spend ~5 hours a week manually searching Google Maps for prospects…" />
+        <Textarea value={values.todayVsAgent ?? ""} onChange={(e) => set("todayVsAgent", e.target.value)} placeholder="What does the manual process look like today? How much time does it take?" />
       </Field>
       <Field label="What does success look like 3 months from now?" helper={`Concrete if you have them. e.g., "3 new clients per month", "20 hours saved each week".`}>
-        <Textarea value={values.successCriteria ?? ""} onChange={(e) => set("successCriteria", e.target.value)} placeholder="3 new clients per month from outbound, ~10 qualified prospects per day." />
+        <Textarea value={values.successCriteria ?? ""} onChange={(e) => set("successCriteria", e.target.value)} placeholder="Concrete numbers if you have them" />
       </Field>
       <Field label="How often should it work?">
         <Pills options={CADENCE_OPTIONS} value={values.cadence ?? "Daily"} onChange={(v) => set("cadence", v)} />
       </Field>
       <Field label="Rough volume" helper={`Best guess. e.g., "10–20 emails per day", "500 listings reviewed per week".`}>
-        <Input value={values.volume ?? ""} onChange={(e) => set("volume", e.target.value)} placeholder="10 prospects per day" />
+        <Input value={values.volume ?? ""} onChange={(e) => set("volume", e.target.value)} placeholder="Best guess on volume" />
       </Field>
     </ChapterShell>
   );
