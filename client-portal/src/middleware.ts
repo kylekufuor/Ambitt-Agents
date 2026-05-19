@@ -77,5 +77,8 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  // Skip middleware on static assets and the public brand folder so they're
+  // reachable to anonymous visitors AND to external clients (Gmail loading the
+  // logo from our presentation email) without a Supabase session.
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|icon.svg|brand/).*)"],
 };
