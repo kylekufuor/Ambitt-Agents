@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import "./form.css";
 
 // Brand mark — kept inline as JSX so the agent silhouette + visor render in
@@ -55,7 +55,44 @@ const AUTONOMY_OPTIONS = [
   { key: "Autonomous", title: "Autonomous", desc: "Runs on its own. Escalates only on edge cases or hard exceptions." },
 ];
 const BUDGET_OPTIONS = ["$500 – $1k", "$1k – $2.5k", "$2.5k – $5k", "$5k – $10k", "$10k+", "Not sure yet"];
-const TOOL_SUGGESTIONS = ["Gmail", "Slack", "Notion", "HubSpot", "Google Sheets", "Airtable", "Zendesk"];
+
+const TODAY_HANDLER_OPTIONS = ["I do it myself", "Someone on my team", "We outsource it", "It doesn't get done", "We don't do this yet"];
+const SUCCESS_OUTCOMES = [
+  "More qualified leads", "Faster response time", "Reduced manual work", "Higher conversion rate",
+  "Better data quality", "Lower operational cost", "More consistent quality",
+];
+const TONE_OPTIONS = [
+  "Professional", "Friendly", "Direct", "Warm", "Playful", "Technical", "Concise", "Authoritative", "Conversational",
+];
+const NEVER_DO_OPTIONS = [
+  "Quote prices or discuss compensation", "Make promises about outcomes", "Use AI / automation buzzwords",
+  "Re-contact anyone messaged in 90 days", "Mention competitors by name", "Send outside business hours",
+  "Discuss legal or compliance matters", "Reference clients without permission",
+];
+const TOOL_OPTIONS = [
+  "Gmail", "Slack", "Notion", "HubSpot", "Salesforce", "Google Sheets", "Airtable",
+  "Google Maps", "Zendesk", "Calendly", "Stripe", "ClickUp", "Asana",
+];
+
+interface UploadedFile {
+  id: string;
+  filename: string;
+  sizeBytes: number;
+  contentType: string;
+  extractedText: string;
+}
+
+function parseList(raw: string | undefined): string[] {
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw as unknown as string[];
+  return String(raw).split(/,\s*/).filter(Boolean);
+}
+
+function formatBytes(n: number): string {
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${Math.round(n / 1024)} KB`;
+  return `${(n / 1024 / 1024).toFixed(1)} MB`;
+}
 
 const STEP_LABELS = ["WELCOME", "STEP 1 OF 7", "STEP 2 OF 7", "STEP 3 OF 7", "STEP 4 OF 7", "STEP 5 OF 7", "STEP 6 OF 7", "STEP 7 OF 7", "COMPLETE"];
 const STEP_PERCENT = [0, 14, 28, 43, 57, 72, 86, 100, 100];
@@ -69,13 +106,51 @@ export function OnboardForm({ token, prospectId, initial, status }: OnboardFormP
     channel: "Email",
     autonomy: "Supervised",
     budget: "$500 – $1k",
+    todayHandler: "I do it myself",
     ...initial,
   });
+  const [multi, setMulti] = useState<Record<string, string[]>>(() => ({
+    successOutcomes: parseList(initial.successOutcomes),
+    toneTags: parseList(initial.toneTags),
+    neverDoTags: parseList(initial.neverDoTags),
+    toolTags: parseList(initial.toolTags),
+  }));
+  const [files, setFiles] = useState<UploadedFile[]>([]);
+  const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   function set(k: string, v: string) {
     setValues((prev) => ({ ...prev, [k]: v }));
+  }
+
+  function toggleMulti(key: string, value: string) {
+    setMulti((prev) => {
+      const cur = prev[key] ?? [];
+      const next = cur.includes(value) ? cur.filter((v) => v !== value) : [...cur, value];
+      return { ...prev, [key]: next };
+    });
+  }
+
+  async function uploadFile(file: File) {
+    setUploading(true);
+    setError(null);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch(`/api/onboard/${token}/upload`, { method: "POST", body: fd });
+      const body = await res.json().catch(() => ({ error: "Upload failed" }));
+      if (!res.ok) throw new Error(body.error ?? "Upload failed");
+      setFiles((prev) => [...prev, body as UploadedFile]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  function removeFile(id: string) {
+    setFiles((prev) => prev.filter((f) => f.id !== id));
   }
 
   function next() {
@@ -95,10 +170,24 @@ export function OnboardForm({ token, prospectId, initial, status }: OnboardFormP
     setSubmitting(true);
     setError(null);
     try {
+      // Collapse multi-select arrays into the same `values` object as comma-
+      // joined strings so the backend continues to receive flat key/values.
+      // The `sopFiles` array stays structured — Oracle uses it to append
+      // extracted document text to Atlas's intake prompt.
+      const merged: Record<string, unknown> = { ...values };
+      for (const [k, arr] of Object.entries(multi)) {
+        merged[k] = arr.join(", ");
+      }
+      merged.sopFiles = files.map((f) => ({
+        filename: f.filename,
+        sizeBytes: f.sizeBytes,
+        contentType: f.contentType,
+        extractedText: f.extractedText,
+      }));
       const res = await fetch(`/api/onboard/${token}/submit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ values }),
+        body: JSON.stringify({ values: merged }),
       });
       const body = await res.json().catch(() => ({ error: "Submit failed" }));
       if (!res.ok) throw new Error(body.error ?? "Submit failed");
@@ -131,13 +220,28 @@ export function OnboardForm({ token, prospectId, initial, status }: OnboardFormP
         {slide === 0 && <WelcomeSlide onBegin={next} />}
         {slide === 1 && <AboutYouSlide values={values} set={set} onNext={next} onBack={back} />}
         {slide === 2 && <OneSentenceSlide values={values} set={set} onNext={next} onBack={back} />}
-        {slide === 3 && <JobDeeperSlide values={values} set={set} onNext={next} onBack={back} />}
-        {slide === 4 && <HowItWorksSlide values={values} set={set} onNext={next} onBack={back} />}
-        {slide === 5 && <LimitsSlide values={values} set={set} onNext={next} onBack={back} />}
-        {slide === 6 && <ToolsSlide values={values} set={set} onNext={next} onBack={back} />}
+        {slide === 3 && <JobDeeperSlide values={values} set={set} multi={multi} toggleMulti={toggleMulti} onNext={next} onBack={back} />}
+        {slide === 4 && <HowItWorksSlide values={values} set={set} multi={multi} toggleMulti={toggleMulti} onNext={next} onBack={back} />}
+        {slide === 5 && <LimitsSlide values={values} set={set} multi={multi} toggleMulti={toggleMulti} onNext={next} onBack={back} />}
+        {slide === 6 && (
+          <ToolsSlide
+            values={values}
+            set={set}
+            multi={multi}
+            toggleMulti={toggleMulti}
+            files={files}
+            onUpload={uploadFile}
+            onRemoveFile={removeFile}
+            uploading={uploading}
+            onNext={next}
+            onBack={back}
+          />
+        )}
         {slide === 7 && (
           <ReviewSlide
             values={values}
+            multi={multi}
+            files={files}
             email={initial.email ?? ""}
             onEdit={jumpTo}
             onBack={back}
@@ -314,6 +418,91 @@ function SuggestionChips({ items, onPick }: { items: string[]; onPick: (s: strin
   );
 }
 
+function CheckPills({ options, selected, onToggle }: { options: string[]; selected: string[]; onToggle: (v: string) => void }) {
+  return (
+    <div className="fa-checkpills">
+      {options.map((opt) => (
+        <button
+          type="button"
+          key={opt}
+          className={`fa-checkpill${selected.includes(opt) ? " active" : ""}`}
+          onClick={() => onToggle(opt)}
+        >
+          <span className="fa-checkpill-box" />
+          {opt}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function OptionalDetail({ children }: { children: React.ReactNode }) {
+  return <div className="fa-optional-detail">{children}</div>;
+}
+
+function UploadDropzone({
+  files, onUpload, onRemove, uploading,
+}: {
+  files: UploadedFile[];
+  onUpload: (file: File) => void;
+  onRemove: (id: string) => void;
+  uploading: boolean;
+}) {
+  const [dragOver, setDragOver] = useState(false);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setDragOver(false);
+    const dropped = Array.from(e.dataTransfer.files);
+    for (const f of dropped) onUpload(f);
+  }
+
+  function handlePick(e: React.ChangeEvent<HTMLInputElement>) {
+    const picked = Array.from(e.target.files ?? []);
+    for (const f of picked) onUpload(f);
+    e.target.value = "";
+  }
+
+  return (
+    <div>
+      <label
+        className={`fa-upload${dragOver ? " dragover" : ""}`}
+        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={handleDrop}
+        onClick={() => inputRef.current?.click()}
+      >
+        <input
+          ref={inputRef}
+          type="file"
+          multiple
+          accept=".pdf,.doc,.docx,.md,.txt,.rtf,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown,application/rtf"
+          onChange={handlePick}
+        />
+        <svg className="fa-upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+          <polyline points="17 8 12 3 7 8" />
+          <line x1="12" y1="3" x2="12" y2="15" />
+        </svg>
+        <div className="fa-upload-text">{uploading ? "Uploading…" : "Drop SOPs here or click to upload"}</div>
+        <div className="fa-upload-sub">PDF, Word, Markdown, or plain text · up to 15 MB each</div>
+      </label>
+      {files.length > 0 && (
+        <div className="fa-file-list">
+          {files.map((f) => (
+            <div className="fa-file-row" key={f.id}>
+              <span className="fa-file-name">{f.filename}</span>
+              <span className="fa-file-meta">{formatBytes(f.sizeBytes)}</span>
+              <button type="button" className="fa-file-remove" onClick={() => onRemove(f.id)} aria-label={`Remove ${f.filename}`}>×</button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Slide 1 — ABOUT YOU
 // ---------------------------------------------------------------------------
@@ -383,7 +572,16 @@ function OneSentenceSlide({ values, set, onBack, onNext }: { values: Record<stri
 // Slide 3 — THE JOB, DEEPER
 // ---------------------------------------------------------------------------
 
-function JobDeeperSlide({ values, set, onBack, onNext }: { values: Record<string, string>; set: (k: string, v: string) => void; onBack: () => void; onNext: () => void }) {
+function JobDeeperSlide({
+  values, set, multi, toggleMulti, onBack, onNext,
+}: {
+  values: Record<string, string>;
+  set: (k: string, v: string) => void;
+  multi: Record<string, string[]>;
+  toggleMulti: (k: string, v: string) => void;
+  onBack: () => void;
+  onNext: () => void;
+}) {
   return (
     <ChapterShell
       num="03"
@@ -395,11 +593,15 @@ function JobDeeperSlide({ values, set, onBack, onNext }: { values: Record<string
       onBack={onBack}
       onNext={onNext}
     >
-      <Field label="Today vs with the agent" helper="What do you (or your team) do today, and what changes when the agent's in place?">
+      <Field label="Today, who handles this work?">
+        <Pills options={TODAY_HANDLER_OPTIONS} value={values.todayHandler ?? "I do it myself"} onChange={(v) => set("todayHandler", v)} />
+        <OptionalDetail>Want to add details? (how much time it takes, what&apos;s hard about it)</OptionalDetail>
         <Textarea value={values.todayVsAgent ?? ""} onChange={(e) => set("todayVsAgent", e.target.value)} placeholder="What does the manual process look like today? How much time does it take?" />
       </Field>
-      <Field label="What does success look like 3 months from now?" helper={`Concrete if you have them. e.g., "3 new clients per month", "20 hours saved each week".`}>
-        <Textarea value={values.successCriteria ?? ""} onChange={(e) => set("successCriteria", e.target.value)} placeholder="Concrete numbers if you have them" />
+      <Field label="What does success look like 3 months from now?" helper="Pick all that apply — Atlas will use these as the proposal's success metrics.">
+        <CheckPills options={SUCCESS_OUTCOMES} selected={multi.successOutcomes ?? []} onToggle={(v) => toggleMulti("successOutcomes", v)} />
+        <OptionalDetail>Add concrete numbers if you have them:</OptionalDetail>
+        <Textarea value={values.successCriteria ?? ""} onChange={(e) => set("successCriteria", e.target.value)} placeholder={`e.g., "3 new clients/month", "20 hours saved each week"`} />
       </Field>
       <Field label="How often should it work?">
         <Pills options={CADENCE_OPTIONS} value={values.cadence ?? "Daily"} onChange={(v) => set("cadence", v)} />
@@ -415,7 +617,16 @@ function JobDeeperSlide({ values, set, onBack, onNext }: { values: Record<string
 // Slide 4 — HOW IT WORKS
 // ---------------------------------------------------------------------------
 
-function HowItWorksSlide({ values, set, onBack, onNext }: { values: Record<string, string>; set: (k: string, v: string) => void; onBack: () => void; onNext: () => void }) {
+function HowItWorksSlide({
+  values, set, multi, toggleMulti, onBack, onNext,
+}: {
+  values: Record<string, string>;
+  set: (k: string, v: string) => void;
+  multi: Record<string, string[]>;
+  toggleMulti: (k: string, v: string) => void;
+  onBack: () => void;
+  onNext: () => void;
+}) {
   return (
     <ChapterShell
       num="04"
@@ -433,8 +644,10 @@ function HowItWorksSlide({ values, set, onBack, onNext }: { values: Record<strin
       <Field label="How much rope should it have?">
         <Cards options={AUTONOMY_OPTIONS} value={values.autonomy ?? "Supervised"} onChange={(v) => set("autonomy", v)} />
       </Field>
-      <Field label="Brand voice / tone" helper="Paste 2–3 samples of how you sound. The agent will mirror this.">
-        <Textarea value={values.brandVoice ?? ""} onChange={(e) => set("brandVoice", e.target.value)} placeholder="Paste a couple of samples here…" />
+      <Field label="How should the agent sound when it speaks for you?" helper="Pick 2–3 that fit best.">
+        <CheckPills options={TONE_OPTIONS} selected={multi.toneTags ?? []} onToggle={(v) => toggleMulti("toneTags", v)} />
+        <OptionalDetail>Or paste 2–3 samples of how you sound — the agent will mirror them:</OptionalDetail>
+        <Textarea value={values.brandVoice ?? ""} onChange={(e) => set("brandVoice", e.target.value)} placeholder="An email, LinkedIn post, or internal memo…" />
       </Field>
     </ChapterShell>
   );
@@ -444,7 +657,16 @@ function HowItWorksSlide({ values, set, onBack, onNext }: { values: Record<strin
 // Slide 5 — HARD LIMITS
 // ---------------------------------------------------------------------------
 
-function LimitsSlide({ values, set, onBack, onNext }: { values: Record<string, string>; set: (k: string, v: string) => void; onBack: () => void; onNext: () => void }) {
+function LimitsSlide({
+  values, set, multi, toggleMulti, onBack, onNext,
+}: {
+  values: Record<string, string>;
+  set: (k: string, v: string) => void;
+  multi: Record<string, string[]>;
+  toggleMulti: (k: string, v: string) => void;
+  onBack: () => void;
+  onNext: () => void;
+}) {
   return (
     <ChapterShell
       num="05"
@@ -460,8 +682,10 @@ function LimitsSlide({ values, set, onBack, onNext }: { values: Record<string, s
         <Pills options={BUDGET_OPTIONS} value={values.budget ?? "$500 – $1k"} onChange={(v) => set("budget", v)} />
         <div className="fa-field-helper" style={{ marginTop: 8 }}>Per month. We&apos;ll firm up pricing after Atlas drafts the scope.</div>
       </Field>
-      <Field label="What should the agent never do?" helper="Compliance limits, words to avoid, people not to message, scope boundaries.">
-        <Textarea value={values.redLines ?? ""} onChange={(e) => set("redLines", e.target.value)} placeholder="Never quote a price. Never make compensation claims. Never message anyone we've already pitched in the last 90 days." />
+      <Field label="What should the agent never do?" helper="Common no-go&apos;s — pick all that apply.">
+        <CheckPills options={NEVER_DO_OPTIONS} selected={multi.neverDoTags ?? []} onToggle={(v) => toggleMulti("neverDoTags", v)} />
+        <OptionalDetail>Anything else specific to your business?</OptionalDetail>
+        <Textarea value={values.redLines ?? ""} onChange={(e) => set("redLines", e.target.value)} placeholder="Industry-specific rules, scope boundaries, words to avoid…" />
       </Field>
     </ChapterShell>
   );
@@ -471,11 +695,20 @@ function LimitsSlide({ values, set, onBack, onNext }: { values: Record<string, s
 // Slide 6 — TOOLS & PROCEDURES
 // ---------------------------------------------------------------------------
 
-function ToolsSlide({ values, set, onBack, onNext }: { values: Record<string, string>; set: (k: string, v: string) => void; onBack: () => void; onNext: () => void }) {
-  function appendTool(t: string) {
-    const cur = (values.tools ?? "").trim();
-    set("tools", cur ? `${cur}, ${t}` : t);
-  }
+function ToolsSlide({
+  values, set, multi, toggleMulti, files, onUpload, onRemoveFile, uploading, onBack, onNext,
+}: {
+  values: Record<string, string>;
+  set: (k: string, v: string) => void;
+  multi: Record<string, string[]>;
+  toggleMulti: (k: string, v: string) => void;
+  files: UploadedFile[];
+  onUpload: (f: File) => void;
+  onRemoveFile: (id: string) => void;
+  uploading: boolean;
+  onBack: () => void;
+  onNext: () => void;
+}) {
   return (
     <ChapterShell
       num="06"
@@ -487,11 +720,17 @@ function ToolsSlide({ values, set, onBack, onNext }: { values: Record<string, st
       onBack={onBack}
       onNext={onNext}
     >
-      <Field label="What tools / systems will the agent need access to?" helper="List anything — CRMs, ad platforms, internal sites, spreadsheets.">
-        <Textarea value={values.tools ?? ""} onChange={(e) => set("tools", e.target.value)} placeholder="Gmail, Google Maps, Notion, HubSpot…" />
-        <SuggestionChips items={TOOL_SUGGESTIONS} onPick={appendTool} />
+      <Field label="What tools will the agent need access to?" helper="Pick all that apply. We'll figure out OAuth vs login during the build.">
+        <CheckPills options={TOOL_OPTIONS} selected={multi.toolTags ?? []} onToggle={(v) => toggleMulti("toolTags", v)} />
+        <OptionalDetail>Any other tools, internal systems, or apps?</OptionalDetail>
+        <Textarea value={values.tools ?? ""} onChange={(e) => set("tools", e.target.value)} placeholder="Custom dashboards, internal apps, anything not in the list above…" />
       </Field>
-      <Field label="Paste any SOPs, playbooks, or docs" helper="Cookbook-style is best. Optional if you don't have any.">
+      <Field
+        label="Got any SOPs, playbooks, or docs?"
+        helper={`SOPs = "Standard Operating Procedures" — your existing process docs, runbooks, or playbooks. Cookbook-style is best. Optional if you don't have any.`}
+      >
+        <UploadDropzone files={files} onUpload={onUpload} onRemove={onRemoveFile} uploading={uploading} />
+        <OptionalDetail>Paste below or upload — whichever&apos;s easier.</OptionalDetail>
         <Textarea value={values.sops ?? ""} onChange={(e) => set("sops", e.target.value)} placeholder="Paste any process docs here, or leave blank…" />
       </Field>
     </ChapterShell>
@@ -503,9 +742,11 @@ function ToolsSlide({ values, set, onBack, onNext }: { values: Record<string, st
 // ---------------------------------------------------------------------------
 
 function ReviewSlide({
-  values, email, onEdit, onBack, onSend, submitting, error,
+  values, multi, files, email, onEdit, onBack, onSend, submitting, error,
 }: {
   values: Record<string, string>;
+  multi: Record<string, string[]>;
+  files: UploadedFile[];
   email: string;
   onEdit: (slideIndex: number) => void;
   onBack: () => void;
@@ -513,6 +754,17 @@ function ReviewSlide({
   submitting: boolean;
   error: string | null;
 }) {
+  const success = (multi.successOutcomes ?? []).join(", ");
+  const tone = (multi.toneTags ?? []).join(", ");
+  const neverDo = (multi.neverDoTags ?? []).join(", ");
+  const toolTags = (multi.toolTags ?? []).join(", ");
+
+  const sopSummary = files.length > 0
+    ? `${files.length} file${files.length === 1 ? "" : "s"} uploaded${values.sops ? " · plus pasted notes" : ""}`
+    : values.sops
+      ? "Pasted notes"
+      : "None provided";
+
   const blocks: Array<{ section: string; editSlide: number; rows: Array<{ key: string; value: string; muted?: boolean }> }> = [
     {
       section: "01 · About you",
@@ -531,8 +783,15 @@ function ReviewSlide({
       editSlide: 2,
       rows: [
         { key: "One sentence", value: values.agentPitch || "—", muted: !values.agentPitch },
-        { key: "Today vs agent", value: values.todayVsAgent || "—", muted: !values.todayVsAgent },
-        { key: "3-month success", value: values.successCriteria || "—", muted: !values.successCriteria },
+      ],
+    },
+    {
+      section: "03 · Success & cadence",
+      editSlide: 3,
+      rows: [
+        { key: "Today", value: [values.todayHandler, values.todayVsAgent].filter(Boolean).join(" · ") || "—", muted: !values.todayHandler && !values.todayVsAgent },
+        { key: "Outcomes", value: success || "—", muted: !success },
+        { key: "Numbers", value: values.successCriteria || "Not specified", muted: !values.successCriteria },
         { key: "Cadence", value: [values.cadence, values.volume].filter(Boolean).join(" · ") || "—", muted: !values.cadence && !values.volume },
       ],
     },
@@ -542,7 +801,8 @@ function ReviewSlide({
       rows: [
         { key: "Reach you", value: values.channel || "—", muted: !values.channel },
         { key: "Autonomy", value: values.autonomy || "—", muted: !values.autonomy },
-        { key: "Voice", value: values.brandVoice || "Not provided", muted: !values.brandVoice },
+        { key: "Tone", value: tone || "—", muted: !tone },
+        { key: "Voice samples", value: values.brandVoice || "Not provided", muted: !values.brandVoice },
       ],
     },
     {
@@ -550,15 +810,17 @@ function ReviewSlide({
       editSlide: 5,
       rows: [
         { key: "Budget", value: values.budget || "—", muted: !values.budget },
-        { key: "Never do", value: values.redLines || "Nothing specified", muted: !values.redLines },
+        { key: "Never do", value: neverDo || "—", muted: !neverDo },
+        { key: "Other rules", value: values.redLines || "Nothing specified", muted: !values.redLines },
       ],
     },
     {
       section: "06 · Tools & procedures",
       editSlide: 6,
       rows: [
-        { key: "Tools", value: values.tools || "—", muted: !values.tools },
-        { key: "SOPs", value: values.sops || "None provided", muted: !values.sops },
+        { key: "Tools", value: toolTags || "—", muted: !toolTags },
+        { key: "Other tools", value: values.tools || "None specified", muted: !values.tools },
+        { key: "SOPs", value: sopSummary, muted: files.length === 0 && !values.sops },
       ],
     },
   ];

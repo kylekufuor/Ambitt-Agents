@@ -1070,41 +1070,60 @@ function buildAtlasProposalPrompt(prospect: {
   website: string | null;
   formData: unknown;
 }): string {
-  const fd = (prospect.formData ?? {}) as Record<string, string>;
+  const fd = (prospect.formData ?? {}) as Record<string, unknown>;
+  const get = (k: string) => (typeof fd[k] === "string" ? (fd[k] as string) : "");
   const portalBase = process.env.CLIENT_PORTAL_URL ?? "https://client-portal-production-77a9.up.railway.app";
-  const firstName = (prospect.contactName ?? "").trim().split(/\s+/)[0] || (fd.preferredName ?? "there");
+  const firstName = (prospect.contactName ?? "").trim().split(/\s+/)[0] || (get("preferredName") || "there");
   const approveSubject = encodeURIComponent(`APPROVE PRESENTATION ${prospect.id}`);
   const approveBody = encodeURIComponent("Looks good — approved.");
   const approveUrl = `mailto:atlas@ambitt.agency?subject=${approveSubject}&body=${approveBody}`;
   const changesUrl = `${portalBase}/onboard/${prospect.token}`;
   const talkUrl = "mailto:team@ambitt.agency?subject=Question%20about%20my%20Ambitt%20Agents%20proposal";
 
+  // SOPs come from two surfaces: pasted textarea (fd.sops) + uploaded files
+  // (fd.sopFiles[].extractedText). Concatenate both with labels so Atlas can
+  // attribute insights back to source documents if useful.
+  const sopFiles = Array.isArray(fd.sopFiles) ? (fd.sopFiles as Array<{ filename?: string; extractedText?: string }>) : [];
+  const sopSections: string[] = [];
+  if (get("sops").trim()) sopSections.push(`--- Pasted notes ---\n${get("sops").trim()}`);
+  for (const f of sopFiles) {
+    if (f.extractedText && f.extractedText.trim().length > 0) {
+      sopSections.push(`--- File: ${f.filename ?? "upload"} ---\n${f.extractedText.trim()}`);
+    }
+  }
+  const sopBlock = sopSections.length > 0 ? sopSections.join("\n\n") : "(They didn't paste or upload any SOPs.)";
+
   return `A new prospect just completed the Ambitt Agents onboarding form. Read their answers carefully, then **emit a structured JSON object** matching the ProposalEmailData contract below. Our Handlebars template renders the JSON into the email — you never write HTML.
 
 # Prospect basics
 - Email: ${prospect.email}
 - Name: ${prospect.contactName ?? "(not provided)"}
-- Preferred name (use this in greeting): ${fd.preferredName ?? firstName}
+- Preferred name (use this in greeting): ${get("preferredName") || firstName}
 - Role: ${prospect.role ?? "(not provided)"}
 - Business: ${prospect.businessName ?? "(not provided)"}
 - Website: ${prospect.website ?? "(not provided)"}
 
 # Their answers
-- What their business does: ${fd.industry ?? "(not provided)"}
-- What the agent should do (their pitch): ${fd.agentPitch ?? "(not provided)"}
-- Today vs with the agent: ${fd.todayVsAgent ?? "(not provided)"}
-- Success in 3 months: ${fd.successCriteria ?? "(not provided)"}
-- Cadence: ${fd.cadence ?? "(not provided)"}
-- Volume: ${fd.volume ?? "(not provided)"}
-- Communication channel: ${fd.channel ?? "(not provided)"}
-- Autonomy preference: ${fd.autonomy ?? "(not provided)"}
-- Brand voice samples: ${fd.brandVoice ?? "(not provided)"}
-- Tools they use: ${fd.tools ?? "(not provided)"}
-- Red lines (what NOT to do): ${fd.redLines ?? "(not provided)"}
-- Budget bucket: ${fd.budget ?? "(not provided)"}
+- What their business does: ${get("industry") || "(not provided)"}
+- What the agent should do (their pitch): ${get("agentPitch") || "(not provided)"}
+- Who handles this today: ${get("todayHandler") || "(not provided)"}
+- Today details (optional): ${get("todayVsAgent") || "(not provided)"}
+- Success outcomes (multi-select chips): ${get("successOutcomes") || "(none selected)"}
+- Concrete success numbers (optional): ${get("successCriteria") || "(not provided)"}
+- Cadence: ${get("cadence") || "(not provided)"}
+- Volume: ${get("volume") || "(not provided)"}
+- Communication channel: ${get("channel") || "(not provided)"}
+- Autonomy preference: ${get("autonomy") || "(not provided)"}
+- Tone tags (multi-select chips): ${get("toneTags") || "(none selected)"}
+- Brand voice samples (optional paste): ${get("brandVoice") || "(not provided)"}
+- Tools selected (multi-select chips): ${get("toolTags") || "(none selected)"}
+- Other tools / internal systems (optional): ${get("tools") || "(not provided)"}
+- Never-do guardrails (multi-select chips): ${get("neverDoTags") || "(none selected)"}
+- Other rules (optional): ${get("redLines") || "(not provided)"}
+- Budget bucket: ${get("budget") || "(not provided)"}
 
-# Their SOPs / docs
-${fd.sops ? fd.sops : "(They didn't paste any SOPs.)"}
+# Their SOPs / docs (pasted notes + uploaded files concatenated)
+${sopBlock}
 
 # CTA URLs to use VERBATIM in your output
 - cta.primaryUrl (Approve): ${approveUrl}
