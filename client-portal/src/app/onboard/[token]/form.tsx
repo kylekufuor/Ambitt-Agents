@@ -214,26 +214,8 @@ export function OnboardForm({ token, prospectId, initial, status }: OnboardFormP
 
   const headerClass = slide === 0 ? "fa-header welcome" : slide === 8 ? "fa-header sent" : "fa-header";
 
-  // Enter-to-continue. Bare Enter advances unless the focus is in a
-  // textarea (where Enter inserts a newline). Cmd/Ctrl-Enter advances from
-  // anywhere, even inside a textarea, for power users. Review slide submits
-  // on Enter; Sent slide does nothing.
-  function handleKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
-    if (e.key !== "Enter") return;
-    const target = e.target as HTMLElement;
-    const inTextarea = target.tagName === "TEXTAREA";
-    if (inTextarea && !(e.metaKey || e.ctrlKey)) return;
-    if (slide === 8) return;
-    e.preventDefault();
-    if (slide === 7) {
-      if (!submitting) submit();
-    } else {
-      next();
-    }
-  }
-
   return (
-    <div className="fa-onboard" onKeyDown={handleKeyDown}>
+    <div className="fa-onboard">
       <div className="fa-progress">
         <div className="fa-progress-fill" style={{ width: `${STEP_PERCENT[slide]}%` }} />
       </div>
@@ -370,12 +352,7 @@ function ChapterShell({ num, ofTotal = "/ 07", name, quote, contentTag, title, h
 
           <div className="fa-nav">
             <button type="button" className="fa-back" onClick={onBack}>← Back</button>
-            <div>
-              <button type="button" className="fa-continue" onClick={onNext}>Continue →</button>
-              <div className="fa-microcopy">
-                Press <kbd>Enter ↵</kbd> to continue
-              </div>
-            </div>
+            <button type="button" className="fa-continue" onClick={onNext}>Continue →</button>
           </div>
         </div>
       </div>
