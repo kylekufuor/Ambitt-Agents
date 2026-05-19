@@ -159,7 +159,11 @@ RULE: Gemini and OpenAI never communicate directly with clients. Claude owns eve
 
 ---
 
-## Client onboarding flow (first 10 clients: Kyle + client co-setup on Zoom)
+## Client onboarding flow
+
+**2026-05-18 update — superseded by Atlas (`atlas@ambitt.agency`).** Discovery now runs through a self-serve flow at `clients.ambitt.agency/onboard/[token]`: prospect fills a structured form + pastes SOPs, Atlas generates a sales-style presentation, emails it with Approve / Make-changes buttons, Kyle reviews the drafted quote (setup fee + retainer) before it goes out, and prospect converts to Client on accept + pay. New data model: `Prospect` (separate from `Client`); platform-agent flag `Agent.acceptFromProspects` gates inbound email auth (sender must match `agent.client.email`, else dropped — Atlas accepts any active Prospect by exception). The post-activation drip below (T+0 welcome, T+5min how-to, T+3/7/14 check-ins) still applies — it fires after the agent goes live, not during pre-sale discovery. Full design + commit refs: `.claude/.../memory/project_onboarding_agent_scaffold.md`.
+
+### Legacy live-Zoom flow (first 10 clients, retained for reference)
 
 1. Kyle screen-shares the create-agent form and fills it with the client live (~15 min). Collects `preferredName` (what the agent calls them).
 2. Connects tools via Composio (OAuth mostly — happens on the call).

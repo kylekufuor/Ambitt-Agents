@@ -1,8 +1,8 @@
 # SCHEMA.md — Ambitt Agents Database
 Version: 1.0
-Database: Postgres on Railway
+Database: Postgres on Supabase
 ORM: Prisma
-Last updated: March 2026
+Last updated: 2026-05-18 (added `Prospect` model + `Agent.acceptFromProspects` for the Atlas onboarding flow)
 
 ---
 
@@ -442,6 +442,63 @@ model OverageEvent {
 
 **Agent** — added:
 - `overageCount: Int @default(0)` — extra interactions past the limit, current cycle. Reset alongside `interactionCount` on monthly cycle rollover.
+- `acceptFromProspects: Boolean @default(false)` — platform-agent flag. When `true`, the inbound-email auth check (`oracle/index.ts::checkInboundAuth`) ALSO accepts mail from any active `Prospect.email`, not just the owning `Client.email`. Used by Atlas (`atlas@ambitt.agency`, the onboarding agent) because its job is to talk to people who aren't yet clients. Default `false`. Future generic clients will leave this alone; future platform-level agents (e.g. a "support agent" who talks to anyone with a ticket) flip it on.
+
+---
+
+### prospect
+
+Added 2026-05-18 for the Atlas onboarding flow. A prospect is a lead going through discovery with Atlas; they live separately from `Client` until the deal closes (quote accepted + payment), at which point a `Client` row is created and `Prospect.convertedClientId` is set. All intake state (form answers, SOPs, chat transcript with Atlas, generated presentation, drafted quote) hangs off this row.
+
+```
+model Prospect {
+  id                       String    @id @default(cuid())
+  email                    String    @unique
+  token                    String    @unique  // gates /onboard/[token] web access; no Supabase auth
+
+  // Convenience fields lifted out of formData for indexing/display
+  contactName              String?
+  businessName             String?
+  role                     String?
+  website                  String?
+
+  status                   String    @default("discovery")
+  // discovery | discovery_complete | presentation_sent | revising
+  //   | quote_pending | quote_sent | accepted | ghosted | archived
+
+  formData                 Json      @default("{}")  // structured intake answers (13-field form spec)
+  sopFiles                 Json      @default("[]")  // [{filename, url, sizeBytes, uploadedAt}] — file upload deferred to Phase 2
+  chatLog                  Json      @default("[]")  // [{role, content, ts}] — for Atlas SOP-aware chat (Phase 2)
+
+  presentationHtml         String?   @db.Text       // latest generated presentation (regen'd on each make-changes loop)
+  presentationGeneratedAt  DateTime?
+
+  quoteDraft               Json?     // { setupFeeCents, monthlyRetainerCents, pricingTier, reasoning, terms } — Kyle reviews before send
+  quoteSentAt              DateTime?
+
+  convertedClientId        String?
+  convertedClient          Client?   @relation(fields: [convertedClientId], references: [id], onDelete: SetNull)
+
+  lastActivityAt           DateTime  @default(now())
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
+
+  @@index([status])
+  @@index([token])
+  @@index([lastActivityAt])
+  @@index([convertedClientId])
+}
+```
+
+Usage:
+- Created by Kyle (or, later, a public CTA) with a unique `token`; URL `clients.ambitt.agency/onboard/[token]` opens the discovery form.
+- `formData` keys are application-controlled (not DB-enforced) and match the locked form spec — see `project_onboarding_agent_scaffold.md`. Lifting common fields out to columns gives us indexing without committing to a schema for every form question.
+- Status moves via the portal submit handler (`discovery → discovery_complete`) and Oracle `/onboarding/prospects/:id/event` (`discovery_complete → presentation_sent`, future `revising / quote_pending / quote_sent / accepted`).
+- On `accepted`, downstream payment/conversion logic (not yet built) creates a `Client`, sets `convertedClientId`, and transitions billing.
+- Archived/ghosted prospects can't be auto-resurrected: inbound emails from them are dropped, the `/onboard/[token]` page shows a closed-link state, and Oracle `/event` returns 403.
+
+Companion reverse relation on Client:
+- `prospectsConvertedFrom: Prospect[]` — every Client that converted from a Prospect can be traced back.
 
 ---
 
