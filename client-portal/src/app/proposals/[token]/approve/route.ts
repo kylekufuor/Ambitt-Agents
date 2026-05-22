@@ -55,13 +55,26 @@ export async function GET(
       where: { id: prospect.id },
       data: { status: "quote_pending", lastActivityAt: new Date() },
     });
-    // Fire-and-forget — Oracle pings Kyle on WhatsApp and any other notifications.
+    // Two fire-and-forget notifications to Oracle on scope approval:
+    //   1. scope_approved event — sends Kyle the "draft a quote" ops email.
+    //   2. generate-prd — Atlas drafts the operator-facing build spec in the
+    //      background (~2 min). When done, Atlas sends Kyle a follow-up email
+    //      with a link to /prospects/:id/prd to review.
+    // Both fire in parallel; Kyle gets two emails — first the heads-up, then
+    // the PRD-ready notice when Atlas finishes.
     fetch(`${oracleUrl()}/onboarding/prospects/${prospect.id}/event`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ type: "scope_approved" }),
     }).catch((err) => {
-      console.error("[proposals/approve] Oracle notify failed", err);
+      console.error("[proposals/approve] Oracle scope_approved notify failed", err);
+    });
+    fetch(`${oracleUrl()}/onboarding/prospects/${prospect.id}/generate-prd`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    }).catch((err) => {
+      console.error("[proposals/approve] Oracle generate-prd kickoff failed", err);
     });
   }
 

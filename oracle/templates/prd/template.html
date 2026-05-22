@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PRD · {{identity.agentName}} · {{identity.ownerBusinessName}}</title>
+<style>
+  :root {
+    --bg: #0a0a0a;
+    --card: #131313;
+    --border: #262626;
+    --text: #fafafa;
+    --muted: #a3a3a3;
+    --muted-2: #737373;
+    --accent: #00b3b3;
+    --warn: #f59e0b;
+    --ok: #10b981;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    margin: 0;
+    padding: 0;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 32px 24px 64px; }
+
+  /* Header */
+  .head { display: flex; flex-direction: column; gap: 6px; margin-bottom: 28px; }
+  .head .summary { color: var(--accent); font-size: 11px; font-weight: 600; letter-spacing: 1.6px; text-transform: uppercase; }
+  .head h1 { font-size: 30px; font-weight: 700; letter-spacing: -0.7px; margin: 0; }
+  .head .meta { color: var(--muted); font-size: 13.5px; }
+
+  /* Section */
+  section { margin-bottom: 28px; }
+  .sec-label { color: var(--muted-2); font-size: 10.5px; font-weight: 600; letter-spacing: 1.6px; text-transform: uppercase; margin-bottom: 10px; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 22px;
+  }
+
+  /* Identity grid */
+  .identity-grid { display: grid; grid-template-columns: 140px 1fr; row-gap: 10px; column-gap: 16px; font-size: 14px; }
+  .identity-grid dt { color: var(--muted); font-weight: 500; }
+  .identity-grid dd { margin: 0; color: var(--text); }
+  .mono { font-family: 'SF Mono', 'JetBrains Mono', Menlo, monospace; font-size: 12.5px; }
+
+  /* System prompt block */
+  .prompt-block {
+    background: #0d0d0d;
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    padding: 16px 18px;
+    font-family: 'SF Mono', 'JetBrains Mono', Menlo, monospace;
+    font-size: 12.5px;
+    color: var(--text);
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    max-height: 480px;
+    overflow-y: auto;
+    line-height: 1.6;
+  }
+
+  /* Tool list */
+  .tool-row { display: flex; flex-direction: column; gap: 4px; padding: 14px 0; border-top: 1px solid var(--border); }
+  .tool-row:first-child { border-top: none; padding-top: 0; }
+  .tool-row .name { font-size: 14.5px; font-weight: 600; }
+  .tool-row .source-pill {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.6px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    margin-left: 10px;
+    vertical-align: middle;
+  }
+  .source-composio { background: rgba(0,179,179,0.12); color: var(--accent); }
+  .source-custom_browse { background: rgba(245,158,11,0.12); color: var(--warn); }
+  .source-custom_platform_tool { background: rgba(245,158,11,0.16); color: var(--warn); }
+  .tool-row .meta { color: var(--muted); font-size: 12px; }
+  .tool-row .rationale { color: var(--text); font-size: 13.5px; }
+
+  /* Inline kv rows */
+  .kv-row { display: flex; gap: 12px; padding: 10px 0; border-top: 1px solid var(--border); font-size: 14px; }
+  .kv-row:first-child { border-top: none; padding-top: 0; }
+  .kv-row .k { color: var(--muted); flex-shrink: 0; width: 140px; }
+  .kv-row .v { color: var(--text); }
+
+  /* Lists */
+  .bullet { margin: 0; padding: 0; list-style: none; }
+  .bullet li {
+    position: relative;
+    padding: 6px 0 6px 18px;
+    font-size: 13.5px;
+    color: var(--text);
+  }
+  .bullet li::before {
+    content: "—";
+    position: absolute;
+    left: 0;
+    color: var(--accent);
+  }
+
+  /* Build plan */
+  .step { display: flex; gap: 14px; padding: 14px 0; border-top: 1px solid var(--border); }
+  .step:first-child { border-top: none; padding-top: 0; }
+  .step .num {
+    flex-shrink: 0;
+    width: 28px; height: 28px;
+    background: rgba(0,179,179,0.1);
+    color: var(--accent);
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'SF Mono', Menlo, monospace;
+  }
+  .step .body { flex: 1; }
+  .step .body .title { font-size: 14px; font-weight: 600; }
+  .step .body .desc { font-size: 13px; color: var(--muted); margin-top: 3px; }
+  .step .body .stamp { display: flex; gap: 12px; margin-top: 6px; font-size: 11.5px; color: var(--muted-2); }
+  .step .body .stamp .owner-ambitt { color: var(--accent); }
+  .step .body .stamp .owner-client { color: var(--warn); }
+
+  /* Pricing */
+  .pricing-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .pricing-cell { background: #0d0d0d; border: 1px solid var(--border); border-radius: 9px; padding: 14px 16px; }
+  .pricing-cell .label { color: var(--muted); font-size: 10.5px; font-weight: 600; letter-spacing: 1.4px; text-transform: uppercase; }
+  .pricing-cell .value { font-size: 24px; font-weight: 700; color: var(--text); margin-top: 4px; }
+  .pricing-cell .sub { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .pricing-tier {
+    display: inline-block;
+    margin-bottom: 10px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.4px;
+    text-transform: uppercase;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: rgba(16,185,129,0.12);
+    color: var(--ok);
+  }
+  .pricing-reasoning { color: var(--muted); font-size: 13px; margin-top: 14px; }
+
+  /* Risk callout */
+  .risk {
+    background: rgba(245,158,11,0.06);
+    border: 1px solid rgba(245,158,11,0.25);
+    border-radius: 9px;
+    padding: 12px 14px;
+    margin-bottom: 8px;
+    font-size: 13.5px;
+    color: #fde68a;
+  }
+  .risk-empty { color: var(--muted-2); font-size: 13px; padding: 6px 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="head">
+    <div class="summary">{{summary}}</div>
+    <h1>{{identity.agentName}} <span style="color: var(--muted-2); font-weight: 400;">·</span> {{identity.ownerBusinessName}}</h1>
+    <div class="meta">{{identity.agentRole}} · for {{identity.ownerContactName}} &lt;{{identity.ownerEmail}}&gt;</div>
+  </div>
+
+  <section>
+    <div class="sec-label">Identity</div>
+    <div class="card">
+      <dl class="identity-grid">
+        <dt>Agent name</dt><dd>{{identity.agentName}}</dd>
+        <dt>Email</dt><dd class="mono">{{identity.agentEmailSlug}}@ambitt.agency</dd>
+        <dt>Agent role</dt><dd>{{identity.agentRole}}</dd>
+        <dt>Owner</dt><dd>{{identity.ownerBusinessName}} ({{identity.ownerIndustry}})</dd>
+        <dt>Contact</dt><dd>{{identity.ownerContactName}} &lt;{{identity.ownerEmail}}&gt;</dd>
+      </dl>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-label">System prompt (draft)</div>
+    <div class="prompt-block">{{systemPrompt}}</div>
+  </section>
+
+  <section>
+    <div class="sec-label">Tools · {{tools.length}} total</div>
+    <div class="card">
+      {{#each tools}}
+      <div class="tool-row">
+        <div>
+          <span class="name">{{name}}</span>
+          <span class="source-pill source-{{source}}">{{toolSourceLabel source}}</span>
+        </div>
+        <div class="meta">
+          {{#if slug}}slug: <span class="mono">{{slug}}</span>{{/if}}
+          {{#if siteUrl}}site: <span class="mono">{{siteUrl}}</span>{{/if}}
+          {{#if functionName}}function: <span class="mono">{{functionName}}()</span>{{/if}}
+          {{#if buildDays}} · ~{{buildDays}} day(s){{/if}}
+        </div>
+        <div class="rationale">{{rationale}}</div>
+      </div>
+      {{/each}}
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-label">Runtime</div>
+    <div class="card">
+      <div class="kv-row">
+        <div class="k">Schedule</div>
+        <div class="v">
+          {{#if schedule.cron}}<span class="mono">{{schedule.cron}}</span> · {{schedule.timezone}}{{else}}{{schedule.triggerSpec}} (triggered){{/if}}
+        </div>
+      </div>
+      <div class="kv-row"><div class="k">Channel</div><div class="v">{{upper channel}}</div></div>
+      <div class="kv-row"><div class="k">Autonomy</div><div class="v">{{upper autonomy}}</div></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-label">Success metrics</div>
+    <div class="card">
+      <ul class="bullet">
+        {{#each successMetrics}}<li>{{this}}</li>{{/each}}
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-label">Hard limits</div>
+    <div class="card">
+      <ul class="bullet">
+        {{#each hardLimits}}<li>{{this}}</li>{{/each}}
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-label">Memory notes (clientMemoryObject seed)</div>
+    <div class="card">
+      <div style="color: var(--text); font-size: 13.5px; white-space: pre-wrap;">{{memoryNotes}}</div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-label">Build plan · ~{{sumBuildDays buildPlan}} day(s) total</div>
+    <div class="card">
+      {{#each buildPlan}}
+      <div class="step">
+        <div class="num">{{number}}</div>
+        <div class="body">
+          <div class="title">{{title}}</div>
+          <div class="desc">{{description}}</div>
+          <div class="stamp">
+            <span class="owner-{{owner}}">{{upper owner}}</span>
+            <span>~{{estimatedDays}}d</span>
+          </div>
+        </div>
+      </div>
+      {{/each}}
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-label">Pricing recommendation</div>
+    <div class="card">
+      <div class="pricing-tier">Tier · {{pricing.suggestedTier}}</div>
+      <div class="pricing-grid">
+        <div class="pricing-cell">
+          <div class="label">Setup fee</div>
+          <div class="value">{{cents pricing.suggestedSetupCents}}</div>
+          <div class="sub">one-time</div>
+        </div>
+        <div class="pricing-cell">
+          <div class="label">Monthly retainer</div>
+          <div class="value">{{cents pricing.suggestedMonthlyCents}}</div>
+          <div class="sub">recurring</div>
+        </div>
+      </div>
+      <div class="pricing-reasoning">{{pricing.reasoning}}</div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-label">Risks / open questions · {{risks.length}}</div>
+    <div class="card">
+      {{#if risks.length}}
+        {{#each risks}}<div class="risk">{{this}}</div>{{/each}}
+      {{else}}
+        <div class="risk-empty">No flagged risks.</div>
+      {{/if}}
+    </div>
+  </section>
+
+</div>
+</body>
+</html>

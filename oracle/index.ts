@@ -1222,20 +1222,20 @@ app.post("/onboarding/prospects/:id/event", async (req: Request, res: Response) 
     }
 
     if (type === "scope_approved") {
-      // Best-effort WhatsApp ping to Kyle. Atlas's portal approve route already
-      // flipped status → quote_pending; this is the human-loop notification so
-      // Kyle knows to draft the quote.
+      // Atlas's portal approve route already flipped status → quote_pending;
+      // this is the human-loop notification so Kyle knows to draft the quote.
+      // WhatsApp isn't wired in prod yet — using email until it is. Atlas is
+      // the sender (so the operator sees it threaded with their prospect
+      // history) and KYLE_EMAIL is the recipient.
       try {
-        const { sendKyleWhatsApp } = await import("../shared/whatsapp.js");
-        const portalBase = process.env.CLIENT_PORTAL_URL ?? "https://client-portal-production-77a9.up.railway.app";
-        const proposalUrl = `${portalBase}/proposals/${prospect.token}`;
-        const businessLine = prospect.businessName ? ` (${prospect.businessName})` : "";
-        const contactLine = prospect.contactName ? ` from ${prospect.contactName}` : "";
-        await sendKyleWhatsApp(
-          `🎯 Scope approved${contactLine}${businessLine}. Draft a quote and send.\n\nProposal: ${proposalUrl}`
-        );
+        await notifyOps({
+          atlasId: atlas.id,
+          atlasName: atlas.name,
+          subject: `Scope approved — ${prospect.contactName ?? "prospect"} (${prospect.businessName ?? "—"})`,
+          html: renderScopeApprovedNotice(prospect),
+        });
       } catch (err) {
-        logger.warn("Scope-approved WhatsApp ping failed", { prospectId: prospect.id, error: err });
+        logger.warn("Scope-approved ops notification failed", { prospectId: prospect.id, error: err });
       }
       res.json({ status: "scope_approved", prospectId: prospect.id });
       return;
@@ -1247,6 +1247,424 @@ app.post("/onboarding/prospects/:id/event", async (req: Request, res: Response) 
     res.status(500).json({ error: "Onboarding event failed" });
   }
 });
+
+// ---------------------------------------------------------------------------
+// PRD generation
+// ---------------------------------------------------------------------------
+// POST /onboarding/prospects/:id/generate-prd
+//
+// Atlas runs against the prospect's saved intake (formData + sopFiles) and
+// emits an AgentPRDData JSON object (see oracle/templates/prd/types.ts). We
+// Zod-validate, retry-once on schema failure, save to Prospect.prdData, and
+// email Kyle that it's ready for review.
+//
+// Kicked off (fire-and-forget) by the proposal-approve route after scope
+// approval. Also exposed as its own endpoint so Kyle can manually re-trigger
+// from the dashboard (e.g. when regenerating with notes after editing).
+//
+// Vera is intentionally NOT in this loop for v1 — the PRD is internal-only,
+// Kyle reviews it directly in the dashboard, so a Haiku gate adds latency
+// without much value. If PRD quality drifts, add Vera with artifact-specific
+// checks later.
+app.post("/onboarding/prospects/:id/generate-prd", async (req: Request, res: Response) => {
+  try {
+    const prospectId = param(req, "id");
+    const body = (req.body ?? {}) as { regenNotes?: string };
+    const regenNotes = typeof body.regenNotes === "string" ? body.regenNotes.trim() : "";
+
+    const prospect = await prisma.prospect.findUnique({ where: { id: prospectId } });
+    if (!prospect) {
+      res.status(404).json({ error: "Prospect not found" });
+      return;
+    }
+    if (prospect.status === "archived" || prospect.status === "ghosted") {
+      res.status(403).json({ error: "Prospect onboarding is closed" });
+      return;
+    }
+
+    const atlas = await prisma.agent.findUnique({
+      where: { email: "atlas@ambitt.agency" },
+      select: { id: true, clientId: true, name: true, status: true },
+    });
+    if (!atlas || atlas.status !== "active") {
+      res.status(500).json({ error: "Atlas is not seeded or not active" });
+      return;
+    }
+
+    const threadId = `prospect-${prospect.id}-prd`;
+    const { processInboundMessage } = await import("../shared/runtime/index.js");
+    const { renderPRD, parseAtlasPRDOutput, PRDValidationError } = await import("./templates/prd/render.js");
+
+    const pass1 = await processInboundMessage({
+      agentId: atlas.id,
+      userMessage: buildAtlasPRDPrompt(prospect, regenNotes),
+      channel: "chat",
+      threadId,
+      senderEmail: prospect.email,
+      billable: false,
+    });
+
+    const tryValidate = (raw: string): { data: unknown; html: string } => {
+      const parsed = parseAtlasPRDOutput(raw);
+      if (parsed === null) {
+        throw new PRDValidationError([
+          { path: [], code: "custom", message: "No JSON block found in response" } as any,
+        ]);
+      }
+      const html = renderPRD(parsed); // throws PRDValidationError on Zod fail
+      return { data: parsed, html };
+    };
+
+    let result: { data: unknown; html: string };
+    try {
+      result = tryValidate(pass1.response);
+    } catch (err) {
+      if (!(err instanceof PRDValidationError)) throw err;
+      logger.warn("Atlas first-pass PRD JSON invalid — retrying once", {
+        prospectId: prospect.id,
+        issues: err.issues.map((i) => `${i.path.join(".")}: ${i.message}`),
+      });
+      const correction = `Your previous PRD didn't pass schema validation. Issues:\n${err.issues
+        .map((i, n) => `${n + 1}. ${i.path.join(".") || "(root)"}: ${i.message}`)
+        .join("\n")}\n\nRe-emit the COMPLETE AgentPRDData JSON with these fixed. Output ONLY the JSON object, no commentary, no code fences.`;
+      const pass2 = await processInboundMessage({
+        agentId: atlas.id,
+        userMessage: correction,
+        channel: "chat",
+        threadId,
+        senderEmail: prospect.email,
+        billable: false,
+      });
+      result = tryValidate(pass2.response);
+    }
+
+    await prisma.prospect.update({
+      where: { id: prospect.id },
+      data: {
+        prdData: result.data as object,
+        prdGeneratedAt: new Date(),
+        // Re-generating clears any prior approval — regen always invalidates the lock.
+        prdApprovedAt: null,
+        lastActivityAt: new Date(),
+      },
+    });
+
+    // Best-effort ops email so Kyle knows the PRD is ready (or refreshed) for review.
+    try {
+      const dashBase = process.env.DASHBOARD_URL ?? "https://dashboard.ambitt.agency";
+      await notifyOps({
+        atlasId: atlas.id,
+        atlasName: atlas.name,
+        subject: regenNotes
+          ? `PRD regenerated — ${prospect.contactName ?? "prospect"} (${prospect.businessName ?? "—"})`
+          : `PRD ready for review — ${prospect.contactName ?? "prospect"} (${prospect.businessName ?? "—"})`,
+        html: renderPRDReadyNotice(prospect, dashBase, regenNotes),
+      });
+    } catch (err) {
+      logger.warn("PRD-ready ops notification failed", { prospectId: prospect.id, error: err });
+    }
+
+    logger.info("PRD generated", { prospectId: prospect.id, regenerated: Boolean(regenNotes) });
+    res.json({ status: "prd_generated", prospectId: prospect.id });
+  } catch (error) {
+    logger.error("PRD generation failed", { error });
+    res.status(500).json({ error: "PRD generation failed" });
+  }
+});
+
+// GET /onboarding/prospects/:id/prd-html
+// Returns the PRD rendered as a full HTML document. Dashboard embeds this in
+// an iframe so the PRD's own dark theme + scoped CSS don't collide with the
+// dashboard chrome. No auth — the prospect ID is unguessable, and this is
+// internal-network-y in practice (dashboard → Oracle).
+app.get("/onboarding/prospects/:id/prd-html", async (req: Request, res: Response) => {
+  try {
+    const prospectId = param(req, "id");
+    const prospect = await prisma.prospect.findUnique({
+      where: { id: prospectId },
+      select: { prdData: true, contactName: true },
+    });
+    if (!prospect) {
+      res.status(404).type("text/html").send("<p>Prospect not found.</p>");
+      return;
+    }
+    if (!prospect.prdData) {
+      res.status(202).type("text/html").send(`<!doctype html><html><body style="font-family:system-ui;padding:40px;color:#a3a3a3;background:#0a0a0a;">
+        <p>PRD not generated yet.</p>
+        <p style="font-size:13px;color:#737373;margin-top:8px;">Atlas runs ~2 min after scope approval. Refresh in a moment.</p>
+      </body></html>`);
+      return;
+    }
+    const { renderPRD } = await import("./templates/prd/render.js");
+    try {
+      const html = renderPRD(prospect.prdData);
+      res.type("text/html").send(html);
+    } catch (err) {
+      logger.warn("PRD render failed in prd-html endpoint", { prospectId, error: err });
+      res.status(500).type("text/html").send(`<!doctype html><html><body style="font-family:system-ui;padding:40px;color:#fca5a5;background:#0a0a0a;">
+        <p>PRD render failed. The stored data didn't match the schema — likely from a prompt change. Try regenerating.</p>
+      </body></html>`);
+    }
+  } catch (error) {
+    logger.error("prd-html endpoint failed", { error });
+    res.status(500).type("text/html").send("<p>Internal error.</p>");
+  }
+});
+
+// POST /onboarding/prospects/:id/prd-approve
+// Sets prdApprovedAt = now. Idempotent — re-approval re-stamps.
+app.post("/onboarding/prospects/:id/prd-approve", async (req: Request, res: Response) => {
+  try {
+    const prospectId = param(req, "id");
+    const prospect = await prisma.prospect.findUnique({
+      where: { id: prospectId },
+      select: { id: true, prdData: true },
+    });
+    if (!prospect) {
+      res.status(404).json({ error: "Prospect not found" });
+      return;
+    }
+    if (!prospect.prdData) {
+      res.status(409).json({ error: "PRD not generated yet — nothing to approve" });
+      return;
+    }
+    await prisma.prospect.update({
+      where: { id: prospect.id },
+      data: { prdApprovedAt: new Date(), lastActivityAt: new Date() },
+    });
+    logger.info("PRD approved", { prospectId: prospect.id });
+    res.json({ status: "prd_approved", prospectId: prospect.id });
+  } catch (error) {
+    logger.error("PRD approve failed", { error });
+    res.status(500).json({ error: "PRD approve failed" });
+  }
+});
+
+function buildAtlasPRDPrompt(
+  prospect: {
+    id: string;
+    email: string;
+    token: string;
+    contactName: string | null;
+    businessName: string | null;
+    role: string | null;
+    website: string | null;
+    formData: unknown;
+  },
+  regenNotes: string
+): string {
+  const fd = (prospect.formData ?? {}) as Record<string, unknown>;
+  const get = (k: string) => (typeof fd[k] === "string" ? (fd[k] as string) : "");
+
+  const sopFiles = Array.isArray(fd.sopFiles)
+    ? (fd.sopFiles as Array<{ filename?: string; extractedText?: string }>)
+    : [];
+  const sopSections: string[] = [];
+  if (get("sops").trim()) sopSections.push(`--- Pasted notes ---\n${get("sops").trim()}`);
+  for (const f of sopFiles) {
+    if (f.extractedText && f.extractedText.trim().length > 0) {
+      sopSections.push(`--- File: ${f.filename ?? "upload"} ---\n${f.extractedText.trim()}`);
+    }
+  }
+  const sopBlock = sopSections.length > 0 ? sopSections.join("\n\n") : "(They didn't paste or upload any SOPs.)";
+
+  const toolList = (() => {
+    const t = Array.isArray(fd.tools) ? (fd.tools as Array<{ source: string; slug?: string; name: string }>) : [];
+    if (t.length === 0) return "(none selected)";
+    return t.map((x) => `${x.name} [${x.source === "composio" ? `Composio:${x.slug ?? "?"}` : "custom"}]`).join(", ");
+  })();
+
+  const regenBlock = regenNotes
+    ? `\n# Regeneration notes (apply these BEFORE re-emitting)\nKyle reviewed the previous PRD draft and asked for:\n${regenNotes}\n`
+    : "";
+
+  return `The scope of the agent we're going to build for this prospect has been approved. Now produce the internal PRD — the operator-facing spec we'll build from and price off. It is **internal only**; the prospect never sees it.
+
+Output a single JSON object matching the AgentPRDData TypeScript contract below. JSON only — no preamble, no code fences, no commentary.
+
+# Prospect basics
+- Email: ${prospect.email}
+- Name: ${prospect.contactName ?? "(not provided)"}
+- Preferred name: ${get("preferredName") || prospect.contactName || "(not provided)"}
+- Role: ${prospect.role ?? "(not provided)"}
+- Business: ${prospect.businessName ?? "(not provided)"}
+- Website: ${prospect.website ?? "(not provided)"}
+- Industry / what their business does: ${get("industry") || "(not provided)"}
+
+# The agent
+- Their chosen agent name: ${get("agentName") || "(none — propose one fitting their brand)"}
+- Their chosen agent role: ${get("agentRole") || "(none — infer from their pitch)"}
+- One-sentence pitch (their words): ${get("agentPitch") || "(not provided)"}
+
+# Intake answers
+- Target audience: ${get("audienceTags") || "(none)"}${get("audienceDetail") ? ` (${get("audienceDetail")})` : ""}
+- Today's handler: ${get("todayHandler") || "(not provided)"}${get("todayVsAgent") ? ` — ${get("todayVsAgent")}` : ""}
+- Success outcomes: ${get("successOutcomes") || "(none selected)"}
+- Success metrics (their numbers): ${get("successCriteria") || "(not provided)"}
+- Run mode: ${get("cadence") || "(not provided)"}  — "On a schedule" means recurring cron; "When triggered" means inbound event.
+- Volume: ${get("volume") || "(not provided)"}
+- Communication channel: ${get("channel") || "(not provided)"}
+- Autonomy preference: ${get("autonomy") || "(not provided)"}
+- Tone tags: ${get("toneTags") || "(none)"}
+- Brand voice samples: ${get("brandVoice") || "(not provided)"}
+- Tools they listed: ${toolList}
+- Never-do guardrails: ${get("neverDoTags") || "(none)"}
+- Other rules: ${get("redLines") || "(not provided)"}
+
+# Their SOPs
+${sopBlock}
+${regenBlock}
+# AgentPRDData TypeScript contract
+\`\`\`ts
+interface AgentPRDData {
+  summary: string;                              // one-line headline
+  identity: {
+    agentName: string;                          // e.g. "Hawk"
+    agentEmailSlug: string;                     // lowercase + hyphens; becomes <slug>@ambitt.agency
+    agentRole: string;                          // short role description
+    ownerBusinessName: string;
+    ownerContactName: string;
+    ownerEmail: string;
+    ownerIndustry: string;
+  };
+  systemPrompt: string;                         // 400-800 words. The actual prompt this agent will run with. Encode the client's playbook + brand voice + hard limits.
+  tools: Array<{
+    name: string;                               // human-readable, e.g. "Gmail"
+    source: "composio" | "custom_browse" | "custom_platform_tool";
+    slug?: string;                              // REQUIRED when source==="composio". Lowercase Composio app key.
+    siteUrl?: string;                           // REQUIRED when source==="custom_browse".
+    functionName?: string;                      // REQUIRED when source==="custom_platform_tool". snake_case TS function name.
+    rationale: string;                          // 1-2 sentences: what this tool does for the agent.
+    buildDays?: number;                         // honest day estimate. Only set for custom_* sources.
+  }>;
+  schedule: {
+    mode: "scheduled" | "triggered";
+    cron?: string;                              // standard 5-field cron. Only when mode==="scheduled".
+    timezone: string;                           // IANA tz, e.g. "America/Chicago"
+    triggerSpec?: string;                       // plain-English. Only when mode==="triggered".
+  };
+  channel: "email" | "slack" | "whatsapp";
+  autonomy: "supervised" | "semi" | "autonomous";
+  successMetrics: string[];                     // 1-5 concrete metrics
+  hardLimits: string[];                         // each becomes a guardrail in the prompt
+  memoryNotes: string;                          // 100-300 words. Compact paragraph of facts about the client / business / tone that should always be in working memory.
+  pricing: {
+    suggestedTier: "starter" | "growth" | "scale" | "enterprise";
+    suggestedMonthlyCents: number;              // recurring retainer (integer cents)
+    suggestedSetupCents: number;                // one-time setup (integer cents)
+    reasoning: string;                          // 1-3 sentences explaining tier + numbers
+  };
+  risks: string[];                              // open questions / things Kyle should flag. Empty array is fine.
+  buildPlan: Array<{
+    number: number;                             // 1-based ordering
+    title: string;
+    description: string;
+    owner: "ambitt" | "client";                 // "ambitt" = us; "client" = them (e.g. OAuth a tool)
+    estimatedDays: number;
+  }>;
+}
+\`\`\`
+
+# Pricing tier reference (use as guidance, not gospel)
+- starter: ~$499/mo. Low volume (<5 daily actions), no custom platform tools, 1-2 Composio tools.
+- growth: ~$999/mo. Medium volume (5-30 daily actions), 1 custom tool acceptable, 2-4 integrations.
+- scale: ~$2499/mo. Higher volume, 2+ custom tools, complex flows, multi-tool orchestration.
+- enterprise: $2499+/mo. Custom retainer, bespoke deep integration.
+
+Setup fee scales with custom-tool work: ~$0 if all Composio, ~$1500 per custom_platform_tool, ~$1000 per custom_browse flow.
+
+# Hard rules
+- Output ONLY the JSON object. No prose before/after, no code fences.
+- agentEmailSlug must be lowercase letters/numbers/hyphens only.
+- systemPrompt must be a complete, deployable prompt (not a template) — write it as if it ships today. Include the agent's name + role + the client's specific situation + tone guidance + hard limits. Use first/second person as appropriate ("You are Hawk. You help Cedar Ridge...").
+- Tools array: every tool the agent needs, including Composio ones the prospect already mentioned AND any platform tools/browse flows you're proposing. For custom_browse and custom_platform_tool, set buildDays honestly. For composio, you can omit buildDays.
+- buildPlan: 4-10 concrete steps. Wiring Composio OAuth is a client step ("ambitt" owns code, "client" owns OAuth click-through). Writing custom tools is ambitt. Prompt tuning is ambitt.
+- pricing.reasoning must justify the tier and the setup-fee number against the buildPlan.
+- risks: flag genuine concerns only — empty array if there are none. Don't manufacture risks.
+- Speak as "we" / "our team" — never name Kyle or any individual operator.
+- No marketing speak. Write like a senior engineer documenting an implementation, not a sales deck.`;
+}
+
+function renderPRDReadyNotice(
+  prospect: { id: string; contactName: string | null; businessName: string | null; email: string },
+  dashBase: string,
+  regenNotes: string
+): string {
+  const prdUrl = `${dashBase}/prospects/${prospect.id}/prd`;
+  const contact = prospect.contactName ?? "(no name)";
+  const business = prospect.businessName ?? "—";
+  const headline = regenNotes
+    ? `<strong style="color: #00b3b3;">PRD regenerated.</strong> The previous approval was cleared — review and re-approve to lock.`
+    : `<strong style="color: #00b3b3;">PRD ready for review.</strong> Approve to lock the spec the quote is drafted from.`;
+  return `<div style="font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; max-width: 560px; margin: 0 auto; padding: 28px 24px; background: #ffffff; color: #171717;">
+  <p style="font-size: 14px; color: #404040; margin: 0 0 14px; line-height: 1.6;">${headline}</p>
+  <table style="width: 100%; border-collapse: collapse; margin: 0 0 18px; font-size: 13.5px;">
+    <tr><td style="padding: 4px 0; color: #737373; width: 100px;">Contact</td><td style="padding: 4px 0; color: #171717;">${escapeHtmlBasic(contact)} &lt;${escapeHtmlBasic(prospect.email)}&gt;</td></tr>
+    <tr><td style="padding: 4px 0; color: #737373;">Business</td><td style="padding: 4px 0; color: #171717;">${escapeHtmlBasic(business)}</td></tr>
+  </table>
+  ${regenNotes ? `<div style="background: rgba(245,158,11,0.06); border: 1px solid rgba(245,158,11,0.25); border-radius: 9px; padding: 12px 14px; margin-bottom: 18px; font-size: 13px; color: #92400e;"><div style="font-weight: 600; margin-bottom: 4px;">Regen notes you submitted:</div>${escapeHtmlBasic(regenNotes)}</div>` : ""}
+  <div style="margin: 0 0 18px;">
+    <a href="${prdUrl}" style="display: inline-block; padding: 12px 22px; background: #00b3b3; color: #ffffff; text-decoration: none; border-radius: 9px; font-size: 14px; font-weight: 600;">Open PRD →</a>
+  </div>
+</div>`;
+}
+
+// ---------------------------------------------------------------------------
+// Ops notifications
+// ---------------------------------------------------------------------------
+// Email-to-Kyle helper for system events that used to go via WhatsApp.
+// Sender is always Atlas (most ops events relate to a prospect Atlas is
+// running for); recipient is KYLE_EMAIL. Swap to whatsapp.ts when Twilio is
+// wired in prod.
+
+async function notifyOps(input: {
+  atlasId: string;
+  atlasName: string;
+  subject: string;
+  html: string;
+}): Promise<void> {
+  const to = process.env.KYLE_EMAIL;
+  if (!to) {
+    logger.warn("notifyOps: KYLE_EMAIL not set, skipping ops notification", { subject: input.subject });
+    return;
+  }
+  const { sendEmail } = await import("../shared/email.js");
+  await sendEmail({
+    agentId: input.atlasId,
+    agentName: input.atlasName,
+    to,
+    subject: input.subject,
+    html: input.html,
+    replyToAgentId: input.atlasId,
+  });
+}
+
+function renderScopeApprovedNotice(prospect: {
+  id: string;
+  token: string;
+  contactName: string | null;
+  businessName: string | null;
+  email: string;
+}): string {
+  const portalBase = process.env.CLIENT_PORTAL_URL ?? "https://client-portal-production-77a9.up.railway.app";
+  const proposalUrl = `${portalBase}/proposals/${prospect.token}`;
+  const contact = prospect.contactName ?? "(no name)";
+  const business = prospect.businessName ?? "—";
+  return `<div style="font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; max-width: 560px; margin: 0 auto; padding: 28px 24px; background: #ffffff; color: #171717;">
+  <p style="font-size: 14px; color: #404040; margin: 0 0 14px; line-height: 1.6;"><strong style="color: #00b3b3;">Scope approved.</strong> Time to draft a quote.</p>
+  <table style="width: 100%; border-collapse: collapse; margin: 0 0 18px; font-size: 13.5px;">
+    <tr><td style="padding: 4px 0; color: #737373; width: 100px;">Contact</td><td style="padding: 4px 0; color: #171717;">${escapeHtmlBasic(contact)} &lt;${escapeHtmlBasic(prospect.email)}&gt;</td></tr>
+    <tr><td style="padding: 4px 0; color: #737373;">Business</td><td style="padding: 4px 0; color: #171717;">${escapeHtmlBasic(business)}</td></tr>
+    <tr><td style="padding: 4px 0; color: #737373;">Prospect ID</td><td style="padding: 4px 0; color: #171717; font-family: 'SF Mono', Menlo, monospace; font-size: 12px;">${prospect.id}</td></tr>
+  </table>
+  <p style="font-size: 13.5px; color: #404040; margin: 0 0 18px; line-height: 1.6;">Proposal: <a href="${proposalUrl}" style="color: #00b3b3;">${proposalUrl}</a></p>
+  <p style="font-size: 12.5px; color: #a3a3a3; margin: 18px 0 0;">Atlas will auto-generate a draft PRD for this prospect in the background. You'll get another email when it's ready to review.</p>
+</div>`;
+}
+
+function escapeHtmlBasic(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
 
 function renderProposalTeaserEmail(
   prospect: { contactName: string | null; businessName: string | null },

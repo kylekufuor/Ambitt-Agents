@@ -1,4 +1,5 @@
 import prisma from "@/lib/db";
+import Link from "next/link";
 
 // Read-only prospects list. Step 3 of the prospects flow (find-or-create
 // shipped Step 1, public /onboard entry Step 2). Step 4 adds an Add-prospect
@@ -28,6 +29,8 @@ export default async function ProspectsPage() {
       businessName: true,
       status: true,
       presentationGeneratedAt: true,
+      prdGeneratedAt: true,
+      prdApprovedAt: true,
       lastActivityAt: true,
       createdAt: true,
     },
@@ -66,6 +69,7 @@ export default async function ProspectsPage() {
                 <th className="text-left font-medium px-4 py-3">Status</th>
                 <th className="text-left font-medium px-4 py-3">Last activity</th>
                 <th className="text-left font-medium px-4 py-3">Proposal</th>
+                <th className="text-left font-medium px-4 py-3">PRD</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -94,6 +98,22 @@ export default async function ProspectsPage() {
                       >
                         View →
                       </a>
+                    ) : (
+                      <span className="text-muted-foreground/60 text-xs">—</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    {p.prdGeneratedAt ? (
+                      <Link
+                        href={`/prospects/${p.id}/prd`}
+                        className={`text-xs font-medium ${
+                          p.prdApprovedAt
+                            ? "text-emerald-400 hover:text-emerald-300"
+                            : "text-amber-400 hover:text-amber-300"
+                        }`}
+                      >
+                        {p.prdApprovedAt ? "Approved →" : "Review →"}
+                      </Link>
                     ) : (
                       <span className="text-muted-foreground/60 text-xs">—</span>
                     )}

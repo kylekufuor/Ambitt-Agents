@@ -599,6 +599,15 @@ model Prospect {
   presentationHtml         String?   @db.Text
   presentationGeneratedAt  DateTime?
 
+  // PRD = internal Product Requirements / agent spec drafted by Atlas after
+  // scope approval (status: quote_pending). Kyle reviews in the dashboard,
+  // approves to lock the spec the quote is drafted from, and on Client
+  // conversion the Agent row gets auto-scaffolded from this. Shape mirrors
+  // oracle/templates/prd/types.ts AgentPRDData.
+  prdData                  Json?
+  prdGeneratedAt           DateTime?
+  prdApprovedAt            DateTime?
+
   // Atlas-drafted quote, pending Kyle's review. Shape:
   // { setupFeeCents, monthlyRetainerCents, pricingTier, reasoning, terms }
   quoteDraft               Json?
