@@ -54,7 +54,10 @@ const AUTONOMY_OPTIONS = [
   { key: "Semi-autonomous", title: "Semi-autonomous", desc: "Informs me but doesn't ask. I see what it did each day, but it doesn't wait on me." },
   { key: "Autonomous", title: "Autonomous", desc: "Runs on its own. Escalates only on edge cases or hard exceptions." },
 ];
-const BUDGET_OPTIONS = ["$500 – $1k", "$1k – $2.5k", "$2.5k – $5k", "$5k – $10k", "$10k+", "Not sure yet"];
+// Budget question removed 2026-05-22 — prospects almost always anchored to the
+// floor regardless of actual scope, producing unreliable signal. Pricing now
+// flows entirely through the post-approval quote (consultant pattern); the PRD
+// drives the price, not a self-reported budget bucket.
 
 const AGENT_ROLE_OPTIONS = [
   "Lead generation / outreach",
@@ -150,7 +153,6 @@ export function OnboardForm({ token, prospectId, initial, status }: OnboardFormP
     cadence: "On a schedule",
     channel: "Email",
     autonomy: "Supervised",
-    budget: "$500 – $1k",
     todayHandler: "I do it myself",
     ...initial,
   });
@@ -934,17 +936,13 @@ function LimitsSlide({
     <ChapterShell
       num="05"
       name={<>Hard <span className="accent">limits</span></>}
-      quote="Budget I can work within, plus anything that should be a hard 'no.'"
-      contentTag="BUDGET · GUARDRAILS"
+      quote="Anything that should be a hard 'no' for this agent."
+      contentTag="GUARDRAILS"
       title="Any hard limits?"
-      helper="Budget range, plus anything the agent should never do."
+      helper="Things the agent should never do or topics it should stay out of."
       onBack={onBack}
       onNext={onNext}
     >
-      <Field label="Budget range">
-        <Pills options={BUDGET_OPTIONS} value={values.budget ?? "$500 – $1k"} onChange={(v) => set("budget", v)} />
-        <div className="fa-field-helper" style={{ marginTop: 8 }}>Per month. We&apos;ll firm up pricing after Atlas drafts the scope.</div>
-      </Field>
       <Field label="What should the agent never do?" helper="Common no-go&apos;s — pick all that apply.">
         <CheckPills options={NEVER_DO_OPTIONS} selected={multi.neverDoTags ?? []} onToggle={(v) => toggleMulti("neverDoTags", v)} />
         <OptionalDetail>Anything else specific to your business?</OptionalDetail>
@@ -1077,7 +1075,6 @@ function ReviewSlide({
       section: "05 · Constraints",
       editSlide: 5,
       rows: [
-        { key: "Budget", value: values.budget || "—", muted: !values.budget },
         { key: "Never do", value: neverDo || "—", muted: !neverDo },
         { key: "Other rules", value: values.redLines || "Nothing specified", muted: !values.redLines },
       ],

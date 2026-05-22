@@ -1368,7 +1368,6 @@ function buildAtlasProposalPrompt(prospect: {
 })()}
 - Never-do guardrails (multi-select chips): ${get("neverDoTags") || "(none selected)"}
 - Other rules (optional): ${get("redLines") || "(not provided)"}
-- Budget bucket: ${get("budget") || "(not provided)"}
 
 # Their SOPs / docs (pasted notes + uploaded files concatenated)
 ${sopBlock}
@@ -1466,7 +1465,7 @@ interface ProposalEmailData {
   },
   "cta": {
     "headline": "If this feels right, approve it.",
-    "subtext": "Pricing and timeline come after you approve scope — we'll handle those next.",
+    "subtext": "Pricing comes after you approve scope — we'll send a quote within the same business day. Builds typically run 2–8 weeks from quote acceptance depending on scope.",
     "primaryLabel": "Approve",
     "primaryUrl": "<approve url goes here>",
     "secondaryLabel": "Make changes",
@@ -1500,7 +1499,8 @@ Do NOT skip the review. Do NOT emit JSON before calling \`request_review\`.
 - **greeting.name = the prospect's preferred first name** ("${get("preferredName") || firstName}").
 - **Name the agent throughout.** If the prospect gave a name (\`${get("agentName") || "(none)"}\`) and role (\`${get("agentRole") || "(none)"}\`), use them in: \`hero.title\` (e.g. "Meet Bob,<br>your lead-gen agent."), \`whatWeBuild.headline\` (a job-title that builds on their chosen role), \`flow.steps[].description\` (refer to the agent BY NAME — "Bob hunts…", "Bob drafts…"), \`digest.cardTitle\` (e.g., "Bob's Daily Report"), and \`sample.card.signature\` if the sample artifact is sent from your client's brand (NOT from the agent itself — sign as the client's business, never as the agent). If the prospect did NOT provide a name, propose one in your response that fits their brand voice; if they did NOT provide a role, infer one from their pitch.
 - **hero.status = { text: "Pending your review", tone: "warn" }.**
-- **Do NOT include pricing, retainer, setup fee, or timeline.** That's the cta.subtext's reassurance only.
+- **Do NOT include pricing, retainer, or setup fee anywhere in the proposal.** That's drafted separately as the quote after scope approval.
+- **cta.subtext MUST mention the build-time window**: "Builds typically run 2–8 weeks from quote acceptance depending on scope." Phrase it naturally into the subtext (the example above shows one good way) — Atlas owns the exact wording but the 2–8 weeks fact must be there.
 - **Do NOT promise capabilities the platform doesn't have.** If they asked for something genuinely impossible, soften it in whatWeBuild and propose a realistic version.
 - **Speak as we / our team.** Never name an individual operator. The brand is Ambitt Agents.
 - **Write like a human, not like AI.** Avoid: "leverage", "comprehensive", "robust", "seamless", "delve into", "in today's fast-paced world", "it's worth noting", "furthermore", "moreover", "indeed", "truly", "incredibly". Avoid tricolon reflex ("X, Y, and Z" everywhere) and em-dash overuse. Use contractions. Vary sentence length. Sometimes start with "And" or "But". If you'd say it that way in a Slack DM to a smart colleague, ship it. If it reads like a press release, rewrite shorter.

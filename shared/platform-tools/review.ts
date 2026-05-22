@@ -136,6 +136,7 @@ Reject (approved: false) if ANY of the following are true. Each defect must beco
 
 ## Forbidden content
 - Any dollar amount, price, retainer, hourly rate, setup fee, or pricing tier appears anywhere. Pricing is drafted separately by humans AFTER scope is approved. Even "starting at $X" or "around $X" is forbidden in proposals.
+- **Timeline note — ALLOWED only in cta.subtext, and only the canonical phrasing.** The proposal MUST mention the build-time window ("2–8 weeks from quote acceptance depending on scope") in cta.subtext. Atlas can phrase it naturally, but the 2–8 week fact must be there. Reject if cta.subtext is MISSING the build-window mention, OR if any other field mentions a specific timeline / number of weeks / launch date.
 - Any "we can do anything", "any task you can imagine", "unlimited capabilities", "AI can solve any problem" overclaim. We sell specific agents that do specific things — never magic.
 - Any naming of an individual operator ("Kyle", "Kyle Kufuor", "Kyle from Ambitt", "Kyle's team", "I work with Kyle"). Ambitt speaks as "we" / "our team" / the brand. The ONE exception: a sample artifact's signature can be a real human name IF the sample is FROM the client themselves (e.g. a cold-email draft signed by the prospect). It must never be the agent name signing as a human.
 - Markdown code fences, "Here's the JSON:", "I've prepared", "Let me know if", any conversational preamble or postamble inside string fields. The strings are rendered as-is into a polished email.
