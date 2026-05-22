@@ -813,13 +813,14 @@ function AboutYouSlide({
 // ---------------------------------------------------------------------------
 
 function OneSentenceSlide({ values, set, onBack, onNext }: { values: Record<string, string>; set: (k: string, v: string) => void; onBack: () => void; onNext: () => void }) {
+  const agentLabel = values.agentName?.trim() || "your agent";
   return (
     <ChapterShell
       num="02"
       name={<>The one <span className="accent">sentence</span></>}
       quote="The most important question. Take a beat with it — I'll work with whatever you write."
       contentTag="THE AGENT'S JOB"
-      title="In one sentence — what should this agent do for you?"
+      title={`In one sentence — what should ${agentLabel} do for you?`}
       helper="Don't overthink it. We'll refine together if anything's unclear."
       anchor
       onBack={onBack}
@@ -846,14 +847,15 @@ function JobDeeperSlide({
   onBack: () => void;
   onNext: () => void;
 }) {
+  const agentLabel = values.agentName?.trim() || "your agent";
   return (
     <ChapterShell
       num="03"
       name={<>The <span className="accent">job</span>,<br />deeper</>}
-      quote="What changes when the agent shows up — and what 'good' looks like three months out."
+      quote={`What changes when ${agentLabel} shows up — and what 'good' looks like three months out.`}
       contentTag="SUCCESS & CADENCE"
       title="Let's go deeper on the job."
-      helper="What changes when the agent is in place, what success looks like, and how often it should run."
+      helper={`What changes when ${agentLabel} is in place, what success looks like, and how often it should run.`}
       onBack={onBack}
       onNext={onNext}
     >
@@ -891,26 +893,27 @@ function HowItWorksSlide({
   onBack: () => void;
   onNext: () => void;
 }) {
+  const agentLabel = values.agentName?.trim() || "your agent";
   return (
     <ChapterShell
       num="04"
       name={<>How it <span className="accent">works</span></>}
-      quote="Where the agent shows up, how much rope it has, and how it should sound when it speaks for you."
+      quote={`Where ${agentLabel} shows up, how much rope it has, and how it should sound when it speaks for you.`}
       contentTag="CHANNEL · AUTONOMY · VOICE"
-      title="How should the agent operate?"
+      title={`How should ${agentLabel} operate?`}
       helper="Where it shows up, how much rope it has, and how it should sound."
       onBack={onBack}
       onNext={onNext}
     >
-      <Field label="How should the agent reach you?">
+      <Field label={`How should ${agentLabel} reach you?`}>
         <Pills options={CHANNEL_OPTIONS} value={values.channel ?? "Email"} onChange={(v) => set("channel", v)} />
       </Field>
       <Field label="How much rope should it have?">
         <Cards options={AUTONOMY_OPTIONS} value={values.autonomy ?? "Supervised"} onChange={(v) => set("autonomy", v)} />
       </Field>
-      <Field label="How should the agent sound when it speaks for you?" helper="Pick 2–3 that fit best.">
+      <Field label={`How should ${agentLabel} sound when it speaks for you?`} helper="Pick 2–3 that fit best.">
         <CheckPills options={TONE_OPTIONS} selected={multi.toneTags ?? []} onToggle={(v) => toggleMulti("toneTags", v)} />
-        <OptionalDetail>Or paste 2–3 samples of how you sound — the agent will mirror them:</OptionalDetail>
+        <OptionalDetail>Or paste 2–3 samples of how you sound — {agentLabel} will mirror them:</OptionalDetail>
         <Textarea value={values.brandVoice ?? ""} onChange={(e) => set("brandVoice", e.target.value)} placeholder="An email, LinkedIn post, or internal memo…" />
       </Field>
     </ChapterShell>
@@ -931,18 +934,19 @@ function LimitsSlide({
   onBack: () => void;
   onNext: () => void;
 }) {
+  const agentLabel = values.agentName?.trim() || "your agent";
   return (
     <ChapterShell
       num="05"
       name={<>Hard <span className="accent">limits</span></>}
-      quote="Anything that should be a hard 'no' for this agent."
+      quote={`Anything that should be a hard 'no' for ${agentLabel}.`}
       contentTag="GUARDRAILS"
       title="Any hard limits?"
-      helper="Things the agent should never do or topics it should stay out of."
+      helper={`Things ${agentLabel} should never do or topics it should stay out of.`}
       onBack={onBack}
       onNext={onNext}
     >
-      <Field label="What should the agent never do?" helper="Common no-go&apos;s — pick all that apply.">
+      <Field label={`What should ${agentLabel} never do?`} helper="Common no-go&apos;s — pick all that apply.">
         <CheckPills options={NEVER_DO_OPTIONS} selected={multi.neverDoTags ?? []} onToggle={(v) => toggleMulti("neverDoTags", v)} />
         <OptionalDetail>Anything else specific to your business?</OptionalDetail>
         <Textarea value={values.redLines ?? ""} onChange={(e) => set("redLines", e.target.value)} placeholder="Industry-specific rules, scope boundaries, words to avoid…" />
@@ -969,19 +973,20 @@ function ToolsSlide({
   onBack: () => void;
   onNext: () => void;
 }) {
+  const agentLabel = values.agentName?.trim() || "your agent";
   return (
     <ChapterShell
       num="06"
       name={<>Tools &amp;<br /><span className="accent">procedures</span></>}
-      quote="What tools the agent needs access to — and any process docs that describe how this work is done today."
+      quote={`What tools ${agentLabel} needs access to — and any process docs that describe how this work is done today.`}
       contentTag="ACCESS & PLAYBOOKS"
       title="Last thing — what should it connect to?"
-      helper="Any tools, systems, or process docs the agent should know about."
+      helper={`Any tools, systems, or process docs ${agentLabel} should know about.`}
       onBack={onBack}
       onNext={onNext}
     >
       <Field
-        label="What tools will the agent need access to?"
+        label={`What tools will ${agentLabel} need access to?`}
         helper="Start typing — we'll match against 250+ Composio integrations. Don't see your tool? Type it and press Enter to add it as a custom app."
       >
         <ToolPicker tools={tools} setTools={setTools} />
