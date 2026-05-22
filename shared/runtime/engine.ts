@@ -446,7 +446,7 @@ const BUILTIN_CLAUDE_TOOLS: Anthropic.Messages.Tool[] = [
   },
   // --- Ops query tools — OPERATOR-ONLY ---
   // Read-only views into the business state. Available to Atlas in
-  // operator-mode (sender === KYLE_EMAIL). Soft-gated via the operator-mode
+  // operator-mode (sender === OPERATOR_EMAIL). Soft-gated via the operator-mode
   // prompt prefix — these tool descriptions also say OPERATOR-ONLY so a
   // client/prospect run won't call them spuriously.
   {

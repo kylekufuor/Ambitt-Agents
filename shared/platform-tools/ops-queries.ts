@@ -3,7 +3,7 @@ import prisma from "../db.js";
 // ---------------------------------------------------------------------------
 // Atlas's ops-assistant toolbox — read-only views into the business state
 // for the platform operator (Kyle). Only intended for use in operator-mode
-// runs (sender === KYLE_EMAIL, gated by the operator-mode prompt prefix).
+// runs (sender === OPERATOR_EMAIL, gated by the operator-mode prompt prefix).
 //
 // Each function does a single Prisma query + formats the result as plain
 // text Claude can read and weave into a natural reply. Returning text (not

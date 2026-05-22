@@ -33,7 +33,7 @@ export interface DispatchInput {
   // Override the reply-to recipient. Default behaviour (when omitted) is to
   // send to agent.client.email — the right thing for scheduled runs and
   // client conversations. Inbound-email replies should override this with the
-  // actual sender (operator-mode → KYLE_EMAIL; prospect-mode → prospect.email)
+  // actual sender (operator-mode → OPERATOR_EMAIL; prospect-mode → prospect.email)
   // so the reply goes where the email came from, not to Atlas's owning client.
   recipientEmail?: string;
 }

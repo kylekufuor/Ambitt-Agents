@@ -69,21 +69,13 @@ function parseEmailFromHeader(fromHeader: string): string | null {
   return trimmed.includes("@") ? trimmed : null;
 }
 
-// Build the platform-operator allowlist from env vars. Both contribute to
-// the set (additive) so existing KYLE_EMAIL deploys keep working when
-// PLATFORM_OPERATORS is added later:
-//   KYLE_EMAIL=kyle@x.com                            → {kyle@x.com}
-//   PLATFORM_OPERATORS=alice@x.com,bob@x.com         → {alice, bob}
-//   both set                                         → {kyle, alice, bob}
+// Build the platform-operator allowlist from env. For now this is a single
+// value (OPERATOR_EMAIL) — the one address that can cold-email Atlas to
+// drive ops-mode actions. Returning a Set keeps the shape ready for a
+// comma-separated multi-operator value later without touching callers.
 function getOperatorAllowlist(): Set<string> {
-  const sources = [process.env.KYLE_EMAIL ?? "", process.env.PLATFORM_OPERATORS ?? ""];
-  const list = sources
-    .join(",")
-    .toLowerCase()
-    .split(",")
-    .map((s) => s.trim())
-    .filter((s) => s.length > 0);
-  return new Set(list);
+  const raw = (process.env.OPERATOR_EMAIL ?? "").toLowerCase().trim();
+  return new Set(raw.length > 0 ? [raw] : []);
 }
 
 // Inbound-email authorization. Different rules by routing path:
@@ -954,7 +946,7 @@ app.post("/webhooks/email-inbound", async (req: Request, res: Response) => {
       return;
     }
 
-    // Platform-operator path — when Kyle (KYLE_EMAIL) emails a platform agent
+    // Platform-operator path — when Kyle (OPERATOR_EMAIL) emails a platform agent
     // directly, prepend operator-mode instructions so the agent knows it's
     // not talking to a prospect/client and can use ops tools like
     // spawn_prospect. The agent's permanent system prompt stays the same;
@@ -1293,7 +1285,7 @@ app.post("/onboarding/prospects/:id/event", async (req: Request, res: Response) 
       // this is the human-loop notification so Kyle knows to draft the quote.
       // WhatsApp isn't wired in prod yet — using email until it is. Atlas is
       // the sender (so the operator sees it threaded with their prospect
-      // history) and KYLE_EMAIL is the recipient.
+      // history) and OPERATOR_EMAIL is the recipient.
       try {
         await notifyOps({
           atlasId: atlas.id,
@@ -2542,7 +2534,7 @@ function renderPRDReadyNotice(
 // ---------------------------------------------------------------------------
 // Operator-mode message prefix
 // ---------------------------------------------------------------------------
-// When KYLE_EMAIL emails a platform agent (auth.senderType="platform_operator"),
+// When OPERATOR_EMAIL emails a platform agent (auth.senderType="platform_operator"),
 // we wrap the raw email body with explicit instructions so the agent knows
 // it's in ops mode rather than client/prospect mode. Keeps the agent's
 // permanent system prompt clean — the operator path is rare and contextual.
@@ -2601,8 +2593,8 @@ ${emailBody.trim()}
 // ---------------------------------------------------------------------------
 // Email-to-Kyle helper for system events that used to go via WhatsApp.
 // Sender is always Atlas (most ops events relate to a prospect Atlas is
-// running for); recipient is KYLE_EMAIL. Swap to whatsapp.ts when Twilio is
-// wired in prod.
+// running for); recipient is OPERATOR_EMAIL. Swap to whatsapp.ts when Twilio
+// is wired in prod.
 
 async function notifyOps(input: {
   atlasId: string;
@@ -2610,9 +2602,9 @@ async function notifyOps(input: {
   subject: string;
   html: string;
 }): Promise<void> {
-  const to = process.env.KYLE_EMAIL;
+  const to = process.env.OPERATOR_EMAIL;
   if (!to) {
-    logger.warn("notifyOps: KYLE_EMAIL not set, skipping ops notification", { subject: input.subject });
+    logger.warn("notifyOps: OPERATOR_EMAIL not set, skipping ops notification", { subject: input.subject });
     return;
   }
   const { sendEmail } = await import("../shared/email.js");
