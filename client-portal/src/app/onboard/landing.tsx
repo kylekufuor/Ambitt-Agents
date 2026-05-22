@@ -99,7 +99,7 @@ export default function OnboardLanding() {
             <div className="fa-agent-frame"><AtlasSingle width={50} height={72} /></div>
             <div className="fa-h-title">Let&apos;s build<br />your agent.</div>
             <p className="fa-hero-body">
-              Hey there! I&apos;m <strong>Atlas</strong> from the Ambitt team. Tell me who you are and we&apos;ll get started.
+              Hey there! I&apos;m <strong>Atlas</strong>{" "}from the Ambitt team. Tell me who you are and we&apos;ll get started.
             </p>
             <p className="fa-hero-body">
               The more detail you share over the next 5–10 minutes, the sharper your custom proposal will be — usually back in your inbox within 30 minutes.
