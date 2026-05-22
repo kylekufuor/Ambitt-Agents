@@ -683,27 +683,14 @@ app.post("/webhooks/email-inbound", async (req: Request, res: Response) => {
       return;
     }
 
-    // Fetch full email content from Resend API
-    const resendKey = process.env.RESEND_API_KEY;
-    if (!resendKey) {
-      res.status(500).json({ error: "RESEND_API_KEY not configured" });
-      return;
-    }
-
-    const emailRes = await fetch(`https://api.resend.com/emails/${emailId}`, {
-      headers: { Authorization: `Bearer ${resendKey}` },
-    });
-
-    if (!emailRes.ok) {
-      const errBody = await emailRes.text();
-      logger.error("Failed to fetch inbound email from Resend", { emailId, status: emailRes.status, body: errBody });
-      res.status(502).json({ error: "Failed to fetch email content from Resend" });
-      return;
-    }
-
-    const emailData = await emailRes.json();
-    const from = emailData.from ?? event.data?.from ?? "";
-    const subject = (emailData.subject ?? event.data?.subject ?? "").toUpperCase().trim();
+    // Resend's email.received webhook ships the FULL inbound email content
+    // in event.data — text, html, attachments, headers, the lot. The earlier
+    // code path tried to fetch GET /emails/{id} from Resend's API, which only
+    // returns OUTBOUND emails (re_… IDs). Inbound emails use UUID IDs and
+    // aren't retrievable that way → 502 every time. Just read the payload.
+    const emailData = (event.data ?? {}) as Record<string, unknown>;
+    const from = (typeof emailData.from === "string" ? emailData.from : "") || "";
+    const subject = ((typeof emailData.subject === "string" ? emailData.subject : "") || "").toUpperCase().trim();
 
     // Sender authorization. Only the agent's owner client (or, for platform
     // agents like Atlas, an active Prospect) can drive an agent run. Anyone
@@ -877,13 +864,16 @@ app.post("/webhooks/email-inbound", async (req: Request, res: Response) => {
       return;
     }
 
-    let messageContent = emailData.text || emailData.html || "";
+    let messageContent: string =
+      (typeof emailData.text === "string" ? emailData.text : "") ||
+      (typeof emailData.html === "string" ? emailData.html : "") ||
+      "";
 
     // Parse attachments if present
     if (Array.isArray(emailData.attachments) && emailData.attachments.length > 0) {
       // Fetch attachment content from the raw signed URL
       const attachmentsWithContent = [];
-      for (const att of emailData.attachments) {
+      for (const att of emailData.attachments as Array<{ filename?: string; content_type?: string; content?: string }>) {
         try {
           // If Resend provides a download URL via the raw field, fetch it
           // Otherwise use the attachment data directly
