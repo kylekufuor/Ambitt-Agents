@@ -969,12 +969,16 @@ app.post("/onboard", async (req: Request, res: Response) => {
 // their session. No magic-link auth on resume — that ships if/when this
 // becomes a real attack surface.
 //
-// `sendEmail` is wired in step 4 (dashboard add-prospect flow). v1 ignores it.
+// When `sendEmail: true`, Atlas emails the prospect a slim teaser containing
+// their personal /onboard/[token] link. Used by the dashboard "Add prospect"
+// flow when Kyle has a warm lead's email but they haven't filled the form
+// yet. Public-form callers omit/false this — the user is already in the form.
 app.post("/onboarding/prospects/find-or-create", async (req: Request, res: Response) => {
   try {
     const body = req.body as { name?: string; email?: string; sendEmail?: boolean };
     const rawEmail = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
     const name = typeof body.name === "string" ? body.name.trim() : "";
+    const shouldEmail = body.sendEmail === true;
 
     if (!rawEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawEmail)) {
       res.status(400).json({ error: "valid email required" });
@@ -990,6 +994,14 @@ app.post("/onboarding/prospects/find-or-create", async (req: Request, res: Respo
       const update: Record<string, unknown> = { lastActivityAt: new Date() };
       if (name && name !== existing.contactName) update.contactName = name;
       await prisma.prospect.update({ where: { id: existing.id }, data: update });
+
+      // Even on resume — if sendEmail=true (dashboard "nudge them") we email
+      // the link again. Resend handles dedup gracefully if they got it before.
+      if (shouldEmail) {
+        await sendOnboardLinkTeaser(existing.id, existing.token, name || existing.contactName, rawEmail).catch(
+          (err) => logger.warn("Onboard-link email failed (resume path)", { prospectId: existing.id, err })
+        );
+      }
 
       res.json({
         prospectId: existing.id,
@@ -1024,6 +1036,13 @@ app.post("/onboarding/prospects/find-or-create", async (req: Request, res: Respo
         },
       });
       logger.info("Prospect revived from archived/ghosted", { prospectId: revived.id, email: rawEmail });
+
+      if (shouldEmail) {
+        await sendOnboardLinkTeaser(revived.id, revived.token, revived.contactName, rawEmail).catch(
+          (err) => logger.warn("Onboard-link email failed (revived path)", { prospectId: revived.id, err })
+        );
+      }
+
       res.json({
         prospectId: revived.id,
         token: revived.token,
@@ -1044,6 +1063,13 @@ app.post("/onboarding/prospects/find-or-create", async (req: Request, res: Respo
       },
     });
     logger.info("Prospect created", { prospectId: created.id, email: rawEmail });
+
+    if (shouldEmail) {
+      await sendOnboardLinkTeaser(created.id, created.token, created.contactName, rawEmail).catch(
+        (err) => logger.warn("Onboard-link email failed (create path)", { prospectId: created.id, err })
+      );
+    }
+
     res.json({
       prospectId: created.id,
       token: created.token,
@@ -1056,6 +1082,51 @@ app.post("/onboarding/prospects/find-or-create", async (req: Request, res: Respo
     res.status(500).json({ error: "find-or-create failed" });
   }
 });
+
+// Helper for the sendEmail path — best-effort, doesn't block the response.
+async function sendOnboardLinkTeaser(
+  prospectId: string,
+  token: string,
+  contactName: string | null,
+  email: string
+): Promise<void> {
+  const atlas = await prisma.agent.findUnique({
+    where: { email: "atlas@ambitt.agency" },
+    select: { id: true, name: true },
+  });
+  if (!atlas) {
+    logger.warn("sendOnboardLinkTeaser: Atlas not seeded, skipping", { prospectId });
+    return;
+  }
+  const portalBase = process.env.CLIENT_PORTAL_URL ?? "https://client-portal-production-77a9.up.railway.app";
+  const onboardUrl = `${portalBase}/onboard/${token}`;
+  const firstName = (contactName ?? "").trim().split(/\s+/)[0] || "there";
+  const { sendEmail } = await import("../shared/email.js");
+  await sendEmail({
+    agentId: atlas.id,
+    agentName: atlas.name,
+    to: email,
+    subject: "Your custom-agent onboarding link",
+    html: `<div style="font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; max-width: 560px; margin: 0 auto; padding: 32px 24px; background: #ffffff; color: #171717;">
+  <div style="margin-bottom: 28px;">
+    <img src="${portalBase}/brand/ambitt-agents-lockup.svg" alt="Ambitt Agents" width="220" height="27" style="display: block; max-width: 220px; height: auto;" />
+  </div>
+  <p style="font-size: 15px; color: #404040; margin: 0 0 16px; line-height: 1.6;">Hey ${escapeHtmlBasic(firstName)},</p>
+  <p style="font-size: 15px; color: #404040; margin: 0 0 24px; line-height: 1.6;">
+    Here's your onboarding link. Takes about 5–10 minutes — we'll ask about your business, what you want your agent to do, and any tools or SOPs you have. Once you're done, we'll send back a tailored proposal within 30 minutes.
+  </p>
+  <div style="margin: 0 0 28px;">
+    <a href="${onboardUrl}" style="display: inline-block; padding: 14px 30px; background: #00b3b3; color: #ffffff; text-decoration: none; border-radius: 9px; font-size: 15px; font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,0.05), 0 4px 12px rgba(0, 179, 179, 0.28);">Start onboarding →</a>
+  </div>
+  <p style="font-size: 13px; color: #737373; margin: 0 0 8px; line-height: 1.6;">
+    Your progress saves automatically — you can pause and come back any time.
+  </p>
+  <p style="font-size: 13px; color: #a3a3a3; margin: 32px 0 0;">— Atlas, your onboarding agent at Ambitt Agents</p>
+</div>`,
+    replyToAgentId: atlas.id,
+  });
+  logger.info("Onboard-link teaser sent", { prospectId, to: email });
+}
 
 function newProspectToken(): string {
   // 24-char URL-safe random. Matches the visual length of the existing

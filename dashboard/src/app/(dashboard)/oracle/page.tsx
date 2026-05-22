@@ -1,5 +1,5 @@
 import prisma from "@/lib/db";
-import { redirect } from "next/navigation";
+import Link from "next/link";
 import { OracleActivityLog } from "./oracle-actions";
 import { OracleOrb } from "@/components/oracle-orb";
 
@@ -15,11 +15,15 @@ interface ImprovementSuggestion {
 async function getOracleData() {
   const now = new Date();
 
-  const [pendingApprovals, agents, oracleActions, improvementActions] = await Promise.all([
+  // Sales-pipeline queues — surface what needs Kyle's action so /oracle is the
+  // one-glance "what do I do right now" view instead of just fleet ops.
+  const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+  const [pendingApprovals, agents, oracleActions, improvementActions, scaffoldedFromProspects, prdsPendingReview, quotesAwaitingConvert, recentQuoteDecisions] = await Promise.all([
     prisma.agent.findMany({
       where: { status: "pending_approval" },
       include: {
-        client: { select: { businessName: true, industry: true } },
+        client: { select: { id: true, businessName: true, industry: true } },
       },
       orderBy: { createdAt: "desc" },
     }),
@@ -41,7 +45,78 @@ async function getOracleData() {
       orderBy: { createdAt: "desc" },
       take: 3,
     }),
+    // Look up source prospects for any pending agents — Phase-D-scaffolded
+    // agents originated from a Prospect.convertedClientId; the "View PRD"
+    // link on the pending-approval card sends Kyle to /prospects/[id]/prd
+    // so he can review the full spec before approving.
+    prisma.prospect.findMany({
+      where: { convertedClientId: { not: null } },
+      select: { id: true, convertedClientId: true },
+    }),
+    // PRDs generated but Kyle hasn't approved yet — soft queue. Limit 10 so
+    // the panel stays scannable; if there are more it's a sign Kyle should
+    // batch-review.
+    prisma.prospect.findMany({
+      where: {
+        prdGeneratedAt: { not: null },
+        prdApprovedAt: null,
+        status: { notIn: ["archived", "ghosted"] },
+      },
+      orderBy: { prdGeneratedAt: "desc" },
+      take: 10,
+      select: {
+        id: true,
+        contactName: true,
+        businessName: true,
+        email: true,
+        prdGeneratedAt: true,
+        status: true,
+      },
+    }),
+    // Quotes accepted but not yet converted to Client+Agent — Kyle's action:
+    // click Convert + Scaffold.
+    prisma.prospect.findMany({
+      where: {
+        quoteAcceptedAt: { not: null },
+        convertedClientId: null,
+        status: { notIn: ["archived", "ghosted"] },
+      },
+      orderBy: { quoteAcceptedAt: "desc" },
+      take: 10,
+      select: {
+        id: true,
+        contactName: true,
+        businessName: true,
+        email: true,
+        quoteAcceptedAt: true,
+      },
+    }),
+    // Recent quote decisions (approved + denied) — for awareness even after
+    // Kyle's acted on them. Past 7 days.
+    prisma.prospect.findMany({
+      where: {
+        OR: [
+          { quoteAcceptedAt: { gte: oneWeekAgo } },
+          { quoteDeniedAt: { gte: oneWeekAgo } },
+        ],
+      },
+      orderBy: [{ quoteAcceptedAt: "desc" }, { quoteDeniedAt: "desc" }],
+      take: 15,
+      select: {
+        id: true,
+        contactName: true,
+        businessName: true,
+        quoteAcceptedAt: true,
+        quoteDeniedAt: true,
+        quoteDeniedReason: true,
+        convertedClientId: true,
+      },
+    }),
   ]);
+  const prospectByClient = new Map<string, string>();
+  for (const p of scaffoldedFromProspects) {
+    if (p.convertedClientId) prospectByClient.set(p.convertedClientId, p.id);
+  }
 
   // Fleet summary
   const statusCounts = { active: 0, pending: 0, paused: 0, killed: 0 };
@@ -82,13 +157,17 @@ async function getOracleData() {
     suggestions,
     lastHealthCheck,
     totalAgents: agents.length,
+    prospectByClient,
+    prdsPendingReview,
+    quotesAwaitingConvert,
+    recentQuoteDecisions,
   };
 }
 
 async function approveAction(formData: FormData) {
   "use server";
   const agentId = formData.get("agentId") as string;
-  const oracleUrl = process.env.ORACLE_URL ?? "https://ambitt-agents-production.up.railway.app";
+  const oracleUrl = process.env.ORACLE_URL ?? "https://oracle-production-c0ff.up.railway.app";
   await fetch(`${oracleUrl}/agents/${agentId}/approve`, { method: "POST" });
   const { redirect } = await import("next/navigation");
   redirect("/oracle");
@@ -97,7 +176,7 @@ async function approveAction(formData: FormData) {
 async function rejectAction(formData: FormData) {
   "use server";
   const agentId = formData.get("agentId") as string;
-  const oracleUrl = process.env.ORACLE_URL ?? "https://ambitt-agents-production.up.railway.app";
+  const oracleUrl = process.env.ORACLE_URL ?? "https://oracle-production-c0ff.up.railway.app";
   await fetch(`${oracleUrl}/agents/${agentId}/reject`, { method: "POST" });
   const { redirect } = await import("next/navigation");
   redirect("/oracle");
@@ -105,7 +184,7 @@ async function rejectAction(formData: FormData) {
 
 async function runFleetHealthAction() {
   "use server";
-  const oracleUrl = process.env.ORACLE_URL ?? "https://ambitt-agents-production.up.railway.app";
+  const oracleUrl = process.env.ORACLE_URL ?? "https://oracle-production-c0ff.up.railway.app";
   await fetch(`${oracleUrl}/cron/fleet-health`, { method: "POST" });
   const { redirect } = await import("next/navigation");
   redirect("/oracle");
@@ -113,7 +192,7 @@ async function runFleetHealthAction() {
 
 async function runImprovementAction() {
   "use server";
-  const oracleUrl = process.env.ORACLE_URL ?? "https://ambitt-agents-production.up.railway.app";
+  const oracleUrl = process.env.ORACLE_URL ?? "https://oracle-production-c0ff.up.railway.app";
   await fetch(`${oracleUrl}/cron/improvement`, { method: "POST" });
   const { redirect } = await import("next/navigation");
   redirect("/oracle");
@@ -143,6 +222,72 @@ export default async function OraclePage() {
         </div>
       </div>
 
+      {/* Sales pipeline — most-urgent funnel actions first */}
+
+      {/* Quotes accepted → click Convert (most urgent — paying-customer waiting) */}
+      {data.quotesAwaitingConvert.length > 0 && (
+        <div className="bg-emerald-500/5 border border-emerald-500/30 rounded-xl overflow-hidden">
+          <div className="px-5 py-4 border-b border-emerald-500/15 flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <h2 className="font-semibold text-emerald-300 text-[15px]">Quotes accepted — convert now</h2>
+            <span className="text-emerald-400/60 text-xs ml-auto">{data.quotesAwaitingConvert.length}</span>
+          </div>
+          <div className="divide-y divide-emerald-500/15">
+            {data.quotesAwaitingConvert.map((p) => (
+              <div key={p.id} className="px-5 py-3 flex items-center justify-between">
+                <div>
+                  <div className="font-medium text-foreground text-sm">
+                    {p.contactName ?? "(no name)"}
+                    {p.businessName && <span className="text-muted-foreground font-normal"> · {p.businessName}</span>}
+                  </div>
+                  <div className="text-muted-foreground text-xs mt-0.5">
+                    {p.email} · accepted {timeAgo(p.quoteAcceptedAt!)}
+                  </div>
+                </div>
+                <Link
+                  href={`/prospects/${p.id}/quote`}
+                  className="text-[11px] font-semibold px-3 py-1.5 rounded-md bg-emerald-500 text-white hover:bg-emerald-400"
+                >
+                  Convert →
+                </Link>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* PRDs awaiting Kyle's review */}
+      {data.prdsPendingReview.length > 0 && (
+        <div className="bg-blue-500/5 border border-blue-500/25 rounded-xl overflow-hidden">
+          <div className="px-5 py-4 border-b border-blue-500/15 flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+            <h2 className="font-semibold text-blue-300 text-[15px]">PRDs awaiting your review</h2>
+            <span className="text-blue-400/60 text-xs ml-auto">{data.prdsPendingReview.length}</span>
+          </div>
+          <div className="divide-y divide-blue-500/15">
+            {data.prdsPendingReview.map((p) => (
+              <div key={p.id} className="px-5 py-3 flex items-center justify-between">
+                <div>
+                  <div className="font-medium text-foreground text-sm">
+                    {p.contactName ?? "(no name)"}
+                    {p.businessName && <span className="text-muted-foreground font-normal"> · {p.businessName}</span>}
+                  </div>
+                  <div className="text-muted-foreground text-xs mt-0.5">
+                    {p.email} · PRD generated {timeAgo(p.prdGeneratedAt!)} · status {p.status}
+                  </div>
+                </div>
+                <Link
+                  href={`/prospects/${p.id}/prd`}
+                  className="text-[11px] font-semibold px-3 py-1.5 rounded-md bg-blue-500/15 text-blue-300 hover:bg-blue-500/25 ring-1 ring-blue-500/30"
+                >
+                  Review →
+                </Link>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Pending Approvals */}
       {data.pendingApprovals.length > 0 && (
         <div className="bg-amber-500/5 border border-amber-500/20 rounded-xl overflow-hidden">
@@ -152,7 +297,9 @@ export default async function OraclePage() {
             <span className="text-amber-500/60 text-xs ml-auto">{data.pendingApprovals.length} pending</span>
           </div>
           <div className="divide-y divide-amber-500/10">
-            {data.pendingApprovals.map((agent) => (
+            {data.pendingApprovals.map((agent) => {
+              const sourceProspectId = data.prospectByClient.get(agent.client.id);
+              return (
               <div key={agent.id} className="px-5 py-4">
                 <div className="flex items-start justify-between">
                   <div>
@@ -163,15 +310,31 @@ export default async function OraclePage() {
                     <p className="text-muted-foreground text-xs mt-1">
                       {agent.client.businessName} — {agent.client.industry}
                     </p>
-                    <div className="flex gap-4 mt-2 text-xs text-muted-foreground/60">
+                    <div className="flex gap-4 mt-2 text-xs text-muted-foreground/60 flex-wrap">
                       <span>Retainer: ${agent.monthlyRetainerCents / 100}/mo</span>
-                      <span>Budget: ${agent.budgetMonthlyCents / 100}/mo</span>
-                      <span>Schedule: {agent.schedule}</span>
-                      <span>Tools: {agent.tools.join(", ")}</span>
+                      <span>Setup: ${agent.setupFeeCents / 100}</span>
+                      <span>Schedule: {agent.schedule || "triggered"}</span>
+                      <span>Autonomy: {agent.autonomyLevel}</span>
+                      {sourceProspectId ? (
+                        <Link
+                          href={`/prospects/${sourceProspectId}/prd`}
+                          className="text-amber-400 hover:text-amber-300 font-medium"
+                        >
+                          View source PRD →
+                        </Link>
+                      ) : (
+                        <span className="text-muted-foreground/40">No source PRD (manual)</span>
+                      )}
                     </div>
                     <p className="text-muted-foreground text-xs mt-1.5 max-w-2xl">{agent.purpose}</p>
                   </div>
                   <div className="flex gap-2 shrink-0 ml-4">
+                    <Link
+                      href={`/agents/${agent.id}`}
+                      className="text-[11px] font-medium px-3 py-1.5 rounded-md border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors"
+                    >
+                      Open
+                    </Link>
                     <form action={approveAction}>
                       <input type="hidden" name="agentId" value={agent.id} />
                       <button className="text-[11px] font-semibold px-3 py-1.5 rounded-md bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 ring-1 ring-emerald-500/20 transition-colors">
@@ -187,7 +350,53 @@ export default async function OraclePage() {
                   </div>
                 </div>
               </div>
-            ))}
+            );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Recent quote decisions — awareness card. Past 7 days. */}
+      {data.recentQuoteDecisions.length > 0 && (
+        <div className="bg-card border border-border rounded-xl overflow-hidden">
+          <div className="px-5 py-3 border-b border-border flex items-center gap-2">
+            <h2 className="font-semibold text-foreground text-sm">Recent quote decisions</h2>
+            <span className="text-muted-foreground text-xs ml-auto">past 7 days</span>
+          </div>
+          <div className="divide-y divide-border">
+            {data.recentQuoteDecisions.map((p) => {
+              const accepted = Boolean(p.quoteAcceptedAt);
+              const ts = accepted ? p.quoteAcceptedAt! : p.quoteDeniedAt!;
+              const labelColor = accepted ? "text-emerald-400" : "text-amber-400";
+              const labelText = accepted
+                ? p.convertedClientId
+                  ? "Accepted · Converted"
+                  : "Accepted · Convert pending"
+                : "Denied";
+              return (
+                <Link
+                  key={p.id}
+                  href={accepted ? `/prospects/${p.id}/quote` : `/prospects/${p.id}/quote`}
+                  className="px-5 py-2.5 flex items-center justify-between hover:bg-muted/30 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className={`text-[10.5px] font-semibold uppercase tracking-wider ${labelColor}`}>
+                      {labelText}
+                    </span>
+                    <span className="text-foreground text-sm">
+                      {p.contactName ?? "(no name)"}
+                      {p.businessName && <span className="text-muted-foreground"> · {p.businessName}</span>}
+                    </span>
+                    {!accepted && p.quoteDeniedReason && (
+                      <span className="text-muted-foreground/70 text-xs italic max-w-md truncate">
+                        “{p.quoteDeniedReason}”
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-muted-foreground text-xs">{timeAgo(ts)}</span>
+                </Link>
+              );
+            })}
           </div>
         </div>
       )}

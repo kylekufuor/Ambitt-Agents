@@ -6,10 +6,8 @@ import {
   LayoutDashboard,
   Users,
   Bot,
-  Activity,
   DollarSign,
   Zap,
-  PlusCircle,
   UserPlus,
 } from "lucide-react"
 
@@ -30,13 +28,16 @@ import {
   SidebarRail,
 } from "@/components/ui/sidebar"
 
+// Sidebar reflects the funnel we actually run: Oracle (ops home + queue) →
+// Prospects (pipeline) → Clients (signed) → Agents (built) → Costs.
+// Removed: "Create Agent" (manual form superseded by Prospect → Convert
+// auto-scaffold; route kept as an emergency escape hatch — just hidden);
+// "Activity" (stub since April — real activity lives on Oracle home).
 const navItems = [
   { title: "Oracle", href: "/oracle", icon: Zap },
-  { title: "Agents", href: "/agents", icon: Bot },
-  { title: "Create Agent", href: "/agents/create", icon: PlusCircle },
   { title: "Prospects", href: "/prospects", icon: UserPlus },
   { title: "Clients", href: "/clients", icon: Users },
-  { title: "Activity", href: "/activity", icon: Activity },
+  { title: "Agents", href: "/agents", icon: Bot },
   { title: "Costs", href: "/costs", icon: DollarSign },
 ]
 

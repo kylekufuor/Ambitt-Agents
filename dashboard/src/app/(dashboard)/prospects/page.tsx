@@ -1,5 +1,6 @@
 import prisma from "@/lib/db";
 import Link from "next/link";
+import { SpawnProspectForm } from "./spawn-form";
 
 // Read-only prospects list. Step 3 of the prospects flow (find-or-create
 // shipped Step 1, public /onboard entry Step 2). Step 4 adds an Add-prospect
@@ -46,7 +47,7 @@ export default async function ProspectsPage() {
 
   return (
     <div className="p-6 space-y-6 max-w-7xl">
-      <div className="flex items-center justify-between">
+      <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Prospects</h1>
           <p className="text-muted-foreground text-sm mt-1">
@@ -55,13 +56,14 @@ export default async function ProspectsPage() {
             {buckets.awaitingQuote > 0 && <> · <span className="text-emerald-400">{buckets.awaitingQuote} awaiting quote</span></>}
           </p>
         </div>
+        <SpawnProspectForm />
       </div>
 
       {prospects.length === 0 ? (
         <div className="bg-card border border-border rounded-xl px-5 py-16 text-center">
           <p className="text-muted-foreground text-sm">No prospects yet</p>
           <p className="text-muted-foreground/60 text-xs mt-1">
-            Share <span className="text-foreground">{PORTAL_BASE.replace(/^https?:\/\//, "")}/onboard</span> with a warm lead, or add one manually (coming in Step 4).
+            Share <span className="text-foreground">{PORTAL_BASE.replace(/^https?:\/\//, "")}/onboard</span> with a warm lead, or use <span className="text-foreground">+ Add prospect</span> above to email a specific person their personal link.
           </p>
         </div>
       ) : (
