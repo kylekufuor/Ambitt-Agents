@@ -30,12 +30,18 @@ export interface DispatchInput {
   // false, use the scheduled-run subject form. Mirrors the two call sites'
   // existing subjects so behaviour is a no-op when emailFrequency=immediate.
   isReply: boolean;
+  // Override the reply-to recipient. Default behaviour (when omitted) is to
+  // send to agent.client.email — the right thing for scheduled runs and
+  // client conversations. Inbound-email replies should override this with the
+  // actual sender (operator-mode → KYLE_EMAIL; prospect-mode → prospect.email)
+  // so the reply goes where the email came from, not to Atlas's owning client.
+  recipientEmail?: string;
 }
 
 export async function dispatchAgentResponse(input: DispatchInput): Promise<
   { mode: "immediate"; emailId?: string } | { mode: "queued"; scheduledEmailId: string }
 > {
-  const { agentId, runtimeOutput, isReply } = input;
+  const { agentId, runtimeOutput, isReply, recipientEmail } = input;
 
   const agent = await prisma.agent.findUnique({
     where: { id: agentId },
@@ -70,10 +76,11 @@ export async function dispatchAgentResponse(input: DispatchInput): Promise<
       proactiveInsights: proactiveInsights.length > 0 ? proactiveInsights : undefined,
     });
 
+    const to = recipientEmail ?? agent.client.email;
     await sendEmail({
       agentId,
       agentName: agent.name,
-      to: agent.client.email,
+      to,
       subject: isReply
         ? `Re: ${agent.name} — ${agent.client.businessName}`
         : `${agent.name} — ${agent.client.businessName}`,

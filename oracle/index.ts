@@ -944,12 +944,18 @@ app.post("/webhooks/email-inbound", async (req: Request, res: Response) => {
       senderEmail: from,
     });
 
-    // Dispatch — immediate send OR queue for digest, based on agent.emailFrequency
+    // Dispatch — immediate send OR queue for digest, based on agent.emailFrequency.
+    // Inbound-email replies should go back to the actual sender, not the
+    // agent's owning-client inbox (which is wrong for operator-mode and
+    // prospect-mode runs). Pass the parsed sender email through; if for any
+    // reason it doesn't parse, dispatchAgentResponse falls back to client.email.
+    const senderEmail = parseEmailFromHeader(from);
     const { dispatchAgentResponse } = await import("./lib/dispatchAgentResponse.js");
     const dispatch = await dispatchAgentResponse({
       agentId,
       runtimeOutput: result,
       isReply: true,
+      recipientEmail: senderEmail ?? undefined,
     });
 
     logger.info("Agent email reply dispatched", {
