@@ -650,15 +650,38 @@ app.post("/webhooks/email-inbound", async (req: Request, res: Response) => {
       return;
     }
 
-    // Extract agentId from recipient: reply-{agentId}@ambitt.agency
-    const replyAddress = toAddresses.find((addr: string) => addr.startsWith("reply-"));
-    if (!replyAddress) {
-      logger.warn("Inbound email not addressed to an agent", { to: toAddresses });
-      res.json({ status: "ignored", reason: "No reply-{agentId} address found" });
-      return;
+    // Resolve agentId from the recipient(s). Two paths:
+    //   1) reply-{agentId}@ambitt.agency — used by Reply-To when clients hit
+    //      reply on an agent's outbound email. The original routing scheme.
+    //   2) {slug}@ambitt.agency where {slug} is the agent's primary email —
+    //      lets people email the agent cold (e.g. Kyle emailing
+    //      atlas@ambitt.agency to spawn a prospect, or a client emailing
+    //      bob@ambitt.agency to start a conversation without having received
+    //      an email first).
+    let agentId: string | null = null;
+    const replyAddress = toAddresses.find((addr: string) => addr.toLowerCase().startsWith("reply-"));
+    if (replyAddress) {
+      agentId = replyAddress.replace(/^reply-/i, "").split("@")[0];
+    } else {
+      // Path 2 — look up by Agent.email. First match wins.
+      for (const addr of toAddresses) {
+        const normalized = addr.toLowerCase().trim();
+        const agent = await prisma.agent.findUnique({
+          where: { email: normalized },
+          select: { id: true },
+        });
+        if (agent) {
+          agentId = agent.id;
+          break;
+        }
+      }
     }
 
-    const agentId = replyAddress.replace(/^reply-/, "").split("@")[0];
+    if (!agentId) {
+      logger.warn("Inbound email not addressed to any known agent", { to: toAddresses });
+      res.json({ status: "ignored", reason: "No matching agent for recipient" });
+      return;
+    }
 
     // Fetch full email content from Resend API
     const resendKey = process.env.RESEND_API_KEY;
