@@ -1367,6 +1367,25 @@ app.post("/onboarding/prospects/:id/generate-prd", async (req: Request, res: Res
     logger.info("PRD generated", { prospectId: prospect.id, regenerated: Boolean(regenNotes) });
     res.json({ status: "prd_generated", prospectId: prospect.id });
   } catch (error) {
+    // Distinguish Atlas-output-doesn't-fit-the-schema (422 — operator can act)
+    // from infra errors (500 — wake somebody up). PRDValidationError bubbles
+    // up from tryValidate when both passes produce invalid JSON; we ship the
+    // specific issues so the operator knows whether to fix the intake data,
+    // tighten the prompt, or just retry.
+    if (error instanceof Error && error.name === "PRDValidationError") {
+      const issues = (error as Error & { issues?: Array<{ path: (string | number)[]; message: string }> }).issues ?? [];
+      logger.warn("PRD generation: Atlas output failed validation after retry", {
+        prospectId: req.params.id,
+        issues: issues.map((i) => `${(i.path ?? []).join(".") || "(root)"}: ${i.message}`),
+      });
+      res.status(422).json({
+        error: "Atlas couldn't produce a valid PRD",
+        reason: "Both attempts failed schema validation. The intake data may be too sparse, or Atlas's output drifted from the contract.",
+        issues: issues.map((i) => ({ path: (i.path ?? []).join(".") || "(root)", message: i.message })),
+        action: "Check that the prospect's formData has the core fields (agentName / agentRole / agentPitch / industry). If it does, retry the endpoint — Sonnet is non-deterministic and a second attempt often succeeds.",
+      });
+      return;
+    }
     logger.error("PRD generation failed", { error });
     res.status(500).json({ error: "PRD generation failed" });
   }

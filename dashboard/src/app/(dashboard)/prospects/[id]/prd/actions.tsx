@@ -50,7 +50,14 @@ export function PRDActions({ prospectId, hasPRD, approved }: Props) {
     });
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
-      setError(body.error ?? `Regen failed (${res.status})`);
+      // 422 = Atlas's output failed validation; the body includes a `reason`
+      // + `action` from Oracle that's more useful than the generic `error`.
+      if (res.status === 422 && body.reason) {
+        const action = body.action ? ` ${body.action}` : "";
+        setError(`${body.error}. ${body.reason}${action}`);
+      } else {
+        setError(body.error ?? `Regen failed (${res.status})`);
+      }
       return;
     }
     setRegenKicked(true);
