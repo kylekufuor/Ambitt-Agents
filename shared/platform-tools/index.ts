@@ -31,3 +31,11 @@ export type {
 } from "./review.js";
 export { spawnProspect } from "./spawn-prospect.js";
 export type { SpawnProspectInput, SpawnProspectResult } from "./spawn-prospect.js";
+export { pipelineSummary, listProspects, getProspect, listAgents, getAgent, costSummary } from "./ops-queries.js";
+export type {
+  ListProspectsInput,
+  GetProspectInput,
+  ListAgentsInput,
+  GetAgentInput,
+  CostSummaryInput,
+} from "./ops-queries.js";

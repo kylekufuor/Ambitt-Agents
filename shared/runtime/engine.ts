@@ -13,6 +13,14 @@ import { runBrowserTask } from "../platform-tools/browser.js";
 import { requestReview } from "../platform-tools/review.js";
 import { httpRequest, formatHttpResult } from "../platform-tools/http-request.js";
 import { spawnProspect } from "../platform-tools/spawn-prospect.js";
+import {
+  pipelineSummary,
+  listProspects,
+  getProspect,
+  listAgents,
+  getAgent,
+  costSummary,
+} from "../platform-tools/ops-queries.js";
 import { sendAgentEmail } from "../../oracle/lib/emailRouter.js";
 import { logUsage, CLIENT_MODEL, TRIAGE_MODEL } from "../claude.js";
 import type { EmailAttachment } from "../email.js";
@@ -60,6 +68,12 @@ const BUILTIN_TOOLS = new Set([
   "request_review",
   "http_request",
   "spawn_prospect",
+  "pipeline_summary",
+  "list_prospects",
+  "get_prospect",
+  "list_agents",
+  "get_agent",
+  "cost_summary",
   "browse",
 ]);
 
@@ -430,6 +444,88 @@ const BUILTIN_CLAUDE_TOOLS: Anthropic.Messages.Tool[] = [
       required: ["name", "email"],
     },
   },
+  // --- Ops query tools — OPERATOR-ONLY ---
+  // Read-only views into the business state. Available to Atlas in
+  // operator-mode (sender === KYLE_EMAIL). Soft-gated via the operator-mode
+  // prompt prefix — these tool descriptions also say OPERATOR-ONLY so a
+  // client/prospect run won't call them spuriously.
+  {
+    name: "pipeline_summary",
+    description:
+      "OPERATOR-ONLY. Returns a one-shot summary of the sales pipeline: total active prospects, counts at each status (discovery → accepted), what needs operator action (PRDs awaiting review, accepted quotes pending convert), and recent quote decisions past 7 days. Use this when the operator asks 'how am I doing', 'what's the funnel look like', 'what should I focus on'. Read-only.",
+    input_schema: { type: "object" as const, properties: {} },
+  },
+  {
+    name: "list_prospects",
+    description:
+      "OPERATOR-ONLY. Returns a filtered table of prospects (most-recently-touched first). Use when the operator asks 'show me all <status> prospects', 'who's awaiting quote', 'find prospects matching X'. Read-only.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        status: {
+          type: "string",
+          description: "Optional status filter — discovery / discovery_complete / presentation_sent / revising / quote_pending / quote_sent / quote_denied / accepted.",
+        },
+        search: { type: "string", description: "Optional free-text search across name/business/email (case-insensitive substring)." },
+        limit: { type: "number", description: "Max rows to return (1-50, default 10)." },
+      },
+    },
+  },
+  {
+    name: "get_prospect",
+    description:
+      "OPERATOR-ONLY. Returns a deep-dive on one prospect: contact info, form intake summary, full funnel state with timestamps, quote pricing if drafted, conversion status. Use when the operator asks 'what's the status of <person>', 'tell me about <prospect>'. Read-only.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        email_or_id: {
+          type: "string",
+          description: "Either the prospect's email address (case-insensitive) or their prospectId. If the operator gave you a name, prefer list_prospects with search first to get the id.",
+        },
+      },
+      required: ["email_or_id"],
+    },
+  },
+  {
+    name: "list_agents",
+    description:
+      "OPERATOR-ONLY. Returns the agent fleet — name, email, client, status, schedule, pricing, last-run timestamp. Filter by status (pending_approval/active/paused/killed) or clientId. Use when the operator asks 'how many agents are pending', 'which agents are live', 'show me <client>'s agents'. Read-only.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        status: { type: "string", description: "Optional status filter." },
+        clientId: { type: "string", description: "Optional clientId filter." },
+        limit: { type: "number", description: "Max rows (1-50, default 10)." },
+      },
+    },
+  },
+  {
+    name: "get_agent",
+    description:
+      "OPERATOR-ONLY. Returns a deep-dive on one agent: identity, owner, runtime config, commercial terms, month-to-date cost + API calls, and the 5 most recent conversation turns. Use when the operator asks 'what did <agent> do today', 'tell me about <agent>', 'how much is <agent> costing me'. Read-only.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        email_or_id: { type: "string", description: "Agent's email address or agentId." },
+      },
+      required: ["email_or_id"],
+    },
+  },
+  {
+    name: "cost_summary",
+    description:
+      "OPERATOR-ONLY. Returns API cost rollup by model and by agent for the requested period (this_month default, last_month, or past_7_days). Includes total spend, call count, and top 10 most-expensive agents. Use when the operator asks 'what did I spend', 'who's most expensive', 'cost breakdown'. Read-only.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        period: {
+          type: "string",
+          enum: ["this_month", "last_month", "past_7_days"],
+          description: "Time window. Defaults to this_month.",
+        },
+      },
+    },
+  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -690,6 +786,31 @@ async function executeBuiltinTool(
         content: result.message,
         isError: result.status === "error",
       };
+    }
+
+    // --- Ops query tools (operator-only, read-only) ---
+    if (toolName === "pipeline_summary") {
+      return { content: await pipelineSummary(), isError: false };
+    }
+    if (toolName === "list_prospects") {
+      const { status, search, limit } = args as { status?: string; search?: string; limit?: number };
+      return { content: await listProspects({ status, search, limit }), isError: false };
+    }
+    if (toolName === "get_prospect") {
+      const { email_or_id } = args as { email_or_id: string };
+      return { content: await getProspect({ email_or_id }), isError: false };
+    }
+    if (toolName === "list_agents") {
+      const { status, clientId, limit } = args as { status?: string; clientId?: string; limit?: number };
+      return { content: await listAgents({ status, clientId, limit }), isError: false };
+    }
+    if (toolName === "get_agent") {
+      const { email_or_id } = args as { email_or_id: string };
+      return { content: await getAgent({ email_or_id }), isError: false };
+    }
+    if (toolName === "cost_summary") {
+      const { period } = args as { period?: "this_month" | "last_month" | "past_7_days" };
+      return { content: await costSummary({ period }), isError: false };
     }
 
     if (toolName === "generate_pdf") {
