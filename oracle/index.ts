@@ -69,13 +69,41 @@ function parseEmailFromHeader(fromHeader: string): string | null {
   return trimmed.includes("@") ? trimmed : null;
 }
 
-// Inbound-email authorization. An agent only accepts mail from its owning
-// client. Platform agents (acceptFromProspects=true, e.g. Atlas) also accept
-// mail from any active Prospect — by design, since prospects are not yet
-// clients. Anything else is silently dropped.
+// Build the platform-operator allowlist from env vars. Both contribute to
+// the set (additive) so existing KYLE_EMAIL deploys keep working when
+// PLATFORM_OPERATORS is added later:
+//   KYLE_EMAIL=kyle@x.com                            → {kyle@x.com}
+//   PLATFORM_OPERATORS=alice@x.com,bob@x.com         → {alice, bob}
+//   both set                                         → {kyle, alice, bob}
+function getOperatorAllowlist(): Set<string> {
+  const sources = [process.env.KYLE_EMAIL ?? "", process.env.PLATFORM_OPERATORS ?? ""];
+  const list = sources
+    .join(",")
+    .toLowerCase()
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+  return new Set(list);
+}
+
+// Inbound-email authorization. Different rules by routing path:
+//
+//   "direct"  — sender emailed agent's primary address ({slug}@ambitt.agency)
+//                cold. Only OWNING CLIENT + PLATFORM OPERATORS are allowed.
+//                Prospects emailing cold get silently dropped — they're
+//                expected to use their dedicated /onboard/[token] flow, not
+//                initiate conversations with Atlas out of the blue.
+//
+//   "reply"   — sender replied to a thread the agent started (Reply-To was
+//                reply-{agentId}@ambitt.agency). OWNING CLIENT + OPERATORS +
+//                ACTIVE PROSPECTS are allowed. The reply gives the agent the
+//                conversation history it needs to respond meaningfully.
+//
+// Anything else: 200-ignored.
 async function checkInboundAuth(
   agentId: string,
-  fromHeader: string
+  fromHeader: string,
+  routingPath: "reply" | "direct"
 ): Promise<
   | { ok: true; senderType: "client" | "prospect" | "platform_operator"; prospectId?: string }
   | { ok: false; reason: string }
@@ -89,20 +117,24 @@ async function checkInboundAuth(
   });
   if (!agent) return { ok: false, reason: "Agent not found" };
 
+  // Platform operators — allowed on every platform agent regardless of path.
+  // Checked first because operator emails are the common case for Atlas
+  // and the allowlist lookup is cheap.
+  const operators = getOperatorAllowlist();
+  if (operators.has(senderEmail) && agent.acceptFromProspects) {
+    return { ok: true, senderType: "platform_operator" };
+  }
+
+  // Owning client — allowed on every agent regardless of path.
   if (senderEmail === agent.client.email.toLowerCase()) {
     return { ok: true, senderType: "client" };
   }
 
-  // Platform-operator path — only honored for platform agents (acceptFromProspects=true).
-  // Lets Kyle email Atlas (or any future platform agent) directly to drive
-  // operator-mode tasks like spawn_prospect. KYLE_EMAIL env var is the source
-  // of truth — when there are more operators, replace with a real allowlist.
-  const operatorEmail = process.env.KYLE_EMAIL?.toLowerCase().trim();
-  if (operatorEmail && senderEmail === operatorEmail && agent.acceptFromProspects) {
-    return { ok: true, senderType: "platform_operator" };
-  }
-
-  if (agent.acceptFromProspects) {
+  // Prospect — ONLY on the reply path. A prospect cold-emailing the agent's
+  // primary address is rejected (they should be using their /onboard/[token]
+  // flow). When they reply to a teaser email Atlas sent them, the Reply-To is
+  // reply-{atlasId}@ambitt.agency → routingPath is "reply" → accepted.
+  if (routingPath === "reply" && agent.acceptFromProspects) {
     const prospect = await prisma.prospect.findUnique({
       where: { email: senderEmail },
       select: { id: true, status: true },
@@ -659,9 +691,11 @@ app.post("/webhooks/email-inbound", async (req: Request, res: Response) => {
     //      bob@ambitt.agency to start a conversation without having received
     //      an email first).
     let agentId: string | null = null;
+    let routingPath: "reply" | "direct" = "direct";
     const replyAddress = toAddresses.find((addr: string) => addr.toLowerCase().startsWith("reply-"));
     if (replyAddress) {
       agentId = replyAddress.replace(/^reply-/i, "").split("@")[0];
+      routingPath = "reply";
     } else {
       // Path 2 — look up by Agent.email. First match wins.
       for (const addr of toAddresses) {
@@ -695,7 +729,7 @@ app.post("/webhooks/email-inbound", async (req: Request, res: Response) => {
     // Sender authorization. Only the agent's owner client (or, for platform
     // agents like Atlas, an active Prospect) can drive an agent run. Anyone
     // else is silently dropped — 200 so Resend doesn't retry, but no work.
-    const auth = await checkInboundAuth(agentId, from);
+    const auth = await checkInboundAuth(agentId, from, routingPath);
     if (!auth.ok) {
       logger.warn("Inbound email rejected — unauthorized sender", { agentId, from, reason: auth.reason });
       res.json({ status: "ignored", reason: auth.reason });
