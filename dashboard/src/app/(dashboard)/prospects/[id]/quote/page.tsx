@@ -2,6 +2,7 @@ import prisma from "@/lib/db";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { QuoteEditor } from "./editor";
+import { ConvertCard } from "./convert-card";
 
 // Quote draft review page. Atlas drafts after PRD approval; Kyle reviews,
 // edits the JSON if needed, hits Send → flips status to quote_sent and
@@ -33,8 +34,18 @@ export default async function QuotePage({
       quoteAcceptedAt: true,
       quoteDeniedAt: true,
       quoteDeniedReason: true,
+      convertedClientId: true,
     },
   });
+
+  // If converted, look up the scaffolded Agent for the convert-success card.
+  const scaffoldedAgent = prospect?.convertedClientId
+    ? await prisma.agent.findFirst({
+        where: { clientId: prospect.convertedClientId },
+        orderBy: { createdAt: "desc" },
+        select: { id: true, name: true, email: true, status: true },
+      })
+    : null;
 
   if (!prospect) notFound();
 
@@ -77,6 +88,17 @@ export default async function QuotePage({
           </p>
           <ManualGenerateButton prospectId={prospect.id} />
         </div>
+      )}
+
+      {/* Convert + Scaffold card — shows when quote is accepted but not yet
+          materialized into a Client + Agent. After conversion it flips to a
+          success card with links to the new entities. */}
+      {prospect.status === "accepted" && (
+        <ConvertCard
+          prospectId={prospect.id}
+          convertedClientId={prospect.convertedClientId}
+          scaffoldedAgent={scaffoldedAgent}
+        />
       )}
 
       {prospect.quoteDraft && (

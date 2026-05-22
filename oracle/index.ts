@@ -1786,6 +1786,339 @@ app.post("/onboarding/prospects/:id/quote-decided", async (req: Request, res: Re
   }
 });
 
+// ===========================================================================
+// CONVERT — Prospect → Client + scaffold Agent (Phase D)
+// ===========================================================================
+//
+// Phase C (Stripe checkout) is deferred. This endpoint is the conversion
+// logic that Phase C will eventually wrap in a Stripe webhook. Today it's
+// triggered manually from the dashboard after quote acceptance.
+//
+// Atomic transaction:
+//   1. Find-or-create Client (by email). Reuses an existing Client row if
+//      one already shares the prospect's email — common when Kyle had
+//      previously seeded the client manually.
+//   2. Create Agent in pending_approval, seeded from Prospect.prdData
+//      (system prompt, schedule, autonomy, memory) + Prospect.quoteDraft
+//      (pricing — quote is the binding commitment, NOT the PRD draft).
+//   3. Link Prospect.convertedClientId.
+//   4. Best-effort: email the new client a tools-handoff email.
+//
+// Idempotent: re-calling on an already-converted prospect is a no-op
+// (returns the existing ids).
+//
+// Agent email collisions resolved by appending a numeric suffix (e.g.
+// marco@ → marco-2@ if Marco is taken).
+app.post("/onboarding/prospects/:id/convert", async (req: Request, res: Response) => {
+  try {
+    const prospectId = param(req, "id");
+
+    const prospect = await prisma.prospect.findUnique({ where: { id: prospectId } });
+    if (!prospect) {
+      res.status(404).json({ error: "Prospect not found" });
+      return;
+    }
+    if (prospect.status === "archived" || prospect.status === "ghosted") {
+      res.status(403).json({ error: "Prospect onboarding is closed" });
+      return;
+    }
+    if (prospect.status !== "accepted") {
+      res.status(409).json({
+        error: "Prospect must be at status 'accepted' before conversion",
+        currentStatus: prospect.status,
+      });
+      return;
+    }
+    if (!prospect.prdData) {
+      res.status(409).json({ error: "Cannot convert — PRD missing" });
+      return;
+    }
+    if (!prospect.quoteDraft) {
+      res.status(409).json({ error: "Cannot convert — quote missing" });
+      return;
+    }
+
+    // Already converted — return existing ids (idempotent).
+    if (prospect.convertedClientId) {
+      const existingAgent = await prisma.agent.findFirst({
+        where: { clientId: prospect.convertedClientId },
+        orderBy: { createdAt: "desc" },
+        select: { id: true, email: true, name: true, status: true },
+      });
+      res.json({
+        status: "already_converted",
+        clientId: prospect.convertedClientId,
+        agentId: existingAgent?.id ?? null,
+        agent: existingAgent,
+      });
+      return;
+    }
+
+    const fd = (prospect.formData ?? {}) as Record<string, unknown>;
+    const prd = prospect.prdData as unknown as PRDShape;
+    const quote = prospect.quoteDraft as unknown as QuoteShape;
+
+    // Find-or-create Client.
+    const clientEmail = prospect.email.toLowerCase();
+    let client = await prisma.client.findUnique({ where: { email: clientEmail } });
+    if (!client) {
+      const { encrypt } = await import("../shared/encryption.js");
+      client = await prisma.client.create({
+        data: {
+          email: clientEmail,
+          contactName: prospect.contactName ?? prd.identity.ownerContactName,
+          preferredName: stringField(fd, "preferredName") || (prospect.contactName ?? "").split(/\s+/)[0] || null,
+          businessName: prospect.businessName ?? prd.identity.ownerBusinessName,
+          industry: prd.identity.ownerIndustry || stringField(fd, "industry") || "—",
+          businessGoal: stringField(fd, "agentPitch") || prd.summary || prd.identity.agentRole,
+          website: prospect.website ?? null,
+          brandVoice: stringField(fd, "brandVoice") || "Friendly, conversational, plain language.",
+          preferredChannel: (prd.channel ?? "email").toLowerCase(),
+          // Stripe deferred (Phase C) — sentinel matches the platform-client pattern
+          // (Ambitt internal uses "platform_ambitt"). When Phase C wires Stripe,
+          // the real customer id replaces this on first checkout.
+          stripeCustomerId: `pending_stripe_${prospect.id}`,
+          billingEmail: clientEmail,
+          billingStatus: "active",
+        },
+      });
+      void encrypt; // encrypt is used below for clientMemoryObject, kept-imported here for clarity
+      logger.info("Convert: created Client", { clientId: client.id, email: clientEmail });
+    } else {
+      logger.info("Convert: reusing existing Client", { clientId: client.id, email: clientEmail });
+    }
+
+    // Resolve Agent email — append -2, -3, etc. if the slug is taken.
+    const baseSlug = (prd.identity.agentEmailSlug || "agent").toLowerCase().replace(/[^a-z0-9-]/g, "-");
+    let agentEmail = `${baseSlug}@ambitt.agency`;
+    let suffix = 2;
+    while (await prisma.agent.findUnique({ where: { email: agentEmail }, select: { id: true } })) {
+      agentEmail = `${baseSlug}-${suffix}@ambitt.agency`;
+      suffix++;
+      if (suffix > 50) {
+        res.status(500).json({ error: "Could not find an available agent email slug after 50 tries" });
+        return;
+      }
+    }
+
+    // Build the Agent row from PRD + Quote.
+    const { encrypt } = await import("../shared/encryption.js");
+    const cronExpression = prd.schedule.mode === "scheduled" && prd.schedule.cron ? prd.schedule.cron : "";
+    const autonomyLevel = prd.autonomy === "autonomous" ? "autonomous" : "supervised";
+    const purposeSummary = `${prd.identity.agentRole}. ${prd.summary}`.trim();
+
+    const agent = await prisma.agent.create({
+      data: {
+        clientId: client.id,
+        name: prd.identity.agentName,
+        email: agentEmail,
+        personality: prd.systemPrompt,
+        purpose: purposeSummary,
+        agentType: "client.custom",
+        acceptFromProspects: false,
+        tools: [],
+        schedule: cronExpression,
+        autonomyLevel,
+        timezone: prd.schedule.timezone || "America/New_York",
+        deliveryFormat: "email_summary",
+        tone: "conversational",
+        emailFrequency: "immediate",
+        primaryModel: "claude-sonnet-4-6",
+        analyticsModel: "gemini",
+        creativeModel: "gpt-4o",
+        status: "pending_approval", // existing scaffold-approval flow takes over here
+        // Quote pricing wins over PRD pricing — quote is what the client accepted.
+        monthlyRetainerCents: quote.pricing.monthlyCents,
+        setupFeeCents: quote.pricing.setupCents,
+        pricingTier: prd.pricing.suggestedTier,
+        interactionLimit: -1, // until Phase C, no real limit
+        budgetMonthlyCents: 100000, // $1000 internal budget cap as guardrail
+        clientMemoryObject: encrypt(
+          JSON.stringify({
+            role: prd.identity.agentRole,
+            ownerBusiness: prd.identity.ownerBusinessName,
+            ownerIndustry: prd.identity.ownerIndustry,
+            notes: prd.memoryNotes,
+            hardLimits: prd.hardLimits,
+            successMetrics: prd.successMetrics,
+            convertedFromProspect: prospect.id,
+          })
+        ),
+      },
+    });
+    logger.info("Convert: created Agent", { agentId: agent.id, email: agentEmail, clientId: client.id });
+
+    // Link Prospect → Client.
+    await prisma.prospect.update({
+      where: { id: prospect.id },
+      data: { convertedClientId: client.id, lastActivityAt: new Date() },
+    });
+
+    // Best-effort tools-handoff email to the new client.
+    try {
+      const atlas = await prisma.agent.findUnique({
+        where: { email: "atlas@ambitt.agency" },
+        select: { id: true, name: true },
+      });
+      if (atlas) {
+        const portalBase = process.env.CLIENT_PORTAL_URL ?? "https://client-portal-production-77a9.up.railway.app";
+        const toolsUrl = `${portalBase}/agents/${agent.id}/tools`;
+        const { sendEmail } = await import("../shared/email.js");
+        await sendEmail({
+          agentId: atlas.id,
+          agentName: atlas.name,
+          to: client.email,
+          subject: `Welcome — let's get ${agent.name} ready`,
+          html: renderToolsHandoffEmail({
+            firstName: (client.contactName ?? "").split(/\s+/)[0] || "there",
+            agentName: agent.name,
+            agentRole: prd.identity.agentRole,
+            toolsUrl,
+            portalBase,
+            toolsList: prd.tools.map((t) => ({ name: t.name, source: t.source })),
+          }),
+          replyToAgentId: atlas.id,
+        });
+        logger.info("Convert: tools-handoff email sent", { to: client.email });
+      }
+    } catch (err) {
+      logger.warn("Convert: tools-handoff email failed (continuing)", { prospectId: prospect.id, error: err });
+    }
+
+    // Ops notification to Kyle.
+    try {
+      const atlas = await prisma.agent.findUnique({
+        where: { email: "atlas@ambitt.agency" },
+        select: { id: true, name: true },
+      });
+      if (atlas) {
+        const dashBase = process.env.DASHBOARD_URL ?? "https://dashboard.ambitt.agency";
+        await notifyOps({
+          atlasId: atlas.id,
+          atlasName: atlas.name,
+          subject: `Converted — ${prospect.contactName ?? "prospect"} → Client + ${agent.name}`,
+          html: renderConvertedNotice(prospect, client, agent, dashBase),
+        });
+      }
+    } catch (err) {
+      logger.warn("Convert: ops notify failed", { prospectId: prospect.id, error: err });
+    }
+
+    res.json({
+      status: "converted",
+      clientId: client.id,
+      agentId: agent.id,
+      agentEmail,
+    });
+  } catch (error) {
+    logger.error("Convert failed", { error });
+    res.status(500).json({ error: "Convert failed" });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Convert helpers
+// ---------------------------------------------------------------------------
+
+// Minimal shapes we read off Prospect.prdData / Prospect.quoteDraft. Kept
+// here (not imported from the templates) so changes to the template Zod
+// schemas don't break this endpoint silently — these are the fields the
+// scaffold actually depends on.
+interface PRDShape {
+  summary: string;
+  identity: {
+    agentName: string;
+    agentEmailSlug: string;
+    agentRole: string;
+    ownerBusinessName: string;
+    ownerContactName: string;
+    ownerEmail: string;
+    ownerIndustry: string;
+  };
+  systemPrompt: string;
+  tools: Array<{ name: string; source: string }>;
+  schedule: { mode: "scheduled" | "triggered"; cron?: string; timezone: string };
+  channel: string;
+  autonomy: string;
+  hardLimits: string[];
+  successMetrics: string[];
+  memoryNotes: string;
+  pricing: {
+    suggestedTier: string;
+    suggestedMonthlyCents: number;
+    suggestedSetupCents: number;
+  };
+}
+interface QuoteShape {
+  pricing: {
+    setupCents: number;
+    monthlyCents: number;
+    tierLabel: string;
+  };
+}
+
+function stringField(obj: Record<string, unknown>, key: string): string {
+  return typeof obj[key] === "string" ? (obj[key] as string) : "";
+}
+
+function renderToolsHandoffEmail(input: {
+  firstName: string;
+  agentName: string;
+  agentRole: string;
+  toolsUrl: string;
+  portalBase: string;
+  toolsList: Array<{ name: string; source: string }>;
+}): string {
+  const composioCount = input.toolsList.filter((t) => t.source === "composio").length;
+  const customCount = input.toolsList.length - composioCount;
+  const toolSummary =
+    composioCount > 0
+      ? `${composioCount} integration${composioCount === 1 ? "" : "s"} need${composioCount === 1 ? "s" : ""} your OAuth (Gmail-style click-through)${customCount > 0 ? "; the rest we'll wire up on our end" : ""}.`
+      : "We'll wire all the tools on our end — nothing for you to connect.";
+  return `<div style="font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; max-width: 560px; margin: 0 auto; padding: 32px 24px; background: #ffffff; color: #171717;">
+  <div style="margin-bottom: 28px;">
+    <img src="${input.portalBase}/brand/ambitt-agents-lockup.svg" alt="Ambitt Agents" width="220" height="27" style="display: block; max-width: 220px; height: auto;" />
+  </div>
+  <p style="font-size: 15px; color: #404040; margin: 0 0 16px; line-height: 1.6;">Hey ${input.firstName},</p>
+  <p style="font-size: 15px; color: #404040; margin: 0 0 16px; line-height: 1.6;">
+    Great — we're getting started on <strong style="color: #171717;">${input.agentName}</strong> (${input.agentRole}).
+  </p>
+  <p style="font-size: 15px; color: #404040; margin: 0 0 24px; line-height: 1.6;">
+    ${toolSummary} The link below opens your agent's tools page. Click each integration to authorize — takes about 30 seconds each.
+  </p>
+  <div style="margin: 0 0 28px;">
+    <a href="${input.toolsUrl}" style="display: inline-block; padding: 14px 30px; background: #00b3b3; color: #ffffff; text-decoration: none; border-radius: 9px; font-size: 15px; font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,0.05), 0 4px 12px rgba(0, 179, 179, 0.28);">Connect tools →</a>
+  </div>
+  <p style="font-size: 13px; color: #737373; margin: 0 0 8px; line-height: 1.6;">
+    Once tools are connected, we'll finish the build internally and let you know when ${input.agentName} is ready to start running.
+  </p>
+  <p style="font-size: 13px; color: #a3a3a3; margin: 32px 0 0;">— Atlas, your onboarding agent at Ambitt Agents</p>
+</div>`;
+}
+
+function renderConvertedNotice(
+  prospect: { id: string; contactName: string | null; businessName: string | null; email: string },
+  client: { id: string; email: string },
+  agent: { id: string; name: string; email: string },
+  dashBase: string
+): string {
+  const contact = prospect.contactName ?? "(no name)";
+  const business = prospect.businessName ?? "—";
+  return `<div style="font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; max-width: 560px; margin: 0 auto; padding: 28px 24px; background: #ffffff; color: #171717;">
+  <p style="font-size: 14px; color: #404040; margin: 0 0 14px; line-height: 1.6;"><strong style="color: #10b981;">Converted.</strong> Prospect is now a Client + Agent is scaffolded in pending_approval.</p>
+  <table style="width: 100%; border-collapse: collapse; margin: 0 0 18px; font-size: 13.5px;">
+    <tr><td style="padding: 4px 0; color: #737373; width: 100px;">Contact</td><td style="padding: 4px 0; color: #171717;">${escapeHtmlBasic(contact)} &lt;${escapeHtmlBasic(prospect.email)}&gt;</td></tr>
+    <tr><td style="padding: 4px 0; color: #737373;">Business</td><td style="padding: 4px 0; color: #171717;">${escapeHtmlBasic(business)}</td></tr>
+    <tr><td style="padding: 4px 0; color: #737373;">Client</td><td style="padding: 4px 0; color: #171717; font-family: 'SF Mono', Menlo, monospace; font-size: 12px;">${client.id}</td></tr>
+    <tr><td style="padding: 4px 0; color: #737373;">Agent</td><td style="padding: 4px 0; color: #171717;">${escapeHtmlBasic(agent.name)} &lt;${escapeHtmlBasic(agent.email)}&gt;</td></tr>
+  </table>
+  <div style="margin: 0 0 12px;">
+    <a href="${dashBase}/agents/${agent.id}" style="display: inline-block; padding: 10px 18px; background: #171717; color: #ffffff; text-decoration: none; border-radius: 8px; font-size: 13px; font-weight: 600;">Open agent →</a>
+  </div>
+  <p style="font-size: 12.5px; color: #a3a3a3; margin: 18px 0 0;">Next: wire any custom tools internally, review the scaffold-approval queue, then approve to go live.</p>
+</div>`;
+}
+
 function buildAtlasQuotePrompt(prospect: {
   id: string;
   email: string;

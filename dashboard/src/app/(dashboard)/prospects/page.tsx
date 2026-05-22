@@ -35,6 +35,7 @@ export default async function ProspectsPage() {
       quoteSentAt: true,
       quoteAcceptedAt: true,
       quoteDeniedAt: true,
+      convertedClientId: true,
       lastActivityAt: true,
       createdAt: true,
     },
@@ -75,6 +76,7 @@ export default async function ProspectsPage() {
                 <th className="text-left font-medium px-4 py-3">Proposal</th>
                 <th className="text-left font-medium px-4 py-3">PRD</th>
                 <th className="text-left font-medium px-4 py-3">Quote</th>
+                <th className="text-left font-medium px-4 py-3">Client</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -144,6 +146,18 @@ export default async function ProspectsPage() {
                             : p.quoteSentAt
                               ? "Sent →"
                               : "Draft →"}
+                      </Link>
+                    ) : (
+                      <span className="text-muted-foreground/60 text-xs">—</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    {p.convertedClientId ? (
+                      <Link
+                        href={`/clients/${p.convertedClientId}`}
+                        className="text-emerald-400 hover:text-emerald-300 text-xs font-medium"
+                      >
+                        View →
                       </Link>
                     ) : (
                       <span className="text-muted-foreground/60 text-xs">—</span>
