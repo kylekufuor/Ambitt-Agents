@@ -900,10 +900,34 @@ app.post("/webhooks/email-inbound", async (req: Request, res: Response) => {
       return;
     }
 
-    let messageContent: string =
-      (typeof emailData.text === "string" ? emailData.text : "") ||
-      (typeof emailData.html === "string" ? emailData.html : "") ||
-      "";
+    // Try every reasonable field name for the body. Resend's docs say text/html
+    // but in practice the payload may use other shapes — be permissive.
+    const bodyCandidates = [
+      emailData.text,
+      emailData.html,
+      emailData.body_plain,
+      emailData.body_text,
+      emailData.body_html,
+      emailData.plain,
+      emailData.body,
+      emailData.message,
+      emailData.stripped_text,
+      emailData.stripped_html,
+    ];
+    let messageContent: string = "";
+    for (const cand of bodyCandidates) {
+      if (typeof cand === "string" && cand.trim().length > 0) {
+        messageContent = cand;
+        break;
+      }
+    }
+    // If still no body, fall back to "subject only" so the agent can at least
+    // respond to the topic. This handles GIF-only emails, subject-only emails,
+    // and any payload-shape we haven't anticipated.
+    const subjectPlain = (typeof emailData.subject === "string" ? emailData.subject : "").trim();
+    if (!messageContent && subjectPlain.length > 0) {
+      messageContent = `(No body — subject only: "${subjectPlain}")`;
+    }
 
     // Parse attachments if present
     if (Array.isArray(emailData.attachments) && emailData.attachments.length > 0) {
@@ -940,7 +964,23 @@ app.post("/webhooks/email-inbound", async (req: Request, res: Response) => {
     }
 
     if (!messageContent) {
-      res.status(400).json({ error: "Empty message" });
+      // Diagnostic: dump the payload field names so we can see what Resend
+      // actually sent and add the right field to bodyCandidates above.
+      logger.warn("Inbound email body empty across all candidate fields", {
+        agentId,
+        from,
+        payloadKeys: Object.keys(emailData),
+        payloadShape: Object.fromEntries(
+          Object.entries(emailData).map(([k, v]) => [k, typeof v === "string" ? `string(${v.length})` : Array.isArray(v) ? `array(${v.length})` : typeof v])
+        ),
+      });
+      // Return 200 so Resend doesn't retry. Include diagnostic so the
+      // Webhooks UI surfaces what was missing.
+      res.json({
+        status: "ignored",
+        reason: "Empty message body",
+        payloadKeys: Object.keys(emailData),
+      });
       return;
     }
 
