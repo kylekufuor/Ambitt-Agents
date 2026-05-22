@@ -92,6 +92,27 @@ export interface AgentPRDData {
     suggestedSetupCents: number;
     /** 1-3 sentence rationale. e.g., "Growth tier — daily 15-prospect volume + 1 custom platform tool." */
     reasoning: string;
+    /**
+     * Market research backing the pricing recommendation. Atlas runs
+     * web_search before drafting numbers — at least one search for
+     * competing agencies/platforms in this niche, one for the replacement
+     * role cost (what a human contractor would charge), one for category
+     * benchmarks. Renders as a separate "Receipts" section on the PRD
+     * page so the operator can sanity-check the numbers before quoting.
+     */
+    marketResearch: {
+      /** 2-4 sentence summary of what the market looks like for this kind of agent. */
+      summary: string;
+      /** 3-8 concrete data points Atlas pulled from web_search results. */
+      findings: MarketFinding[];
+      /**
+       * What it would cost the prospect to hire a human instead. Use the
+       * loaded monthly cost (salary + overhead). null if not applicable
+       * (e.g., a research agent with no clear human equivalent).
+       * Example: "Junior SDR ~$3-5k/mo loaded cost (US small business)"
+       */
+      replacementCost: string | null;
+    };
   };
 
   /**
@@ -120,6 +141,15 @@ export interface ToolEntry {
   rationale: string;
   /** Honest day estimate (decimal allowed). Only set for custom_* sources. */
   buildDays?: number;
+}
+
+export interface MarketFinding {
+  /** What the data point is, in plain English. e.g., "Reply.io Sales Engagement plan", "Junior SDR contractor (US)", "Lindy AI agent platform — starter tier" */
+  source: string;
+  /** Price as displayed (range or single, with units). e.g., "$99/mo per seat", "$1,500-2,500/mo", "$25-40/hr" */
+  priceRange: string;
+  /** 1-2 sentence note: how this point compares to what we're proposing, or what's distinctive about it. */
+  note: string;
 }
 
 export interface BuildStep {

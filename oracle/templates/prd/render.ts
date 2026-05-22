@@ -66,6 +66,20 @@ export const prdSchema = z.object({
     suggestedMonthlyCents: z.number().int().nonnegative(),
     suggestedSetupCents: z.number().int().nonnegative(),
     reasoning: z.string().min(1),
+    marketResearch: z.object({
+      summary: z.string().min(1),
+      findings: z
+        .array(
+          z.object({
+            source: z.string().min(1),
+            priceRange: z.string().min(1),
+            note: z.string().min(1),
+          })
+        )
+        .min(3)
+        .max(8),
+      replacementCost: z.string().nullable(),
+    }),
   }),
   risks: z.array(z.string().min(1)),
   buildPlan: z.array(buildStep).min(1),

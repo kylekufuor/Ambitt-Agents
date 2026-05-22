@@ -288,6 +288,33 @@
   </section>
 
   <section>
+    <div class="sec-label">Pricing receipts · market research</div>
+    <div class="card">
+      <div style="color: var(--text); font-size: 13.5px; margin-bottom: 14px;">{{pricing.marketResearch.summary}}</div>
+
+      {{#if pricing.marketResearch.replacementCost}}
+      <div class="kv-row" style="padding-bottom: 14px; border-top: none;">
+        <div class="k">Replacement cost</div>
+        <div class="v" style="color: var(--accent); font-weight: 500;">{{pricing.marketResearch.replacementCost}}</div>
+      </div>
+      {{/if}}
+
+      <div style="border-top: 1px solid var(--border); padding-top: 12px;">
+        <div class="sec-label" style="margin-bottom: 8px;">Findings · {{pricing.marketResearch.findings.length}}</div>
+        {{#each pricing.marketResearch.findings}}
+        <div class="tool-row">
+          <div>
+            <span class="name">{{source}}</span>
+            <span class="source-pill source-composio">{{priceRange}}</span>
+          </div>
+          <div class="rationale">{{note}}</div>
+        </div>
+        {{/each}}
+      </div>
+    </div>
+  </section>
+
+  <section>
     <div class="sec-label">Risks / open questions · {{risks.length}}</div>
     <div class="card">
       {{#if risks.length}}

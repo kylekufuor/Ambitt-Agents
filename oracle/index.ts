@@ -1572,6 +1572,15 @@ interface AgentPRDData {
     suggestedMonthlyCents: number;              // recurring retainer (integer cents)
     suggestedSetupCents: number;                // one-time setup (integer cents)
     reasoning: string;                          // 1-3 sentences explaining tier + numbers
+    marketResearch: {
+      summary: string;                          // 2-4 sentences: what the market for this agent looks like
+      findings: Array<{                         // 3-8 concrete data points from your web_search results
+        source: string;                         // "Reply.io Sales Engagement", "Junior SDR contractor (US)", "Lindy AI platform"
+        priceRange: string;                     // "$99/mo per seat", "$1,500-2,500/mo", "$25-40/hr"
+        note: string;                           // 1-2 sentences: how this compares to what we're proposing
+      }>;
+      replacementCost: string | null;           // "Junior SDR ~$3-5k/mo loaded cost (US small business)" — what the prospect would otherwise pay a human. null only if there's truly no human equivalent.
+    };
   };
   risks: string[];                              // open questions / things Kyle should flag. Empty array is fine.
   buildPlan: Array<{
@@ -1592,13 +1601,25 @@ interface AgentPRDData {
 
 Setup fee scales with custom-tool work: ~$0 if all Composio, ~$1500 per custom_platform_tool, ~$1000 per custom_browse flow.
 
+# REQUIRED: market research BEFORE pricing
+Before you finalize the pricing block, run **web_search** to ground your numbers. Don't guess. At minimum:
+
+1. **Competing agencies / platforms** — search for what other people charge for an agent doing this job. Examples: "${get("agentRole") || "lead generation"} agency pricing 2026", "AI ${get("agentRole") || "outreach"} tool pricing", or the specific category (e.g., "cold email SDR-as-a-service pricing", "AI customer support agent pricing 2026"). Pull 2-3 real data points.
+2. **Replacement role cost** — what would the prospect pay a human to do this job? Search "${get("agentRole") || "the role"} contractor rate", "junior ${get("agentRole") || "SDR"} salary US small business", or whatever's appropriate. One data point is enough here.
+3. **Category benchmarks** — search for what similar SaaS products charge in this space ("${(get("industry") || "this category").toLowerCase()} automation tools pricing", or any direct competitor you know of). Pull 1-2 more data points.
+
+Take the **3-8 best data points** from those searches and put them in \`pricing.marketResearch.findings\`. Synthesize the overall picture in \`pricing.marketResearch.summary\` (2-4 sentences). Set \`pricing.marketResearch.replacementCost\` to the loaded monthly cost of the human alternative (null only if there genuinely isn't a human equivalent — rare).
+
+THEN propose pricing that fits the research: typically below the replacement cost (so we're cheaper than hiring), in line with or slightly under comparable SaaS, and reflecting the buildPlan effort in the setup fee. The pricing.reasoning sentence must connect the suggested numbers to specific findings from the research.
+
 # Hard rules
 - Output ONLY the JSON object. No prose before/after, no code fences.
 - agentEmailSlug must be lowercase letters/numbers/hyphens only.
 - systemPrompt must be a complete, deployable prompt (not a template) — write it as if it ships today. Include the agent's name + role + the client's specific situation + tone guidance + hard limits. Use first/second person as appropriate ("You are Hawk. You help Cedar Ridge...").
 - Tools array: every tool the agent needs, including Composio ones the prospect already mentioned AND any platform tools/browse flows you're proposing. For custom_browse and custom_platform_tool, set buildDays honestly. For composio, you can omit buildDays.
 - buildPlan: 4-10 concrete steps. Wiring Composio OAuth is a client step ("ambitt" owns code, "client" owns OAuth click-through). Writing custom tools is ambitt. Prompt tuning is ambitt.
-- pricing.reasoning must justify the tier and the setup-fee number against the buildPlan.
+- pricing.reasoning must reference at least one finding from pricing.marketResearch.findings explicitly. e.g., "Pricing at $999/mo undercuts Reply.io's $750/seat (their #2 tier) while still being well below the $4k/mo replacement cost of a junior SDR."
+- pricing.marketResearch.findings: 3-8 real data points from your actual web_search calls. Source names should be real product/service/role names, not made up.
 - risks: flag genuine concerns only — empty array if there are none. Don't manufacture risks.
 - Speak as "we" / "our team" — never name Kyle or any individual operator.
 - No marketing speak. Write like a senior engineer documenting an implementation, not a sales deck.`;
