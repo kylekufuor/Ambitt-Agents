@@ -1432,12 +1432,14 @@ app.get("/onboarding/prospects/:id/prd-html", async (req: Request, res: Response
 
 // POST /onboarding/prospects/:id/prd-approve
 // Sets prdApprovedAt = now. Idempotent — re-approval re-stamps.
+// Side effect: auto-fires generate-quote so a draft is waiting for Kyle by
+// the time he opens the dashboard quote page (~2 min after click).
 app.post("/onboarding/prospects/:id/prd-approve", async (req: Request, res: Response) => {
   try {
     const prospectId = param(req, "id");
     const prospect = await prisma.prospect.findUnique({
       where: { id: prospectId },
-      select: { id: true, prdData: true },
+      select: { id: true, prdData: true, prdApprovedAt: true, quoteDraft: true },
     });
     if (!prospect) {
       res.status(404).json({ error: "Prospect not found" });
@@ -1452,12 +1454,500 @@ app.post("/onboarding/prospects/:id/prd-approve", async (req: Request, res: Resp
       data: { prdApprovedAt: new Date(), lastActivityAt: new Date() },
     });
     logger.info("PRD approved", { prospectId: prospect.id });
+
+    // Auto-fire quote draft if this is a fresh approval AND we don't already
+    // have a quote draft from a prior approval (avoid re-drafting on idempotent
+    // re-clicks).
+    if (!prospect.prdApprovedAt && !prospect.quoteDraft) {
+      const baseUrl = process.env.ORACLE_URL ?? `http://localhost:${PORT}`;
+      fetch(`${baseUrl}/onboarding/prospects/${prospect.id}/generate-quote`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      }).catch((err) => {
+        logger.warn("Auto-fire generate-quote after PRD approval failed", { prospectId: prospect.id, err });
+      });
+    }
+
     res.json({ status: "prd_approved", prospectId: prospect.id });
   } catch (error) {
     logger.error("PRD approve failed", { error });
     res.status(500).json({ error: "PRD approve failed" });
   }
 });
+
+// ===========================================================================
+// QUOTE — Atlas drafts → Kyle reviews/edits → sends → prospect approves/denies
+// ===========================================================================
+//
+// Triggered automatically when Kyle approves the PRD (so a draft is waiting
+// when he opens the dashboard a minute later). Atlas reads the approved PRD
+// — that's the source of truth for scope + pricing recommendation — and
+// emits QuoteData JSON.
+//
+// Kyle reviews + edits the draft in the dashboard (/prospects/:id/quote),
+// then clicks Send → flips status to quote_sent, emails the prospect a slim
+// teaser linking to /quotes/[token] on the portal where they Approve or Deny.
+//
+// Same JSON-contract pattern as proposal + PRD: structured shape, Zod
+// validate, retry once on failure, store to Prospect.quoteDraft.
+
+app.post("/onboarding/prospects/:id/generate-quote", async (req: Request, res: Response) => {
+  try {
+    const prospectId = param(req, "id");
+
+    const prospect = await prisma.prospect.findUnique({ where: { id: prospectId } });
+    if (!prospect) {
+      res.status(404).json({ error: "Prospect not found" });
+      return;
+    }
+    if (prospect.status === "archived" || prospect.status === "ghosted") {
+      res.status(403).json({ error: "Prospect onboarding is closed" });
+      return;
+    }
+    if (!prospect.prdData) {
+      res.status(409).json({ error: "PRD must be generated before quote can be drafted" });
+      return;
+    }
+
+    const atlas = await prisma.agent.findUnique({
+      where: { email: "atlas@ambitt.agency" },
+      select: { id: true, clientId: true, name: true, status: true },
+    });
+    if (!atlas || atlas.status !== "active") {
+      res.status(500).json({ error: "Atlas is not seeded or not active" });
+      return;
+    }
+
+    const threadId = `prospect-${prospect.id}-quote`;
+    const { processInboundMessage } = await import("../shared/runtime/index.js");
+    const { renderQuote, parseAtlasQuoteOutput, QuoteValidationError } = await import("./templates/quote/render.js");
+
+    const pass1 = await processInboundMessage({
+      agentId: atlas.id,
+      userMessage: buildAtlasQuotePrompt(prospect),
+      channel: "chat",
+      threadId,
+      senderEmail: prospect.email,
+      billable: false,
+    });
+
+    const tryValidate = (raw: string): { data: unknown; html: string } => {
+      const parsed = parseAtlasQuoteOutput(raw);
+      if (parsed === null) {
+        throw new QuoteValidationError([
+          { path: [], code: "custom", message: "No JSON block found in response" } as any,
+        ]);
+      }
+      const html = renderQuote(parsed);
+      return { data: parsed, html };
+    };
+
+    let result: { data: unknown; html: string };
+    try {
+      result = tryValidate(pass1.response);
+    } catch (err) {
+      if (!(err instanceof QuoteValidationError)) throw err;
+      logger.warn("Atlas first-pass Quote JSON invalid — retrying once", {
+        prospectId: prospect.id,
+        issues: err.issues.map((i) => `${i.path.join(".")}: ${i.message}`),
+      });
+      const correction = `Your previous quote didn't pass schema validation. Issues:\n${err.issues
+        .map((i, n) => `${n + 1}. ${i.path.join(".") || "(root)"}: ${i.message}`)
+        .join("\n")}\n\nRe-emit the COMPLETE QuoteData JSON with these fixed. Output ONLY the JSON object, no commentary, no code fences.`;
+      const pass2 = await processInboundMessage({
+        agentId: atlas.id,
+        userMessage: correction,
+        channel: "chat",
+        threadId,
+        senderEmail: prospect.email,
+        billable: false,
+      });
+      result = tryValidate(pass2.response);
+    }
+
+    await prisma.prospect.update({
+      where: { id: prospect.id },
+      data: {
+        quoteDraft: result.data as object,
+        // Don't change status — quote_pending until Kyle explicitly Sends.
+        // Don't set quoteSentAt — that's the Send action's job.
+        lastActivityAt: new Date(),
+      },
+    });
+
+    try {
+      const dashBase = process.env.DASHBOARD_URL ?? "https://dashboard.ambitt.agency";
+      await notifyOps({
+        atlasId: atlas.id,
+        atlasName: atlas.name,
+        subject: `Quote draft ready — ${prospect.contactName ?? "prospect"} (${prospect.businessName ?? "—"})`,
+        html: renderQuoteDraftReadyNotice(prospect, dashBase),
+      });
+    } catch (err) {
+      logger.warn("Quote-draft-ready ops notification failed", { prospectId: prospect.id, error: err });
+    }
+
+    logger.info("Quote draft generated", { prospectId: prospect.id });
+    res.json({ status: "quote_drafted", prospectId: prospect.id });
+  } catch (error) {
+    if (error instanceof Error && error.name === "QuoteValidationError") {
+      const issues = (error as Error & { issues?: Array<{ path: (string | number)[]; message: string }> }).issues ?? [];
+      logger.warn("Quote generation: Atlas output failed validation after retry", {
+        prospectId: req.params.id,
+        issues: issues.map((i) => `${(i.path ?? []).join(".") || "(root)"}: ${i.message}`),
+      });
+      res.status(422).json({
+        error: "Atlas couldn't produce a valid quote",
+        reason: "Both attempts failed schema validation.",
+        issues: issues.map((i) => ({ path: (i.path ?? []).join(".") || "(root)", message: i.message })),
+      });
+      return;
+    }
+    logger.error("Quote generation failed", { error });
+    res.status(500).json({ error: "Quote generation failed" });
+  }
+});
+
+// GET /onboarding/prospects/:id/quote-html
+// Renders stored quoteDraft as a full HTML doc. Used by:
+//   - dashboard iframe preview
+//   - portal /quotes/[token] hosted page (which proxies through to here)
+app.get("/onboarding/prospects/:id/quote-html", async (req: Request, res: Response) => {
+  try {
+    const prospectId = param(req, "id");
+    const prospect = await prisma.prospect.findUnique({
+      where: { id: prospectId },
+      select: { quoteDraft: true },
+    });
+    if (!prospect) {
+      res.status(404).type("text/html").send("<p>Prospect not found.</p>");
+      return;
+    }
+    if (!prospect.quoteDraft) {
+      res.status(202).type("text/html").send(`<!doctype html><html><body style="font-family:system-ui;padding:40px;color:#737373;">
+        <p>Quote not drafted yet.</p>
+        <p style="font-size:13px;color:#a3a3a3;margin-top:8px;">Atlas drafts ~2 min after PRD approval. Refresh in a moment.</p>
+      </body></html>`);
+      return;
+    }
+    const { renderQuote } = await import("./templates/quote/render.js");
+    try {
+      const html = renderQuote(prospect.quoteDraft);
+      res.type("text/html").send(html);
+    } catch (err) {
+      logger.warn("Quote render failed in quote-html endpoint", { prospectId, error: err });
+      res.status(500).type("text/html").send(`<!doctype html><html><body style="font-family:system-ui;padding:40px;color:#dc2626;">
+        <p>Quote render failed. The stored data didn't match the schema — likely from a prompt change. Try regenerating the quote draft from the dashboard.</p>
+      </body></html>`);
+    }
+  } catch (error) {
+    logger.error("quote-html endpoint failed", { error });
+    res.status(500).type("text/html").send("<p>Internal error.</p>");
+  }
+});
+
+// POST /onboarding/prospects/:id/quote-save
+// Saves edits to the quote draft. Body is the full QuoteData JSON. We
+// validate before writing so Kyle can't save something that won't render.
+app.post("/onboarding/prospects/:id/quote-save", async (req: Request, res: Response) => {
+  try {
+    const prospectId = param(req, "id");
+    const prospect = await prisma.prospect.findUnique({
+      where: { id: prospectId },
+      select: { id: true, status: true },
+    });
+    if (!prospect) {
+      res.status(404).json({ error: "Prospect not found" });
+      return;
+    }
+    const { renderQuote, QuoteValidationError } = await import("./templates/quote/render.js");
+    try {
+      renderQuote(req.body); // validates via Zod, throws if invalid
+    } catch (err) {
+      if (err instanceof QuoteValidationError) {
+        res.status(422).json({
+          error: "Quote data failed validation",
+          issues: err.issues.map((i) => ({ path: i.path.join(".") || "(root)", message: i.message })),
+        });
+        return;
+      }
+      throw err;
+    }
+    await prisma.prospect.update({
+      where: { id: prospect.id },
+      data: { quoteDraft: req.body, lastActivityAt: new Date() },
+    });
+    res.json({ status: "quote_saved", prospectId: prospect.id });
+  } catch (error) {
+    logger.error("Quote save failed", { error });
+    res.status(500).json({ error: "Quote save failed" });
+  }
+});
+
+// POST /onboarding/prospects/:id/quote-send
+// Kyle reviewed + edited the draft, hits Send. Flips status to quote_sent,
+// stamps quoteSentAt, fires the prospect-facing teaser email.
+app.post("/onboarding/prospects/:id/quote-send", async (req: Request, res: Response) => {
+  try {
+    const prospectId = param(req, "id");
+    const prospect = await prisma.prospect.findUnique({ where: { id: prospectId } });
+    if (!prospect) {
+      res.status(404).json({ error: "Prospect not found" });
+      return;
+    }
+    if (!prospect.quoteDraft) {
+      res.status(409).json({ error: "No quote draft to send" });
+      return;
+    }
+    if (prospect.status === "archived" || prospect.status === "ghosted") {
+      res.status(403).json({ error: "Prospect onboarding is closed" });
+      return;
+    }
+
+    const atlas = await prisma.agent.findUnique({
+      where: { email: "atlas@ambitt.agency" },
+      select: { id: true, name: true, status: true },
+    });
+    if (!atlas || atlas.status !== "active") {
+      res.status(500).json({ error: "Atlas is not seeded or not active" });
+      return;
+    }
+
+    const quoteData = prospect.quoteDraft as Record<string, unknown>;
+    const subject = typeof quoteData.subject === "string" ? quoteData.subject : "Your custom agent quote";
+    const portalBase = process.env.CLIENT_PORTAL_URL ?? "https://client-portal-production-77a9.up.railway.app";
+    const quoteUrl = `${portalBase}/quotes/${prospect.token}`;
+
+    const { sendEmail } = await import("../shared/email.js");
+    await sendEmail({
+      agentId: atlas.id,
+      agentName: atlas.name,
+      to: prospect.email,
+      subject,
+      html: renderQuoteTeaserEmail(prospect, quoteUrl, portalBase),
+      replyToAgentId: atlas.id,
+    });
+
+    await prisma.prospect.update({
+      where: { id: prospect.id },
+      data: { status: "quote_sent", quoteSentAt: new Date(), lastActivityAt: new Date() },
+    });
+
+    logger.info("Quote sent", { prospectId: prospect.id });
+    res.json({ status: "quote_sent", prospectId: prospect.id });
+  } catch (error) {
+    logger.error("Quote send failed", { error });
+    res.status(500).json({ error: "Quote send failed" });
+  }
+});
+
+// POST /onboarding/prospects/:id/quote-decided
+// Fired by the portal's /quotes/[token]/approve and /deny routes (the portal
+// already wrote the Prisma status flip; this is the operator-side
+// notification + central log).
+app.post("/onboarding/prospects/:id/quote-decided", async (req: Request, res: Response) => {
+  try {
+    const prospectId = param(req, "id");
+    const { decision, reason } = req.body as { decision?: "approved" | "denied"; reason?: string };
+    if (decision !== "approved" && decision !== "denied") {
+      res.status(400).json({ error: "decision must be 'approved' or 'denied'" });
+      return;
+    }
+    const prospect = await prisma.prospect.findUnique({ where: { id: prospectId } });
+    if (!prospect) {
+      res.status(404).json({ error: "Prospect not found" });
+      return;
+    }
+    const atlas = await prisma.agent.findUnique({
+      where: { email: "atlas@ambitt.agency" },
+      select: { id: true, name: true },
+    });
+    if (atlas) {
+      try {
+        await notifyOps({
+          atlasId: atlas.id,
+          atlasName: atlas.name,
+          subject:
+            decision === "approved"
+              ? `🎉 Quote APPROVED — ${prospect.contactName ?? "prospect"} (${prospect.businessName ?? "—"})`
+              : `Quote denied — ${prospect.contactName ?? "prospect"} (${prospect.businessName ?? "—"})`,
+          html: renderQuoteDecidedNotice(prospect, decision, reason),
+        });
+      } catch (err) {
+        logger.warn("Quote-decided ops notification failed", { prospectId: prospect.id, error: err });
+      }
+    }
+    logger.info("Quote decided", { prospectId: prospect.id, decision });
+    res.json({ status: "ok" });
+  } catch (error) {
+    logger.error("quote-decided endpoint failed", { error });
+    res.status(500).json({ error: "quote-decided failed" });
+  }
+});
+
+function buildAtlasQuotePrompt(prospect: {
+  id: string;
+  email: string;
+  token: string;
+  contactName: string | null;
+  businessName: string | null;
+  prdData: unknown;
+}): string {
+  const portalBase = process.env.CLIENT_PORTAL_URL ?? "https://client-portal-production-77a9.up.railway.app";
+  const approveUrl = `${portalBase}/quotes/${prospect.token}/approve`;
+  const denyUrl = `${portalBase}/quotes/${prospect.token}/deny`;
+  const prdJson = JSON.stringify(prospect.prdData, null, 2);
+
+  return `The PRD for this prospect has been approved. Now draft the quote — the client-facing artifact they'll Approve or Deny on a hosted page.
+
+Output a single JSON object matching the QuoteData TypeScript contract below. JSON only — no preamble, no code fences, no commentary.
+
+# Prospect basics
+- Email: ${prospect.email}
+- Name: ${prospect.contactName ?? "(no name)"}
+- Business: ${prospect.businessName ?? "—"}
+
+# Approved PRD (the source of truth)
+Use the PRD as the basis for everything. Don't invent new tools/scope — translate what's in the PRD into client-readable language.
+
+\`\`\`json
+${prdJson}
+\`\`\`
+
+# CTA URLs to use VERBATIM
+- cta.approveUrl: ${approveUrl}
+- cta.denyUrl: ${denyUrl}
+
+# QuoteData TypeScript contract
+\`\`\`ts
+interface QuoteData {
+  subject: string;                              // email subject line — e.g. "Your custom agent — quote inside"
+  greeting: { name: string; body: string };     // name = prospect's first name; body = 1-2 sentence opener
+  hero: {
+    label: string;                              // "YOUR CUSTOM AGENT QUOTE" or similar
+    title: string;                              // "Hawk for Cedar Ridge Commercial." Supports <br>.
+    subtitle: string;                           // one-line summary: "role · mode · cadence"
+  };
+  pricing: {
+    setupCents: number;                         // integer cents — match PRD's suggestedSetupCents
+    monthlyCents: number;                       // integer cents — match PRD's suggestedMonthlyCents
+    tierLabel: string;                          // "Growth tier" / "Starter tier"
+    summary: string;                            // 1-3 sentences explaining what they're paying for, can reference market findings naturally
+  };
+  scopeOfWork: {
+    intro?: string;                             // optional sentence — "Here's everything that's included."
+    items: Array<{
+      title: string;                            // short — "Custom outreach scoring function" or "Gmail integration"
+      description: string;                      // 1-2 sentences plain English
+      kind: "integration" | "custom_code" | "automation" | "prompt" | "testing" | "launch";
+    }>;                                         // 3-15 items
+  };
+  monthlyIncludes: string[];                    // 3-8 bullets — what's covered by the recurring retainer
+  notIncluded: string[];                        // 2-6 bullets — what's NOT covered. Set clear expectations.
+  timeline: {
+    buildWindow: string;                        // e.g. "3-4 weeks" — derived from sum of PRD.buildPlan[].estimatedDays
+    description: string;                        // 1-2 sentences: what happens after approval
+  };
+  terms: {
+    validity: string;                           // "Quote valid for 30 days from send"
+    paymentTerms: string;                       // "Setup fee due at signature; monthly retainer billed first of each month from launch"
+    cancellation: string;                       // "Cancel anytime with 30 days notice; setup fee is non-refundable once build starts"
+  };
+  cta: {
+    headline: string;                           // "Ready to build this?" — warm but clear
+    subtext: string;                            // 1-2 sentence subhead
+    approveLabel: string;                       // "Approve and start"
+    approveUrl: string;                         // VERBATIM from above
+    denyLabel: string;                          // "Not right now"
+    denyUrl: string;                            // VERBATIM from above
+  };
+  footer: {
+    domain: string;                             // "ambitt.agency"
+    location: string;                           // "Dallas, TX"
+    note?: string;                              // optional one-line
+  };
+}
+\`\`\`
+
+# Hard rules
+- Output ONLY the JSON object. No preamble, no code fences.
+- Pricing numbers MUST match the PRD's pricing block exactly. Don't second-guess Kyle's reviewed pricing.
+- scopeOfWork.items: translate PRD.buildPlan + PRD.tools into client-readable scope items. The CLIENT is reading this — write descriptions a non-technical person can follow. e.g. PRD's "Wire Gmail OAuth" becomes "Gmail integration" with description "We'll connect your Gmail so the agent can send and log emails from your address." Don't include internal/operator-only items like "Internal QA dry runs" unless they're genuinely something the prospect should know about.
+- timeline.buildWindow: pick a range based on the SUM of PRD.buildPlan[].estimatedDays. Add some buffer. Examples: <5 days total → "1-2 weeks"; 5-15 days → "2-4 weeks"; 15-30 days → "4-6 weeks"; 30+ days → "6-8 weeks". Stay within the platform-promised "2-8 weeks" window.
+- monthlyIncludes: what they get for the recurring retainer — typically things like "Daily agent runs", "Email/Slack escalation", "Ongoing prompt refinement based on results", "Tool maintenance when APIs change", "Monthly performance review".
+- notIncluded: set boundaries — typical: "Third-party API costs (e.g. Composio premium tiers) billed at cost", "Scope changes mid-build (priced separately)", "Custom tools beyond the listed scope", "Live training sessions beyond initial handoff".
+- cta.approveUrl + cta.denyUrl must match the URLs above VERBATIM.
+- Speak as "we" / "our team" — never name Kyle or any individual operator.
+- Use the prospect's preferred name in greeting (from the PRD's identity block or the prospect's contactName).
+- pricing.summary can reference market context naturally ("comparable to a junior contractor at $4-5k/mo loaded") but don't list specific competitor names — that's internal PRD context, the quote should feel value-led not comparison-shop-led.
+- No marketing speak. Read like a contract from someone you trust, not a sales deck.`;
+}
+
+function renderQuoteDraftReadyNotice(
+  prospect: { id: string; contactName: string | null; businessName: string | null; email: string },
+  dashBase: string
+): string {
+  const quoteUrl = `${dashBase}/prospects/${prospect.id}/quote`;
+  const contact = prospect.contactName ?? "(no name)";
+  const business = prospect.businessName ?? "—";
+  return `<div style="font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; max-width: 560px; margin: 0 auto; padding: 28px 24px; background: #ffffff; color: #171717;">
+  <p style="font-size: 14px; color: #404040; margin: 0 0 14px; line-height: 1.6;"><strong style="color: #00b3b3;">Quote draft ready.</strong> Review the numbers + scope, edit anything that needs polish, then hit Send.</p>
+  <table style="width: 100%; border-collapse: collapse; margin: 0 0 18px; font-size: 13.5px;">
+    <tr><td style="padding: 4px 0; color: #737373; width: 100px;">Contact</td><td style="padding: 4px 0; color: #171717;">${escapeHtmlBasic(contact)} &lt;${escapeHtmlBasic(prospect.email)}&gt;</td></tr>
+    <tr><td style="padding: 4px 0; color: #737373;">Business</td><td style="padding: 4px 0; color: #171717;">${escapeHtmlBasic(business)}</td></tr>
+  </table>
+  <div style="margin: 0 0 18px;">
+    <a href="${quoteUrl}" style="display: inline-block; padding: 12px 22px; background: #00b3b3; color: #ffffff; text-decoration: none; border-radius: 9px; font-size: 14px; font-weight: 600;">Review quote →</a>
+  </div>
+</div>`;
+}
+
+function renderQuoteTeaserEmail(
+  prospect: { contactName: string | null; businessName: string | null },
+  quoteUrl: string,
+  portalBase: string
+): string {
+  const firstName = (prospect.contactName ?? "").trim().split(/\s+/)[0] || "there";
+  const businessLine = prospect.businessName ? ` for ${prospect.businessName}` : "";
+  return `<div style="font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; max-width: 560px; margin: 0 auto; padding: 32px 24px; background: #ffffff; color: #171717;">
+  <div style="margin-bottom: 28px;">
+    <img src="${portalBase}/brand/ambitt-agents-lockup.svg" alt="Ambitt Agents" width="220" height="27" style="display: block; max-width: 220px; height: auto;" />
+  </div>
+  <p style="font-size: 15px; color: #404040; margin: 0 0 16px; line-height: 1.6;">Hey ${firstName},</p>
+  <p style="font-size: 15px; color: #404040; margin: 0 0 24px; line-height: 1.6;">
+    Your custom agent quote${businessLine} is ready. It covers everything we're building, what's included monthly, the timeline, and terms.
+  </p>
+  <p style="font-size: 15px; color: #404040; margin: 0 0 28px; line-height: 1.6;">
+    Read it carefully. If it works for you, hit Approve and we'll get started. If not, hit "Not right now" and we'll close out cleanly.
+  </p>
+  <div style="margin: 0 0 32px;">
+    <a href="${quoteUrl}" style="display: inline-block; padding: 14px 30px; background: #00b3b3; color: #ffffff; text-decoration: none; border-radius: 9px; font-size: 15px; font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,0.05), 0 4px 12px rgba(0, 179, 179, 0.28);">View your quote →</a>
+  </div>
+  <p style="font-size: 13px; color: #a3a3a3; margin: 32px 0 0;">— Atlas, your onboarding agent at Ambitt Agents</p>
+</div>`;
+}
+
+function renderQuoteDecidedNotice(
+  prospect: { id: string; contactName: string | null; businessName: string | null; email: string },
+  decision: "approved" | "denied",
+  reason: string | undefined
+): string {
+  const contact = prospect.contactName ?? "(no name)";
+  const business = prospect.businessName ?? "—";
+  const isApproved = decision === "approved";
+  const headline = isApproved
+    ? `<strong style="color: #10b981;">Quote APPROVED.</strong> Time to set up Stripe checkout (Phase C) and kick off the build.`
+    : `<strong style="color: #f59e0b;">Quote denied.</strong> Follow up offline if you want to understand why or save the deal.`;
+  return `<div style="font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; max-width: 560px; margin: 0 auto; padding: 28px 24px; background: #ffffff; color: #171717;">
+  <p style="font-size: 14px; color: #404040; margin: 0 0 14px; line-height: 1.6;">${headline}</p>
+  <table style="width: 100%; border-collapse: collapse; margin: 0 0 18px; font-size: 13.5px;">
+    <tr><td style="padding: 4px 0; color: #737373; width: 100px;">Contact</td><td style="padding: 4px 0; color: #171717;">${escapeHtmlBasic(contact)} &lt;${escapeHtmlBasic(prospect.email)}&gt;</td></tr>
+    <tr><td style="padding: 4px 0; color: #737373;">Business</td><td style="padding: 4px 0; color: #171717;">${escapeHtmlBasic(business)}</td></tr>
+  </table>
+  ${reason && !isApproved ? `<div style="background: rgba(245,158,11,0.06); border: 1px solid rgba(245,158,11,0.25); border-radius: 9px; padding: 12px 14px; margin-bottom: 18px; font-size: 13px; color: #92400e;"><div style="font-weight: 600; margin-bottom: 4px;">Reason they gave:</div>${escapeHtmlBasic(reason)}</div>` : ""}
+</div>`;
+}
 
 function buildAtlasPRDPrompt(
   prospect: {

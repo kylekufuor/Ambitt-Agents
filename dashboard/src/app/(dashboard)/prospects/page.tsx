@@ -31,6 +31,10 @@ export default async function ProspectsPage() {
       presentationGeneratedAt: true,
       prdGeneratedAt: true,
       prdApprovedAt: true,
+      quoteDraft: true,
+      quoteSentAt: true,
+      quoteAcceptedAt: true,
+      quoteDeniedAt: true,
       lastActivityAt: true,
       createdAt: true,
     },
@@ -70,6 +74,7 @@ export default async function ProspectsPage() {
                 <th className="text-left font-medium px-4 py-3">Last activity</th>
                 <th className="text-left font-medium px-4 py-3">Proposal</th>
                 <th className="text-left font-medium px-4 py-3">PRD</th>
+                <th className="text-left font-medium px-4 py-3">Quote</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -113,6 +118,32 @@ export default async function ProspectsPage() {
                         }`}
                       >
                         {p.prdApprovedAt ? "Approved →" : "Review →"}
+                      </Link>
+                    ) : (
+                      <span className="text-muted-foreground/60 text-xs">—</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    {p.quoteDraft ? (
+                      <Link
+                        href={`/prospects/${p.id}/quote`}
+                        className={`text-xs font-medium ${
+                          p.quoteAcceptedAt
+                            ? "text-emerald-400 hover:text-emerald-300"
+                            : p.quoteDeniedAt
+                              ? "text-red-400 hover:text-red-300"
+                              : p.quoteSentAt
+                                ? "text-blue-400 hover:text-blue-300"
+                                : "text-amber-400 hover:text-amber-300"
+                        }`}
+                      >
+                        {p.quoteAcceptedAt
+                          ? "Accepted →"
+                          : p.quoteDeniedAt
+                            ? "Denied →"
+                            : p.quoteSentAt
+                              ? "Sent →"
+                              : "Draft →"}
                       </Link>
                     ) : (
                       <span className="text-muted-foreground/60 text-xs">—</span>

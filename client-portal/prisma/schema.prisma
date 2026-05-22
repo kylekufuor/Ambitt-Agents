@@ -608,10 +608,20 @@ model Prospect {
   prdGeneratedAt           DateTime?
   prdApprovedAt            DateTime?
 
-  // Atlas-drafted quote, pending Kyle's review. Shape:
-  // { setupFeeCents, monthlyRetainerCents, pricingTier, reasoning, terms }
+  // Quote: Atlas-drafted, Kyle-reviewed-and-edited, then sent to the prospect.
+  // Lifecycle:
+  //   status quote_pending → Atlas drafts after PRD approval, quoteDraft set
+  //   Kyle edits in dashboard, hits Send → status quote_sent, quoteSentAt set
+  //   Prospect clicks Approve on hosted /quotes/[token] page → status accepted,
+  //     quoteAcceptedAt set (Phase C: Stripe checkout fires here)
+  //   Prospect clicks Deny → status quote_denied, quoteDeniedAt + optional
+  //     quoteDeniedReason set
+  // Shape of quoteDraft mirrors oracle/templates/quote/types.ts QuoteData.
   quoteDraft               Json?
   quoteSentAt              DateTime?
+  quoteAcceptedAt          DateTime?
+  quoteDeniedAt            DateTime?
+  quoteDeniedReason        String?    @db.Text
 
   // Once accepted + paid, link to the freshly-created Client row.
   convertedClientId        String?

@@ -1,0 +1,170 @@
+import prisma from "@/lib/db";
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { QuoteEditor } from "./editor";
+
+// Quote draft review page. Atlas drafts after PRD approval; Kyle reviews,
+// edits the JSON if needed, hits Send → flips status to quote_sent and
+// emails the prospect a teaser linking to /quotes/[token].
+export const dynamic = "force-dynamic";
+
+const ORACLE_BASE = process.env.ORACLE_URL ?? "https://oracle-production-c0ff.up.railway.app";
+const PORTAL_BASE = process.env.CLIENT_PORTAL_URL ?? "https://client-portal-production-77a9.up.railway.app";
+
+export default async function QuotePage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  const prospect = await prisma.prospect.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      token: true,
+      contactName: true,
+      businessName: true,
+      email: true,
+      status: true,
+      prdData: true,
+      prdApprovedAt: true,
+      quoteDraft: true,
+      quoteSentAt: true,
+      quoteAcceptedAt: true,
+      quoteDeniedAt: true,
+      quoteDeniedReason: true,
+    },
+  });
+
+  if (!prospect) notFound();
+
+  const quoteHtmlUrl = `${ORACLE_BASE}/onboarding/prospects/${prospect.id}/quote-html`;
+  const liveQuoteUrl = `${PORTAL_BASE}/quotes/${prospect.token}`;
+
+  return (
+    <div className="p-6 space-y-4 max-w-7xl">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <div className="text-muted-foreground text-xs uppercase tracking-wider mb-1">
+            <Link href="/prospects" className="hover:text-foreground">Prospects</Link> · Quote
+          </div>
+          <h1 className="text-2xl font-bold text-foreground">
+            {prospect.contactName ?? "(no name)"}
+            {prospect.businessName && (
+              <span className="text-muted-foreground font-normal"> · {prospect.businessName}</span>
+            )}
+          </h1>
+          <div className="text-muted-foreground text-sm mt-1 flex items-center gap-2">
+            <span>{prospect.email}</span>
+            <StatusChip status={prospect.status} />
+          </div>
+          <Status prospect={prospect} liveQuoteUrl={liveQuoteUrl} />
+        </div>
+      </div>
+
+      {!prospect.prdApprovedAt && (
+        <div className="bg-amber-500/8 border border-amber-500/30 rounded-xl px-5 py-4 text-sm text-amber-300">
+          PRD must be approved before the quote can be drafted.
+          <Link href={`/prospects/${prospect.id}/prd`} className="ml-2 underline">Go to PRD →</Link>
+        </div>
+      )}
+
+      {prospect.prdApprovedAt && !prospect.quoteDraft && (
+        <div className="bg-card border border-border rounded-xl px-5 py-12 text-center">
+          <p className="text-muted-foreground text-sm">Quote not drafted yet.</p>
+          <p className="text-muted-foreground/60 text-xs mt-1">
+            Atlas drafts ~2 min after PRD approval. Refresh in a moment, or trigger manually below.
+          </p>
+          <ManualGenerateButton prospectId={prospect.id} />
+        </div>
+      )}
+
+      {prospect.quoteDraft && (
+        <QuoteEditor
+          prospectId={prospect.id}
+          quoteHtmlUrl={quoteHtmlUrl}
+          initialJson={JSON.stringify(prospect.quoteDraft, null, 2)}
+          alreadySent={Boolean(prospect.quoteSentAt)}
+          locked={Boolean(prospect.quoteAcceptedAt || prospect.quoteDeniedAt)}
+        />
+      )}
+    </div>
+  );
+}
+
+function ManualGenerateButton({ prospectId }: { prospectId: string }) {
+  return (
+    <form action={`/api/prospects/${prospectId}/quote-regenerate`} method="POST" className="mt-4">
+      <button
+        type="submit"
+        className="text-xs font-semibold px-4 py-1.5 rounded-lg bg-amber-500/90 text-white hover:bg-amber-500"
+      >
+        Trigger Atlas draft now
+      </button>
+    </form>
+  );
+}
+
+function StatusChip({ status }: { status: string }) {
+  const styles: Record<string, string> = {
+    quote_pending: "bg-amber-500/10 text-amber-400 ring-amber-500/20",
+    quote_sent: "bg-blue-500/10 text-blue-400 ring-blue-500/20",
+    accepted: "bg-emerald-600/15 text-emerald-300 ring-emerald-500/30",
+    quote_denied: "bg-red-500/10 text-red-400 ring-red-500/20",
+  };
+  const cls = styles[status] ?? "bg-muted text-muted-foreground ring-border";
+  return (
+    <span className={`inline-flex items-center text-[10.5px] font-medium px-2 py-0.5 rounded-full ring-1 ${cls}`}>
+      {status.replace(/_/g, " ")}
+    </span>
+  );
+}
+
+function Status({
+  prospect,
+  liveQuoteUrl,
+}: {
+  prospect: {
+    quoteSentAt: Date | null;
+    quoteAcceptedAt: Date | null;
+    quoteDeniedAt: Date | null;
+    quoteDeniedReason: string | null;
+  };
+  liveQuoteUrl: string;
+}) {
+  if (prospect.quoteAcceptedAt) {
+    return (
+      <p className="text-emerald-400 text-sm mt-2">
+        🎉 Quote accepted {timeAgo(prospect.quoteAcceptedAt)}. The deal is on. (Stripe wiring lands in Phase C.)
+      </p>
+    );
+  }
+  if (prospect.quoteDeniedAt) {
+    return (
+      <p className="text-amber-400 text-sm mt-2">
+        Quote denied {timeAgo(prospect.quoteDeniedAt)}.
+        {prospect.quoteDeniedReason && <> Reason: <span className="text-amber-300">{prospect.quoteDeniedReason}</span></>}
+      </p>
+    );
+  }
+  if (prospect.quoteSentAt) {
+    return (
+      <p className="text-blue-400 text-sm mt-2">
+        Sent {timeAgo(prospect.quoteSentAt)} —{" "}
+        <a href={liveQuoteUrl} target="_blank" rel="noreferrer" className="underline">view what they see ↗</a>
+      </p>
+    );
+  }
+  return null;
+}
+
+function timeAgo(d: Date): string {
+  const seconds = Math.floor((Date.now() - new Date(d).getTime()) / 1000);
+  if (seconds < 60) return "just now";
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
