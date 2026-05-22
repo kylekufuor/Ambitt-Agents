@@ -203,13 +203,23 @@ async function callVera(
   const client = new Anthropic();
   const userMessage = buildUserMessage(artifactType, data, context, attempt);
 
-  const response = await client.messages.create({
-    model: VERA_MODEL,
-    max_tokens: MAX_TOKENS,
-    temperature: 0.2, // QA wants consistency, not creativity
-    system: [{ type: "text", text: VERA_SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
-    messages: [{ role: "user", content: userMessage }],
-  });
+  const response = await client.messages.create(
+    {
+      model: VERA_MODEL,
+      max_tokens: MAX_TOKENS,
+      temperature: 0.2, // QA wants consistency, not creativity
+      system: [{ type: "text", text: VERA_SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
+      messages: [{ role: "user", content: userMessage }],
+    },
+    {
+      // Bumped from SDK default 2 → 5 to absorb transient 529 ("Overloaded")
+      // + 429 (rate-limit). Same justification as the runtime engine — Vera
+      // is mid-call for Atlas, so a transient overload here cascades to the
+      // entire run failing. SDK does exponential backoff + jitter and
+      // respects retry-after.
+      maxRetries: 5,
+    }
+  );
 
   // Attribute usage to the Vera Agent row if we have it; otherwise skip
   // logging (don't block the review on a missing seed — Vera still works).

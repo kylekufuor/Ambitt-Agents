@@ -775,14 +775,28 @@ export async function runAgent(input: RuntimeInput): Promise<RuntimeOutput> {
   for (let i = 0; i < MAX_TOOL_LOOPS; i++) {
     loopCount = i + 1;
 
-    const apiResponse = await client.messages.create({
-      model: currentModel,
-      max_tokens: MAX_TOKENS,
-      temperature: 0.7,
-      system: systemParam,
-      messages,
-      tools: cachedTools.length > 0 ? cachedTools : undefined,
-    });
+    const apiResponse = await client.messages.create(
+      {
+        model: currentModel,
+        max_tokens: MAX_TOKENS,
+        temperature: 0.7,
+        system: systemParam,
+        messages,
+        tools: cachedTools.length > 0 ? cachedTools : undefined,
+      },
+      {
+        // Anthropic SDK retries: default is 2, bumped to 5 here to absorb
+        // transient 529 ("Overloaded") and 429 (rate-limit) errors that
+        // Anthropic intermittently returns under load. The SDK only retries
+        // on retryable status codes (408/409/429/5xx) and respects the
+        // x-should-retry + retry-after headers, with exponential backoff +
+        // jitter. 5 retries ≈ up to ~30s of recovery time before bubbling.
+        // Without this, a single transient overload during PRD/quote/
+        // proposal generation kills the entire Atlas run and surfaces as a
+        // 500 to the prospect or operator.
+        maxRetries: 5,
+      }
+    );
 
     trackUsage(currentModel, apiResponse.usage);
 
