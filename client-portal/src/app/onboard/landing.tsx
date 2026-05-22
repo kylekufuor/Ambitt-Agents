@@ -95,7 +95,6 @@ export default function OnboardLanding() {
       <div className="fa-stage">
         <div className="fa-slide active">
           <div className="fa-hero">
-            <div className="fa-hero-pill"><span className="fa-hero-pill-dot" />Build your agent</div>
             <div className="fa-agent-frame"><AtlasSingle width={50} height={72} /></div>
             <div className="fa-h-title">Let&apos;s build<br />your agent.</div>
             <p className="fa-hero-body">
