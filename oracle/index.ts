@@ -724,6 +724,16 @@ app.post("/webhooks/email-inbound", async (req: Request, res: Response) => {
     const auth = await checkInboundAuth(agentId, from, routingPath);
     if (!auth.ok) {
       logger.warn("Inbound email rejected — unauthorized sender", { agentId, from, reason: auth.reason });
+      // Soft auto-response for cold rejections on platform agents (Atlas-style).
+      // Tells the sender "you reached Atlas but can't email it cold — here's the
+      // right way in." Skipped for client agents (no marco-mcquizzy@ leakage)
+      // and for reply-path rejections (rare; sender clearly already has context).
+      // Fire-and-forget so the 200 ignored response goes out immediately.
+      if (routingPath === "direct") {
+        void sendColdEmailAutoResponse(agentId, from, subject).catch((err) =>
+          logger.warn("Cold-rejection auto-response failed", { agentId, from, err })
+        );
+      }
       res.json({ status: "ignored", reason: auth.reason });
       return;
     }
@@ -2643,6 +2653,126 @@ function renderScopeApprovedNotice(prospect: {
 
 function escapeHtmlBasic(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+// ---------------------------------------------------------------------------
+// Cold-rejection auto-response
+// ---------------------------------------------------------------------------
+// When someone cold-emails a platform agent (e.g. atlas@ambitt.agency) and
+// gets auth-rejected, we send back a soft "here's the right way in" message
+// instead of silently dropping. Skipped for known auto-responder addresses
+// to avoid bounce loops; skipped for non-platform agents (no info leakage
+// to random senders who happened to find a client agent's address).
+//
+// If the sender matches an active Prospect by email, we include THEIR
+// personal /onboard/[token] link in the response — common case is a prospect
+// who forgot they had a live link and tried emailing Atlas instead.
+
+const AUTORESPONDER_PREFIXES = [
+  "noreply",
+  "no-reply",
+  "donotreply",
+  "do-not-reply",
+  "mailer-daemon",
+  "postmaster",
+  "bounces",
+  "bounce",
+  "notifications",
+];
+
+function looksLikeAutoresponder(email: string): boolean {
+  const localPart = email.split("@")[0]?.toLowerCase() ?? "";
+  return AUTORESPONDER_PREFIXES.some((p) => localPart === p || localPart.startsWith(`${p}-`) || localPart.startsWith(`${p}+`));
+}
+
+async function sendColdEmailAutoResponse(
+  agentId: string,
+  fromHeader: string,
+  originalSubject: string
+): Promise<void> {
+  const senderEmail = parseEmailFromHeader(fromHeader);
+  if (!senderEmail) return;
+  if (looksLikeAutoresponder(senderEmail)) {
+    logger.info("Cold-rejection auto-response skipped — sender looks like an autoresponder", { senderEmail });
+    return;
+  }
+
+  const agent = await prisma.agent.findUnique({
+    where: { id: agentId },
+    select: { id: true, name: true, email: true, acceptFromProspects: true },
+  });
+  // Only platform agents get the soft response — client agents stay invisible.
+  if (!agent || !agent.acceptFromProspects) return;
+
+  // Personalize if the sender matches a known active prospect.
+  const prospect = await prisma.prospect.findUnique({
+    where: { email: senderEmail },
+    select: { id: true, token: true, contactName: true, status: true },
+  });
+  const isActiveProspect =
+    prospect !== null && prospect.status !== "archived" && prospect.status !== "ghosted";
+
+  const portalBase = process.env.CLIENT_PORTAL_URL ?? "https://portal.ambitt.agency";
+  const firstName =
+    (prospect?.contactName ?? "").trim().split(/\s+/)[0] || "there";
+  const replySubject = originalSubject && originalSubject.length > 0 ? `Re: ${originalSubject}` : "About your message";
+
+  const html = isActiveProspect
+    ? renderProspectAutoResponse(firstName, `${portalBase}/onboard/${prospect.token}`, portalBase)
+    : renderGenericAutoResponse(firstName, `${portalBase}/onboard`, portalBase);
+
+  const { sendEmail } = await import("../shared/email.js");
+  await sendEmail({
+    agentId: agent.id,
+    agentName: agent.name,
+    to: senderEmail,
+    subject: replySubject,
+    html,
+    replyToAgentId: agent.id,
+  });
+  logger.info("Cold-rejection auto-response sent", {
+    agentId,
+    to: senderEmail,
+    personalized: isActiveProspect,
+  });
+}
+
+function renderProspectAutoResponse(firstName: string, onboardUrl: string, portalBase: string): string {
+  return `<div style="font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; max-width: 560px; margin: 0 auto; padding: 32px 24px; background: #ffffff; color: #171717;">
+  <div style="margin-bottom: 28px;">
+    <img src="${portalBase}/brand/ambitt-agents-lockup.svg" alt="Ambitt Agents" width="220" height="27" style="display: block; max-width: 220px; height: auto;" />
+  </div>
+  <p style="font-size: 15px; color: #404040; margin: 0 0 16px; line-height: 1.6;">Hey ${escapeHtmlBasic(firstName)},</p>
+  <p style="font-size: 15px; color: #404040; margin: 0 0 16px; line-height: 1.65;">
+    Got your email — I'm Atlas, the onboarding agent for Ambitt Agents. I can't pick up cold messages here, but your onboarding link is below. It's already tied to you, so your progress is saved.
+  </p>
+  <div style="margin: 0 0 24px;">
+    <a href="${onboardUrl}" style="display: inline-block; padding: 14px 28px; background: #00b3b3; color: #ffffff; text-decoration: none; border-radius: 9px; font-size: 15px; font-weight: 600;">Open your onboarding →</a>
+  </div>
+  <p style="font-size: 14px; color: #404040; margin: 0 0 16px; line-height: 1.65;">
+    Anything outside the form, just reply to this email — that route works because I'll see the thread.
+  </p>
+  <p style="font-size: 13px; color: #a3a3a3; margin: 24px 0 0;">— Atlas, your onboarding agent at Ambitt Agents</p>
+</div>`;
+}
+
+function renderGenericAutoResponse(firstName: string, onboardLandingUrl: string, portalBase: string): string {
+  return `<div style="font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; max-width: 560px; margin: 0 auto; padding: 32px 24px; background: #ffffff; color: #171717;">
+  <div style="margin-bottom: 28px;">
+    <img src="${portalBase}/brand/ambitt-agents-lockup.svg" alt="Ambitt Agents" width="220" height="27" style="display: block; max-width: 220px; height: auto;" />
+  </div>
+  <p style="font-size: 15px; color: #404040; margin: 0 0 16px; line-height: 1.6;">Hey ${escapeHtmlBasic(firstName)},</p>
+  <p style="font-size: 15px; color: #404040; margin: 0 0 16px; line-height: 1.65;">
+    Got your email — I'm Atlas, the onboarding agent for Ambitt Agents. I can't read cold inbound here. The fastest way to start is to fill out the short onboarding form — takes about 5–10 minutes, then I'll send a tailored proposal back within 30 minutes.
+  </p>
+  <div style="margin: 0 0 24px;">
+    <a href="${onboardLandingUrl}" style="display: inline-block; padding: 14px 28px; background: #00b3b3; color: #ffffff; text-decoration: none; border-radius: 9px; font-size: 15px; font-weight: 600;">Start onboarding →</a>
+  </div>
+  <p style="font-size: 14px; color: #404040; margin: 0 0 16px; line-height: 1.65;">
+    Not a fit for onboarding? Email <a href="mailto:team@ambitt.agency" style="color: #00b3b3; text-decoration: none;">team@ambitt.agency</a> and a human will get back to you.
+  </p>
+  <p style="font-size: 13px; color: #a3a3a3; margin: 24px 0 0;">— Atlas, your onboarding agent at Ambitt Agents</p>
+</div>`;
 }
 
 function renderProposalTeaserEmail(
