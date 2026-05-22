@@ -1,5 +1,4 @@
 import "dotenv/config";
-import crypto from "node:crypto";
 import express, { Request, Response } from "express";
 import multer from "multer";
 import { scaffoldAgent, approveAgent, rejectAgent } from "./scaffold.js";
@@ -77,7 +76,10 @@ function parseEmailFromHeader(fromHeader: string): string | null {
 async function checkInboundAuth(
   agentId: string,
   fromHeader: string
-): Promise<{ ok: true; senderType: "client" | "prospect"; prospectId?: string } | { ok: false; reason: string }> {
+): Promise<
+  | { ok: true; senderType: "client" | "prospect" | "platform_operator"; prospectId?: string }
+  | { ok: false; reason: string }
+> {
   const senderEmail = parseEmailFromHeader(fromHeader);
   if (!senderEmail) return { ok: false, reason: "Cannot parse sender" };
 
@@ -89,6 +91,15 @@ async function checkInboundAuth(
 
   if (senderEmail === agent.client.email.toLowerCase()) {
     return { ok: true, senderType: "client" };
+  }
+
+  // Platform-operator path — only honored for platform agents (acceptFromProspects=true).
+  // Lets Kyle email Atlas (or any future platform agent) directly to drive
+  // operator-mode tasks like spawn_prospect. KYLE_EMAIL env var is the source
+  // of truth — when there are more operators, replace with a real allowlist.
+  const operatorEmail = process.env.KYLE_EMAIL?.toLowerCase().trim();
+  if (operatorEmail && senderEmail === operatorEmail && agent.acceptFromProspects) {
+    return { ok: true, senderType: "platform_operator" };
   }
 
   if (agent.acceptFromProspects) {
@@ -896,13 +907,25 @@ app.post("/webhooks/email-inbound", async (req: Request, res: Response) => {
       return;
     }
 
-    const threadId = `thread-${agentId}-${agent.clientId}`;
+    // Platform-operator path — when Kyle (KYLE_EMAIL) emails a platform agent
+    // directly, prepend operator-mode instructions so the agent knows it's
+    // not talking to a prospect/client and can use ops tools like
+    // spawn_prospect. The agent's permanent system prompt stays the same;
+    // this is a per-message prefix.
+    let runtimeMessage = messageContent;
+    let threadId = `thread-${agentId}-${agent.clientId}`;
+    if (auth.senderType === "platform_operator") {
+      // Separate thread for ops conversations so they don't pollute the
+      // normal client thread history.
+      threadId = `thread-${agentId}-ops-${from.toLowerCase()}`;
+      runtimeMessage = buildOperatorModeMessage(messageContent, from);
+    }
 
     // Run the full agent runtime: parse → Claude + tools → response
     const { processInboundMessage } = await import("../shared/runtime/index.js");
     const result = await processInboundMessage({
       agentId,
-      userMessage: messageContent,
+      userMessage: runtimeMessage,
       channel: "email",
       threadId,
       senderEmail: from,
@@ -976,106 +999,32 @@ app.post("/onboard", async (req: Request, res: Response) => {
 app.post("/onboarding/prospects/find-or-create", async (req: Request, res: Response) => {
   try {
     const body = req.body as { name?: string; email?: string; sendEmail?: boolean };
-    const rawEmail = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
-    const name = typeof body.name === "string" ? body.name.trim() : "";
     const shouldEmail = body.sendEmail === true;
 
-    if (!rawEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawEmail)) {
-      res.status(400).json({ error: "valid email required" });
-      return;
-    }
-
-    const existing = await prisma.prospect.findUnique({ where: { email: rawEmail } });
-
-    // Active prospect — resume their draft.
-    if (existing && existing.status !== "archived" && existing.status !== "ghosted") {
-      // Refresh contactName if they re-entered it (handles "I capitalized it
-      // this time"). Don't overwrite with empty.
-      const update: Record<string, unknown> = { lastActivityAt: new Date() };
-      if (name && name !== existing.contactName) update.contactName = name;
-      await prisma.prospect.update({ where: { id: existing.id }, data: update });
-
-      // Even on resume — if sendEmail=true (dashboard "nudge them") we email
-      // the link again. Resend handles dedup gracefully if they got it before.
-      if (shouldEmail) {
-        await sendOnboardLinkTeaser(existing.id, existing.token, name || existing.contactName, rawEmail).catch(
-          (err) => logger.warn("Onboard-link email failed (resume path)", { prospectId: existing.id, err })
-        );
+    const { findOrCreateProspect, ProspectInputError } = await import("../shared/prospects.js");
+    let result;
+    try {
+      result = await findOrCreateProspect({ name: body.name, email: body.email ?? "" });
+    } catch (err) {
+      if (err instanceof ProspectInputError) {
+        res.status(400).json({ error: err.message });
+        return;
       }
-
-      res.json({
-        prospectId: existing.id,
-        token: existing.token,
-        isNew: false,
-        isResume: true,
-        status: existing.status,
-      });
-      return;
+      throw err;
     }
-
-    // Dead prospect — reuse the row but wipe it clean. Old draft is discarded
-    // on purpose (Kyle's locked decision: archived/ghosted → start fresh).
-    if (existing) {
-      const newToken = newProspectToken();
-      const revived = await prisma.prospect.update({
-        where: { id: existing.id },
-        data: {
-          token: newToken,
-          status: "discovery",
-          formData: {},
-          sopFiles: [],
-          chatLog: [],
-          presentationData: undefined,
-          presentationHtml: null,
-          presentationGeneratedAt: null,
-          contactName: name || existing.contactName,
-          businessName: null,
-          role: null,
-          website: null,
-          lastActivityAt: new Date(),
-        },
-      });
-      logger.info("Prospect revived from archived/ghosted", { prospectId: revived.id, email: rawEmail });
-
-      if (shouldEmail) {
-        await sendOnboardLinkTeaser(revived.id, revived.token, revived.contactName, rawEmail).catch(
-          (err) => logger.warn("Onboard-link email failed (revived path)", { prospectId: revived.id, err })
-        );
-      }
-
-      res.json({
-        prospectId: revived.id,
-        token: revived.token,
-        isNew: true,
-        isResume: false,
-        status: revived.status,
-      });
-      return;
-    }
-
-    // Brand new prospect.
-    const created = await prisma.prospect.create({
-      data: {
-        email: rawEmail,
-        token: newProspectToken(),
-        contactName: name || null,
-        status: "discovery",
-      },
-    });
-    logger.info("Prospect created", { prospectId: created.id, email: rawEmail });
 
     if (shouldEmail) {
-      await sendOnboardLinkTeaser(created.id, created.token, created.contactName, rawEmail).catch(
-        (err) => logger.warn("Onboard-link email failed (create path)", { prospectId: created.id, err })
+      await sendOnboardLinkTeaser(result.prospectId, result.token, result.contactName, body.email!.trim().toLowerCase()).catch(
+        (e) => logger.warn("Onboard-link email failed", { prospectId: result.prospectId, e })
       );
     }
 
     res.json({
-      prospectId: created.id,
-      token: created.token,
-      isNew: true,
-      isResume: false,
-      status: created.status,
+      prospectId: result.prospectId,
+      token: result.token,
+      isNew: result.isNew,
+      isResume: result.isResume,
+      status: result.status,
     });
   } catch (error) {
     logger.error("Prospect find-or-create failed", { error });
@@ -1128,12 +1077,6 @@ async function sendOnboardLinkTeaser(
   logger.info("Onboard-link teaser sent", { prospectId, to: email });
 }
 
-function newProspectToken(): string {
-  // 24-char URL-safe random. Matches the visual length of the existing
-  // cuid-shaped tokens without taking a cuid dep. Collision risk at this
-  // length is astronomically low.
-  return crypto.randomBytes(18).toString("base64url");
-}
 
 // ---------------------------------------------------------------------------
 // Atlas (onboarding agent) — web → runtime bridge
@@ -2541,6 +2484,32 @@ function renderPRDReadyNotice(
     <a href="${prdUrl}" style="display: inline-block; padding: 12px 22px; background: #00b3b3; color: #ffffff; text-decoration: none; border-radius: 9px; font-size: 14px; font-weight: 600;">Open PRD →</a>
   </div>
 </div>`;
+}
+
+// ---------------------------------------------------------------------------
+// Operator-mode message prefix
+// ---------------------------------------------------------------------------
+// When KYLE_EMAIL emails a platform agent (auth.senderType="platform_operator"),
+// we wrap the raw email body with explicit instructions so the agent knows
+// it's in ops mode rather than client/prospect mode. Keeps the agent's
+// permanent system prompt clean — the operator path is rare and contextual.
+
+function buildOperatorModeMessage(emailBody: string, fromHeader: string): string {
+  return `An authorized platform operator (${fromHeader}) just sent you this message. You're in OPERATOR MODE — this is not a prospect or client interaction. Treat it as an ops instruction.
+
+The most common operator instruction is "send the onboarding link to <person>" — sometimes with a few sentences of context about the prospect (where the operator met them, what their business is, why they're a fit). When that's the ask:
+
+1. Extract the prospect's name + email from the operator's message.
+2. Compose a 2–4 sentence personalized intro paragraph drawing on whatever context the operator gave. Reference something concrete (where they met, what the prospect does, what hooked the operator's interest). Plain prose — no subject line, no greeting like "Hi Maya,", no "Click here" — those are added automatically. Just the body.
+3. Call the spawn_prospect tool with { name, email, custom_message: <your personalized paragraph> }.
+4. After the tool returns, reply to the operator with a short confirmation: 1–2 sentences naming the prospect + a quoted snippet of the personalized line you wrote + the spawn result (new or resumed). End the turn.
+
+If the operator's message isn't a spawn request, respond naturally — but stay in ops voice. You're talking to the platform operator, not a client.
+
+Operator's message follows:
+---
+${emailBody.trim()}
+---`;
 }
 
 // ---------------------------------------------------------------------------

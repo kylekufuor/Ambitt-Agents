@@ -12,6 +12,7 @@ import { requestCredential } from "../platform-tools/request-credential.js";
 import { runBrowserTask } from "../platform-tools/browser.js";
 import { requestReview } from "../platform-tools/review.js";
 import { httpRequest, formatHttpResult } from "../platform-tools/http-request.js";
+import { spawnProspect } from "../platform-tools/spawn-prospect.js";
 import { sendAgentEmail } from "../../oracle/lib/emailRouter.js";
 import { logUsage, CLIENT_MODEL, TRIAGE_MODEL } from "../claude.js";
 import type { EmailAttachment } from "../email.js";
@@ -58,6 +59,7 @@ const BUILTIN_TOOLS = new Set([
   "request_credential",
   "request_review",
   "http_request",
+  "spawn_prospect",
   "browse",
 ]);
 
@@ -399,6 +401,35 @@ const BUILTIN_CLAUDE_TOOLS: Anthropic.Messages.Tool[] = [
       required: ["url"],
     },
   },
+  // --- spawn_prospect — Atlas's "sales-from-the-inbox" capability ---
+  // Only useful for platform agents that handle prospect onboarding. The
+  // engine exposes it to every agent (cheap to do), but prompts only
+  // mention it to agents that should use it (Atlas via the operator-mode
+  // message prefix from the inbound webhook).
+  {
+    name: "spawn_prospect",
+    description:
+      "Create a new prospect AND immediately email them a personalized onboarding link. Use this ONLY when an authorized platform operator (identified in the user message) asks you to send the onboarding link to someone. Extract the prospect's name + email from the operator's message. Compose `custom_message` as a 2–4 sentence personalized intro drawn from any context the operator gave you — where they met, what the prospect's business does, why they're a fit. The email is wrapped in branded chrome with a CTA button to the onboarding form; your custom_message becomes the prose paragraph between the greeting and the CTA. Idempotent: re-spawning an existing email returns the same token. Returns the prospect ID + onboard URL so you can confirm back to the operator.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        name: {
+          type: "string",
+          description: "Prospect's full name as you'd address them. e.g., 'Maya Lindgren'.",
+        },
+        email: {
+          type: "string",
+          description: "Prospect's email — where the onboarding link will be sent.",
+        },
+        custom_message: {
+          type: "string",
+          description:
+            "Personalized 2–4 sentence email body. Plain text, no HTML. Mention something concrete from the operator's context (where they met, what the prospect's business does, what hooked your interest). Don't include subject lines, greetings, or CTAs — those are wrapped automatically. If the operator gave you no context, omit this and the tool falls back to a generic line.",
+        },
+      },
+      required: ["name", "email"],
+    },
+  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -638,6 +669,25 @@ async function executeBuiltinTool(
       });
       return {
         content: formatHttpResult(result),
+        isError: result.status === "error",
+      };
+    }
+
+    if (toolName === "spawn_prospect") {
+      const { name, email, custom_message } = args as {
+        name: string;
+        email: string;
+        custom_message?: string;
+      };
+      const result = await spawnProspect({
+        name,
+        email,
+        custom_message,
+        callerAgentId: agentId,
+        callerAgentName: agentName,
+      });
+      return {
+        content: result.message,
         isError: result.status === "error",
       };
     }

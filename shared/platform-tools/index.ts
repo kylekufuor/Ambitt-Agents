@@ -29,3 +29,5 @@ export type {
   VeraArtifactType,
   VeraCritique,
 } from "./review.js";
+export { spawnProspect } from "./spawn-prospect.js";
+export type { SpawnProspectInput, SpawnProspectResult } from "./spawn-prospect.js";
