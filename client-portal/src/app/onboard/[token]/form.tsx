@@ -132,7 +132,11 @@ const STEP_PERCENT = [0, 14, 28, 43, 57, 72, 86, 100, 100];
 export function OnboardForm({ token, prospectId, initial, status }: OnboardFormProps) {
   const [slide, setSlide] = useState<number>(() => {
     // Status determines landing slide:
-    //   discovery → Welcome (slide 0) — fresh prospect
+    //   discovery → Welcome (slide 0) by default. If contactName is already
+    //     set, skip Welcome and jump straight to Chapter 01 (slide 1) — the
+    //     prospect identified themselves on the public /onboard landing or
+    //     was pre-seeded by Kyle from the dashboard, so the Welcome+ToC
+    //     orientation is redundant.
     //   discovery_complete → Sent (slide 8) — just submitted, proposal pending
     //   presentation_sent / revising → Review (slide 7) — returning to edit;
     //     they can see their answers and jump to any chapter to change them.
@@ -140,7 +144,7 @@ export function OnboardForm({ token, prospectId, initial, status }: OnboardFormP
     if (status === "discovery_complete") return 8;
     if (status === "presentation_sent" || status === "revising") return 7;
     if (status === "accepted" || status === "quote_pending" || status === "quote_sent") return 8;
-    return 0;
+    return (initial.contactName ?? "").trim().length > 0 ? 1 : 0;
   });
   const [values, setValues] = useState<Record<string, string>>({
     cadence: "On a schedule",

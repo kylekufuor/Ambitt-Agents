@@ -203,6 +203,50 @@
 }
 .fa-begin:hover .fa-begin-arrow { transform: translateX(4px); }
 .fa-begin:active { transform: translateY(-1px); }
+.fa-begin:disabled {
+  background: #d4d4d4;
+  color: #ffffff;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+.fa-begin:disabled:hover { transform: none; box-shadow: none; }
+
+/* Landing-only: name + email fields above the chapter ToC. Re-uses .fa-input
+   for the field styling itself; this just lays them out side-by-side on wide
+   screens and stacked on mobile. */
+.fa-landing-fields {
+  margin: 28px auto 0;
+  max-width: 460px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  text-align: left;
+}
+.fa-landing-field { display: flex; flex-direction: column; gap: 6px; }
+.fa-landing-label {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1.2px;
+  color: #737373;
+  text-transform: uppercase;
+}
+.fa-landing-error {
+  max-width: 460px;
+  margin: 16px auto 0;
+  padding: 10px 14px;
+  background: rgba(220, 38, 38, 0.06);
+  border: 1px solid rgba(220, 38, 38, 0.22);
+  border-radius: 9px;
+  color: #b91c1c;
+  font-size: 13px;
+  font-weight: 500;
+  text-align: left;
+}
+@media (max-width: 600px) {
+  .fa-landing-fields { grid-template-columns: 1fr; }
+}
 
 /* Chapter preview on welcome slide — vertical magazine TOC.
    Carries the same editorial DNA as the chapter sidebars (big mono-styled
