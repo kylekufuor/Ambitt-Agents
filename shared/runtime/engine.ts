@@ -11,6 +11,7 @@ import { requestApproval } from "../platform-tools/request-approval.js";
 import { requestCredential } from "../platform-tools/request-credential.js";
 import { runBrowserTask } from "../platform-tools/browser.js";
 import { requestReview } from "../platform-tools/review.js";
+import { httpRequest, formatHttpResult } from "../platform-tools/http-request.js";
 import { sendAgentEmail } from "../../oracle/lib/emailRouter.js";
 import { logUsage, CLIENT_MODEL, TRIAGE_MODEL } from "../claude.js";
 import type { EmailAttachment } from "../email.js";
@@ -56,6 +57,7 @@ const BUILTIN_TOOLS = new Set([
   "request_approval",
   "request_credential",
   "request_review",
+  "http_request",
   "browse",
 ]);
 
@@ -358,6 +360,45 @@ const BUILTIN_CLAUDE_TOOLS: Anthropic.Messages.Tool[] = [
       required: ["artifact_type", "data"],
     },
   },
+  // --- HTTP request (curl-equivalent) ---
+  // Generic outbound HTTP. Use for endpoint tests, internal APIs, or anything
+  // not wired through Composio. Implementation: shared/platform-tools/http-request.ts.
+  {
+    name: "http_request",
+    description:
+      "Make an HTTP(S) request to any URL and get the response back. Use this for hitting APIs that aren't wired through Composio, testing endpoints, or fetching arbitrary JSON/text. Returns the HTTP status code, response headers, and response body (truncated to ~32 KB if huge). 30-second timeout. Only http:// and https:// schemes are allowed. For GET requests, append query params to the url; for POST/PUT/PATCH, JSON-stringify the body and set Content-Type accordingly.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        url: {
+          type: "string",
+          description:
+            "The full URL to request, including scheme. Example: 'https://oracle-production-c0ff.up.railway.app/health' or 'https://api.example.com/v1/users?limit=10'.",
+        },
+        method: {
+          type: "string",
+          enum: ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD"],
+          description: "HTTP method. Defaults to GET.",
+        },
+        headers: {
+          type: "object" as const,
+          description:
+            "Optional request headers as a flat key/value object. Common ones: 'Content-Type: application/json' for JSON POSTs, 'Authorization: Bearer <token>' for auth.",
+          additionalProperties: { type: "string" },
+        },
+        body: {
+          type: "string",
+          description:
+            "Optional request body as a string. For JSON, pass a JSON-stringified object and set headers['Content-Type'] to 'application/json'. Ignored for GET/HEAD.",
+        },
+        timeout_ms: {
+          type: "number",
+          description: "Optional request timeout in milliseconds. Defaults to 30000 (30s), capped at 120000 (2 min).",
+        },
+      },
+      required: ["url"],
+    },
+  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -576,6 +617,27 @@ async function executeBuiltinTool(
         content: result.message,
         // approved + rejected are both expected outcomes — only true infra
         // failures count as errors.
+        isError: result.status === "error",
+      };
+    }
+
+    if (toolName === "http_request") {
+      const { url, method, headers, body, timeout_ms } = args as {
+        url: string;
+        method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "HEAD";
+        headers?: Record<string, string>;
+        body?: string;
+        timeout_ms?: number;
+      };
+      const result = await httpRequest({
+        url,
+        method,
+        headers,
+        body,
+        timeoutMs: timeout_ms,
+      });
+      return {
+        content: formatHttpResult(result),
         isError: result.status === "error",
       };
     }
