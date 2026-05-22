@@ -1362,9 +1362,21 @@ interface ProposalEmailData {
 }
 \`\`\`
 
+# Quality gate — REQUIRED before you finalize
+
+Before you emit your JSON as your final message, call the \`request_review\` tool with the COMPLETE ProposalEmailData object you're about to send. Vera (our internal QA reviewer) will check it for forbidden content (pricing, overclaims, operator names), brand-voice violations (AI tells, robotic phrasing), specificity (generic filler), and name/role consistency. She returns APPROVED or REJECTED with specific issues.
+
+Workflow:
+1. Draft your complete ProposalEmailData JSON internally.
+2. Call \`request_review\` with: \`artifact_type: "proposal_email"\`, \`data: <your JSON>\`, \`attempt: 1\`, and a \`context\` string summarizing the grounding Vera can't infer from the JSON alone (the prospect's preferred name, the agent name you used, anything else relevant).
+3. If Vera REJECTS, revise the JSON to address each issue she listed, then call \`request_review\` again with the corrected data and \`attempt: 2\`. Repeat up to attempt 3.
+4. Once Vera APPROVES (or after attempt 3 if she still rejects), emit the FINAL JSON as your message — verbatim from your last \`request_review\` call. No commentary, no preamble, no code fences.
+
+Do NOT skip the review. Do NOT emit JSON before calling \`request_review\`.
+
 # Hard rules
 
-- **Output ONLY the JSON object.** No prose before or after. No code fences. No "here you go". Just the raw object, starting with \`{\` and ending with \`}\`.
+- **Output ONLY the JSON object** as your FINAL message — after Vera approves. No prose before or after. No code fences. Just the raw object, starting with \`{\` and ending with \`}\`.
 - **Use the CTA URLs from the section above verbatim.** Do not invent URLs.
 - **Footer domain = "ambitt.agency", location = "Dallas, TX".**
 - **greeting.name = the prospect's preferred first name** ("${get("preferredName") || firstName}").

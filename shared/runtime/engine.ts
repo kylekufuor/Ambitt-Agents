@@ -10,6 +10,7 @@ import { requestToolConnection } from "../platform-tools/request-tool-connection
 import { requestApproval } from "../platform-tools/request-approval.js";
 import { requestCredential } from "../platform-tools/request-credential.js";
 import { runBrowserTask } from "../platform-tools/browser.js";
+import { requestReview } from "../platform-tools/review.js";
 import { sendAgentEmail } from "../../oracle/lib/emailRouter.js";
 import { logUsage, CLIENT_MODEL, TRIAGE_MODEL } from "../claude.js";
 import type { EmailAttachment } from "../email.js";
@@ -54,6 +55,7 @@ const BUILTIN_TOOLS = new Set([
   "request_tool_connection",
   "request_approval",
   "request_credential",
+  "request_review",
   "browse",
 ]);
 
@@ -316,6 +318,46 @@ const BUILTIN_CLAUDE_TOOLS: Anthropic.Messages.Tool[] = [
       required: ["app_name", "reason"],
     },
   },
+  // --- QA review gate (Vera) ---
+  // Synchronously calls Vera (Haiku) to review structured content BEFORE it
+  // ships to a client. Currently scoped to the proposal email (ProposalEmailData
+  // JSON); future expansion covers welcome emails, digests, alerts. Atlas calls
+  // this AFTER drafting its final JSON and BEFORE emitting it as the final
+  // message. On reject, Atlas revises and calls again (max 3 attempts).
+  // Implementation: shared/platform-tools/review.ts.
+  {
+    name: "request_review",
+    description:
+      "Ask Vera (Ambitt's internal QA reviewer) to review a structured payload before you send it to a client. Use this BEFORE emitting any client-facing artifact (e.g. the proposal email JSON). Vera returns APPROVED or REJECTED with specific issues you must fix. If rejected, revise your payload to address each issue, then call request_review again with the corrected version. Do NOT emit your final output until Vera approves (or until you've hit 3 review attempts — see the tool result for guidance). Vera reviews content quality and brand voice; she does NOT validate schema shape (that runs separately). Cheap and fast — ~10s, ~$0.005 per call.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        artifact_type: {
+          type: "string",
+          enum: ["proposal_email", "generic"],
+          description:
+            "Which kind of artifact you're asking Vera to review. Use 'proposal_email' when reviewing a ProposalEmailData JSON object (Atlas's primary output). Use 'generic' for ad-hoc structured content. Drives which checklist Vera applies.",
+        },
+        data: {
+          type: "object" as const,
+          description:
+            "The structured payload to review, as a JSON object. For proposal_email, pass the full ProposalEmailData object you intend to render. Vera reads it serialized as JSON.",
+          additionalProperties: true,
+        },
+        context: {
+          type: "string",
+          description:
+            "Optional grounding Vera couldn't infer from the data alone. Example: 'Prospect is Kyle Kufuor at Ambitt Media. Agent name should be Kwame. Brand voice samples: <paste>.' Keep under ~500 tokens. Helps Vera catch name/voice mismatches you might miss.",
+        },
+        attempt: {
+          type: "number",
+          description:
+            "Which review attempt this is (1, 2, or 3). Set to 1 on your first call; increment on each subsequent call so Vera knows when you're running low on retries. Defaults to 1 if omitted.",
+        },
+      },
+      required: ["artifact_type", "data"],
+    },
+  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -512,6 +554,28 @@ async function executeBuiltinTool(
         content: result.message,
         // Not an error from Claude's perspective — these are expected outcomes.
         // We only flag true failures (status="error") as tool errors.
+        isError: result.status === "error",
+      };
+    }
+
+    if (toolName === "request_review") {
+      const { artifact_type, data, context, attempt } = args as {
+        artifact_type: "proposal_email" | "generic";
+        data: unknown;
+        context?: string;
+        attempt?: number;
+      };
+      const result = await requestReview({
+        artifactType: artifact_type,
+        data,
+        context,
+        attempt,
+        callerAgentId: agentId,
+      });
+      return {
+        content: result.message,
+        // approved + rejected are both expected outcomes — only true infra
+        // failures count as errors.
         isError: result.status === "error",
       };
     }

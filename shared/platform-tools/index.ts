@@ -22,3 +22,10 @@ export type {
   RequestCredentialInput,
   RequestCredentialResult,
 } from "./request-credential.js";
+export { requestReview } from "./review.js";
+export type {
+  RequestReviewInput,
+  RequestReviewResult,
+  VeraArtifactType,
+  VeraCritique,
+} from "./review.js";
