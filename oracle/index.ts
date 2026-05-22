@@ -1,4 +1,5 @@
 import "dotenv/config";
+import crypto from "node:crypto";
 import express, { Request, Response } from "express";
 import multer from "multer";
 import { scaffoldAgent, approveAgent, rejectAgent } from "./scaffold.js";
@@ -945,6 +946,123 @@ app.post("/onboard", async (req: Request, res: Response) => {
     res.status(500).json({ error: "Onboarding failed" });
   }
 });
+
+// ---------------------------------------------------------------------------
+// Prospect find-or-create
+// ---------------------------------------------------------------------------
+//
+// Backend for the public `clients.ambitt.agency/onboard` entry AND the
+// dashboard "Add prospect" flow. Given a name + email, returns a personal
+// onboard token URL — creating or reviving a Prospect row as needed.
+//
+// Resume rule (locked):
+//   - Email matches active prospect (status NOT in archived/ghosted)
+//     → return existing token, isResume: true. They land on their saved draft.
+//   - Email matches dead prospect (archived/ghosted)
+//     → REUSE the row but wipe it clean (new token, empty formData, status=discovery).
+//     Old draft lost on purpose — they're starting fresh.
+//   - No match → create new Prospect.
+//
+// Email lookup is case-insensitive (email is stored lowercased here).
+//
+// Kyle's accepted tradeoff: anyone who knows a prospect's email can resume
+// their session. No magic-link auth on resume — that ships if/when this
+// becomes a real attack surface.
+//
+// `sendEmail` is wired in step 4 (dashboard add-prospect flow). v1 ignores it.
+app.post("/onboarding/prospects/find-or-create", async (req: Request, res: Response) => {
+  try {
+    const body = req.body as { name?: string; email?: string; sendEmail?: boolean };
+    const rawEmail = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
+    const name = typeof body.name === "string" ? body.name.trim() : "";
+
+    if (!rawEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawEmail)) {
+      res.status(400).json({ error: "valid email required" });
+      return;
+    }
+
+    const existing = await prisma.prospect.findUnique({ where: { email: rawEmail } });
+
+    // Active prospect — resume their draft.
+    if (existing && existing.status !== "archived" && existing.status !== "ghosted") {
+      // Refresh contactName if they re-entered it (handles "I capitalized it
+      // this time"). Don't overwrite with empty.
+      const update: Record<string, unknown> = { lastActivityAt: new Date() };
+      if (name && name !== existing.contactName) update.contactName = name;
+      await prisma.prospect.update({ where: { id: existing.id }, data: update });
+
+      res.json({
+        prospectId: existing.id,
+        token: existing.token,
+        isNew: false,
+        isResume: true,
+        status: existing.status,
+      });
+      return;
+    }
+
+    // Dead prospect — reuse the row but wipe it clean. Old draft is discarded
+    // on purpose (Kyle's locked decision: archived/ghosted → start fresh).
+    if (existing) {
+      const newToken = newProspectToken();
+      const revived = await prisma.prospect.update({
+        where: { id: existing.id },
+        data: {
+          token: newToken,
+          status: "discovery",
+          formData: {},
+          sopFiles: [],
+          chatLog: [],
+          presentationData: undefined,
+          presentationHtml: null,
+          presentationGeneratedAt: null,
+          contactName: name || existing.contactName,
+          businessName: null,
+          role: null,
+          website: null,
+          lastActivityAt: new Date(),
+        },
+      });
+      logger.info("Prospect revived from archived/ghosted", { prospectId: revived.id, email: rawEmail });
+      res.json({
+        prospectId: revived.id,
+        token: revived.token,
+        isNew: true,
+        isResume: false,
+        status: revived.status,
+      });
+      return;
+    }
+
+    // Brand new prospect.
+    const created = await prisma.prospect.create({
+      data: {
+        email: rawEmail,
+        token: newProspectToken(),
+        contactName: name || null,
+        status: "discovery",
+      },
+    });
+    logger.info("Prospect created", { prospectId: created.id, email: rawEmail });
+    res.json({
+      prospectId: created.id,
+      token: created.token,
+      isNew: true,
+      isResume: false,
+      status: created.status,
+    });
+  } catch (error) {
+    logger.error("Prospect find-or-create failed", { error });
+    res.status(500).json({ error: "find-or-create failed" });
+  }
+});
+
+function newProspectToken(): string {
+  // 24-char URL-safe random. Matches the visual length of the existing
+  // cuid-shaped tokens without taking a cuid dep. Collision risk at this
+  // length is astronomically low.
+  return crypto.randomBytes(18).toString("base64url");
+}
 
 // ---------------------------------------------------------------------------
 // Atlas (onboarding agent) — web → runtime bridge
