@@ -1391,6 +1391,46 @@ app.post("/onboarding/prospects/:id/generate-prd", async (req: Request, res: Res
       return;
     }
 
+    // ---- Loop guards ----------------------------------------------------
+    // (a) Idempotency: if a PRD already exists and the caller is NOT
+    //     explicitly asking for a regeneration (no regenNotes), short-circuit
+    //     and return the existing one. Stops any background loop that
+    //     mistakenly re-fires generate-prd for a prospect that's already done.
+    //     Also a sane default — generate-prd is supposed to be a one-shot.
+    if (prospect.prdData && !regenNotes) {
+      logger.info("PRD already exists; returning early (no regenNotes provided)", {
+        prospectId: prospect.id,
+        generatedAt: prospect.prdGeneratedAt,
+        attempts: prospect.prdGenerationAttempts,
+      });
+      res.json({
+        status: "already_generated",
+        prospectId: prospect.id,
+        generatedAt: prospect.prdGeneratedAt,
+        attempts: prospect.prdGenerationAttempts,
+      });
+      return;
+    }
+
+    // (b) Cooldown: hard rate-limit. If last attempt was within 60 seconds,
+    //     reject with 429. Atlas runs take 1-3 min; nothing legitimate would
+    //     fire two attempts that close together. Belt-and-suspenders against
+    //     any future loop bug.
+    if (prospect.prdLastAttemptAt) {
+      const secsSinceLast = (Date.now() - prospect.prdLastAttemptAt.getTime()) / 1000;
+      if (secsSinceLast < 60) {
+        logger.warn("PRD generation rate-limited (within 60s cooldown)", {
+          prospectId: prospect.id,
+          secsSinceLast,
+        });
+        res.status(429).json({
+          error: "PRD generation cooldown",
+          reason: `Last attempt was ${Math.round(secsSinceLast)}s ago — must wait 60s.`,
+        });
+        return;
+      }
+    }
+
     // Stamp attempt counter + timestamp at the top so the retry cron can
     // see how far we've gotten even if Atlas throws mid-run.
     await prisma.prospect.update({
