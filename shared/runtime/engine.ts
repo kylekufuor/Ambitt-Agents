@@ -44,7 +44,12 @@ import logger from "../logger.js";
 // ---------------------------------------------------------------------------
 
 const MAX_TOOL_LOOPS = 10;
-const MAX_TOKENS = 4096;
+// Bumped from 4096 → 8192 because rich PRD/quote/proposal synthesis was
+// hitting truncation when the prospect had a lot of intake data (e.g. 5+
+// tools, detailed SOPs, long pitch). Output cost is per-token so the higher
+// ceiling doesn't cost more for shorter responses; it just stops Atlas from
+// getting cut off mid-JSON and producing invalid output.
+const MAX_TOKENS = 8192;
 
 // Triage routing: Haiku handles intermediate tool-selection loops (~10× cheaper
 // than Sonnet), then escalates to CLIENT_MODEL once Haiku decides research is
