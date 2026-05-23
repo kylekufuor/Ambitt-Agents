@@ -193,6 +193,7 @@ export async function initScheduler(): Promise<void> {
 
   startCheckpointCron();
   startDigestCron();
+  startPRDRetryCron();
 
   logger.info("Scheduler initialized", {
     activeAgents: agents.length,
@@ -223,6 +224,10 @@ export function stopAll(): void {
   if (digestCronTask) {
     digestCronTask.stop();
     digestCronTask = null;
+  }
+  if (prdRetryCronTask) {
+    prdRetryCronTask.stop();
+    prdRetryCronTask = null;
   }
 }
 
@@ -366,6 +371,153 @@ export async function processDueCheckpoints(): Promise<{
     logger.info("Checkpoint cron tick complete", stats);
   }
   return stats;
+}
+
+// ---------------------------------------------------------------------------
+// PRD-retry cron — every 15 min, retry stuck prospects whose PRD didn't
+// generate. The portal's /proposals/[token]/approve route fires generate-prd
+// fire-and-forget; if that one-shot fails (Anthropic 529, Zod schema
+// mismatch, network blip, max-tokens truncation) the prospect is stuck at
+// quote_pending with no PRD and Kyle wouldn't know without the dashboard.
+//
+// Retry policy: up to 4 total attempts (1 initial + 3 retries). After 4
+// failures still no PRD → one-shot ops alert via prdGenerationFailedAt.
+// Each retry is a fresh call to the existing generate-prd endpoint — no
+// shared state — so the same code path runs whether the trigger is human
+// (Approve click) or cron.
+// ---------------------------------------------------------------------------
+
+const PRD_MAX_ATTEMPTS = 4;
+const PRD_RETRY_INTERVAL_MIN = 15;
+let prdRetryCronTask: ScheduledTask | null = null;
+
+function oracleSelfUrl(): string {
+  return process.env.ORACLE_URL ?? `http://localhost:${process.env.PORT ?? 3000}`;
+}
+
+export async function processPRDRetries(): Promise<void> {
+  const cutoff = new Date(Date.now() - PRD_RETRY_INTERVAL_MIN * 60 * 1000);
+
+  // Prospects ready for another retry: post scope-approval (quote_pending),
+  // PRD not yet generated, attempts not exhausted, and either never attempted
+  // OR last attempt was more than 15 min ago.
+  const stuck = await prisma.prospect.findMany({
+    where: {
+      status: "quote_pending",
+      prdGeneratedAt: null,
+      prdGenerationAttempts: { lt: PRD_MAX_ATTEMPTS },
+      OR: [{ prdLastAttemptAt: null }, { prdLastAttemptAt: { lt: cutoff } }],
+    },
+    select: {
+      id: true,
+      contactName: true,
+      businessName: true,
+      email: true,
+      prdGenerationAttempts: true,
+    },
+    take: 20, // bound per tick — unlikely we'd have >20 stuck at once
+  });
+
+  if (stuck.length === 0) {
+    // Even if no retries pending, still check for finally-failed (attempt cap
+    // reached + no PRD + no one-shot alert sent yet) and notify.
+    await maybeAlertExhausted();
+    return;
+  }
+
+  logger.info("PRD retry cron: firing retries", { count: stuck.length });
+  const base = oracleSelfUrl();
+  for (const p of stuck) {
+    const nextAttempt = p.prdGenerationAttempts + 1;
+    logger.info(`PRD retry for ${p.contactName ?? "(no name)"} / ${p.businessName ?? "—"} (attempt ${nextAttempt}/${PRD_MAX_ATTEMPTS})`);
+    // Fire-and-forget: the endpoint takes 1-3 min to run end-to-end. We don't
+    // await per-prospect — if a tick takes >15 min the next tick wouldn't pick
+    // up the same prospects (their prdLastAttemptAt would still be recent).
+    fetch(`${base}/onboarding/prospects/${p.id}/generate-prd`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    }).catch((err) => {
+      logger.warn("PRD retry fetch failed at the network layer", { prospectId: p.id, err });
+    });
+    // Small spread so we're not slamming Anthropic with simultaneous synthesis
+    await new Promise((r) => setTimeout(r, 1500));
+  }
+
+  // After retry firings, check the cap-reached prospects too.
+  await maybeAlertExhausted();
+}
+
+async function maybeAlertExhausted(): Promise<void> {
+  const failed = await prisma.prospect.findMany({
+    where: {
+      status: "quote_pending",
+      prdGeneratedAt: null,
+      prdGenerationAttempts: { gte: PRD_MAX_ATTEMPTS },
+      prdGenerationFailedAt: null,
+    },
+    select: { id: true, contactName: true, businessName: true, email: true, prdGenerationAttempts: true },
+  });
+  if (failed.length === 0) return;
+
+  const atlas = await prisma.agent.findUnique({
+    where: { email: "atlas@ambitt.agency" },
+    select: { id: true, name: true },
+  });
+  const operatorEmail = process.env.OPERATOR_EMAIL;
+
+  for (const p of failed) {
+    if (atlas && operatorEmail) {
+      try {
+        const dashBase = process.env.DASHBOARD_URL ?? "https://dashboard.ambitt.agency";
+        const prdUrl = `${dashBase}/prospects/${p.id}/prd`;
+        const contact = p.contactName ?? "(no name)";
+        const business = p.businessName ?? "—";
+        await sendEmail({
+          agentId: atlas.id,
+          agentName: atlas.name,
+          to: operatorEmail,
+          subject: `PRD generation failed (${PRD_MAX_ATTEMPTS}x) — ${contact} (${business})`,
+          html: `<div style="font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; max-width: 560px; margin: 0 auto; padding: 28px 24px; background: #ffffff; color: #171717;">
+  <p style="font-size: 14px; color: #404040; margin: 0 0 14px; line-height: 1.6;"><strong style="color: #dc2626;">PRD generation failed ${PRD_MAX_ATTEMPTS} times.</strong> Manual investigation needed — Atlas keeps producing invalid output for this intake.</p>
+  <table style="width: 100%; border-collapse: collapse; margin: 0 0 18px; font-size: 13.5px;">
+    <tr><td style="padding: 4px 0; color: #737373; width: 100px;">Contact</td><td style="padding: 4px 0; color: #171717;">${contact} &lt;${p.email}&gt;</td></tr>
+    <tr><td style="padding: 4px 0; color: #737373;">Business</td><td style="padding: 4px 0; color: #171717;">${business}</td></tr>
+    <tr><td style="padding: 4px 0; color: #737373;">Attempts</td><td style="padding: 4px 0; color: #171717;">${p.prdGenerationAttempts}/${PRD_MAX_ATTEMPTS}</td></tr>
+  </table>
+  <p style="font-size: 13.5px; color: #404040; margin: 0 0 12px;">Most common cause: prospect's intake has missing/contradictory fields that confuse Atlas. Check the PRD page for the latest Zod issues.</p>
+  <div style="margin: 0 0 12px;"><a href="${prdUrl}" style="display: inline-block; padding: 10px 18px; background: #171717; color: #ffffff; text-decoration: none; border-radius: 8px; font-size: 13px; font-weight: 600;">Open PRD page →</a></div>
+</div>`,
+          replyToAgentId: atlas.id,
+        });
+      } catch (err) {
+        logger.warn("PRD-exhausted ops alert send failed", { prospectId: p.id, err });
+      }
+    }
+    // Mark alerted so we don't re-send each tick.
+    await prisma.prospect.update({
+      where: { id: p.id },
+      data: { prdGenerationFailedAt: new Date() },
+    });
+    logger.warn("PRD generation exhausted retries", {
+      prospectId: p.id,
+      attempts: p.prdGenerationAttempts,
+    });
+  }
+}
+
+export function startPRDRetryCron(): void {
+  if (prdRetryCronTask) return; // idempotent
+  // Every 15 minutes — matches the retry interval. Each tick checks for
+  // prospects whose last attempt was >15 min ago.
+  prdRetryCronTask = cron.schedule("*/15 * * * *", async () => {
+    try {
+      await processPRDRetries();
+    } catch (error) {
+      logger.error("PRD-retry cron tick threw", { error });
+    }
+  });
+  logger.info("PRD-retry cron started", { schedule: "*/15 * * * *" });
 }
 
 /** Start the hourly checkpoint cron. Call once from initScheduler. */

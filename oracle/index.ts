@@ -1391,6 +1391,16 @@ app.post("/onboarding/prospects/:id/generate-prd", async (req: Request, res: Res
       return;
     }
 
+    // Stamp attempt counter + timestamp at the top so the retry cron can
+    // see how far we've gotten even if Atlas throws mid-run.
+    await prisma.prospect.update({
+      where: { id: prospect.id },
+      data: {
+        prdGenerationAttempts: { increment: 1 },
+        prdLastAttemptAt: new Date(),
+      },
+    });
+
     const atlas = await prisma.agent.findUnique({
       where: { email: "atlas@ambitt.agency" },
       select: { id: true, clientId: true, name: true, status: true },

@@ -607,6 +607,13 @@ model Prospect {
   prdData                  Json?
   prdGeneratedAt           DateTime?
   prdApprovedAt            DateTime?
+  // PRD-generation retry state. Atlas's PRD synthesis can fail transiently
+  // (Anthropic 529, Zod-schema misalignment, network blips). Approve route
+  // fires attempt #1; a 15-min cron retries up to 3 more times, then alerts
+  // Kyle one-shot via prdGenerationFailedAt.
+  prdGenerationAttempts    Int        @default(0)
+  prdLastAttemptAt         DateTime?
+  prdGenerationFailedAt    DateTime?
 
   // Quote: Atlas-drafted, Kyle-reviewed-and-edited, then sent to the prospect.
   // Lifecycle:
