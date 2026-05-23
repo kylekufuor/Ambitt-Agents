@@ -49,7 +49,12 @@ const MAX_TOOL_LOOPS = 10;
 // tools, detailed SOPs, long pitch). Output cost is per-token so the higher
 // ceiling doesn't cost more for shorter responses; it just stops Atlas from
 // getting cut off mid-JSON and producing invalid output.
-const MAX_TOKENS = 8192;
+// PRD generation routinely produces 8-12k token outputs (long systemPrompt +
+// tools array + buildPlan + market research findings). 8192 was occasionally
+// truncating mid-JSON → Zod failures. 16384 gives comfortable headroom
+// without affecting cost on shorter runs (max_tokens is a ceiling, not a
+// floor). Sonnet 4.6 supports up to 64k output tokens, so 16k is conservative.
+const MAX_TOKENS = 16384;
 
 // Triage routing: Haiku handles intermediate tool-selection loops (~10× cheaper
 // than Sonnet), then escalates to CLIENT_MODEL once Haiku decides research is
