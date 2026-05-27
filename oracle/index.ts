@@ -1252,8 +1252,13 @@ app.post("/onboarding/prospects/:id/event", async (req: Request, res: Response) 
         billable: false,
       });
 
-      // Parse → validate. One retry on validation failure (re-uses thread so
-      // Atlas sees its previous output + the validation error).
+      // Parse → validate. Retry up to MAX_RETRY_ATTEMPTS times on validation
+      // failure (re-uses thread so Atlas sees its previous output + the
+      // validation error). Each correction re-includes the schema because the
+      // original prompt is ~27K chars — Atlas tends to hallucinate field names
+      // when relying on its memory of the schema during retry.
+      const MAX_RETRY_ATTEMPTS = 2;
+
       const tryRender = (raw: string): { html: string; data: unknown } => {
         const parsed = parseAtlasJsonOutput(raw);
         if (parsed === null) {
@@ -1264,32 +1269,104 @@ app.post("/onboarding/prospects/:id/event", async (req: Request, res: Response) 
         return { html: renderProposalEmail(parsed), data: parsed };
       };
 
+      const buildCorrection = (issues: { path: PropertyKey[]; message: string }[]) => {
+        const issueList = issues
+          .map((i, n) => `${n + 1}. ${i.path.map(String).join(".") || "(root)"}: ${i.message}`)
+          .join("\n");
+        return `Your previous response didn't pass schema validation. Issues:
+${issueList}
+
+REMINDER — the EXACT schema your output must match (this is authoritative; do NOT invent field names like "prospectName", "agentName", "monthlyPrice", "successMetrics", "implementationTimeline" — none of those exist):
+
+\`\`\`ts
+interface ProposalEmailData {
+  subject: string;
+  greeting: { name: string; body: string };
+  hero: {
+    label: string;
+    title: string;
+    status?: { text: string; tone: "info" | "warn" | "success" | "neutral" };
+    specs: Array<{ label: string; value: string }>;  // 3-7 rows
+  };
+  introQuote?: { text: string };
+  whatWeBuild: { headline: string; paragraphs: string[] };  // 1-3 paragraphs
+  flow: {
+    headline: string;
+    steps: Array<{ number: number; title: string; description: string }>;  // 3-7 steps
+  };
+  sample?: {
+    headline: string;
+    introText: string;
+    card: {
+      headerRows?: Array<{ label: string; value: string; type?: "link" | "subject" | "text" }>;
+      body: string;
+      signature?: string;
+    };
+  };
+  digest?: {
+    headline: string;
+    introText: string;
+    cardTitle: string;
+    cardMeta: string;
+    columns: Array<{ key: string; label: string }>;  // 3-5
+    rows: Array<Array<{ value: string; type?: "pill" }>>;
+  };
+  cta: {
+    headline: string;
+    subtext: string;
+    primaryLabel: string;
+    primaryUrl: string;
+    secondaryLabel: string;
+    secondaryUrl: string;
+  };
+  footer: { domain: string; location: string; note?: string };
+}
+\`\`\`
+
+Re-emit the COMPLETE ProposalEmailData JSON matching this exact shape. Output ONLY the JSON object — starts with \`{\`, ends with \`}\`. No commentary, no code fences, no markdown.`;
+      };
+
       let rendered: { html: string; data: unknown };
       let toolsUsed = pass1.toolsUsed.length;
       let loopCount = pass1.loopCount;
+      let lastResponse = pass1.response;
+      let attempt = 0;
 
-      try {
-        rendered = tryRender(pass1.response);
-      } catch (err) {
-        if (!(err instanceof ProposalEmailValidationError)) throw err;
-        logger.warn("Atlas first-pass JSON invalid — retrying once", {
-          prospectId: prospect.id,
-          issues: err.issues.map((i) => `${i.path.join(".")}: ${i.message}`),
-        });
-        const correction = `Your previous response didn't pass schema validation. Issues:\n${err.issues
-          .map((i, n) => `${n + 1}. ${i.path.join(".") || "(root)"}: ${i.message}`)
-          .join("\n")}\n\nRe-emit the COMPLETE ProposalEmailData JSON with these fixed. Output ONLY the JSON object, no commentary, no code fences.`;
-        const pass2 = await processInboundMessage({
-          agentId: atlas.id,
-          userMessage: correction,
-          channel: "chat",
-          threadId,
-          senderEmail: prospect.email,
-          billable: false,
-        });
-        rendered = tryRender(pass2.response);
-        toolsUsed += pass2.toolsUsed.length;
-        loopCount += pass2.loopCount;
+      while (true) {
+        try {
+          rendered = tryRender(lastResponse);
+          break;
+        } catch (err) {
+          if (!(err instanceof ProposalEmailValidationError)) throw err;
+          attempt++;
+          const issuesPreview = err.issues.map((i) => `${i.path.join(".")}: ${i.message}`);
+          if (attempt > MAX_RETRY_ATTEMPTS) {
+            logger.error("Atlas exhausted retries — proposal generation aborted", {
+              prospectId: prospect.id,
+              attempts: attempt,
+              finalIssues: issuesPreview,
+              finalResponsePreview: lastResponse.slice(0, 500),
+            });
+            throw err;
+          }
+          logger.warn(`Atlas attempt ${attempt} JSON invalid — retrying`, {
+            prospectId: prospect.id,
+            attempt,
+            maxAttempts: MAX_RETRY_ATTEMPTS,
+            issues: issuesPreview,
+          });
+          const passN = await processInboundMessage({
+            agentId: atlas.id,
+            userMessage: buildCorrection(err.issues),
+            channel: "chat",
+            threadId,
+            senderEmail: prospect.email,
+            billable: false,
+          });
+          lastResponse = passN.response;
+          toolsUsed += passN.toolsUsed.length;
+          loopCount += passN.loopCount;
+        }
       }
 
       await prisma.prospect.update({
