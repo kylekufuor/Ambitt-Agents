@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { QuoteEditor } from "./editor";
 import { ConvertCard } from "./convert-card";
+import { QuoteProgress } from "./quote-progress";
 
 // Quote draft review page. Atlas drafts after PRD approval; Kyle reviews,
 // edits the JSON if needed, hits Send → flips status to quote_sent and
@@ -81,13 +82,11 @@ export default async function QuotePage({
       )}
 
       {prospect.prdApprovedAt && !prospect.quoteDraft && (
-        <div className="bg-card border border-border rounded-xl px-5 py-12 text-center">
-          <p className="text-muted-foreground text-sm">Quote not drafted yet.</p>
-          <p className="text-muted-foreground/60 text-xs mt-1">
-            Atlas drafts ~2 min after PRD approval. Refresh in a moment, or trigger manually below.
-          </p>
-          <ManualGenerateButton prospectId={prospect.id} />
-        </div>
+        <QuoteProgress
+          prospectId={prospect.id}
+          initialPrdApprovedAt={prospect.prdApprovedAt.toISOString()}
+          initialQuoteDraftPresent={false}
+        />
       )}
 
       {/* Convert + Scaffold card — shows when quote is accepted but not yet
@@ -111,19 +110,6 @@ export default async function QuotePage({
         />
       )}
     </div>
-  );
-}
-
-function ManualGenerateButton({ prospectId }: { prospectId: string }) {
-  return (
-    <form action={`/api/prospects/${prospectId}/quote-regenerate`} method="POST" className="mt-4">
-      <button
-        type="submit"
-        className="text-xs font-semibold px-4 py-1.5 rounded-lg bg-amber-500/90 text-white hover:bg-amber-500"
-      >
-        Trigger Atlas draft now
-      </button>
-    </form>
   );
 }
 

@@ -1768,6 +1768,8 @@ app.post("/onboarding/prospects/:id/generate-quote", async (req: Request, res: R
       billable: false,
     });
 
+    const QUOTE_MAX_RETRY_ATTEMPTS = 2;
+
     const tryValidate = (raw: string): { data: unknown; html: string } => {
       const parsed = parseAtlasQuoteOutput(raw);
       if (parsed === null) {
@@ -1779,27 +1781,90 @@ app.post("/onboarding/prospects/:id/generate-quote", async (req: Request, res: R
       return { data: parsed, html };
     };
 
+    const buildQuoteCorrection = (issues: { path: PropertyKey[]; message: string }[]) => {
+      const issueList = issues
+        .map((i, n) => `${n + 1}. ${i.path.map(String).join(".") || "(root)"}: ${i.message}`)
+        .join("\n");
+      return `Your previous quote didn't pass schema validation. Issues:
+${issueList}
+
+REMINDER — the EXACT schema your output must match (authoritative; do NOT invent field names):
+
+\`\`\`ts
+interface QuoteData {
+  subject: string;
+  greeting: { name: string; body: string };
+  hero: { label: string; title: string; subtitle: string };
+  pricing: {
+    setupCents: number;      // integer cents, e.g. 50000 = $500
+    monthlyCents: number;    // integer cents
+    tierLabel: string;       // e.g. "Growth tier"
+    summary: string;         // 1-3 sentences
+  };
+  scopeOfWork: {
+    intro?: string;
+    items: Array<{
+      title: string;
+      description: string;
+      kind: "integration" | "custom_code" | "automation" | "prompt" | "testing" | "launch";
+    }>;
+  };
+  monthlyIncludes: string[];   // 3-6 bullets
+  notIncluded: string[];       // 2-5 bullets
+  timeline: { buildWindow: string; description: string };
+  terms: { validity: string; paymentTerms: string; cancellation: string };
+  cta: {
+    headline: string;
+    subtext: string;
+    approveLabel: string;
+    approveUrl: string;
+    denyLabel: string;
+    denyUrl: string;
+  };
+  footer: { domain: string; location: string; note?: string };
+}
+\`\`\`
+
+Re-emit the COMPLETE QuoteData JSON matching this exact shape. Output ONLY the JSON object — starts with \`{\`, ends with \`}\`. No commentary, no code fences, no markdown.`;
+    };
+
     let result: { data: unknown; html: string };
-    try {
-      result = tryValidate(pass1.response);
-    } catch (err) {
-      if (!(err instanceof QuoteValidationError)) throw err;
-      logger.warn("Atlas first-pass Quote JSON invalid — retrying once", {
-        prospectId: prospect.id,
-        issues: err.issues.map((i) => `${i.path.join(".")}: ${i.message}`),
-      });
-      const correction = `Your previous quote didn't pass schema validation. Issues:\n${err.issues
-        .map((i, n) => `${n + 1}. ${i.path.join(".") || "(root)"}: ${i.message}`)
-        .join("\n")}\n\nRe-emit the COMPLETE QuoteData JSON with these fixed. Output ONLY the JSON object, no commentary, no code fences.`;
-      const pass2 = await processInboundMessage({
-        agentId: atlas.id,
-        userMessage: correction,
-        channel: "chat",
-        threadId,
-        senderEmail: prospect.email,
-        billable: false,
-      });
-      result = tryValidate(pass2.response);
+    let lastResponse = pass1.response;
+    let quoteAttempt = 0;
+
+    while (true) {
+      try {
+        result = tryValidate(lastResponse);
+        break;
+      } catch (err) {
+        if (!(err instanceof QuoteValidationError)) throw err;
+        quoteAttempt++;
+        const issuesPreview = err.issues.map((i) => `${i.path.join(".")}: ${i.message}`);
+        if (quoteAttempt > QUOTE_MAX_RETRY_ATTEMPTS) {
+          logger.error("Atlas exhausted quote retries — generation aborted", {
+            prospectId: prospect.id,
+            attempts: quoteAttempt,
+            finalIssues: issuesPreview,
+            finalResponsePreview: lastResponse.slice(0, 500),
+          });
+          throw err;
+        }
+        logger.warn(`Atlas quote attempt ${quoteAttempt} JSON invalid — retrying`, {
+          prospectId: prospect.id,
+          attempt: quoteAttempt,
+          maxAttempts: QUOTE_MAX_RETRY_ATTEMPTS,
+          issues: issuesPreview,
+        });
+        const passN = await processInboundMessage({
+          agentId: atlas.id,
+          userMessage: buildQuoteCorrection(err.issues),
+          channel: "chat",
+          threadId,
+          senderEmail: prospect.email,
+          billable: false,
+        });
+        lastResponse = passN.response;
+      }
     }
 
     await prisma.prospect.update({
