@@ -247,28 +247,42 @@ export async function executeTool(
 // ---------------------------------------------------------------------------
 
 /**
- * List all available apps in Composio's catalog.
+ * List all available toolkits (formerly "apps") in Composio's catalog.
+ *
+ * Migrated 2026-05-26 off the deprecated raw HTTP call to
+ * `backend.composio.dev/api/v1/apps` (which now returns HTTP 410 Gone)
+ * onto the official `@composio/core` SDK's `toolkits.list()`. Composio
+ * renamed "apps" → "toolkits" in v3; we preserve the legacy output shape
+ * here so callers (Oracle's `/composio/catalog`, the portal proxy) keep
+ * working without touching their code:
+ *   - new `toolkit.name`            → legacy `name`
+ *   - new `toolkit.slug`            → legacy `key`
+ *   - new `toolkit.meta.description`→ legacy `description`
+ *   - new `toolkit.meta.categories` → legacy `categories` (we collapse
+ *     each `{slug, name}` entry to its slug for stability)
  */
 export async function listApps(): Promise<
   Array<{ name: string; key: string; description: string; categories: string[] }>
 > {
-  const apiKey = process.env.COMPOSIO_API_KEY;
-  if (!apiKey) throw new Error("COMPOSIO_API_KEY is not set");
+  const client = getClient();
+  // NOTE: Composio overloaded `toolkits.get()` — calling with no args / a
+  // query object returns the full list; calling with a slug string returns
+  // a single toolkit. There is no `.list()` despite what the docs imply.
+  const toolkits = await client.toolkits.get();
 
-  const res = await fetch("https://backend.composio.dev/api/v1/apps", {
-    headers: { "x-api-key": apiKey },
-  });
-  if (!res.ok) {
-    throw new Error(`Composio apps API failed (${res.status})`);
-  }
-  const data = await res.json();
-  const apps = Array.isArray(data) ? data : (data.items ?? []);
+  // SDK returns the list directly, but defensively handle an `items` envelope
+  // in case a future SDK version wraps it.
+  const items: any[] = Array.isArray(toolkits)
+    ? toolkits
+    : ((toolkits as any)?.items ?? []);
 
-  return apps.map((app: any) => ({
-    name: app.displayName ?? app.name ?? "",
-    key: app.key ?? app.appId ?? "",
-    description: app.description ?? "",
-    categories: app.categories ?? [],
+  return items.map((t: any) => ({
+    name: t.name ?? "",
+    key: t.slug ?? "",
+    description: t.meta?.description ?? "",
+    categories: Array.isArray(t.meta?.categories)
+      ? t.meta.categories.map((c: any) => c.slug ?? c.name ?? "").filter(Boolean)
+      : [],
   }));
 }
 
