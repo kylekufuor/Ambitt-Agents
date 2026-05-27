@@ -2,6 +2,7 @@ import prisma from "@/lib/db";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PRDActions } from "./actions";
+import { PRDProgress } from "./prd-progress";
 
 // PRD review page. Server component fetches the prospect; the rendered PRD
 // HTML is embedded via iframe pointing at Oracle's /prd-html endpoint so the
@@ -28,6 +29,9 @@ export default async function PRDPage({
       prdData: true,
       prdGeneratedAt: true,
       prdApprovedAt: true,
+      prdGenerationAttempts: true,
+      prdLastAttemptAt: true,
+      prdGenerationFailedAt: true,
     },
   });
 
@@ -75,13 +79,12 @@ export default async function PRDPage({
           style={{ height: "calc(100vh - 220px)", minHeight: 600 }}
         />
       ) : (
-        <div className="bg-card border border-border rounded-xl px-5 py-16 text-center">
-          <p className="text-muted-foreground text-sm">PRD not generated yet.</p>
-          <p className="text-muted-foreground/60 text-xs mt-1">
-            Atlas runs ~2 min after the prospect approves scope. If they just approved,
-            give it a moment and refresh.
-          </p>
-        </div>
+        <PRDProgress
+          prospectId={prospect.id}
+          initialAttempts={prospect.prdGenerationAttempts}
+          initialLastAttemptAt={prospect.prdLastAttemptAt?.toISOString() ?? null}
+          initialFailedAt={prospect.prdGenerationFailedAt?.toISOString() ?? null}
+        />
       )}
     </div>
   );
