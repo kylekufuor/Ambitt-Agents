@@ -9,34 +9,34 @@ datasource db {
 }
 
 model Client {
-  id                    String    @id @default(cuid())
-  email                 String    @unique
-  contactName           String?
-  preferredName         String?                             // what the client wants the agent to call them (e.g. "Kyle" even if contactName is "Kyle Kufuor")
-  businessName          String
-  industry              String
-  businessGoal          String
-  website               String?
-  brandVoice            String    @db.Text
-  preferredChannel      String
-  whatsappNumber        String?
+  id               String  @id @default(cuid())
+  email            String  @unique
+  contactName      String?
+  preferredName    String? // what the client wants the agent to call them (e.g. "Kyle" even if contactName is "Kyle Kufuor")
+  businessName     String
+  industry         String
+  businessGoal     String
+  website          String?
+  brandVoice       String  @db.Text
+  preferredChannel String
+  whatsappNumber   String?
 
   onboardingCompletedAt DateTime?
   northStarMetric       String?
   agentGoal             String?   @db.Text
   createdAt             DateTime  @default(now())
 
-  stripeCustomerId      String    @unique
-  billingEmail          String
-  billingStatus         String    @default("active")
-  pausedAt              DateTime?
-  cancelledAt           DateTime?
+  stripeCustomerId String    @unique
+  billingEmail     String
+  billingStatus    String    @default("active")
+  pausedAt         DateTime?
+  cancelledAt      DateTime?
 
   // Overage billing — when true, agent keeps working past interactionLimit and
   // we charge overageRateCents per extra interaction at end of month. When
   // false (default), agent hard-stops at the limit.
-  overageEnabled        Boolean   @default(false)
-  overageRateCents      Int       @default(10) // 10¢/interaction by default ($0.05-0.10 range)
+  overageEnabled   Boolean @default(false)
+  overageRateCents Int     @default(10) // 10¢/interaction by default ($0.05-0.10 range)
 
   // 1Password vault UUID scoped to this client. Set by Kyle during onboarding
   // (white-glove, matches the Zoom co-setup). When non-null, the resolveSecret
@@ -44,21 +44,22 @@ model Client {
   // calling 1Password, preventing cross-tenant secret access. Null = no
   // vault yet; any browser task referencing {{secret:op://...}} will fail
   // until Kyle provisions one.
-  onepasswordVaultId    String?
+  onepasswordVaultId String?
 
-  agents                Agent[]
-  tasks                 Task[]
-  recommendations       Recommendation[]
-  outcomes              Outcome[]
-  credentials           Credential[]
-  conversationMessages  ConversationMessage[]
-  suppressions          Suppression[]
-  overageEvents         OverageEvent[]
-  scheduledEmails       ScheduledEmail[]
-  toolRequests          ToolRequest[]
+  agents                 Agent[]
+  tasks                  Task[]
+  recommendations        Recommendation[]
+  outcomes               Outcome[]
+  credentials            Credential[]
+  conversationMessages   ConversationMessage[]
+  suppressions           Suppression[]
+  overageEvents          OverageEvent[]
+  scheduledEmails        ScheduledEmail[]
+  emailSends             EmailSend[]
+  toolRequests           ToolRequest[]
   toolConnectionRequests ToolConnectionRequest[]
-  browserSessions       BrowserSession[]
-  credentialAccesses    CredentialAccess[]
+  browserSessions        BrowserSession[]
+  credentialAccesses     CredentialAccess[]
   prospectsConvertedFrom Prospect[]
 
   @@index([stripeCustomerId])
@@ -66,88 +67,89 @@ model Client {
 }
 
 model Agent {
-  id                    String    @id @default(cuid())
-  clientId              String
-  client                Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  id       String @id @default(cuid())
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
-  name                  String
-  email                 String    @unique
-  personality           String    @db.Text
-  purpose               String    @db.Text
-  agentType             String
+  name        String
+  email       String @unique
+  personality String @db.Text
+  purpose     String @db.Text
+  agentType   String
 
   // Platform-level flag — when true, this agent accepts emails from any active
   // Prospect (not just its owner client). Used for Atlas-style onboarding
   // agents that need to talk to non-clients. See inbound webhook auth in
   // oracle/index.ts.
-  acceptFromProspects   Boolean   @default(false)
+  acceptFromProspects Boolean @default(false)
 
-  tools                 String[]
-  schedule              String
-  autonomyLevel         String    @default("supervised")       // "supervised" | "autonomous" — supervised is default (plan-then-approve); client toggles to autonomous once they trust the agent. Legacy values "advisory" / "copilot" are migrated on-read in scaffold.ts.
-  timezone              String    @default("America/New_York") // IANA tz — governs cron firing + polite hours
-  deliveryFormat        String    @default("email_summary")    // "email_summary" | "email_with_attachments" | "email_plus_sheet"
-  tone                  String    @default("conversational")   // "formal" | "conversational" | "brief" — client-configurable voice register
-  emailFrequency        String    @default("immediate")        // "immediate" | "daily_digest" | "weekly_digest" — when non-immediate, runs queue to ScheduledEmail (kind="digest_pending") and the hourly processDueDigests cron rolls them up
+  tools            String[]
+  schedule         String
+  autonomyLevel    String    @default("supervised") // "supervised" | "autonomous" — supervised is default (plan-then-approve); client toggles to autonomous once they trust the agent. Legacy values "advisory" / "copilot" are migrated on-read in scaffold.ts.
+  timezone         String    @default("America/New_York") // IANA tz — governs cron firing + polite hours
+  deliveryFormat   String    @default("email_summary") // "email_summary" | "email_with_attachments" | "email_plus_sheet"
+  tone             String    @default("conversational") // "formal" | "conversational" | "brief" — client-configurable voice register
+  emailFrequency   String    @default("immediate") // "immediate" | "daily_digest" | "weekly_digest" — when non-immediate, runs queue to ScheduledEmail (kind="digest_pending") and the hourly processDueDigests cron rolls them up
   // Digest cadence (ignored when emailFrequency="immediate"). Client-configurable via portal; defaults are 8am agent-timezone / Monday.
-  digestHour            Int       @default(8)                  // 0-23 in agent timezone
-  digestDayOfWeek       Int       @default(1)                  // 0=Sun..6=Sat, used only for weekly_digest
-  lastDigestSentAt      DateTime?                              // prevents double-send within a period
-  clientNorthStar       String?
+  digestHour       Int       @default(8) // 0-23 in agent timezone
+  digestDayOfWeek  Int       @default(1) // 0=Sun..6=Sat, used only for weekly_digest
+  lastDigestSentAt DateTime? // prevents double-send within a period
+  clientNorthStar  String?
 
-  primaryModel          String    @default("claude-sonnet-4-6")
-  analyticsModel        String    @default("gemini")
-  creativeModel         String    @default("gpt-4o")
+  primaryModel   String @default("claude-sonnet-4-6")
+  analyticsModel String @default("gemini")
+  creativeModel  String @default("gpt-4o")
 
-  status                String    @default("pending_approval")
-  approvedAt            DateTime?
-  lastRunAt             DateTime?
-  nextScheduledRun      DateTime?
+  status           String    @default("pending_approval")
+  approvedAt       DateTime?
+  lastRunAt        DateTime?
+  nextScheduledRun DateTime?
 
-  stripeSubscriptionId  String?
-  setupFeeInvoiceId     String?
-  monthlyRetainerCents  Int
-  setupFeeCents         Int
-  historyTier           String    @default("standard")
+  stripeSubscriptionId String?
+  setupFeeInvoiceId    String?
+  monthlyRetainerCents Int
+  setupFeeCents        Int
+  historyTier          String  @default("standard")
 
   // Pricing tier
-  pricingTier           String    @default("starter") // "starter" | "growth" | "scale" | "enterprise"
+  pricingTier String @default("starter") // "starter" | "growth" | "scale" | "enterprise"
 
   // Interaction tracking
-  interactionCount      Int       @default(0)         // current billing cycle
-  interactionLimit      Int       @default(1000)      // per tier: 1000/3000/-1(unlimited)
-  overageCount          Int       @default(0)         // extra interactions past the limit (only if client opted into overage)
-  interactionResetAt    DateTime?                     // next reset date (monthly)
+  interactionCount   Int       @default(0) // current billing cycle
+  interactionLimit   Int       @default(1000) // per tier: 1000/3000/-1(unlimited)
+  overageCount       Int       @default(0) // extra interactions past the limit (only if client opted into overage)
+  interactionResetAt DateTime? // next reset date (monthly)
 
   // Budget enforcement
-  budgetMonthlyCents    Int       @default(5000) // $50 default
-  budgetWarningAt       DateTime? // when 80% threshold was hit
-  budgetPausedAt        DateTime? // when 100% threshold paused the agent
+  budgetMonthlyCents Int       @default(5000) // $50 default
+  budgetWarningAt    DateTime? // when 80% threshold was hit
+  budgetPausedAt     DateTime? // when 100% threshold paused the agent
 
-  clientMemoryObject    String    @db.Text
-  lastMemoryUpdateAt    DateTime?
+  clientMemoryObject String    @db.Text
+  lastMemoryUpdateAt DateTime?
 
-  totalTasksCompleted   Int       @default(0)
-  totalRecommendations  Int       @default(0)
-  approvalRate          Float     @default(0)
-  implementationRate    Float     @default(0)
+  totalTasksCompleted  Int   @default(0)
+  totalRecommendations Int   @default(0)
+  approvalRate         Float @default(0)
+  implementationRate   Float @default(0)
 
-  tasks                 Task[]
-  recommendations       Recommendation[]
-  outcomes              Outcome[]
-  conversationMessages  ConversationMessage[]
-  performanceSignals    PerformanceSignal[]
-  apiUsage              ApiUsage[]
-  suppressions          Suppression[]
-  overageEvents         OverageEvent[]
-  scheduledEmails       ScheduledEmail[]
-  toolRequests          ToolRequest[]
+  tasks                  Task[]
+  recommendations        Recommendation[]
+  outcomes               Outcome[]
+  conversationMessages   ConversationMessage[]
+  performanceSignals     PerformanceSignal[]
+  apiUsage               ApiUsage[]
+  suppressions           Suppression[]
+  overageEvents          OverageEvent[]
+  scheduledEmails        ScheduledEmail[]
+  emailSends             EmailSend[]
+  toolRequests           ToolRequest[]
   toolConnectionRequests ToolConnectionRequest[]
-  browserSessions       BrowserSession[]
-  credentialAccesses    CredentialAccess[]
+  browserSessions        BrowserSession[]
+  credentialAccesses     CredentialAccess[]
 
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([clientId])
   @@index([clientId, agentType])
@@ -156,28 +158,28 @@ model Agent {
 }
 
 model Task {
-  id                    String    @id @default(cuid())
-  agentId               String
-  agent                 Agent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
-  clientId              String
-  client                Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  id       String @id @default(cuid())
+  agentId  String
+  agent    Agent  @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
-  taskType              String
-  description           String    @db.Text
+  taskType    String
+  description String @db.Text
 
-  status                String    @default("pending")
-  executedAt            DateTime?
-  completedAt           DateTime?
-  errorMessage          String?   @db.Text
-  retryCount            Int       @default(0)
+  status       String    @default("pending")
+  executedAt   DateTime?
+  completedAt  DateTime?
+  errorMessage String?   @db.Text
+  retryCount   Int       @default(0)
 
-  rawOutput             String    @db.Text
-  emailSentAt           DateTime?
-  whatsappSentAt        DateTime?
+  rawOutput      String    @db.Text
+  emailSentAt    DateTime?
+  whatsappSentAt DateTime?
 
-  recommendations       Recommendation[]
+  recommendations Recommendation[]
 
-  createdAt             DateTime  @default(now())
+  createdAt DateTime @default(now())
 
   @@index([agentId])
   @@index([clientId])
@@ -186,36 +188,36 @@ model Task {
 }
 
 model Recommendation {
-  id                    String    @id @default(cuid())
-  agentId               String
-  agent                 Agent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
-  clientId              String
-  client                Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  taskId                String?
-  task                  Task?     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  id       String  @id @default(cuid())
+  agentId  String
+  agent    Agent   @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  clientId String
+  client   Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  taskId   String?
+  task     Task?   @relation(fields: [taskId], references: [id], onDelete: Cascade)
 
-  title                 String
-  description           String    @db.Text
-  actionItems           String[]
-  reasoning             String?   @db.Text
+  title       String
+  description String   @db.Text
+  actionItems String[]
+  reasoning   String?  @db.Text
 
-  expectedMetric        String
-  baselineValue         Float
-  expectedDirection     String
-  expectedChangePct     Float?
+  expectedMetric    String
+  baselineValue     Float
+  expectedDirection String
+  expectedChangePct Float?
 
-  implementationMode    String    @default("advisory")
-  autonomouslyExecuted  Boolean   @default(false)
-  autonomousActionLog   String?   @db.Text
+  implementationMode   String  @default("advisory")
+  autonomouslyExecuted Boolean @default(false)
+  autonomousActionLog  String? @db.Text
 
   // Email template context
-  emailType             String?
-  approveActionId       String?   @unique
-  status                String    @default("pending")
+  emailType       String?
+  approveActionId String? @unique
+  status          String  @default("pending")
 
-  clientAction          String    @default("pending")
-  clientActionAt        DateTime?
-  clientNotes           String?   @db.Text
+  clientAction   String    @default("pending")
+  clientActionAt DateTime?
+  clientNotes    String?   @db.Text
 
   verificationScheduled DateTime?
   verifiedAt            DateTime?
@@ -223,11 +225,11 @@ model Recommendation {
   verificationResult    Boolean?
   verificationNotes     String?   @db.Text
 
-  resolvedAt            DateTime?
+  resolvedAt DateTime?
 
-  outcomes              Outcome[]
+  outcomes Outcome[]
 
-  sentAt                DateTime  @default(now())
+  sentAt DateTime @default(now())
 
   @@index([agentId])
   @@index([clientId])
@@ -239,31 +241,31 @@ model Recommendation {
 }
 
 model Outcome {
-  id                    String    @id @default(cuid())
-  agentId               String
-  agent                 Agent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
-  clientId              String
-  client                Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  recommendationId      String
-  recommendation        Recommendation @relation(fields: [recommendationId], references: [id], onDelete: Cascade)
+  id               String         @id @default(cuid())
+  agentId          String
+  agent            Agent          @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  clientId         String
+  client           Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  recommendationId String
+  recommendation   Recommendation @relation(fields: [recommendationId], references: [id], onDelete: Cascade)
 
-  metric                String
-  baselineValue         Float
-  measuredValue         Float
-  changeAmount          Float
-  changePercent         Float
+  metric        String
+  baselineValue Float
+  measuredValue Float
+  changeAmount  Float
+  changePercent Float
 
-  measuredAt            DateTime
-  measurementWindow     String
-  measurementMethod     String
-  toolUsed              String?
-  rawData               String?   @db.Text
+  measuredAt        DateTime
+  measurementWindow String
+  measurementMethod String
+  toolUsed          String?
+  rawData           String?  @db.Text
 
-  confidenceLevel       String    @default("medium")
-  implementationVerified Boolean  @default(false)
-  notes                 String?   @db.Text
+  confidenceLevel        String  @default("medium")
+  implementationVerified Boolean @default(false)
+  notes                  String? @db.Text
 
-  createdAt             DateTime  @default(now())
+  createdAt DateTime @default(now())
 
   @@index([recommendationId])
   @@index([metric])
@@ -273,22 +275,22 @@ model Outcome {
 }
 
 model ConversationMessage {
-  id                    String    @id @default(cuid())
-  agentId               String
-  agent                 Agent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
-  clientId              String
-  client                Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  id       String @id @default(cuid())
+  agentId  String
+  agent    Agent  @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
-  role                  String
-  content               String    @db.Text
-  channel               String
+  role    String
+  content String @db.Text
+  channel String
 
-  threadId              String
-  inReplyTo             String?
+  threadId  String
+  inReplyTo String?
 
-  archivedAt            DateTime?
+  archivedAt DateTime?
 
-  createdAt             DateTime  @default(now())
+  createdAt DateTime @default(now())
 
   @@index([agentId])
   @@index([clientId])
@@ -297,18 +299,18 @@ model ConversationMessage {
 }
 
 model PerformanceSignal {
-  id                    String    @id @default(cuid())
-  agentId               String
-  agent                 Agent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  id      String @id @default(cuid())
+  agentId String
+  agent   Agent  @relation(fields: [agentId], references: [id], onDelete: Cascade)
 
-  signalType            String
-  outputSummary         String    @db.Text
-  clientAction          String    @db.Text
+  signalType    String
+  outputSummary String @db.Text
+  clientAction  String @db.Text
 
-  agentType             String
-  anonymized            Boolean   @default(true)
+  agentType  String
+  anonymized Boolean @default(true)
 
-  createdAt             DateTime  @default(now())
+  createdAt DateTime @default(now())
 
   @@index([agentId])
   @@index([agentType])
@@ -316,19 +318,19 @@ model PerformanceSignal {
 }
 
 model Credential {
-  id                    String    @id @default(cuid())
-  clientId              String
-  client                Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  id       String @id @default(cuid())
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
-  toolName              String
-  oauthToken            String?   @db.Text
-  apiKey                String?   @db.Text
-  refreshToken          String?   @db.Text
-  expiresAt             DateTime?
+  toolName     String
+  oauthToken   String?   @db.Text
+  apiKey       String?   @db.Text
+  refreshToken String?   @db.Text
+  expiresAt    DateTime?
 
-  connectedAt           DateTime  @default(now())
-  lastUsedAt            DateTime?
-  status                String    @default("active")
+  connectedAt DateTime  @default(now())
+  lastUsedAt  DateTime?
+  status      String    @default("active")
 
   @@unique([clientId, toolName])
   @@index([clientId])
@@ -336,24 +338,24 @@ model Credential {
 }
 
 model ApiUsage {
-  id                    String    @id @default(cuid())
-  agentId               String
-  agent                 Agent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  id      String @id @default(cuid())
+  agentId String
+  agent   Agent  @relation(fields: [agentId], references: [id], onDelete: Cascade)
 
-  model                 String
-  inputTokens           Int                             // uncached input tokens only
-  outputTokens          Int
-  totalTokens           Int
-  cacheCreationTokens   Int       @default(0)           // billed at 1.25× base input rate
-  cacheReadTokens       Int       @default(0)           // billed at 0.10× base input rate
-  toolErrorCount        Int       @default(0)           // failed tool calls during this run — used for agent error rate
-  isPrimaryRun          Boolean   @default(true)        // false on secondary rows from multi-model runs (e.g. Haiku row when Sonnet also wrote) so run-level counts don't double
-  costInCents           Int                             // authoritative — computed at write time
+  model               String
+  inputTokens         Int // uncached input tokens only
+  outputTokens        Int
+  totalTokens         Int
+  cacheCreationTokens Int     @default(0) // billed at 1.25× base input rate
+  cacheReadTokens     Int     @default(0) // billed at 0.10× base input rate
+  toolErrorCount      Int     @default(0) // failed tool calls during this run — used for agent error rate
+  isPrimaryRun        Boolean @default(true) // false on secondary rows from multi-model runs (e.g. Haiku row when Sonnet also wrote) so run-level counts don't double
+  costInCents         Int // authoritative — computed at write time
 
-  taskType              String
-  taskId                String?
+  taskType String
+  taskId   String?
 
-  createdAt             DateTime  @default(now())
+  createdAt DateTime @default(now())
 
   @@index([agentId])
   @@index([model])
@@ -361,16 +363,16 @@ model ApiUsage {
 }
 
 model OverageEvent {
-  id                    String    @id @default(cuid())
-  clientId              String
-  client                Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  agentId               String
-  agent                 Agent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  id       String @id @default(cuid())
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  agentId  String
+  agent    Agent  @relation(fields: [agentId], references: [id], onDelete: Cascade)
 
-  unitCostCents         Int                               // snapshot of overageRateCents at time of event
-  billingCycleMonth     String                            // "YYYY-MM" for end-of-month aggregation
-  invoicedAt            DateTime?                         // when this was rolled up into a Stripe invoice
-  createdAt             DateTime  @default(now())
+  unitCostCents     Int // snapshot of overageRateCents at time of event
+  billingCycleMonth String // "YYYY-MM" for end-of-month aggregation
+  invoicedAt        DateTime? // when this was rolled up into a Stripe invoice
+  createdAt         DateTime  @default(now())
 
   @@index([clientId, billingCycleMonth])
   @@index([agentId])
@@ -382,25 +384,25 @@ model OverageEvent {
 // A daily cron in oracle/scheduler.ts picks up rows where status=pending and
 // scheduledAt <= now() and fires them through the email router.
 model ScheduledEmail {
-  id                    String    @id @default(cuid())
-  agentId               String
-  agent                 Agent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
-  clientId              String
-  client                Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  id       String @id @default(cuid())
+  agentId  String
+  agent    Agent  @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
-  kind                  String                                // "checkin_3day" | "highlight_7day" | "feedback_14day" | "digest_pending" | "digest"
-  scheduledAt           DateTime
-  status                String    @default("pending")         // pending | sent | cancelled | failed
-  sentAt                DateTime?
-  errorMessage          String?   @db.Text
+  kind         String // "checkin_3day" | "highlight_7day" | "feedback_14day" | "digest_pending" | "digest"
+  scheduledAt  DateTime
+  status       String    @default("pending") // pending | sent | cancelled | failed
+  sentAt       DateTime?
+  errorMessage String?   @db.Text
 
   // Used by kind="digest_pending": JSON snapshot of one queued run
   // ({ response, toolsUsed, attachmentMeta, recommendations, ranAt }). Rolled up
   // by processDueDigests cron into a single kind="digest" email. Null for
   // checkpoint rows.
-  payload               String?   @db.Text
+  payload String? @db.Text
 
-  createdAt             DateTime  @default(now())
+  createdAt DateTime @default(now())
 
   @@index([status, scheduledAt])
   @@index([agentId])
@@ -408,43 +410,105 @@ model ScheduledEmail {
   @@index([agentId, kind, status])
 }
 
-model StripeEvent {
-  id                    String    @id
-  type                  String
-  data                  String    @db.Text
-  processed             Boolean   @default(false)
-  processedAt           DateTime?
+// EmailSend — audit trail for every outbound email via shared/email.ts.
+//
+// Each row is created the moment Resend's API returns a message id (status
+// "accepted"). The /webhooks/email-events endpoint then updates the row when
+// Resend pushes lifecycle events (sent → delivered → bounced/complained).
+//
+// This is how we close the silent-failure loop: instead of "we called sendEmail
+// and assumed it landed", every artifact (proposal, quote, agent_response, ops
+// notification) has a queryable delivery status. Bounces fire WhatsApp alerts.
+model EmailSend {
+  id String @id @default(cuid())
 
-  createdAt             DateTime  @default(now())
+  // Who sent it
+  agentId    String
+  agent      Agent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  // Optional links — emails to prospects don't have a Client yet; ops emails
+  // to OPERATOR_EMAIL have no Client OR Prospect linkage.
+  clientId   String?
+  client     Client?   @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  prospectId String?
+  prospect   Prospect? @relation(fields: [prospectId], references: [id], onDelete: SetNull)
+
+  // Where it went
+  to        String
+  subject   String // @db.Text intentionally NOT used — subjects are short and we want index-friendly
+  // Optional categorization for filtering/dashboards. Free-form string from the
+  // sendEmail call site, e.g. "proposal_teaser" | "quote_teaser" |
+  // "agent_response" | "ops_notification" | "thanks_email".
+  emailType String?
+
+  // Resend tracking. Unique so /webhooks/email-events can look up by the id
+  // Resend sends in its payload. Nullable on the off chance Resend ever returns
+  // accept-without-id (shouldn't happen but the type allows it).
+  resendMessageId String? @unique
+
+  // Lifecycle status. Progresses one-way; webhook handler only forwards.
+  //   accepted          — Resend's API returned a message id (default after send)
+  //   sent              — Resend webhook confirms accepted-then-handed-to-MTA
+  //   delivered         — recipient mailbox accepted it
+  //   bounced           — hard or soft bounce (terminal)
+  //   complained        — recipient marked as spam (terminal)
+  //   delivery_delayed  — temporary delay, Resend still retrying
+  //   dropped           — Resend dropped before send (suppression list etc, terminal)
+  status       String  @default("accepted")
+  bounceReason String? @db.Text
+
+  // Per-state timestamps. acceptedAt always set; rest filled by webhook.
+  acceptedAt   DateTime  @default(now())
+  sentAt       DateTime?
+  deliveredAt  DateTime?
+  bouncedAt    DateTime?
+  complainedAt DateTime?
+  delayedAt    DateTime?
+
+  @@index([agentId])
+  @@index([prospectId])
+  @@index([clientId])
+  @@index([resendMessageId])
+  @@index([status, acceptedAt])
+  @@index([to])
+}
+
+model StripeEvent {
+  id          String    @id
+  type        String
+  data        String    @db.Text
+  processed   Boolean   @default(false)
+  processedAt DateTime?
+
+  createdAt DateTime @default(now())
 
   @@index([type])
   @@index([processed])
 }
 
 model Suppression {
-  id                    String    @id @default(cuid())
-  agentId               String
-  agent                 Agent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
-  clientId              String
-  client                Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  id       String @id @default(cuid())
+  agentId  String
+  agent    Agent  @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
   // What was suppressed
-  findingKey            String    // e.g. "activation_broken", "low_traffic", "signup_drop"
-  findingDescription    String    @db.Text
-  metricName            String    // the metric this finding relates to
-  metricValueAtSend     Float     // the value when the finding was last sent
+  findingKey         String // e.g. "activation_broken", "low_traffic", "signup_drop"
+  findingDescription String @db.Text
+  metricName         String // the metric this finding relates to
+  metricValueAtSend  Float // the value when the finding was last sent
 
   // When to unsuppress
-  cooldownDays          Int       @default(7)   // minimum days before resending
-  changeThresholdPct    Float     @default(10)  // resend if metric changes by this %
+  cooldownDays       Int   @default(7) // minimum days before resending
+  changeThresholdPct Float @default(10) // resend if metric changes by this %
 
   // Tracking
-  lastSentAt            DateTime
-  suppressUntil         DateTime  // computed: lastSentAt + cooldownDays
-  sendCount             Int       @default(1)   // how many times this finding has been sent
+  lastSentAt    DateTime
+  suppressUntil DateTime // computed: lastSentAt + cooldownDays
+  sendCount     Int      @default(1) // how many times this finding has been sent
 
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([agentId, clientId, findingKey])
   @@index([agentId])
@@ -457,20 +521,20 @@ model Suppression {
 // every new row; he resolves manually (white-glove path). Lean by design — no
 // URL or category fields; Kyle asks for more context in the follow-up.
 model ToolRequest {
-  id                    String    @id @default(cuid())
-  clientId              String
-  client                Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  agentId               String
-  agent                 Agent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  id       String @id @default(cuid())
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  agentId  String
+  agent    Agent  @relation(fields: [agentId], references: [id], onDelete: Cascade)
 
-  toolName              String
-  reason                String    @db.Text
+  toolName String
+  reason   String @db.Text
 
-  status                String    @default("pending") // "pending" | "resolved" | "dismissed"
-  resolvedAt            DateTime?
-  resolvedNote          String?   @db.Text
+  status       String    @default("pending") // "pending" | "resolved" | "dismissed"
+  resolvedAt   DateTime?
+  resolvedNote String?   @db.Text
 
-  createdAt             DateTime  @default(now())
+  createdAt DateTime @default(now())
 
   @@index([clientId, status])
   @@index([agentId])
@@ -484,23 +548,23 @@ model ToolRequest {
 // re-email the same (clientId, appName) if an open row exists from the last
 // 24h — see shared/runtime/tools/request-tool-connection.ts.
 model ToolConnectionRequest {
-  id                    String    @id @default(cuid())
-  clientId              String
-  client                Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  agentId               String
-  agent                 Agent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  id       String @id @default(cuid())
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  agentId  String
+  agent    Agent  @relation(fields: [agentId], references: [id], onDelete: Cascade)
 
-  appName               String    // Composio app slug, e.g. "gmail", "googlecalendar"
-  reason                String    @db.Text // agent-authored explanation of why it needs this, surfaced in the email
+  appName String // Composio app slug, e.g. "gmail", "googlecalendar"
+  reason  String @db.Text // agent-authored explanation of why it needs this, surfaced in the email
 
-  composioConnectionId  String?   // returned by initiateOAuthConnection(); null until we've called Composio
-  redirectUrl           String?   @db.Text // the OAuth URL the client clicks; null until emailed
+  composioConnectionId String? // returned by initiateOAuthConnection(); null until we've called Composio
+  redirectUrl          String? @db.Text // the OAuth URL the client clicks; null until emailed
 
-  status                String    @default("pending") // "pending" | "emailed" | "connected" | "expired" | "declined"
-  emailSentAt           DateTime?
-  connectedAt           DateTime?
+  status      String    @default("pending") // "pending" | "emailed" | "connected" | "expired" | "declined"
+  emailSentAt DateTime?
+  connectedAt DateTime?
 
-  createdAt             DateTime  @default(now())
+  createdAt DateTime @default(now())
 
   @@index([clientId, appName, status])
   @@index([agentId])
@@ -514,23 +578,23 @@ model ToolConnectionRequest {
 // for debugging + cost visibility. browserbaseSessionId lets us jump to the
 // Browserbase dashboard for the same session when triaging a failure.
 model BrowserSession {
-  id                    String    @id @default(cuid())
-  agentId               String
-  agent                 Agent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
-  clientId              String
-  client                Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  id       String @id @default(cuid())
+  agentId  String
+  agent    Agent  @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
-  goal                  String    @db.Text
-  startingUrl           String?
-  browserbaseSessionId  String?   // set once the session starts
+  goal                 String  @db.Text
+  startingUrl          String?
+  browserbaseSessionId String? // set once the session starts
 
-  startedAt             DateTime  @default(now())
-  endedAt               DateTime?
-  durationMs            Int?
+  startedAt  DateTime  @default(now())
+  endedAt    DateTime?
+  durationMs Int?
 
-  status                String    @default("running") // "running" | "success" | "failed" | "timeout"
-  resultSummary         String?   @db.Text // short summary of what the agent did / extracted
-  errorMessage          String?   @db.Text
+  status        String  @default("running") // "running" | "success" | "failed" | "timeout"
+  resultSummary String? @db.Text // short summary of what the agent did / extracted
+  errorMessage  String? @db.Text
 
   @@index([agentId, startedAt])
   @@index([clientId, startedAt])
@@ -544,17 +608,17 @@ model BrowserSession {
 // only ask 1Password to use them; here's exactly when we did"). NEVER
 // stores the secret value itself — only metadata.
 model CredentialAccess {
-  id          String    @id @default(cuid())
-  clientId    String
-  client      Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  agentId     String?
-  agent       Agent?    @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  id       String  @id @default(cuid())
+  clientId String
+  client   Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  agentId  String?
+  agent    Agent?  @relation(fields: [agentId], references: [id], onDelete: SetNull)
 
-  vaultName   String    // Client.onepasswordVaultId at time of access
-  itemTitle   String    // 1P item title (e.g. "LinkedIn")
-  field       String    // field name within the item (e.g. "password")
+  vaultName String // Client.onepasswordVaultId at time of access
+  itemTitle String // 1P item title (e.g. "LinkedIn")
+  field     String // field name within the item (e.g. "password")
 
-  accessedAt  DateTime  @default(now())
+  accessedAt DateTime @default(now())
 
   @@index([clientId, vaultName, itemTitle, accessedAt])
   @@index([agentId, accessedAt])
@@ -568,52 +632,52 @@ model CredentialAccess {
 // presentation, drafted quote) hangs off this row. Token gates web access to
 // /onboard/[token] — no Supabase auth required for prospects.
 model Prospect {
-  id                       String    @id @default(cuid())
-  email                    String    @unique
-  token                    String    @unique
+  id    String @id @default(cuid())
+  email String @unique
+  token String @unique
 
   // Convenience fields lifted out of formData for indexing + display
-  contactName              String?
-  businessName             String?
-  role                     String?
-  website                  String?
+  contactName  String?
+  businessName String?
+  role         String?
+  website      String?
 
-  status                   String    @default("discovery")
+  status String @default("discovery")
   // discovery | presentation_sent | revising | quote_pending | quote_sent | accepted | ghosted | archived
 
   // Structured intake answers — keys match the onboarding form spec
-  formData                 Json      @default("{}")
+  formData Json @default("{}")
 
   // Uploaded SOPs / docs — [{filename, url, sizeBytes, uploadedAt}]
-  sopFiles                 Json      @default("[]")
+  sopFiles Json @default("[]")
 
   // Atlas <-> prospect conversation — [{role, content, ts}]
-  chatLog                  Json      @default("[]")
+  chatLog Json @default("[]")
 
   // Latest generated presentation. `presentationData` holds the structured
   // `ProposalEmailData` JSON Atlas emits (consumed by the Handlebars template
   // and, later, Vera's design-verify pass). `presentationHtml` is the rendered
   // HTML actually emailed to the prospect. Regenerated on each
   // "make changes" loop.
-  presentationData         Json?
-  presentationHtml         String?   @db.Text
-  presentationGeneratedAt  DateTime?
+  presentationData        Json?
+  presentationHtml        String?   @db.Text
+  presentationGeneratedAt DateTime?
 
   // PRD = internal Product Requirements / agent spec drafted by Atlas after
   // scope approval (status: quote_pending). Kyle reviews in the dashboard,
   // approves to lock the spec the quote is drafted from, and on Client
   // conversion the Agent row gets auto-scaffolded from this. Shape mirrors
   // oracle/templates/prd/types.ts AgentPRDData.
-  prdData                  Json?
-  prdGeneratedAt           DateTime?
-  prdApprovedAt            DateTime?
+  prdData               Json?
+  prdGeneratedAt        DateTime?
+  prdApprovedAt         DateTime?
   // PRD-generation retry state. Atlas's PRD synthesis can fail transiently
   // (Anthropic 529, Zod-schema misalignment, network blips). Approve route
   // fires attempt #1; a 15-min cron retries up to 3 more times, then alerts
   // Kyle one-shot via prdGenerationFailedAt.
-  prdGenerationAttempts    Int        @default(0)
-  prdLastAttemptAt         DateTime?
-  prdGenerationFailedAt    DateTime?
+  prdGenerationAttempts Int       @default(0)
+  prdLastAttemptAt      DateTime?
+  prdGenerationFailedAt DateTime?
 
   // Quote: Atlas-drafted, Kyle-reviewed-and-edited, then sent to the prospect.
   // Lifecycle:
@@ -624,19 +688,24 @@ model Prospect {
   //   Prospect clicks Deny → status quote_denied, quoteDeniedAt + optional
   //     quoteDeniedReason set
   // Shape of quoteDraft mirrors oracle/templates/quote/types.ts QuoteData.
-  quoteDraft               Json?
-  quoteSentAt              DateTime?
-  quoteAcceptedAt          DateTime?
-  quoteDeniedAt            DateTime?
-  quoteDeniedReason        String?    @db.Text
+  quoteDraft        Json?
+  quoteSentAt       DateTime?
+  quoteAcceptedAt   DateTime?
+  quoteDeniedAt     DateTime?
+  quoteDeniedReason String?   @db.Text
 
   // Once accepted + paid, link to the freshly-created Client row.
-  convertedClientId        String?
-  convertedClient          Client?   @relation(fields: [convertedClientId], references: [id], onDelete: SetNull)
+  convertedClientId String?
+  convertedClient   Client? @relation(fields: [convertedClientId], references: [id], onDelete: SetNull)
 
-  lastActivityAt           DateTime  @default(now())
-  createdAt                DateTime  @default(now())
-  updatedAt                DateTime  @updatedAt
+  // Email-send audit trail for any email Atlas/Vera/etc fire to this prospect
+  // (proposal teaser, quote teaser, status updates). Lets us see delivery
+  // state in the dashboard and alert on bounces. See `EmailSend` model.
+  emailSends EmailSend[]
+
+  lastActivityAt DateTime @default(now())
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   @@index([status])
   @@index([token])
@@ -645,15 +714,15 @@ model Prospect {
 }
 
 model OracleAction {
-  id                    String    @id @default(cuid())
-  actionType            String
-  description           String    @db.Text
-  agentId               String?
-  clientId              String?
-  status                String    @default("completed")
-  result                String?   @db.Text
+  id          String  @id @default(cuid())
+  actionType  String
+  description String  @db.Text
+  agentId     String?
+  clientId    String?
+  status      String  @default("completed")
+  result      String? @db.Text
 
-  createdAt             DateTime  @default(now())
+  createdAt DateTime @default(now())
 
   @@index([actionType])
   @@index([agentId])

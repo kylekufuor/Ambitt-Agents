@@ -1237,6 +1237,8 @@ app.post("/onboarding/prospects/:id/event", async (req: Request, res: Response) 
           subject: "Got your brief — proposal incoming",
           html: renderThanksEmail(prospect, portalBase),
           replyToAgentId: atlas.id,
+          prospectId: prospect.id,
+          emailType: "thanks_email",
         });
       } catch (err) {
         logger.warn("Atlas thank-you email failed (continuing)", { prospectId: prospect.id, error: err });
@@ -1394,6 +1396,8 @@ Re-emit the COMPLETE ProposalEmailData JSON matching this exact shape. Output ON
         subject,
         html: renderProposalTeaserEmail(prospect, proposalUrl, heroTitle, portalBase),
         replyToAgentId: atlas.id,
+        prospectId: prospect.id,
+        emailType: "proposal_teaser",
       });
 
       logger.info("Atlas: presentation sent", {
@@ -2028,6 +2032,8 @@ app.post("/onboarding/prospects/:id/quote-send", async (req: Request, res: Respo
       subject,
       html: renderQuoteTeaserEmail(prospect, quoteUrl, portalBase),
       replyToAgentId: atlas.id,
+      prospectId: prospect.id,
+      emailType: "quote_teaser",
     });
 
     await prisma.prospect.update({
@@ -2843,6 +2849,8 @@ async function notifyOps(input: {
   atlasName: string;
   subject: string;
   html: string;
+  prospectId?: string;
+  clientId?: string;
 }): Promise<void> {
   const to = process.env.OPERATOR_EMAIL;
   if (!to) {
@@ -2857,6 +2865,9 @@ async function notifyOps(input: {
     subject: input.subject,
     html: input.html,
     replyToAgentId: input.atlasId,
+    prospectId: input.prospectId,
+    clientId: input.clientId,
+    emailType: "ops_notification",
   });
 }
 

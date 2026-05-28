@@ -21,6 +21,18 @@ interface SendEmailOptions {
   html: string;
   replyToAgentId?: string;
   attachments?: EmailAttachment[];
+  // Audit-trail links — optional. If known at call site, pass them so the
+  // EmailSend row is queryable per-prospect / per-client and the dashboard
+  // can show delivery status against the right artifact. Without these, the
+  // row still lands (keyed by resendMessageId for webhook lookup) but isn't
+  // linked back to the prospect/client.
+  prospectId?: string;
+  clientId?: string;
+  // Free-form categorization for filtering, e.g. "proposal_teaser" |
+  // "quote_teaser" | "thanks_email" | "agent_response" | "ops_notification".
+  // Used by the dashboard delivery badge + bounce alerts to identify which
+  // artifact failed delivery.
+  emailType?: string;
 }
 
 interface EmailResult {
@@ -70,9 +82,37 @@ export async function sendEmail(
       }
 
       const sentAt = new Date();
-      logger.info("Email sent", { agentId, to, subject, emailId: result.data?.id });
+      const messageId = result.data?.id ?? null;
+      logger.info("Email sent", { agentId, to, subject, emailId: messageId });
 
-      return { id: result.data?.id ?? "", sentAt };
+      // Audit row — every successful Resend accept becomes a row keyed by
+      // resendMessageId. The /webhooks/email-events endpoint updates the row
+      // when Resend pushes delivered/bounced/complained events. Best-effort:
+      // if the write fails (DB hiccup), we don't fail the send — the email
+      // already left our hands and we'd rather not double-send on retry.
+      try {
+        await prisma.emailSend.create({
+          data: {
+            agentId,
+            to,
+            subject,
+            status: "accepted",
+            resendMessageId: messageId,
+            prospectId: options.prospectId ?? null,
+            clientId: options.clientId ?? null,
+            emailType: options.emailType ?? null,
+          },
+        });
+      } catch (err) {
+        logger.warn("EmailSend audit row write failed (continuing)", {
+          agentId,
+          to,
+          messageId,
+          err: err instanceof Error ? err.message : String(err),
+        });
+      }
+
+      return { id: messageId ?? "", sentAt };
     } catch (error) {
       logger.error(`Email send attempt ${attempt}/${retries} failed`, {
         error,
