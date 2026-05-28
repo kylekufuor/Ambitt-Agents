@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { QuoteEditor } from "./editor";
 import { ConvertCard } from "./convert-card";
 import { QuoteProgress } from "./quote-progress";
+import { EmailDeliveryBadge } from "@/components/email-delivery-badge";
 
 // Quote draft review page. Atlas drafts after PRD approval; Kyle reviews,
 // edits the JSON if needed, hits Send → flips status to quote_sent and
@@ -48,6 +49,28 @@ export default async function QuotePage({
       })
     : null;
 
+  // Latest quote_teaser email send for this prospect — drives the delivery
+  // badge. There can be multiple if Kyle re-sent the quote; pick the newest.
+  const latestQuoteSend = prospect
+    ? await prisma.emailSend.findFirst({
+        where: {
+          prospectId: prospect.id,
+          emailType: "quote_teaser",
+        },
+        orderBy: { acceptedAt: "desc" },
+        select: {
+          status: true,
+          acceptedAt: true,
+          sentAt: true,
+          deliveredAt: true,
+          bouncedAt: true,
+          complainedAt: true,
+          delayedAt: true,
+          bounceReason: true,
+        },
+      })
+    : null;
+
   if (!prospect) notFound();
 
   const quoteHtmlUrl = `${ORACLE_BASE}/onboarding/prospects/${prospect.id}/quote-html`;
@@ -70,7 +93,7 @@ export default async function QuotePage({
             <span>{prospect.email}</span>
             <StatusChip status={prospect.status} />
           </div>
-          <Status prospect={prospect} liveQuoteUrl={liveQuoteUrl} />
+          <Status prospect={prospect} liveQuoteUrl={liveQuoteUrl} latestQuoteSend={latestQuoteSend} />
         </div>
       </div>
 
@@ -131,6 +154,7 @@ function StatusChip({ status }: { status: string }) {
 function Status({
   prospect,
   liveQuoteUrl,
+  latestQuoteSend,
 }: {
   prospect: {
     quoteSentAt: Date | null;
@@ -139,6 +163,7 @@ function Status({
     quoteDeniedReason: string | null;
   };
   liveQuoteUrl: string;
+  latestQuoteSend: React.ComponentProps<typeof EmailDeliveryBadge>["emailSend"];
 }) {
   if (prospect.quoteAcceptedAt) {
     return (
@@ -157,10 +182,16 @@ function Status({
   }
   if (prospect.quoteSentAt) {
     return (
-      <p className="text-blue-400 text-sm mt-2">
-        Sent {timeAgo(prospect.quoteSentAt)} —{" "}
-        <a href={liveQuoteUrl} target="_blank" rel="noreferrer" className="underline">view what they see ↗</a>
-      </p>
+      <div className="text-blue-400 text-sm mt-2 flex items-center gap-2 flex-wrap">
+        <span>Sent {timeAgo(prospect.quoteSentAt)}</span>
+        <EmailDeliveryBadge emailSend={latestQuoteSend} fallbackSentAt={prospect.quoteSentAt} />
+        <span>
+          —{" "}
+          <a href={liveQuoteUrl} target="_blank" rel="noreferrer" className="underline">
+            view what they see ↗
+          </a>
+        </span>
+      </div>
     );
   }
   return null;
