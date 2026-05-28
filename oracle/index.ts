@@ -50,6 +50,175 @@ app.post("/webhooks/stripe", express.raw({ type: "application/json" }), async (r
   }
 });
 
+// ---------------------------------------------------------------------------
+// Resend email-events webhook
+// ---------------------------------------------------------------------------
+//
+// Resend pushes lifecycle events for every email we send (sent → delivered →
+// bounced/complained/...). We close the silent-failure loop by updating each
+// EmailSend audit row (matched by data.email_id ↔ EmailSend.resendMessageId)
+// with the new status + timestamp + bounce reason.
+//
+// Verified via Svix signing — Resend uses Svix under the hood. Secret lives
+// in RESEND_WEBHOOK_SECRET (set in Railway after adding the webhook URL in
+// the Resend dashboard at https://resend.com/webhooks).
+//
+// MUST live above express.json() because Svix verification requires the raw
+// body bytes byte-for-byte — JSON-parse and re-stringify won't reproduce the
+// exact signed payload.
+app.post(
+  "/webhooks/email-events",
+  express.raw({ type: "application/json" }),
+  async (req: Request, res: Response) => {
+    try {
+      const secret = process.env.RESEND_WEBHOOK_SECRET;
+      if (!secret) {
+        // Don't 500 — just log and 200 so Resend doesn't flood retries while
+        // we're still configuring. Production should always have this set.
+        logger.warn("email-events webhook: RESEND_WEBHOOK_SECRET not set, ignoring");
+        res.json({ received: true, ignored: "secret_not_configured" });
+        return;
+      }
+
+      const headers = {
+        "svix-id": req.headers["svix-id"] as string,
+        "svix-timestamp": req.headers["svix-timestamp"] as string,
+        "svix-signature": req.headers["svix-signature"] as string,
+      };
+
+      if (!headers["svix-id"] || !headers["svix-timestamp"] || !headers["svix-signature"]) {
+        res.status(400).json({ error: "Missing svix-* headers" });
+        return;
+      }
+
+      const rawBody = req.body.toString();
+      const { Webhook } = await import("svix");
+      const wh = new Webhook(secret);
+      let event: { type: string; data: Record<string, unknown> };
+      try {
+        event = wh.verify(rawBody, headers) as { type: string; data: Record<string, unknown> };
+      } catch (verifyErr) {
+        logger.warn("email-events webhook: signature verification failed", {
+          err: verifyErr instanceof Error ? verifyErr.message : String(verifyErr),
+        });
+        res.status(401).json({ error: "Invalid signature" });
+        return;
+      }
+
+      const emailId = typeof event.data.email_id === "string" ? event.data.email_id : null;
+      if (!emailId) {
+        // Resend always sends email_id; if we ever see one without, log and
+        // ack so they don't retry. Not an error from Resend's perspective.
+        logger.warn("email-events webhook: payload had no data.email_id", { type: event.type });
+        res.json({ received: true, ignored: "no_email_id" });
+        return;
+      }
+
+      // Map Resend event types → EmailSend.status + the timestamp column we
+      // stamp. Engagement events (opened/clicked) are accepted but don't
+      // change status — they could be wired into a separate engagement
+      // table later if useful.
+      const now = new Date();
+      const update: Record<string, unknown> = {};
+      switch (event.type) {
+        case "email.sent":
+          update.status = "sent";
+          update.sentAt = now;
+          break;
+        case "email.delivered":
+          update.status = "delivered";
+          update.deliveredAt = now;
+          break;
+        case "email.bounced":
+          update.status = "bounced";
+          update.bouncedAt = now;
+          update.bounceReason =
+            typeof event.data.bounce === "object" && event.data.bounce !== null
+              ? JSON.stringify(event.data.bounce)
+              : typeof event.data.bounce === "string"
+                ? event.data.bounce
+                : "Resend reported bounce (no reason in payload)";
+          break;
+        case "email.complained":
+          update.status = "complained";
+          update.complainedAt = now;
+          break;
+        case "email.delivery_delayed":
+          update.status = "delivery_delayed";
+          update.delayedAt = now;
+          break;
+        case "email.opened":
+        case "email.clicked":
+          // Engagement events — ignore for status tracking. ACK 200 so Resend
+          // doesn't retry.
+          logger.info("email-events: engagement event (ignored)", { type: event.type, emailId });
+          res.json({ received: true, ignored: "engagement_event" });
+          return;
+        default:
+          logger.info("email-events: unhandled event type (ignored)", { type: event.type, emailId });
+          res.json({ received: true, ignored: "unhandled_type" });
+          return;
+      }
+
+      // Fetch first so we have the linkage (agentId/prospectId/clientId/
+      // emailType/to/subject) — needed for the bounce alert below. Update by
+      // unique resendMessageId. If no row matches (e.g. event for an email
+      // sent before this audit log was wired), log and ack — don't create a
+      // row just from the webhook (we'd be missing agentId etc).
+      const existing = await prisma.emailSend.findUnique({
+        where: { resendMessageId: emailId },
+      });
+
+      if (!existing) {
+        logger.info("email-events: no matching EmailSend row (likely pre-audit-log)", {
+          type: event.type,
+          emailId,
+        });
+        res.json({ received: true, matched: false });
+        return;
+      }
+
+      await prisma.emailSend.update({
+        where: { id: existing.id },
+        data: update,
+      });
+
+      logger.info("EmailSend status updated from webhook", {
+        type: event.type,
+        emailId,
+        newStatus: update.status,
+        emailSendId: existing.id,
+      });
+
+      // Bounce / complaint alert — fire-and-forget. These are revenue events
+      // in a sales funnel: a proposal/quote that bounces means the prospect
+      // never saw it. WhatsApp + ops email so Kyle finds out within seconds,
+      // not when the prospect "complains" 3 days later (or never).
+      if (event.type === "email.bounced" || event.type === "email.complained") {
+        // Don't await — webhook should return 200 fast; alerts run after.
+        notifyEmailDeliveryFailure({
+          eventType: event.type,
+          emailSend: existing,
+          bounceReason: typeof update.bounceReason === "string" ? update.bounceReason : null,
+        }).catch((err) => {
+          logger.warn("Email delivery-failure alert failed (continuing)", {
+            err: err instanceof Error ? err.message : String(err),
+            emailSendId: existing.id,
+          });
+        });
+      }
+
+      res.json({ received: true });
+    } catch (error) {
+      logger.error("email-events webhook failed", {
+        err: error instanceof Error ? error.message : String(error),
+      });
+      // 500 so Resend retries — likely a transient DB issue.
+      res.status(500).json({ error: "Webhook processing failed" });
+    }
+  }
+);
+
 // Raise body limit — scaffold endpoint accepts base64-encoded SOP uploads
 app.use(express.json({ limit: "30mb" }));
 
@@ -2843,6 +3012,110 @@ ${emailBody.trim()}
 // Sender is always Atlas (most ops events relate to a prospect Atlas is
 // running for); recipient is OPERATOR_EMAIL. Swap to whatsapp.ts when Twilio
 // is wired in prod.
+
+// Fired by /webhooks/email-events when an outbound email bounces or is
+// reported as spam. In a sales funnel these are revenue events — silent
+// failure (which is what "the prospect just never got it" looks like) means
+// the deal evaporates without us knowing. Sends both WhatsApp (fast read on
+// phone) + ops email (with full context: which prospect, which artifact, why).
+async function notifyEmailDeliveryFailure(input: {
+  eventType: "email.bounced" | "email.complained";
+  emailSend: {
+    id: string;
+    to: string;
+    subject: string;
+    emailType: string | null;
+    prospectId: string | null;
+    clientId: string | null;
+    agentId: string;
+  };
+  bounceReason: string | null;
+}): Promise<void> {
+  const verb = input.eventType === "email.bounced" ? "BOUNCED" : "SPAM REPORT";
+  const friendlyKind =
+    input.eventType === "email.bounced" ? "bounced" : "marked as spam";
+
+  // Look up the prospect / client / agent for context. All optional —
+  // emails to OPERATOR_EMAIL have no prospect/client linkage.
+  const [prospect, client, agent] = await Promise.all([
+    input.emailSend.prospectId
+      ? prisma.prospect.findUnique({
+          where: { id: input.emailSend.prospectId },
+          select: { id: true, contactName: true, businessName: true, status: true },
+        })
+      : Promise.resolve(null),
+    input.emailSend.clientId
+      ? prisma.client.findUnique({
+          where: { id: input.emailSend.clientId },
+          select: { id: true, contactName: true, businessName: true },
+        })
+      : Promise.resolve(null),
+    prisma.agent.findUnique({
+      where: { id: input.emailSend.agentId },
+      select: { id: true, name: true },
+    }),
+  ]);
+
+  const who = prospect
+    ? `${prospect.contactName ?? "prospect"} (${prospect.businessName ?? "—"})`
+    : client
+      ? `${client.contactName ?? "client"} (${client.businessName ?? "—"})`
+      : input.emailSend.to;
+
+  const dashBase = process.env.DASHBOARD_URL ?? "https://dashboard.ambitt.agency";
+  const deepLink = prospect
+    ? `${dashBase}/prospects/${prospect.id}/${input.emailSend.emailType === "quote_teaser" ? "quote" : "prd"}`
+    : `${dashBase}/prospects`;
+
+  // WhatsApp first — short, urgent.
+  try {
+    const { sendWhatsApp } = await import("../shared/whatsapp.js");
+    const opNumber = process.env.KYLE_WHATSAPP_NUMBER;
+    if (opNumber) {
+      const reasonLine = input.bounceReason
+        ? `\nReason: ${input.bounceReason.slice(0, 200)}`
+        : "";
+      await sendWhatsApp({
+        to: opNumber,
+        message: `🚨 ${verb}\n${friendlyKind} for ${who}\nTo: ${input.emailSend.to}\nArtifact: ${input.emailSend.emailType ?? "unknown"}${reasonLine}\n→ ${deepLink}`,
+      });
+    }
+  } catch (err) {
+    logger.warn("Bounce-alert WhatsApp failed (continuing)", {
+      err: err instanceof Error ? err.message : String(err),
+      emailSendId: input.emailSend.id,
+    });
+  }
+
+  // Ops email — fuller context.
+  if (!agent) return;
+  const opsHtml = `
+<div style="font-family:-apple-system,BlinkMacSystemFont,sans-serif;max-width:560px;line-height:1.5;color:#1a1a1a">
+  <p style="font-size:14px;color:#999;margin:0 0 8px"><strong style="color:#c00">${verb}</strong></p>
+  <h2 style="margin:0 0 16px;font-size:18px">Email ${friendlyKind} for ${who}</h2>
+  <div style="background:#fff5f5;border-left:3px solid #c00;padding:12px 16px;border-radius:4px;font-size:13px">
+    <p style="margin:0 0 4px"><strong>To:</strong> ${input.emailSend.to}</p>
+    <p style="margin:0 0 4px"><strong>Subject:</strong> ${input.emailSend.subject}</p>
+    <p style="margin:0 0 4px"><strong>Artifact:</strong> ${input.emailSend.emailType ?? "unknown"}</p>
+    ${input.bounceReason ? `<p style="margin:0"><strong>Reason:</strong> ${input.bounceReason.slice(0, 400)}</p>` : ""}
+  </div>
+  <p style="margin:16px 0 0;font-size:14px">
+    <a href="${deepLink}" style="color:#0066cc">Open in dashboard →</a>
+  </p>
+  <p style="font-size:12px;color:#999;margin:24px 0 0">
+    Triggered by Resend webhook on EmailSend ${input.emailSend.id}. The audit row has the full lifecycle.
+  </p>
+</div>`.trim();
+
+  await notifyOps({
+    atlasId: agent.id,
+    atlasName: agent.name,
+    subject: `${verb}: ${input.emailSend.emailType ?? "email"} to ${who}`,
+    html: opsHtml,
+    prospectId: input.emailSend.prospectId ?? undefined,
+    clientId: input.emailSend.clientId ?? undefined,
+  });
+}
 
 async function notifyOps(input: {
   atlasId: string;
