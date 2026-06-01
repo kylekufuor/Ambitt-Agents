@@ -3563,6 +3563,59 @@ function buildAtlasProposalPrompt(prospect: {
   }
   const sopBlock = sopSections.length > 0 ? sopSections.join("\n\n") : "(They didn't paste or upload any SOPs.)";
 
+  // Adaptive intake — if the prospect went through the new dynamic-questions
+  // flow, formData.dynamic carries Atlas's own domain-specific Q&A. This is
+  // far higher-signal than the legacy static fields below (which are mostly
+  // empty for new prospects) and should dominate the proposal drafting.
+  const dynamic = (fd.dynamic ?? null) as
+    | {
+        questions?: {
+          domainSummary?: string;
+          agentArchetype?: string;
+          questions?: Array<{
+            id: string;
+            label: string;
+            type: string;
+            rationale?: string;
+            options?: string[];
+            required?: boolean;
+          }>;
+        };
+        answers?: Record<string, unknown>;
+      }
+    | null;
+  const dynamicBlock = (() => {
+    if (!dynamic?.questions?.questions || dynamic.questions.questions.length === 0) {
+      return ""; // legacy prospect — no adaptive intake; skip the section entirely
+    }
+    const domain = dynamic.questions.domainSummary ?? "(not classified)";
+    const archetype = dynamic.questions.agentArchetype ?? "(not classified)";
+    const answers = dynamic.answers ?? {};
+    const lines = dynamic.questions.questions.map((q) => {
+      const a = answers[q.id];
+      const renderedAnswer =
+        a === undefined || a === null
+          ? "(unanswered)"
+          : Array.isArray(a)
+            ? a.length > 0
+              ? a.join(", ")
+              : "(unanswered)"
+            : typeof a === "string"
+              ? a.trim() || "(unanswered)"
+              : String(a);
+      const rationale = q.rationale ? ` _(why we asked: ${q.rationale})_` : "";
+      return `- **${q.label}**${rationale}\n  Answer: ${renderedAnswer}`;
+    });
+    return `\n# TAILORED INTAKE — domain-specific Q&A
+(This is the high-signal section. We asked these questions specifically because of THIS prospect's domain. Weight these answers above the legacy static fields below when drafting the proposal.)
+
+- Domain classification: ${domain}
+- Agent archetype: ${archetype}
+
+${lines.join("\n")}
+`;
+  })();
+
   return `A new prospect just completed the Ambitt Agents onboarding form. Read their answers carefully, then **emit a structured JSON object** matching the ProposalEmailData contract below. Our Handlebars template renders the JSON into the email — you never write HTML.
 
 # Prospect basics
@@ -3576,8 +3629,8 @@ function buildAtlasProposalPrompt(prospect: {
 # The agent the prospect is asking us to build
 - Their chosen name for the agent: ${get("agentName") || "(not provided — propose one)"}
 - Their chosen role / job title for the agent: ${get("agentRole") || "(not provided — infer from their pitch)"}
-
-# Their answers
+${dynamicBlock}
+# Their answers (legacy static fields — only populated for older prospects)
 - What their business does: ${get("industry") || "(not provided)"}
 - Target audience (multi-select chips): ${get("audienceTags") || "(none selected)"}
 - Audience detail (optional, more specific): ${get("audienceDetail") || "(not provided)"}
