@@ -129,49 +129,69 @@ function formatBytes(n: number): string {
   return `${(n / 1024 / 1024).toFixed(1)} MB`;
 }
 
-const STEP_LABELS = ["WELCOME", "STEP 1 OF 7", "STEP 2 OF 7", "STEP 3 OF 7", "STEP 4 OF 7", "STEP 5 OF 7", "STEP 6 OF 7", "STEP 7 OF 7", "COMPLETE"];
-const STEP_PERCENT = [0, 14, 28, 43, 57, 72, 86, 100, 100];
+// Static slide indices (the 3 always-on slides before AI customization kicks).
+// Dynamic slides come after slide 4 (DomainConfirm); their count is determined
+// by Atlas's output (6-10). Review + Sent close the flow.
+//
+// Slide map (with dynamicCount = N):
+//   0 = Welcome
+//   1 = AboutYou           ← static, but the existing rich slide
+//   2 = OneSentence        ← agent goal (THE pivotal answer)
+//   3 = LoadingDynamic     ← calls /customize-questions, blocks on Haiku
+//   4 = DomainConfirmation ← shows Atlas's domain classification, prospect can back to clarify
+//   5 … 5+N-1 = DynamicQuestion[0..N-1]
+//   5+N   = Review
+//   5+N+1 = Sent
+const SLIDE_WELCOME = 0;
+const SLIDE_ABOUT_YOU = 1;
+const SLIDE_ONE_SENTENCE = 2;
+const SLIDE_LOADING_DYNAMIC = 3;
+const SLIDE_DOMAIN_CONFIRM = 4;
+const FIRST_DYNAMIC_SLIDE = 5;
 
-export function OnboardForm({ token, prospectId, initial, status }: OnboardFormProps) {
+interface DynamicQuestion {
+  id: string;
+  type: "text" | "longText" | "select" | "multiSelect" | "scale";
+  label: string;
+  placeholder?: string;
+  options?: string[];
+  required: boolean;
+  rationale?: string;
+}
+
+interface DynamicIntakePayload {
+  domainSummary: string;
+  agentArchetype: string;
+  questions: DynamicQuestion[];
+}
+
+export function OnboardForm({ token, prospectId: _prospectId, initial, status }: OnboardFormProps) {
+  void _prospectId; // not consumed here today but kept on props for future use
+  const [dynamicQuestions, setDynamicQuestions] = useState<DynamicIntakePayload | null>(null);
+  const [dynamicAnswers, setDynamicAnswers] = useState<Record<string, unknown>>({});
+  const [loadingDynamic, setLoadingDynamic] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const dynamicCount = dynamicQuestions?.questions.length ?? 0;
+  const SLIDE_REVIEW = FIRST_DYNAMIC_SLIDE + dynamicCount;
+  const SLIDE_SENT = SLIDE_REVIEW + 1;
+
   const [slide, setSlide] = useState<number>(() => {
-    // Status determines landing slide:
-    //   discovery → Welcome (slide 0) by default. If contactName is already
-    //     set, skip Welcome and jump straight to Chapter 01 (slide 1) — the
-    //     prospect identified themselves on the public /onboard landing or
-    //     was pre-seeded by Kyle from the dashboard, so the Welcome+ToC
-    //     orientation is redundant.
-    //   discovery_complete → Sent (slide 8) — just submitted, proposal pending
-    //   presentation_sent / revising → Review (slide 7) — returning to edit;
-    //     they can see their answers and jump to any chapter to change them.
-    //   accepted / quote_* → Sent (slide 8) — deal is downstream
-    if (status === "discovery_complete") return 8;
-    if (status === "presentation_sent" || status === "revising") return 7;
-    if (status === "accepted" || status === "quote_pending" || status === "quote_sent") return 8;
-    return (initial.contactName ?? "").trim().length > 0 ? 1 : 0;
+    // Status determines landing slide. With the adaptive flow, returning
+    // prospects who already submitted go straight to the post-submit state.
+    // The dynamic-question slides only exist after Atlas runs, so resume
+    // mid-flow is not supported for v1 — prospects who close the tab mid-
+    // intake will restart from Welcome (their answers are not yet persisted).
+    if (status === "discovery_complete") return -1; // Sent (computed once dynamic loads, but for fresh status nothing dynamic yet — special-case below)
+    if (status === "presentation_sent" || status === "revising") return -2; // Review
+    if (status === "accepted" || status === "quote_pending" || status === "quote_sent") return -1;
+    return (initial.contactName ?? "").trim().length > 0 ? SLIDE_ABOUT_YOU : SLIDE_WELCOME;
   });
-  const [values, setValues] = useState<Record<string, string>>({
-    cadence: "On a schedule",
-    channel: "Email",
-    autonomy: "Supervised",
-    todayHandler: "I do it myself",
-    ...initial,
-  });
+
+  const [values, setValues] = useState<Record<string, string>>({ ...initial });
   const [multi, setMulti] = useState<Record<string, string[]>>(() => ({
     audienceTags: parseList(initial.audienceTags),
-    successOutcomes: parseList(initial.successOutcomes),
-    toneTags: parseList(initial.toneTags),
-    neverDoTags: parseList(initial.neverDoTags),
   }));
-  const [tools, setTools] = useState<ToolSelection[]>(() => {
-    // Pre-fill from existing prospect.formData.tools if present (array shape).
-    const raw = (initial as unknown as { tools?: unknown }).tools;
-    if (Array.isArray(raw)) {
-      return (raw as ToolSelection[]).filter((t) => t && typeof t.name === "string");
-    }
-    return [];
-  });
-  const [files, setFiles] = useState<UploadedFile[]>([]);
-  const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -187,62 +207,77 @@ export function OnboardForm({ token, prospectId, initial, status }: OnboardFormP
     });
   }
 
-  async function uploadFile(file: File) {
-    setUploading(true);
-    setError(null);
-    try {
-      const fd = new FormData();
-      fd.append("file", file);
-      const res = await fetch(`/api/onboard/${token}/upload`, { method: "POST", body: fd });
-      const body = await res.json().catch(() => ({ error: "Upload failed" }));
-      if (!res.ok) throw new Error(body.error ?? "Upload failed");
-      setFiles((prev) => [...prev, body as UploadedFile]);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Upload failed");
-    } finally {
-      setUploading(false);
-    }
-  }
-
-  function removeFile(id: string) {
-    setFiles((prev) => prev.filter((f) => f.id !== id));
-  }
-
   function next() {
-    setSlide((i) => Math.min(8, i + 1));
+    setSlide((i) => i + 1);
     if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
   }
   function back() {
     setSlide((i) => Math.max(0, i - 1));
     if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
   }
-  function jumpTo(target: number) {
-    setSlide(target);
-    if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
+
+  // Trigger AI customization when the prospect lands on the loading slide.
+  // Synchronous on the model side (~5-15s with Haiku); auto-advances on
+  // success. Stays on the loading slide if Atlas fails so the prospect can
+  // hit "Try again" without losing their answers.
+  async function fetchDynamicIntake() {
+    if (dynamicQuestions || loadingDynamic) return;
+    setLoadingDynamic(true);
+    setLoadError(null);
+    try {
+      const res = await fetch(`/api/onboard/${token}/customize-questions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      const body = await res.json().catch(() => ({ error: "Bad response" }));
+      if (!res.ok) throw new Error(body.error ?? "Generation failed");
+      const q = body.questions as DynamicIntakePayload | undefined;
+      if (!q || !Array.isArray(q.questions) || q.questions.length === 0) {
+        throw new Error("No questions returned");
+      }
+      setDynamicQuestions(q);
+      // Auto-advance to the domain confirmation slide.
+      setSlide(SLIDE_DOMAIN_CONFIRM);
+      if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : "Generation failed");
+    } finally {
+      setLoadingDynamic(false);
+    }
+  }
+
+  // Fire customization when the slide hits LOADING. useEffect runs after
+  // commit so we know the slide is rendered before kicking the fetch.
+  useEffect(() => {
+    if (slide === SLIDE_LOADING_DYNAMIC && !dynamicQuestions && !loadingDynamic && !loadError) {
+      void fetchDynamicIntake();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slide]);
+
+  // Save dynamic answers as the prospect progresses. Final submit collapses
+  // everything into formData.dynamic.answers.
+  function setDynamicAnswer(id: string, value: unknown) {
+    setDynamicAnswers((prev) => ({ ...prev, [id]: value }));
   }
 
   async function submit() {
     setSubmitting(true);
     setError(null);
     try {
-      // Collapse multi-select arrays into the same `values` object as comma-
-      // joined strings so the backend continues to receive flat key/values.
-      // The `sopFiles` array stays structured — Oracle uses it to append
-      // extracted document text to Atlas's intake prompt.
+      // Flatten multi-selects to comma-joined strings (legacy backend shape).
       const merged: Record<string, unknown> = { ...values };
       for (const [k, arr] of Object.entries(multi)) {
         merged[k] = arr.join(", ");
       }
-      // tools stays structured — array of {source, slug?, name}. Atlas uses
-      // the source field to distinguish Composio integrations (oauth path
-      // exists) from custom apps (humans wire up during build).
-      merged.tools = tools;
-      merged.sopFiles = files.map((f) => ({
-        filename: f.filename,
-        sizeBytes: f.sizeBytes,
-        contentType: f.contentType,
-        extractedText: f.extractedText,
-      }));
+      // Stash dynamic Q+A under formData.dynamic so the proposal-generation
+      // prompt can read both questions (the rationale field) and answers.
+      if (dynamicQuestions) {
+        merged.dynamic = {
+          questions: dynamicQuestions,
+          answers: dynamicAnswers,
+        };
+      }
       const res = await fetch(`/api/onboard/${token}/submit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -250,7 +285,8 @@ export function OnboardForm({ token, prospectId, initial, status }: OnboardFormP
       });
       const body = await res.json().catch(() => ({ error: "Submit failed" }));
       if (!res.ok) throw new Error(body.error ?? "Submit failed");
-      setSlide(8);
+      // Jump to Sent — index is dynamic with N, so compute it.
+      setSlide(SLIDE_SENT);
       if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Submit failed");
@@ -259,12 +295,52 @@ export function OnboardForm({ token, prospectId, initial, status }: OnboardFormP
     }
   }
 
-  const headerClass = slide === 0 ? "fa-header welcome" : slide === 8 ? "fa-header sent" : "fa-header";
+  // Resolve special sentinels (-1 sent, -2 review) once we have layout.
+  // We use SLIDE_SENT / SLIDE_REVIEW indices which depend on dynamicCount
+  // (only populated after Atlas runs). For returning prospects, we don't
+  // have the dynamic payload, so dynamicCount = 0 and SLIDE_REVIEW = 5,
+  // SLIDE_SENT = 6.
+  const actualSlide = slide === -1 ? SLIDE_SENT : slide === -2 ? SLIDE_REVIEW : slide;
+
+  // Step label + progress percent computed off the actual slide + dynamicCount.
+  const stepLabel = (() => {
+    if (actualSlide === SLIDE_WELCOME) return "WELCOME";
+    if (actualSlide === SLIDE_ABOUT_YOU) return "STEP 1 OF 3";
+    if (actualSlide === SLIDE_ONE_SENTENCE) return "STEP 2 OF 3";
+    if (actualSlide === SLIDE_LOADING_DYNAMIC) return "TAILORING…";
+    if (actualSlide === SLIDE_DOMAIN_CONFIRM) return "QUICK CHECK";
+    if (actualSlide >= FIRST_DYNAMIC_SLIDE && actualSlide < FIRST_DYNAMIC_SLIDE + dynamicCount) {
+      return `QUESTION ${actualSlide - FIRST_DYNAMIC_SLIDE + 1} OF ${dynamicCount}`;
+    }
+    if (actualSlide === SLIDE_REVIEW) return "REVIEW";
+    if (actualSlide === SLIDE_SENT) return "COMPLETE";
+    return "";
+  })();
+  const stepPercent = (() => {
+    if (actualSlide === SLIDE_WELCOME) return 0;
+    if (actualSlide === SLIDE_ABOUT_YOU) return 10;
+    if (actualSlide === SLIDE_ONE_SENTENCE) return 22;
+    if (actualSlide === SLIDE_LOADING_DYNAMIC) return 28;
+    if (actualSlide === SLIDE_DOMAIN_CONFIRM) return 34;
+    if (actualSlide >= FIRST_DYNAMIC_SLIDE && actualSlide < FIRST_DYNAMIC_SLIDE + dynamicCount) {
+      const progress = (actualSlide - FIRST_DYNAMIC_SLIDE + 1) / dynamicCount;
+      return Math.round(34 + progress * 56);
+    }
+    if (actualSlide === SLIDE_REVIEW) return 95;
+    return 100;
+  })();
+
+  const headerClass =
+    actualSlide === SLIDE_WELCOME ? "fa-header welcome" : actualSlide === SLIDE_SENT ? "fa-header sent" : "fa-header";
+
+  const dynIndex = actualSlide - FIRST_DYNAMIC_SLIDE;
+  const isDynamicSlide =
+    actualSlide >= FIRST_DYNAMIC_SLIDE && actualSlide < FIRST_DYNAMIC_SLIDE + dynamicCount;
 
   return (
     <div className="fa-onboard">
       <div className="fa-progress">
-        <div className="fa-progress-fill" style={{ width: `${STEP_PERCENT[slide]}%` }} />
+        <div className="fa-progress-fill" style={{ width: `${stepPercent}%` }} />
       </div>
 
       <div className={headerClass}>
@@ -272,45 +348,60 @@ export function OnboardForm({ token, prospectId, initial, status }: OnboardFormP
           <AmbittMark />
           AMBITT AGENTS
         </div>
-        <div className="fa-step">{STEP_LABELS[slide]}</div>
+        <div className="fa-step">{stepLabel}</div>
       </div>
 
       <div className="fa-stage">
-        {slide === 0 && <WelcomeSlide onBegin={next} />}
-        {slide === 1 && <AboutYouSlide values={values} set={set} multi={multi} toggleMulti={toggleMulti} onNext={next} onBack={back} />}
-        {slide === 2 && <OneSentenceSlide values={values} set={set} onNext={next} onBack={back} />}
-        {slide === 3 && <JobDeeperSlide values={values} set={set} multi={multi} toggleMulti={toggleMulti} onNext={next} onBack={back} />}
-        {slide === 4 && <HowItWorksSlide values={values} set={set} multi={multi} toggleMulti={toggleMulti} onNext={next} onBack={back} />}
-        {slide === 5 && <LimitsSlide values={values} set={set} multi={multi} toggleMulti={toggleMulti} onNext={next} onBack={back} />}
-        {slide === 6 && (
-          <ToolsSlide
-            values={values}
-            set={set}
-            tools={tools}
-            setTools={setTools}
-            files={files}
-            onUpload={uploadFile}
-            onRemoveFile={removeFile}
-            uploading={uploading}
-            onNext={next}
+        {actualSlide === SLIDE_WELCOME && <WelcomeSlide onBegin={next} />}
+        {actualSlide === SLIDE_ABOUT_YOU && (
+          <AboutYouSlide values={values} set={set} multi={multi} toggleMulti={toggleMulti} onNext={next} onBack={back} />
+        )}
+        {actualSlide === SLIDE_ONE_SENTENCE && (
+          <OneSentenceSlide values={values} set={set} onNext={next} onBack={back} />
+        )}
+        {actualSlide === SLIDE_LOADING_DYNAMIC && (
+          <LoadingDynamicSlide
+            loading={loadingDynamic}
+            error={loadError}
+            onRetry={() => {
+              setLoadError(null);
+              void fetchDynamicIntake();
+            }}
             onBack={back}
           />
         )}
-        {slide === 7 && (
-          <ReviewSlide
+        {actualSlide === SLIDE_DOMAIN_CONFIRM && dynamicQuestions && (
+          <DomainConfirmationSlide
+            domainSummary={dynamicQuestions.domainSummary}
+            agentArchetype={dynamicQuestions.agentArchetype}
+            onBack={back}
+            onNext={next}
+          />
+        )}
+        {isDynamicSlide && dynamicQuestions && (
+          <DynamicQuestionSlide
+            question={dynamicQuestions.questions[dynIndex]}
+            index={dynIndex}
+            total={dynamicCount}
+            value={dynamicAnswers[dynamicQuestions.questions[dynIndex].id]}
+            onChange={(v) => setDynamicAnswer(dynamicQuestions.questions[dynIndex].id, v)}
+            onBack={back}
+            onNext={next}
+          />
+        )}
+        {actualSlide === SLIDE_REVIEW && (
+          <AdaptiveReviewSlide
             values={values}
-            multi={multi}
-            tools={tools}
-            files={files}
+            dynamicQuestions={dynamicQuestions}
+            dynamicAnswers={dynamicAnswers}
             email={initial.email ?? ""}
-            onEdit={jumpTo}
             onBack={back}
             onSend={submit}
             submitting={submitting}
             error={error}
           />
         )}
-        {slide === 8 && <SentSlide email={initial.email ?? ""} />}
+        {actualSlide === SLIDE_SENT && <SentSlide email={initial.email ?? ""} />}
       </div>
     </div>
   );
@@ -1189,3 +1280,394 @@ function SentSlide({ email }: { email: string }) {
     </div>
   );
 }
+
+// ---------------------------------------------------------------------------
+// Adaptive intake — new slides (2026-05-31)
+// ---------------------------------------------------------------------------
+
+// Slide 3 — LOADING (auto-fires /customize-questions, shows spinner)
+function LoadingDynamicSlide({
+  loading,
+  error,
+  onRetry,
+  onBack,
+}: {
+  loading: boolean;
+  error: string | null;
+  onRetry: () => void;
+  onBack: () => void;
+}) {
+  return (
+    <div className="fa-slide active">
+      <div className="fa-chapter">
+        <div className="fa-chapter-content" style={{ maxWidth: 540, margin: "0 auto", textAlign: "center", paddingTop: 64 }}>
+          {!error && (
+            <>
+              <div style={{ marginBottom: 28 }}>
+                <div
+                  style={{
+                    width: 56,
+                    height: 56,
+                    margin: "0 auto",
+                    borderRadius: "50%",
+                    border: "3px solid rgba(0,179,179,0.18)",
+                    borderTopColor: "#00b3b3",
+                    animation: "fa-spin 0.9s linear infinite",
+                  }}
+                  aria-label="Tailoring your intake"
+                />
+                <style>{`@keyframes fa-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+              </div>
+              <div className="fa-h-title" style={{ fontSize: 32, marginBottom: 16 }}>
+                {loading ? "Tailoring your intake…" : "Almost there"}
+              </div>
+              <p className="fa-hero-body" style={{ marginBottom: 8 }}>
+                Reading what you just told me so the rest of the questions are about
+                <em> your </em> business — not a one-size-fits-all form.
+              </p>
+              <p className="fa-hero-body" style={{ color: "#999", fontSize: 13 }}>
+                Takes about 10 seconds.
+              </p>
+            </>
+          )}
+          {error && (
+            <>
+              <div className="fa-h-title" style={{ fontSize: 28, marginBottom: 16 }}>
+                Hmm, that didn&apos;t work.
+              </div>
+              <p className="fa-hero-body" style={{ marginBottom: 24 }}>
+                {error}
+              </p>
+              <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
+                <button type="button" className="fa-btn-secondary" onClick={onBack}>
+                  ← Back
+                </button>
+                <button type="button" className="fa-btn-primary" onClick={onRetry}>
+                  Try again
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Slide 4 — DOMAIN CONFIRMATION (show Atlas's classification; let prospect back-out if wrong)
+function DomainConfirmationSlide({
+  domainSummary,
+  agentArchetype,
+  onBack,
+  onNext,
+}: {
+  domainSummary: string;
+  agentArchetype: string;
+  onBack: () => void;
+  onNext: () => void;
+}) {
+  return (
+    <div className="fa-slide active">
+      <div className="fa-chapter">
+        <div className="fa-chapter-content" style={{ maxWidth: 620, margin: "0 auto", paddingTop: 32 }}>
+          <div className="fa-content-tag">QUICK CHECK</div>
+          <h2 className="fa-h-title" style={{ fontSize: 32, marginBottom: 20 }}>
+            Sound about right?
+          </h2>
+          <p className="fa-hero-body" style={{ marginBottom: 24 }}>
+            Based on what you told me, here&apos;s how I&apos;m thinking about your situation:
+          </p>
+
+          <div
+            style={{
+              background: "linear-gradient(135deg, #f0fdfd 0%, #ffffff 100%)",
+              border: "1px solid #00b3b3",
+              borderRadius: 12,
+              padding: 20,
+              marginBottom: 28,
+              boxShadow: "0 4px 14px rgba(0,179,179,0.10)",
+            }}
+          >
+            <div style={{ fontSize: 12, fontWeight: 600, color: "#00b3b3", marginBottom: 6, letterSpacing: 0.6 }}>
+              YOUR DOMAIN
+            </div>
+            <div style={{ fontSize: 16, color: "#171717", marginBottom: 16, lineHeight: 1.5, fontWeight: 500 }}>
+              {domainSummary}
+            </div>
+            <div style={{ fontSize: 12, fontWeight: 600, color: "#00b3b3", marginBottom: 6, letterSpacing: 0.6 }}>
+              AGENT TYPE
+            </div>
+            <div style={{ fontSize: 15, color: "#171717", lineHeight: 1.5 }}>
+              {agentArchetype}
+            </div>
+          </div>
+
+          <p className="fa-hero-body" style={{ fontSize: 13, color: "#737373", marginBottom: 24 }}>
+            If this is way off, hit back and tighten up your &quot;one sentence&quot; answer. The next few questions
+            are tailored to this read of your business.
+          </p>
+
+          <div style={{ display: "flex", gap: 12, justifyContent: "space-between" }}>
+            <button type="button" className="fa-btn-secondary" onClick={onBack}>
+              ← Not quite — let me clarify
+            </button>
+            <button type="button" className="fa-btn-primary" onClick={onNext}>
+              Looks right — keep going →
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Slides 5..5+N-1 — DYNAMIC QUESTION (one per slide, type-routed)
+function DynamicQuestionSlide({
+  question,
+  index,
+  total,
+  value,
+  onChange,
+  onBack,
+  onNext,
+}: {
+  question: DynamicQuestion;
+  index: number;
+  total: number;
+  value: unknown;
+  onChange: (v: unknown) => void;
+  onBack: () => void;
+  onNext: () => void;
+}) {
+  const isAnswered = (() => {
+    if (!question.required) return true;
+    if (value === undefined || value === null) return false;
+    if (typeof value === "string") return value.trim().length > 0;
+    if (Array.isArray(value)) return value.length > 0;
+    return true;
+  })();
+
+  return (
+    <div className="fa-slide active">
+      <div className="fa-chapter">
+        <div className="fa-chapter-content" style={{ maxWidth: 620, margin: "0 auto", paddingTop: 32 }}>
+          <div className="fa-content-tag">
+            QUESTION {index + 1} OF {total}
+          </div>
+          <h2 className="fa-h-title" style={{ fontSize: 26, marginBottom: 22, lineHeight: 1.35 }}>
+            {question.label}
+            {question.required && <span style={{ color: "#dc2626", marginLeft: 4 }}>*</span>}
+          </h2>
+
+          <div style={{ marginBottom: 28 }}>
+            {question.type === "text" && (
+              <Input
+                value={(value as string) ?? ""}
+                onChange={(e) => onChange(e.target.value)}
+                placeholder={question.placeholder ?? ""}
+                autoFocus
+              />
+            )}
+            {question.type === "longText" && (
+              <Textarea
+                value={(value as string) ?? ""}
+                onChange={(e) => onChange(e.target.value)}
+                placeholder={question.placeholder ?? ""}
+                autoFocus
+              />
+            )}
+            {question.type === "select" && question.options && (
+              <Pills
+                options={question.options}
+                value={(value as string) ?? ""}
+                onChange={(v) => onChange(v)}
+              />
+            )}
+            {question.type === "multiSelect" && question.options && (
+              <CheckPills
+                options={question.options}
+                selected={(value as string[]) ?? []}
+                onToggle={(v) => {
+                  const cur = (value as string[]) ?? [];
+                  const nextArr = cur.includes(v) ? cur.filter((x) => x !== v) : [...cur, v];
+                  onChange(nextArr);
+                }}
+              />
+            )}
+            {question.type === "scale" && (
+              <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
+                {[1, 2, 3, 4, 5].map((n) => {
+                  const active = value === n;
+                  return (
+                    <button
+                      key={n}
+                      type="button"
+                      onClick={() => onChange(n)}
+                      style={{
+                        flex: 1,
+                        padding: "16px 0",
+                        background: active ? "#00b3b3" : "#ffffff",
+                        color: active ? "#ffffff" : "#404040",
+                        border: `1px solid ${active ? "#00b3b3" : "#e5e5e5"}`,
+                        borderRadius: 9,
+                        fontSize: 18,
+                        fontWeight: 600,
+                        cursor: "pointer",
+                        transition: "all 0.15s ease",
+                      }}
+                    >
+                      {n}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {!isAnswered && question.required && (
+            <p style={{ fontSize: 12, color: "#737373", marginBottom: 20 }}>
+              This one matters for the proposal — pick or type an answer to continue.
+            </p>
+          )}
+
+          <div style={{ display: "flex", gap: 12, justifyContent: "space-between" }}>
+            <button type="button" className="fa-btn-secondary" onClick={onBack}>
+              ← Back
+            </button>
+            <button
+              type="button"
+              className="fa-btn-primary"
+              onClick={onNext}
+              disabled={!isAnswered}
+              style={!isAnswered ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+            >
+              {index + 1 === total ? "Review your answers →" : "Next →"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// FINAL — ADAPTIVE REVIEW SLIDE (replaces the old Review for the adaptive flow)
+function AdaptiveReviewSlide({
+  values,
+  dynamicQuestions,
+  dynamicAnswers,
+  email,
+  onBack,
+  onSend,
+  submitting,
+  error,
+}: {
+  values: Record<string, string>;
+  dynamicQuestions: DynamicIntakePayload | null;
+  dynamicAnswers: Record<string, unknown>;
+  email: string;
+  onBack: () => void;
+  onSend: () => void;
+  submitting: boolean;
+  error: string | null;
+}) {
+  function renderAnswer(q: DynamicQuestion, ans: unknown): string {
+    if (ans === undefined || ans === null) return "—";
+    if (Array.isArray(ans)) return ans.length > 0 ? ans.join(", ") : "—";
+    if (typeof ans === "number") return String(ans);
+    if (typeof ans === "string") return ans.trim() || "—";
+    return String(ans);
+  }
+
+  return (
+    <div className="fa-slide active">
+      <div className="fa-review">
+        <div className="fa-content-tag" style={{ textAlign: "center" }}>FINAL STEP</div>
+        <div
+          className="fa-h-title"
+          style={{ fontSize: 36, textAlign: "center", marginBottom: 12 }}
+        >
+          Here&apos;s what you&apos;ve told me.
+        </div>
+        <p
+          className="fa-hero-body"
+          style={{ textAlign: "center", marginBottom: 36 }}
+        >
+          Quick scan, then submit — proposal lands in <strong>{email || "your inbox"}</strong> within 30 minutes.
+        </p>
+
+        <div className="fa-review-block">
+          <div className="fa-review-head">
+            <div className="fa-review-section-name">About you</div>
+          </div>
+          <div className="fa-review-row">
+            <div className="fa-review-key">Name</div>
+            <div className="fa-review-value">{values.contactName || "—"}</div>
+          </div>
+          <div className="fa-review-row">
+            <div className="fa-review-key">Business</div>
+            <div className="fa-review-value">{values.businessName || "—"}</div>
+          </div>
+          <div className="fa-review-row">
+            <div className="fa-review-key">Role</div>
+            <div className="fa-review-value">{values.role || "—"}</div>
+          </div>
+        </div>
+
+        <div className="fa-review-block">
+          <div className="fa-review-head">
+            <div className="fa-review-section-name">The job</div>
+          </div>
+          <div className="fa-review-row">
+            <div className="fa-review-key">In one sentence</div>
+            <div className="fa-review-value">{values.agentPitch || "—"}</div>
+          </div>
+        </div>
+
+        {dynamicQuestions && (
+          <div className="fa-review-block">
+            <div className="fa-review-head">
+              <div className="fa-review-section-name">
+                Tailored to {dynamicQuestions.domainSummary.slice(0, 60)}
+                {dynamicQuestions.domainSummary.length > 60 ? "…" : ""}
+              </div>
+            </div>
+            {dynamicQuestions.questions.map((q) => (
+              <div className="fa-review-row" key={q.id}>
+                <div className="fa-review-key">{q.label.slice(0, 80)}{q.label.length > 80 ? "…" : ""}</div>
+                <div className="fa-review-value">{renderAnswer(q, dynamicAnswers[q.id])}</div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {error && (
+          <p
+            style={{
+              color: "#dc2626",
+              fontSize: 14,
+              textAlign: "center",
+              marginBottom: 16,
+            }}
+          >
+            {error}
+          </p>
+        )}
+
+        <div style={{ display: "flex", gap: 12, justifyContent: "space-between", marginTop: 28 }}>
+          <button type="button" className="fa-btn-secondary" onClick={onBack} disabled={submitting}>
+            ← Back
+          </button>
+          <button
+            type="button"
+            className="fa-btn-primary"
+            onClick={onSend}
+            disabled={submitting}
+          >
+            {submitting ? "Sending…" : "Send it →"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
