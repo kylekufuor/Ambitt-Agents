@@ -2446,36 +2446,14 @@ app.post("/onboarding/prospects/:id/convert", async (req: Request, res: Response
       data: { convertedClientId: client.id, lastActivityAt: new Date() },
     });
 
-    // Best-effort tools-handoff email to the new client.
-    try {
-      const atlas = await prisma.agent.findUnique({
-        where: { email: "atlas@ambitt.agency" },
-        select: { id: true, name: true },
-      });
-      if (atlas) {
-        const portalBase = process.env.CLIENT_PORTAL_URL ?? "https://client-portal-production-77a9.up.railway.app";
-        const toolsUrl = `${portalBase}/agents/${agent.id}/tools`;
-        const { sendEmail } = await import("../shared/email.js");
-        await sendEmail({
-          agentId: atlas.id,
-          agentName: atlas.name,
-          to: client.email,
-          subject: `Welcome — let's get ${agent.name} ready`,
-          html: renderToolsHandoffEmail({
-            firstName: (client.contactName ?? "").split(/\s+/)[0] || "there",
-            agentName: agent.name,
-            agentRole: prd.identity.agentRole,
-            toolsUrl,
-            portalBase,
-            toolsList: prd.tools.map((t) => ({ name: t.name, source: t.source })),
-          }),
-          replyToAgentId: atlas.id,
-        });
-        logger.info("Convert: tools-handoff email sent", { to: client.email });
-      }
-    } catch (err) {
-      logger.warn("Convert: tools-handoff email failed (continuing)", { prospectId: prospect.id, error: err });
-    }
+    // NOTE: Convert is intentionally silent from the client's perspective.
+    // No tools-handoff email fires here — that was premature in practice
+    // (client gets "ready to work" framing before the agent is actually
+    // functional). The operator decides when to invite the client to
+    // connect tools (via portal link, Zoom co-setup, or manual outreach).
+    // The first client-facing email is the approval-time welcome — gated
+    // by approveAgent()'s no-tools-connected guard so it can only fire
+    // when the agent is actually ready.
 
     // Ops notification to Kyle.
     try {
@@ -2553,6 +2531,14 @@ function stringField(obj: Record<string, unknown>, key: string): string {
   return typeof obj[key] === "string" ? (obj[key] as string) : "";
 }
 
+// INTENTIONALLY UNUSED. This template is the "let's get your tools connected"
+// email — previously auto-fired at Convert+Scaffold, which sent it before the
+// agent was actually ready to work (premature, per "no premature emails"
+// principle, 2026-05-31). Kept here as a ready-to-go template for an
+// operator-initiated "send tools-invite" trigger (e.g. a dashboard button on
+// the agent detail page when the operator decides to invite the client to
+// connect their tools). Do NOT re-wire this into any auto-fire path without
+// explicit operator gating.
 function renderToolsHandoffEmail(input: {
   firstName: string;
   agentName: string;
