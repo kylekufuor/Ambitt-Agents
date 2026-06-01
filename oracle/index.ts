@@ -1,7 +1,7 @@
 import "dotenv/config";
 import express, { Request, Response } from "express";
 import multer from "multer";
-import { scaffoldAgent, approveAgent, rejectAgent } from "./scaffold.js";
+import { scaffoldAgent, approveAgent, rejectAgent, ApprovalGuardError } from "./scaffold.js";
 import { checkFleetHealth, retryFailedAgent } from "./monitor.js";
 import { runImprovementCycle } from "./improve.js";
 // import { routeTask } from "./router.js"; // TODO: re-enable when scheduled tasks are built
@@ -367,11 +367,24 @@ app.post("/agents/scaffold", async (req: Request, res: Response) => {
 
 // Approve agent (called from dashboard or WhatsApp webhook)
 app.post("/agents/:id/approve", async (req: Request, res: Response) => {
+  const agentId = param(req, "id");
   try {
-    await approveAgent(param(req, "id"));
-    res.json({ status: "approved" });
+    const force = (req.body && typeof req.body === "object" && req.body.force === true) || false;
+    await approveAgent(agentId, { force });
+    res.json({ status: "approved", forced: force });
   } catch (error) {
-    logger.error("Agent approval failed", { error, agentId: param(req, "id") });
+    if (error instanceof ApprovalGuardError) {
+      // Approval guard refused — operator-friendly 409 with the reason.
+      // Dashboard can show this inline + offer a "Force approve anyway" button.
+      logger.info("Approval guarded — no tools connected", { agentId });
+      res.status(409).json({
+        error: error.message,
+        reason: error.reason,
+        canForce: true,
+      });
+      return;
+    }
+    logger.error("Agent approval failed", { error, agentId });
     res.status(500).json({ error: "Approval failed" });
   }
 });
@@ -807,8 +820,11 @@ app.post("/webhooks/whatsapp", async (req: Request, res: Response) => {
     const agentId = parts[1];
 
     if (command === "APPROVE" && agentId) {
-      await approveAgent(agentId);
-      logger.info("Agent approved via WhatsApp", { agentId });
+      // WhatsApp approval implies explicit operator intent — force-flag
+      // skips the no-tools-connected guard. The operator just typed the
+      // command on their phone; if they meant to wait, they wouldn't have.
+      await approveAgent(agentId, { force: true });
+      logger.info("Agent approved via WhatsApp (force)", { agentId });
     } else if (command === "REJECT" && agentId) {
       await rejectAgent(agentId);
       logger.info("Agent rejected via WhatsApp", { agentId });

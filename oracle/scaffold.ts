@@ -287,7 +287,71 @@ export async function scaffoldAgent(input: AgentBrief | DashboardBrief): Promise
   return agent.id;
 }
 
-export async function approveAgent(agentId: string): Promise<void> {
+/**
+ * Custom error thrown when approval is blocked because the client has no
+ * Composio tools connected yet. Caught by the HTTP handler to return a 409
+ * (vs 500) with the operator-friendly reason in the body.
+ */
+export class ApprovalGuardError extends Error {
+  readonly reason: "no_tools_connected";
+  constructor(message: string) {
+    super(message);
+    this.name = "ApprovalGuardError";
+    this.reason = "no_tools_connected";
+  }
+}
+
+/**
+ * Approve an agent — flips status to active AND fires client-facing emails:
+ *  - "Meet {agent}" welcome email (with AI-generated brief + PDF)
+ *  - "How to work with {agent}" onboarding email at T+5min
+ *  - Checkpoint emails at T+3/T+7/T+14
+ *
+ * Because approval is the marketing moment ("your agent is here, ready to
+ * work"), it MUST come after the client has connected their tools — otherwise
+ * the welcome email lands while the agent is fundamentally non-functional.
+ *
+ * Guard: refuses to approve if the client has zero Composio connected
+ * accounts. Pass `{ force: true }` to override (e.g. agents that only use
+ * platform tools like web_search / browse, or operator-judgement edge cases).
+ * Composio API failures don't block approval — we log + proceed, so transient
+ * infra issues don't lock out legitimate operations.
+ */
+export async function approveAgent(
+  agentId: string,
+  options: { force?: boolean } = {}
+): Promise<void> {
+  if (!options.force) {
+    const agent = await prisma.agent.findUnique({
+      where: { id: agentId },
+      select: { clientId: true, name: true, status: true },
+    });
+    if (!agent) throw new Error("Agent not found");
+
+    try {
+      const { getConnectedAccounts } = await import("../shared/mcp/composio.js");
+      const connections = await getConnectedAccounts(agent.clientId);
+      if (connections.length === 0) {
+        throw new ApprovalGuardError(
+          `Cannot approve ${agent.name} — client has no connected tools yet. ` +
+            `Approval fires client-facing "I'm here, ready to work" emails; sending them ` +
+            `before tools are wired creates a confusing first impression. ` +
+            `Wait for the client to OAuth their Composio tools via the portal, then approve. ` +
+            `Pass force=true to override (only for agents that rely solely on platform tools).`
+        );
+      }
+    } catch (err) {
+      if (err instanceof ApprovalGuardError) throw err;
+      // Composio network failure or other infra issue — don't block approval.
+      // The operator made the call; only the explicit "no connections" state
+      // is a hard stop.
+      logger.warn("Approval guard: Composio connection check failed — allowing approval to proceed", {
+        agentId,
+        err: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
   await prisma.agent.update({
     where: { id: agentId },
     data: {
