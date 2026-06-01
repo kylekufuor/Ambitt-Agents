@@ -1359,6 +1359,192 @@ async function sendOnboardLinkTeaser(
 
 
 // ---------------------------------------------------------------------------
+// Adaptive intake — POST /onboarding/prospects/:id/customize-questions
+// ---------------------------------------------------------------------------
+//
+// Fired by the portal after the prospect submits slide 2 (agent goal). Reads
+// the 3-slide static context, calls Haiku to generate 6-10 domain-specific
+// questions, validates against Zod, persists to Prospect.formData.dynamic.
+//
+// Adaptive intake spec, 2026-05-31. Goal: same prospect journey (no email
+// steps), much higher signal in the proposal. The portal kicks this in the
+// background at slide-2 submit so by the time the prospect reaches slide 4
+// the questions are usually already cached.
+//
+// Synchronous (~5-15s with Haiku). Returns the questions in the response so
+// the portal can render them immediately without a second fetch. Idempotent:
+// if formData.dynamic.questions already exists, returns the cached set.
+app.post(
+  "/onboarding/prospects/:id/customize-questions",
+  async (req: Request, res: Response) => {
+    try {
+      const prospectId = param(req, "id");
+      const prospect = await prisma.prospect.findUnique({ where: { id: prospectId } });
+      if (!prospect) {
+        res.status(404).json({ error: "Prospect not found" });
+        return;
+      }
+      if (prospect.status === "archived" || prospect.status === "ghosted") {
+        res.status(403).json({ error: "Prospect onboarding is closed" });
+        return;
+      }
+
+      const fd = (prospect.formData ?? {}) as Record<string, unknown>;
+
+      // Idempotency — if we already generated for this prospect, return cached.
+      // Prospect must re-submit slide 2 with a changed answer to trigger regen
+      // (portal logic handles that — clears formData.dynamic before re-firing).
+      const cached = (fd.dynamic ?? {}) as { questions?: unknown; generatedAt?: unknown };
+      if (cached.questions && typeof cached.generatedAt === "string") {
+        res.json({
+          status: "cached",
+          questions: cached.questions,
+          generatedAt: cached.generatedAt,
+        });
+        return;
+      }
+
+      // Pull the 3-slide static context. Tolerant on field names — the portal
+      // form keys may evolve; we read both common shapes.
+      const agentGoal =
+        (typeof fd.agentGoal === "string" && fd.agentGoal) ||
+        (typeof fd.agentPitch === "string" && fd.agentPitch) ||
+        "";
+      if (!agentGoal) {
+        res.status(409).json({
+          error: "Need agent goal (slide 2) before generating dynamic questions",
+        });
+        return;
+      }
+
+      const role =
+        (typeof fd.role === "string" && fd.role) ||
+        (typeof prospect.role === "string" && prospect.role) ||
+        null;
+
+      const { buildDynamicIntakePrompt, buildDynamicIntakeCorrection } = await import(
+        "./templates/dynamic-intake/prompt.js"
+      );
+      const {
+        parseDynamicIntakeOutput,
+        validateDynamicIntake,
+        DynamicIntakeValidationError,
+      } = await import("./templates/dynamic-intake/schema.js");
+      const { callClaude, TRIAGE_MODEL } = await import("../shared/claude.js");
+
+      const userMessage = buildDynamicIntakePrompt({
+        contactName: prospect.contactName,
+        email: prospect.email,
+        businessName: prospect.businessName,
+        website: prospect.website,
+        role,
+        agentGoal,
+      });
+
+      // Haiku — fast + cheap + structured output is its sweet spot. No system
+      // prompt; the whole spec lives in the user message so Atlas's broader
+      // identity doesn't bleed in.
+      const MAX_RETRY_ATTEMPTS = 2;
+      const callModel = async (msg: string) => {
+        const r = await callClaude({
+          systemPrompt: "",
+          userMessage: msg,
+          model: TRIAGE_MODEL,
+          maxTokens: 4096,
+          temperature: 0.4,
+          cacheSystemPrompt: false,
+        });
+        return r.content;
+      };
+
+      const tryValidate = (raw: string) => {
+        const parsed = parseDynamicIntakeOutput(raw);
+        if (parsed === null) {
+          throw new DynamicIntakeValidationError([
+            { path: [], code: "custom", message: "No JSON block found in response" } as never,
+          ]);
+        }
+        return validateDynamicIntake(parsed);
+      };
+
+      let result;
+      let lastResponse = await callModel(userMessage);
+      let attempt = 0;
+
+      while (true) {
+        try {
+          result = tryValidate(lastResponse);
+          break;
+        } catch (err) {
+          if (!(err instanceof DynamicIntakeValidationError)) throw err;
+          attempt++;
+          const issuesPreview = err.issues.map((i) => `${i.path.join(".")}: ${i.message}`);
+          if (attempt > MAX_RETRY_ATTEMPTS) {
+            logger.error("Dynamic intake exhausted retries", {
+              prospectId,
+              attempts: attempt,
+              finalIssues: issuesPreview,
+              finalResponsePreview: lastResponse.slice(0, 500),
+            });
+            res.status(422).json({
+              error: "Dynamic intake generation failed validation after retries",
+              issues: issuesPreview,
+            });
+            return;
+          }
+          logger.warn(`Dynamic intake attempt ${attempt} invalid — retrying`, {
+            prospectId,
+            attempt,
+            maxAttempts: MAX_RETRY_ATTEMPTS,
+            issues: issuesPreview,
+          });
+          lastResponse = await callModel(buildDynamicIntakeCorrection(err.issues));
+        }
+      }
+
+      // Persist under formData.dynamic. Answers come back later via the
+      // existing form_submitted handler — the portal will POST the full
+      // formData object including dynamic.answers.
+      const generatedAt = new Date().toISOString();
+      const nextFormData = {
+        ...fd,
+        dynamic: {
+          questions: result,
+          generatedAt,
+          answers: {} as Record<string, unknown>,
+        },
+      };
+
+      await prisma.prospect.update({
+        where: { id: prospectId },
+        data: {
+          formData: nextFormData as object,
+          lastActivityAt: new Date(),
+        },
+      });
+
+      logger.info("Dynamic intake generated", {
+        prospectId,
+        questionCount: result.questions.length,
+        domain: result.domainSummary,
+        archetype: result.agentArchetype,
+      });
+
+      res.json({
+        status: "generated",
+        questions: result,
+        generatedAt,
+      });
+    } catch (error) {
+      logger.error("Dynamic intake endpoint failed", {
+        err: error instanceof Error ? error.message : String(error),
+      });
+      res.status(500).json({ error: "Dynamic intake generation failed" });
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
 // Atlas (onboarding agent) — web → runtime bridge
 // ---------------------------------------------------------------------------
 //
