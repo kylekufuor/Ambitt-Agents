@@ -12,7 +12,7 @@ import prisma from "@/lib/db";
  * — Atlas takes ~5-15s on first generation, <1s on cached re-fetch.
  */
 export async function POST(
-  _req: NextRequest,
+  req: NextRequest,
   ctx: { params: Promise<{ token: string }> }
 ) {
   const { token } = await ctx.params;
@@ -26,6 +26,17 @@ export async function POST(
     return NextResponse.json({ error: "Onboarding closed" }, { status: 403 });
   }
 
+  // Forward the body through — the portal form sends the slide 0-2 values
+  // here so Oracle can persist + read them in one shot (without us needing a
+  // separate save-partial endpoint). Empty body is fine for resume flows.
+  let upstreamBody = "{}";
+  try {
+    const raw = await req.json();
+    upstreamBody = JSON.stringify(raw ?? {});
+  } catch {
+    /* no body — leave as {} */
+  }
+
   const oracleBase =
     process.env.ORACLE_URL ??
     process.env.NEXT_PUBLIC_ORACLE_URL ??
@@ -36,6 +47,7 @@ export async function POST(
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      body: upstreamBody,
       cache: "no-store",
     }
   ).catch((err) => {

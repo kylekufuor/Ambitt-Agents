@@ -1389,7 +1389,21 @@ app.post(
         return;
       }
 
-      const fd = (prospect.formData ?? {}) as Record<string, unknown>;
+      // The portal sends the slide 0-2 values in the request body — they
+      // haven't been persisted to formData yet because /submit is the only
+      // existing save path and that's at the end of the flow. Merge whatever
+      // arrived into a working copy + persist it now so the rest of this
+      // handler can read from a single source. Fallback to existing
+      // prospect.formData if the body is empty (cached fetch / resume case).
+      const bodyValues =
+        (req.body && typeof req.body === "object" && req.body.values && typeof req.body.values === "object")
+          ? (req.body.values as Record<string, unknown>)
+          : null;
+
+      const existingFd = (prospect.formData ?? {}) as Record<string, unknown>;
+      const fd: Record<string, unknown> = bodyValues
+        ? { ...existingFd, ...bodyValues }
+        : existingFd;
 
       // Idempotency — if we already generated for this prospect, return cached.
       // Prospect must re-submit slide 2 with a changed answer to trigger regen
@@ -1417,9 +1431,42 @@ app.post(
         return;
       }
 
+      // Persist the lifted convenience fields + the merged formData so the
+      // final /submit can rely on this state if the prospect closes/reopens.
+      // Lift contactName/businessName/role/website out into top-level columns
+      // (matches the /submit handler's shape).
+      const lifted = {
+        contactName: typeof bodyValues?.contactName === "string" && bodyValues.contactName.trim()
+          ? bodyValues.contactName.trim()
+          : prospect.contactName,
+        businessName: typeof bodyValues?.businessName === "string" && bodyValues.businessName.trim()
+          ? bodyValues.businessName.trim()
+          : prospect.businessName,
+        role: typeof bodyValues?.role === "string" && bodyValues.role.trim()
+          ? bodyValues.role.trim()
+          : prospect.role,
+        website: typeof bodyValues?.website === "string" && bodyValues.website.trim()
+          ? bodyValues.website.trim()
+          : prospect.website,
+      };
+
+      if (bodyValues) {
+        // Strip the lifted keys from formData (they live on the top-level
+        // columns instead). `email` is also never updatable from the form.
+        const { contactName: _cn, businessName: _bn, role: _r, website: _w, email: _e, ...formDataToStore } = fd;
+        await prisma.prospect.update({
+          where: { id: prospectId },
+          data: {
+            ...lifted,
+            formData: formDataToStore as object,
+            lastActivityAt: new Date(),
+          },
+        });
+      }
+
       const role =
         (typeof fd.role === "string" && fd.role) ||
-        (typeof prospect.role === "string" && prospect.role) ||
+        lifted.role ||
         null;
 
       const { buildDynamicIntakePrompt, buildDynamicIntakeCorrection } = await import(
@@ -1432,11 +1479,13 @@ app.post(
       } = await import("./templates/dynamic-intake/schema.js");
       const { callClaude, TRIAGE_MODEL } = await import("../shared/claude.js");
 
+      // Use the lifted values (which are post-merge) instead of stale `prospect.*`
+      // — when bodyValues arrived, `prospect` was read before the update.
       const userMessage = buildDynamicIntakePrompt({
-        contactName: prospect.contactName,
+        contactName: lifted.contactName,
         email: prospect.email,
-        businessName: prospect.businessName,
-        website: prospect.website,
+        businessName: lifted.businessName,
+        website: lifted.website,
         role,
         agentGoal,
       });
@@ -1505,9 +1554,12 @@ app.post(
       // Persist under formData.dynamic. Answers come back later via the
       // existing form_submitted handler — the portal will POST the full
       // formData object including dynamic.answers.
+      // Strip lifted keys from formData so they only live as top-level columns
+      // (mirrors the /submit handler's shape).
       const generatedAt = new Date().toISOString();
+      const { contactName: _cn2, businessName: _bn2, role: _r2, website: _w2, email: _e2, ...fdSansLifted } = fd;
       const nextFormData = {
-        ...fd,
+        ...fdSansLifted,
         dynamic: {
           questions: result,
           generatedAt,

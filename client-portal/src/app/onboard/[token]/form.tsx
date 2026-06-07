@@ -225,9 +225,19 @@ export function OnboardForm({ token, prospectId: _prospectId, initial, status }:
     setLoadingDynamic(true);
     setLoadError(null);
     try {
+      // Send slide 0-2 answers along — they haven't been persisted yet
+      // (/submit is the only existing save path and runs at the end of the
+      // flow). Oracle merges them into formData before generating questions,
+      // so this single call both saves and reads. Multi flattens to comma-
+      // joined strings to match the /submit body shape.
+      const merged: Record<string, unknown> = { ...values };
+      for (const [k, arr] of Object.entries(multi)) {
+        merged[k] = arr.join(", ");
+      }
       const res = await fetch(`/api/onboard/${token}/customize-questions`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ values: merged }),
       });
       const body = await res.json().catch(() => ({ error: "Bad response" }));
       if (!res.ok) throw new Error(body.error ?? "Generation failed");
