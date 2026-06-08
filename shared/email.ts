@@ -45,6 +45,53 @@ export async function sendEmail(
   retries = 3
 ): Promise<EmailResult> {
   const { agentId, agentName, to, subject, html, replyToAgentId } = options;
+
+  // Dry-run intercept — if the agent is flagged dryRun, record the would-be
+  // send to DryRunLog and return a synthetic success. The agent's runtime
+  // behavior is identical to a live send (we return an id + sentAt), but
+  // nothing actually leaves the building. Operators review captures via the
+  // dashboard before flipping dryRun off + status to "active".
+  try {
+    const agent = await prisma.agent.findUnique({
+      where: { id: agentId },
+      select: { dryRun: true },
+    });
+    if (agent?.dryRun) {
+      const captured = await prisma.dryRunLog.create({
+        data: {
+          agentId,
+          kind: "email",
+          payload: {
+            to,
+            subject,
+            html,
+            replyToAgentId: replyToAgentId ?? null,
+            agentName,
+            emailType: options.emailType ?? null,
+            attachmentCount: options.attachments?.length ?? 0,
+          },
+        },
+        select: { id: true, capturedAt: true },
+      });
+      logger.info("Dry-run: email captured (not sent)", {
+        agentId,
+        to,
+        subject,
+        dryRunLogId: captured.id,
+      });
+      return { id: `dryrun:${captured.id}`, sentAt: captured.capturedAt };
+    }
+  } catch (err) {
+    // Don't fail the send if the dry-run check itself errors — log + continue.
+    // Worst case a real send goes out when it shouldn't have. We'd rather
+    // err on the side of "do the work" than block a real-client agent on a
+    // DB hiccup.
+    logger.warn("Dry-run check failed, falling through to live send", {
+      agentId,
+      err: err instanceof Error ? err.message : String(err),
+    });
+  }
+
   const domain = process.env.EMAIL_DOMAIN || "ambitt.agency";
   // FROM local-part is a slug of the agent name (e.g. "Atlas" → "atlas",
   // "Marketing Bot" → "marketing-bot"). Looks personal to the recipient

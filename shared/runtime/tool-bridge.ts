@@ -37,8 +37,34 @@ export async function loadClaudeTools(agentId: string): Promise<{
 }
 
 /**
+ * Read-verb prefixes — when a tool name (lowercased) starts with one of
+ * these we treat it as read-only and let it execute live even in dry-run.
+ * Everything else is presumed to mutate something (send / create / update /
+ * delete / post / reply / schedule / etc.) and gets stubbed.
+ *
+ * Defaulting to stub is intentional: it's the safe failure mode.
+ */
+const READ_VERB_PREFIXES = [
+  "list", "get", "fetch", "read", "search", "find", "show", "view",
+  "observe", "describe", "lookup", "check", "count", "summarize",
+];
+
+function isReadOnlyTool(toolName: string): boolean {
+  const lower = toolName.toLowerCase();
+  return READ_VERB_PREFIXES.some((p) =>
+    lower === p || lower.startsWith(`${p}_`) || lower.startsWith(`${p}-`)
+  );
+}
+
+/**
  * Execute a batch of Claude tool_use calls via MCP.
  * Returns tool results in the format Claude expects.
+ *
+ * Dry-run behavior: if the agent has dryRun=true, write-like tools are
+ * intercepted — we record the would-be call to DryRunLog and return a
+ * synthetic success ("Captured for review — would have called X with these
+ * params"). Read-only tools (list_/get_/search_/etc) execute live so the
+ * agent can still chain on real context (e.g. read inbox → decide to reply).
  */
 export async function executeToolCalls(
   agentId: string,
@@ -46,15 +72,75 @@ export async function executeToolCalls(
 ): Promise<ToolResultBlockParam[]> {
   const results: ToolResultBlockParam[] = [];
 
+  // One lookup per batch, not per block. Cached in agent var; if dryRun
+  // isn't found (e.g. agent deleted mid-loop) we default to false (live)
+  // and let the call proceed normally.
+  let dryRun = false;
+  try {
+    const { default: prisma } = await import("../db.js");
+    const agent = await prisma.agent.findUnique({
+      where: { id: agentId },
+      select: { dryRun: true },
+    });
+    dryRun = Boolean(agent?.dryRun);
+  } catch {
+    /* default false on lookup error */
+  }
+
   for (const block of toolUseBlocks) {
     const { serverId, toolName } = parseToolName(block.name);
+    const input = (block.input as Record<string, unknown>) ?? {};
+
+    // Dry-run intercept — stub write-like tools, log them for operator review.
+    if (dryRun && !isReadOnlyTool(toolName)) {
+      try {
+        const { default: prisma } = await import("../db.js");
+        const captured = await prisma.dryRunLog.create({
+          data: {
+            agentId,
+            kind: "composio",
+            payload: {
+              serverId,
+              toolName,
+              input,
+              fullName: block.name,
+            } as object,
+          },
+          select: { id: true },
+        });
+        results.push({
+          type: "tool_result",
+          tool_use_id: block.id,
+          content: `Captured for review (dry-run, log id ${captured.id}). In live mode this would have called ${block.name} with the provided input.`,
+          is_error: false,
+        });
+        logger.info("Dry-run: tool call captured (not executed)", {
+          agentId,
+          serverId,
+          toolName,
+          dryRunLogId: captured.id,
+        });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        logger.warn("Dry-run capture failed, falling through to live execution", {
+          agentId,
+          serverId,
+          toolName,
+          err: message,
+        });
+        // Fall through to live execution below — better to act than block on a DB hiccup.
+      }
+      if (results[results.length - 1]?.tool_use_id === block.id) {
+        continue; // captured successfully; move to next block
+      }
+    }
 
     try {
       const result = await executeAgentTool(
         agentId,
         serverId,
         toolName,
-        (block.input as Record<string, unknown>) ?? {}
+        input
       );
 
       // Extract text content from MCP result

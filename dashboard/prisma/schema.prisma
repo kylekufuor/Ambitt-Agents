@@ -100,10 +100,23 @@ model Agent {
   analyticsModel String @default("gemini")
   creativeModel  String @default("gpt-4o")
 
+  // Lifecycle: pending_approval → building → active → paused / killed.
+  // - pending_approval: created, awaiting operator decision
+  // - building: operator-approved internally for build/QA; not client-facing yet
+  // - active: live for the client; scheduled runs fire; real side-effects send
+  // - paused: held; resumable
+  // - killed: terminated
   status           String    @default("pending_approval")
   approvedAt       DateTime?
   lastRunAt        DateTime?
   nextScheduledRun DateTime?
+
+  // Dry-run mode — when true, side-effect callsites (sendEmail, sendWhatsApp,
+  // Composio executeTool, browse actions that write) record what they WOULD
+  // have done to DryRunLog instead of actually firing. Defaults true for new
+  // "building" agents and false for active. Operators can override either
+  // way for one-off testing.
+  dryRun Boolean @default(false)
 
   stripeSubscriptionId String?
   setupFeeInvoiceId    String?
@@ -139,6 +152,7 @@ model Agent {
   conversationMessages   ConversationMessage[]
   performanceSignals     PerformanceSignal[]
   apiUsage               ApiUsage[]
+  dryRunLogs             DryRunLog[]
   suppressions           Suppression[]
   overageEvents          OverageEvent[]
   scheduledEmails        ScheduledEmail[]
@@ -483,6 +497,50 @@ model StripeEvent {
 
   @@index([type])
   @@index([processed])
+}
+
+// DryRunLog — captures the side-effects an agent WOULD have performed when
+// Agent.dryRun is true. Runtime intercept points (sendEmail, sendWhatsApp,
+// Composio executeTool, browse actions) write to this table instead of
+// actually firing. Operators inspect these rows to validate agent behavior
+// before flipping the agent to dryRun=false + status="active".
+//
+// kind values:
+//   "email"     — captured a sendEmail call (payload has to/subject/html)
+//   "whatsapp"  — captured a WhatsApp send (payload has to/message)
+//   "composio"  — captured a Composio tool execution (payload has tool/params)
+//   "browse"    — captured a Stagehand browse action (payload has goal/url)
+//   "other"     — anything else we add a hook for later
+model DryRunLog {
+  id      String @id @default(cuid())
+  agentId String
+  agent   Agent  @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  kind    String // see comment above
+  // What the agent was trying to do — varies by kind, stored as a JSON blob.
+  // For "email": { to, subject, html, replyTo, ... }
+  // For "composio": { toolName, params }
+  // etc. Read by the operator UI to render appropriate previews.
+  payload Json
+
+  // Free-text label for grouping multiple captures from a single run
+  // ("scenario X attempt 1", "morning source pass dry-run 2026-06-04", etc).
+  // Set by the run trigger; null when the agent ran from a real trigger that
+  // happened to be in dry-run mode.
+  scenario String?
+
+  // Whether the operator has reviewed + approved this captured side-effect.
+  // null until reviewed; true if approved (would've been fine to send live);
+  // false if rejected (operator caught a problem before going live).
+  reviewedAt DateTime?
+  reviewedOk Boolean?
+  reviewNote String?   @db.Text
+
+  capturedAt DateTime @default(now())
+
+  @@index([agentId])
+  @@index([agentId, capturedAt])
+  @@index([scenario])
 }
 
 model Suppression {
