@@ -461,6 +461,142 @@ app.post("/agents/:id/resume", async (req: Request, res: Response) => {
   }
 });
 
+// ---------------------------------------------------------------------------
+// Dry-run an agent against a scenario
+// ---------------------------------------------------------------------------
+//
+// Operator-facing test path. Body: { scenario: string, label?: string }.
+//   - scenario: the message the agent will receive (free-text simulating
+//     an inbound email, a Casey reply, a manual trigger from the dashboard).
+//   - label: optional grouping label for the resulting DryRunLog rows
+//     (e.g. "Casey CRE sourcing — scenario 1"). Stored on each captured row.
+//
+// REFUSES if agent.dryRun is false. Operator must opt the agent in to
+// dry-run mode first (Settings page / SQL). This is intentional: we don't
+// want a dashboard accident silently flipping a live agent.
+//
+// Returns the captured side-effects (DryRunLog rows tagged with this run's
+// scenario label) so the dashboard can render them inline.
+app.post("/agents/:id/dry-run", async (req: Request, res: Response) => {
+  try {
+    const agentId = param(req, "id");
+    const { scenario, label } = (req.body ?? {}) as { scenario?: string; label?: string };
+
+    if (typeof scenario !== "string" || scenario.trim().length === 0) {
+      res.status(400).json({ error: "scenario (string) is required" });
+      return;
+    }
+
+    const agent = await prisma.agent.findUnique({
+      where: { id: agentId },
+      select: { id: true, name: true, status: true, dryRun: true, clientId: true },
+    });
+    if (!agent) {
+      res.status(404).json({ error: "Agent not found" });
+      return;
+    }
+    if (!agent.dryRun) {
+      res.status(409).json({
+        error: "Agent is not in dry-run mode. Flip Agent.dryRun=true first (Settings → Dry-run, or SQL).",
+        agentDryRun: false,
+      });
+      return;
+    }
+
+    // Tag the captures with a scenario label so we can isolate this run's
+    // results from prior captures on the same agent.
+    const scenarioLabel = (label && label.trim()) || `dryrun:${new Date().toISOString()}`;
+
+    // Wrap the dryRunLog.create call inside our intercepts to attach the
+    // scenario label. The cleanest path is a transaction-style around-call
+    // override; for v1 we just record the current high-water-mark of
+    // captures and return everything written after.
+    const before = await prisma.dryRunLog.findFirst({
+      where: { agentId },
+      orderBy: { capturedAt: "desc" },
+      select: { capturedAt: true },
+    });
+    const afterCursor = before?.capturedAt ?? new Date(0);
+
+    const startedAt = new Date();
+    const threadId = `dryrun-${agentId}-${Date.now()}`;
+    const { processInboundMessage } = await import("../shared/runtime/index.js");
+
+    let runError: string | null = null;
+    let runResponse = "";
+    let toolsUsed = 0;
+    let loopCount = 0;
+    try {
+      const run = await processInboundMessage({
+        agentId,
+        userMessage: scenario,
+        channel: "chat",
+        threadId,
+        senderEmail: "operator@dryrun.ambitt.agency",
+        billable: false,
+      });
+      runResponse = run.response;
+      toolsUsed = run.toolsUsed.length;
+      loopCount = run.loopCount;
+    } catch (err) {
+      runError = err instanceof Error ? err.message : String(err);
+      logger.warn("Dry-run scenario errored mid-loop", {
+        agentId,
+        scenarioLabel,
+        err: runError,
+      });
+    }
+
+    // Fetch captures created during this run + label them retroactively.
+    const captures = await prisma.dryRunLog.findMany({
+      where: {
+        agentId,
+        capturedAt: { gt: afterCursor },
+      },
+      orderBy: { capturedAt: "asc" },
+    });
+    if (captures.length > 0) {
+      await prisma.dryRunLog.updateMany({
+        where: { id: { in: captures.map((c) => c.id) } },
+        data: { scenario: scenarioLabel },
+      });
+    }
+
+    const elapsedMs = Date.now() - startedAt.getTime();
+    logger.info("Dry-run completed", {
+      agentId,
+      scenarioLabel,
+      toolsUsed,
+      loopCount,
+      captureCount: captures.length,
+      elapsedMs,
+      error: runError,
+    });
+
+    res.json({
+      status: "completed",
+      scenarioLabel,
+      response: runResponse,
+      error: runError,
+      toolsUsed,
+      loopCount,
+      elapsedMs,
+      captures: captures.map((c) => ({
+        id: c.id,
+        kind: c.kind,
+        payload: c.payload,
+        scenario: scenarioLabel,
+        capturedAt: c.capturedAt.toISOString(),
+      })),
+    });
+  } catch (error) {
+    logger.error("Dry-run handler failed", {
+      err: error instanceof Error ? error.message : String(error),
+    });
+    res.status(500).json({ error: "Dry-run failed" });
+  }
+});
+
 // Kill agent
 app.post("/agents/:id/kill", async (req: Request, res: Response) => {
   try {
