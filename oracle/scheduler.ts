@@ -194,6 +194,7 @@ export async function initScheduler(): Promise<void> {
   startCheckpointCron();
   startDigestCron();
   startPRDRetryCron();
+  startBuildPollCron();
 
   logger.info("Scheduler initialized", {
     activeAgents: agents.length,
@@ -551,4 +552,26 @@ export function startDigestCron(): void {
     }
   });
   logger.info("Digest cron started", { schedule: "0 * * * *" });
+}
+
+// ---------------------------------------------------------------------------
+// Atlas-on-Fable build-poll cron — every minute, checks running Builds for
+// cost-cap breach, stale (> max-duration), externally-cancelled, and
+// session-idle-without-finalize. Full logic in oracle/builds/orchestrator.ts.
+// ---------------------------------------------------------------------------
+
+let buildPollCronTask: ScheduledTask | null = null;
+
+export function startBuildPollCron(): void {
+  if (buildPollCronTask) return;
+  buildPollCronTask = cron.schedule("* * * * *", async () => {
+    try {
+      const { pollActiveBuilds, reapCancelledBuilds } = await import("./builds/orchestrator.js");
+      await pollActiveBuilds();
+      await reapCancelledBuilds();
+    } catch (error) {
+      logger.error("Build-poll cron tick threw", { error });
+    }
+  });
+  logger.info("Build-poll cron started", { schedule: "* * * * *" });
 }

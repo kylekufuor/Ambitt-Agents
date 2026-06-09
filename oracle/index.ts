@@ -2959,6 +2959,45 @@ app.post("/onboarding/prospects/:id/quote-decided", async (req: Request, res: Re
       }
     }
     logger.info("Quote decided", { prospectId: prospect.id, decision });
+
+    // Auto-fire Atlas-on-Fable build on accept. Fire-and-forget; the operator
+    // can still hit Convert+Scaffold (manual path) if Fable refuses, so we
+    // swallow errors here rather than failing the funnel.
+    if (decision === "approved" && prospect.prdData && prospect.prdApprovedAt && prospect.quoteDraft) {
+      void (async () => {
+        try {
+          // Skip if a build is already in flight for this prospect (e.g. the
+          // operator pre-clicked "Run Fable" before the portal callback).
+          const existing = await prisma.build.findFirst({
+            where: { prospectId: prospect.id, status: { in: ["queued", "running"] } },
+            select: { id: true },
+          });
+          if (existing) {
+            logger.info("Build auto-fire skipped: already in flight", {
+              prospectId: prospect.id,
+              existingBuildId: existing.id,
+            });
+            return;
+          }
+          const budgetCents = Number(process.env.FABLE_BUILD_BUDGET_CENTS ?? "20000");
+          const build = await prisma.build.create({
+            data: { prospectId: prospect.id, status: "queued", budgetCents },
+          });
+          logger.info("Build auto-fire on quote-accept", {
+            buildId: build.id,
+            prospectId: prospect.id,
+          });
+          const { kickoffBuild } = await import("./builds/orchestrator.js");
+          await kickoffBuild(build.id);
+        } catch (err) {
+          logger.error("Build auto-fire failed (graceful, operator can use Convert+Scaffold)", {
+            prospectId: prospect.id,
+            err: err instanceof Error ? err.message : String(err),
+          });
+        }
+      })();
+    }
+
     res.json({ status: "ok" });
   } catch (error) {
     logger.error("quote-decided endpoint failed", { error });
