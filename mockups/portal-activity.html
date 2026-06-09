@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Arthur · Activity log — Ambitt</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..900,0..100,0..1&family=Geist:wght@300..900&family=Geist+Mono&display=swap" />
+
+<style>
+  :root {
+    --bg: #fafaf8; --surface: #ffffff; --surface-2: #f5f5f3; --surface-3: #ebebe7;
+    --text: #171717; --text-2: #404040; --text-3: #737373; --text-4: #a3a3a3; --text-5: #d4d4d4;
+    --border: #ececec; --border-strong: #d4d4d4;
+    --brand: #00b3b3; --brand-hover: #099;
+    --brand-tint: rgba(0, 179, 179, 0.08); --brand-tint-strong: rgba(0, 179, 179, 0.14);
+    --brand-shadow: 0 1px 2px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 179, 179, 0.18);
+    --emerald: #10b981; --emerald-tint: rgba(16, 185, 129, 0.1);
+    --amber: #f59e0b; --amber-tint: rgba(245, 158, 11, 0.1);
+    --red: #dc2626; --red-tint: rgba(220, 38, 38, 0.08);
+    --blue: #3b82f6; --blue-tint: rgba(59, 130, 246, 0.08);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility; }
+  body { background: var(--bg); color: var(--text); font-family: 'Geist', -apple-system, sans-serif; font-size: 14px; line-height: 1.5; font-feature-settings: "ss01" on, "cv11" on; min-height: 100vh; }
+  a { color: inherit; text-decoration: none; }
+  button { font: inherit; cursor: pointer; border: none; background: none; color: inherit; }
+  .display { font-family: 'Fraunces', Georgia, serif; font-variation-settings: "SOFT" 50, "WONK" 0, "opsz" 144; letter-spacing: -0.022em; font-weight: 400; }
+  .mono { font-family: 'Geist Mono', 'SF Mono', Menlo, monospace; }
+
+  /* SHELL */
+  .sidebar { position: fixed; top: 0; left: 0; width: 248px; height: 100vh; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; z-index: 20; }
+  .main { margin-left: 248px; min-height: 100vh; display: flex; flex-direction: column; }
+  .side-brand { height: 56px; display: flex; align-items: center; gap: 9px; padding: 0 16px; border-bottom: 1px solid var(--border); }
+  .side-brand-mark { width: 22px; height: 22px; display: block; flex-shrink: 0; }
+  .side-brand-word { font-family: 'Geist Mono', monospace; font-size: 10.5px; font-weight: 600; letter-spacing: 0.18em; color: var(--text); }
+  .side-agent-picker { margin: 12px 12px 8px; padding: 10px 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 9px; display: flex; align-items: center; gap: 10px; cursor: pointer; transition: background 0.15s ease; }
+  .side-agent-picker:hover { background: var(--surface-3); }
+  .side-agent-avatar { width: 26px; height: 26px; border-radius: 7px; background: var(--brand-tint-strong); display: flex; align-items: center; justify-content: center; color: var(--brand-hover); font-family: 'Fraunces', serif; font-variation-settings: "SOFT" 50, "opsz" 96; font-size: 14px; font-weight: 500; flex-shrink: 0; }
+  .side-agent-info { flex: 1; min-width: 0; line-height: 1.2; }
+  .side-agent-name { font-size: 13px; font-weight: 500; color: var(--text); display: flex; align-items: center; gap: 6px; }
+  .side-agent-role { font-size: 11.5px; color: var(--text-3); margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .side-agent-chev { color: var(--text-4); width: 13px; height: 13px; flex-shrink: 0; }
+  .dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; display: inline-block; }
+  .dot.pulse { position: relative; }
+  .dot.pulse::after { content: ''; position: absolute; inset: -3px; border-radius: 50%; border: 1px solid currentColor; opacity: 0.5; animation: pulseRing 2.4s ease-out infinite; }
+  @keyframes pulseRing { 0% { transform: scale(0.8); opacity: 0.6; } 100% { transform: scale(1.85); opacity: 0; } }
+  .dot-emerald { background: var(--emerald); color: var(--emerald); }
+  .dot-amber { background: var(--amber); color: var(--amber); }
+  .dot-blue { background: var(--blue); color: var(--blue); }
+  .dot-muted { background: var(--text-4); color: var(--text-4); }
+  .side-nav { flex: 1; padding: 8px 8px 16px; overflow-y: auto; }
+  .side-section { margin-top: 16px; padding: 0 8px; }
+  .side-section-label { font-size: 10px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-4); padding: 0 8px 6px; }
+  .side-link { display: flex; align-items: center; gap: 9px; padding: 7px 8px; border-radius: 7px; font-size: 13px; color: var(--text-2); margin-bottom: 1px; transition: all 0.12s ease; position: relative; }
+  .side-link:hover { background: var(--surface-2); color: var(--text); }
+  .side-link.active { background: var(--brand-tint); color: var(--brand-hover); font-weight: 500; }
+  .side-link.active::before { content: ''; position: absolute; left: -8px; top: 6px; bottom: 6px; width: 2px; background: var(--brand); border-radius: 0 2px 2px 0; }
+  .side-link-icon { width: 15px; height: 15px; color: currentColor; opacity: 0.7; flex-shrink: 0; }
+  .side-link.active .side-link-icon { opacity: 1; }
+  .side-link-badge { margin-left: auto; background: var(--amber); color: white; font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 999px; min-width: 18px; text-align: center; }
+  .side-link.active .side-link-badge { background: var(--brand); }
+  .side-account { padding: 10px 12px; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 10px; cursor: pointer; transition: background 0.15s ease; }
+  .side-account:hover { background: var(--surface-2); }
+  .side-account-avatar { width: 26px; height: 26px; border-radius: 50%; background: linear-gradient(135deg, #fef3c7 0%, #fed7aa 100%); color: #b45309; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; flex-shrink: 0; }
+  .side-account-info { flex: 1; min-width: 0; line-height: 1.2; }
+  .side-account-name { font-size: 12.5px; font-weight: 500; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .side-account-tier { font-size: 11px; color: var(--text-3); margin-top: 1px; }
+
+  .topbar { height: 56px; border-bottom: 1px solid var(--border); background: var(--surface); display: flex; align-items: center; padding: 0 28px; gap: 16px; position: sticky; top: 0; z-index: 10; }
+  .crumb { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-3); }
+  .crumb-sep { color: var(--text-5); }
+  .crumb-current { color: var(--text); font-weight: 500; }
+  .topbar-status { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-3); background: var(--emerald-tint); padding: 3px 9px 3px 10px; border-radius: 999px; margin-left: 4px; }
+  .topbar-status .dot { background: var(--emerald); }
+  .topbar-spacer { flex: 1; }
+  .topbar-search { display: flex; align-items: center; gap: 8px; background: var(--surface-2); border: 1px solid transparent; border-radius: 8px; padding: 6px 12px; font-size: 13px; color: var(--text-3); min-width: 220px; }
+  .topbar-search:hover { border-color: var(--border); }
+  .topbar-search svg { width: 13px; height: 13px; color: var(--text-4); }
+  .topbar-search kbd { margin-left: auto; font-family: 'Geist Mono', monospace; font-size: 11px; background: var(--surface); border: 1px solid var(--border); color: var(--text-4); padding: 1px 5px; border-radius: 4px; }
+  .topbar-icon-btn { width: 32px; height: 32px; border-radius: 7px; display: flex; align-items: center; justify-content: center; color: var(--text-3); transition: all 0.15s ease; }
+  .topbar-icon-btn:hover { background: var(--surface-2); color: var(--text); }
+  .topbar-icon-btn svg { width: 16px; height: 16px; }
+
+  .page { padding: 28px 32px 64px; max-width: 1280px; width: 100%; }
+  .page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; flex-wrap: wrap; margin-bottom: 22px; }
+  .page-head-left { min-width: 0; }
+  .page-head-meta { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-3); margin-bottom: 8px; }
+  .page-head-meta-tag { font-size: 10.5px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--brand-hover); background: var(--brand-tint); padding: 2px 7px; border-radius: 4px; }
+  .page-title { font-size: 36px; line-height: 1; color: var(--text); margin-bottom: 8px; }
+  .page-subtitle { font-size: 14px; color: var(--text-3); max-width: 64ch; line-height: 1.55; }
+  .page-head-actions { display: flex; align-items: center; gap: 8px; }
+
+  .btn { display: inline-flex; align-items: center; gap: 7px; padding: 8px 14px; border-radius: 8px; font-size: 13px; font-weight: 500; border: 1px solid var(--border); background: var(--surface); color: var(--text-2); transition: all 0.15s ease; cursor: pointer; }
+  .btn:hover { border-color: var(--border-strong); color: var(--text); }
+  .btn-primary { background: var(--brand); color: white; border-color: var(--brand); box-shadow: var(--brand-shadow); }
+  .btn-primary:hover { background: var(--brand-hover); border-color: var(--brand-hover); color: white; }
+  .btn svg { width: 13px; height: 13px; }
+  .btn-sm { padding: 6px 11px; font-size: 12.5px; }
+
+  /* ACTIVITY-PAGE SPECIFIC */
+  .toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 16px;
+    padding: 8px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    flex-wrap: wrap;
+  }
+  .toolbar-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 11px;
+    font-size: 12.5px;
+    color: var(--text-3);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.12s ease;
+  }
+  .toolbar-pill:hover { background: var(--surface-2); color: var(--text); }
+  .toolbar-pill.active { background: var(--text); color: white; }
+  .toolbar-pill .pcount { font-family: 'Geist Mono', monospace; font-size: 11px; opacity: 0.7; }
+  .toolbar-pill .cat-dot { width: 5px; height: 5px; border-radius: 50%; }
+  .toolbar-sep { width: 1px; height: 18px; background: var(--border); margin: 0 4px; }
+  .toolbar-spacer { flex: 1; }
+  .toolbar-input {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    background: var(--surface-2);
+    border: 1px solid transparent;
+    border-radius: 7px;
+    padding: 5px 10px;
+    font-size: 12.5px;
+    color: var(--text-3);
+    min-width: 220px;
+    transition: border-color 0.15s ease;
+  }
+  .toolbar-input:hover { border-color: var(--border); }
+  .toolbar-input svg { width: 12px; height: 12px; color: var(--text-4); }
+  .toolbar-input input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    font: inherit;
+    color: var(--text);
+  }
+  .toolbar-input input::placeholder { color: var(--text-3); }
+
+  /* ACTIVITY TABLE */
+  .activity-table {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .activity-row {
+    display: grid;
+    grid-template-columns: 110px 26px 110px 1fr auto;
+    gap: 14px;
+    align-items: center;
+    padding: 11px 18px;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.12s ease;
+    cursor: pointer;
+  }
+  .activity-row:last-child { border-bottom: none; }
+  .activity-row:hover { background: var(--surface-2); }
+  .activity-row.day-divider {
+    grid-template-columns: 1fr;
+    cursor: default;
+    background: var(--surface-2);
+    padding: 6px 18px;
+  }
+  .activity-row.day-divider:hover { background: var(--surface-2); }
+  .day-label { font-size: 10.5px; font-weight: 600; letter-spacing: 0.08em; color: var(--text-3); text-transform: uppercase; display: flex; align-items: center; gap: 8px; }
+  .day-label-meta { font-family: 'Geist Mono', monospace; font-size: 10.5px; letter-spacing: 0.02em; color: var(--text-4); text-transform: none; font-weight: 400; }
+  .activity-time { font-family: 'Geist Mono', monospace; font-size: 11.5px; color: var(--text-3); letter-spacing: 0.01em; white-space: nowrap; }
+  .activity-icon { width: 26px; height: 26px; border-radius: 7px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .activity-icon svg { width: 13px; height: 13px; }
+  .activity-icon.sent { background: var(--brand-tint); color: var(--brand-hover); }
+  .activity-icon.digest { background: var(--blue-tint); color: var(--blue); }
+  .activity-icon.logged { background: var(--surface-2); color: var(--text-3); }
+  .activity-icon.replied { background: var(--emerald-tint); color: var(--emerald); }
+  .activity-icon.triage { background: var(--amber-tint); color: var(--amber); }
+  .activity-icon.booked { background: var(--brand-tint-strong); color: var(--brand-hover); }
+  .activity-icon.sourced { background: var(--blue-tint); color: var(--blue); }
+  .activity-icon.followup { background: var(--brand-tint); color: var(--brand-hover); }
+  .activity-kind {
+    font-size: 11.5px;
+    font-weight: 500;
+    color: var(--text-2);
+    text-transform: capitalize;
+  }
+  .activity-body { min-width: 0; }
+  .activity-title { font-size: 13.5px; color: var(--text); line-height: 1.5; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .activity-title strong { font-weight: 500; }
+  .activity-title .accent { color: var(--brand-hover); }
+  .activity-meta { font-size: 11.5px; color: var(--text-3); margin-top: 1px; }
+  .activity-action { font-size: 12px; color: var(--text-3); padding: 5px 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); transition: all 0.15s ease; }
+  .activity-action:hover { border-color: var(--border-strong); color: var(--text); }
+
+  /* PAGINATION */
+  .pagination {
+    margin-top: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 4px;
+  }
+  .pagination-meta {
+    font-size: 12.5px;
+    color: var(--text-3);
+  }
+  .pagination-meta strong { color: var(--text); font-weight: 500; }
+  .pagination-controls {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .page-btn {
+    min-width: 30px;
+    height: 30px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-2);
+    font-size: 12.5px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 8px;
+  }
+  .page-btn:hover { border-color: var(--border-strong); color: var(--text); }
+  .page-btn.active { background: var(--text); color: white; border-color: var(--text); }
+  .page-btn[disabled] { opacity: 0.4; cursor: not-allowed; }
+
+  @media (max-width: 880px) {
+    .sidebar { transform: translateX(-100%); transition: transform 0.2s ease; }
+    .main { margin-left: 0; }
+    .page { padding: 22px 20px 60px; }
+    .activity-row { grid-template-columns: 86px 22px 1fr; }
+    .activity-kind, .activity-action { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<aside class="sidebar">
+  <a href="./index.html" class="side-brand">
+    <svg class="side-brand-mark" viewBox="0 0 22 22" fill="none"><rect width="22" height="22" rx="5" fill="#171717"/><circle cx="11" cy="11" r="4.2" fill="none" stroke="#00b3b3" stroke-width="1.6"/><circle cx="11" cy="11" r="1.4" fill="#00b3b3"/></svg>
+    <span class="side-brand-word">AMBITT AGENTS</span>
+  </a>
+  <div class="side-agent-picker">
+    <div class="side-agent-avatar">A</div>
+    <div class="side-agent-info">
+      <div class="side-agent-name">Arthur <span class="dot dot-emerald pulse" style="width:5px;height:5px;"></span></div>
+      <div class="side-agent-role">CRE deal sourcing</div>
+    </div>
+    <svg class="side-agent-chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 4 L8 7 L11 4 M5 8 L8 11 L11 8"/></svg>
+  </div>
+  <nav class="side-nav">
+    <div class="side-section">
+      <div class="side-section-label">Agent</div>
+      <a class="side-link" href="./portal-agent-overview.html"><svg class="side-link-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="5.5" height="5.5" rx="1"/><rect x="8.5" y="2" width="5.5" height="5.5" rx="1"/><rect x="2" y="8.5" width="5.5" height="5.5" rx="1"/><rect x="8.5" y="8.5" width="5.5" height="5.5" rx="1"/></svg> Overview</a>
+      <a class="side-link" href="./portal-tools.html"><svg class="side-link-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 2 L13 4 L8 9 L6 7 Z"/><path d="M6 7 L2 11 L4 13 L8 9"/></svg> Tools &amp; credentials <span class="side-link-badge">1</span></a>
+      <a class="side-link" href="./portal-recommendations.html"><svg class="side-link-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13 L3 6 L8 2 L13 6 L13 13 Z"/><path d="M6 13 L6 9 L10 9 L10 13"/></svg> Recommendations <span class="side-link-badge">3</span></a>
+      <a class="side-link active" href=""><svg class="side-link-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4 L14 4"/><path d="M2 8 L14 8"/><path d="M2 12 L14 12"/></svg> Activity log</a>
+      <a class="side-link" href="./portal-settings.html"><svg class="side-link-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="2.5"/><path d="M8 1.5 L8 3 M8 13 L8 14.5 M1.5 8 L3 8 M13 8 L14.5 8"/></svg> Settings</a>
+    </div>
+    <div class="side-section">
+      <div class="side-section-label">Account</div>
+      <a class="side-link" href="./portal-billing.html"><svg class="side-link-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="4" width="12" height="9" rx="1.5"/><path d="M2 7 L14 7"/></svg> Billing &amp; invoices</a>
+      <a class="side-link" href="./portal-team.html"><svg class="side-link-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M11 14 A4 4 0 0 0 3 14"/><circle cx="7" cy="6.5" r="2.5"/></svg> Team</a>
+      <a class="side-link" href="./portal-notifications.html"><svg class="side-link-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6 A5 5 0 0 1 13 6 L13 10 L14 12 L2 12 L3 10 Z"/><path d="M6 12 A2 2 0 0 0 10 12"/></svg> Notifications</a>
+    </div>
+  </nav>
+  <div class="side-account">
+    <div class="side-account-avatar">CL</div>
+    <div class="side-account-info">
+      <div class="side-account-name">Casey Litsey</div>
+      <div class="side-account-tier">Scale tier · $2,499/mo</div>
+    </div>
+    <svg style="color: var(--text-4); width: 13px; height: 13px;" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M6 5 L10 8 L6 11"/></svg>
+  </div>
+</aside>
+
+<div class="main">
+  <header class="topbar">
+    <div class="crumb"><span>Agents</span><span class="crumb-sep">/</span><span>Arthur</span><span class="crumb-sep">/</span><span class="crumb-current">Activity log</span></div>
+    <div class="topbar-status"><span class="dot"></span> Active</div>
+    <div class="topbar-spacer"></div>
+    <div class="topbar-search"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5 L14 14"/></svg>Search activity…<kbd>⌘K</kbd></div>
+    <button class="topbar-icon-btn"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6 A5 5 0 0 1 13 6 L13 10 L14 12 L2 12 L3 10 Z"/><path d="M6 12 A2 2 0 0 0 10 12"/></svg></button>
+  </header>
+
+  <div class="page">
+
+    <!-- PAGE HEAD -->
+    <div class="page-head">
+      <div class="page-head-left">
+        <div class="page-head-meta">
+          <span class="page-head-meta-tag">127 events</span>
+          <span>last 30 days · same data as Overview's recent activity, just everything</span>
+        </div>
+        <h1 class="display page-title">Activity log</h1>
+        <p class="page-subtitle">
+          Every action Arthur has taken on your behalf. Filter by type, search by text, jump to date, or export to CSV.
+        </p>
+      </div>
+      <div class="page-head-actions">
+        <button class="btn"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="3" y="2" width="10" height="12" rx="1"/><path d="M6 6 L10 6 M6 9 L10 9"/></svg> Export CSV</button>
+        <button class="btn"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="3.5" width="11" height="10" rx="1"/><path d="M2.5 6 L13.5 6 M5.5 2 L5.5 5 M10.5 2 L10.5 5"/></svg> Date range</button>
+      </div>
+    </div>
+
+    <!-- TOOLBAR -->
+    <div class="toolbar">
+      <button class="toolbar-pill active">All <span class="pcount">127</span></button>
+      <button class="toolbar-pill"><span class="cat-dot" style="background: var(--brand-hover);"></span> Sent <span class="pcount">47</span></button>
+      <button class="toolbar-pill"><span class="cat-dot" style="background: var(--emerald);"></span> Replied <span class="pcount">8</span></button>
+      <button class="toolbar-pill"><span class="cat-dot" style="background: var(--blue);"></span> Sourced <span class="pcount">22</span></button>
+      <button class="toolbar-pill"><span class="cat-dot" style="background: var(--amber);"></span> Triage <span class="pcount">6</span></button>
+      <button class="toolbar-pill"><span class="cat-dot" style="background: var(--text-4);"></span> Logged <span class="pcount">34</span></button>
+      <button class="toolbar-pill"><span class="cat-dot" style="background: var(--brand);"></span> Booked <span class="pcount">3</span></button>
+      <button class="toolbar-pill"><span class="cat-dot" style="background: var(--blue);"></span> Digest <span class="pcount">7</span></button>
+      <div class="toolbar-sep"></div>
+      <div class="toolbar-spacer"></div>
+      <div class="toolbar-input">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5 L14 14"/></svg>
+        <input type="text" placeholder="Search subject, recipient, property…" />
+      </div>
+    </div>
+
+    <!-- ACTIVITY TABLE -->
+    <div class="activity-table">
+
+      <div class="activity-row day-divider">
+        <div class="day-label">Today · Wed Jun 4 <span class="day-label-meta">2 events</span></div>
+      </div>
+
+      <div class="activity-row">
+        <div class="activity-time">09:14 AM</div>
+        <div class="activity-icon sent"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2 L2 8 L7 9 L9 14 Z"/></svg></div>
+        <div class="activity-kind">Drafted</div>
+        <div class="activity-body">
+          <div class="activity-title">Outreach to <strong>Anchor Park Industrial</strong> — 132k sqft, Tulsa</div>
+          <div class="activity-meta">Awaiting approval · CoStar pull · jbeck@anchorpark.com</div>
+        </div>
+        <button class="activity-action">Open</button>
+      </div>
+
+      <div class="activity-row">
+        <div class="activity-time">08:22 AM</div>
+        <div class="activity-icon digest"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="10" height="10" rx="1"/><path d="M6 6 L10 6 M6 8 L10 8 M6 10 L8.5 10"/></svg></div>
+        <div class="activity-kind">Digest</div>
+        <div class="activity-body">
+          <div class="activity-title">Morning digest — <span class="accent">12 new leads</span> matched ICP overnight</div>
+          <div class="activity-meta">CoStar 18 properties scanned · 12 owner emails extracted · 0.42s run</div>
+        </div>
+        <button class="activity-action">Open</button>
+      </div>
+
+      <div class="activity-row day-divider">
+        <div class="day-label">Tue Jun 3 <span class="day-label-meta">4 events</span></div>
+      </div>
+
+      <div class="activity-row">
+        <div class="activity-time">04:48 PM</div>
+        <div class="activity-icon logged"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="2" width="10" height="12" rx="1"/><path d="M6 5 L10 5 M6 8 L10 8 M6 11 L9 11"/></svg></div>
+        <div class="activity-kind">Logged</div>
+        <div class="activity-body">
+          <div class="activity-title">4 prospect responses to <strong>Outreach Tracker · Q2 2026</strong></div>
+          <div class="activity-meta">Sheet rows 247–250 · Reyes / Becker / Patel / Mehari</div>
+        </div>
+        <button class="activity-action">Open</button>
+      </div>
+
+      <div class="activity-row">
+        <div class="activity-time">02:02 PM</div>
+        <div class="activity-icon replied"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11 L3 5 A1 1 0 0 1 4 4 L13 4 L13 11 L7 11 L4.5 13 Z"/></svg></div>
+        <div class="activity-kind">Replied</div>
+        <div class="activity-body">
+          <div class="activity-title">Warm reply from <strong>Bricktown Holdings</strong> — owner asked for buyer profile</div>
+          <div class="activity-meta">Memphis 84k sqft · Lex Reyes (CFO) · suggests next-week call</div>
+        </div>
+        <button class="activity-action">Open</button>
+      </div>
+
+      <div class="activity-row">
+        <div class="activity-time">11:35 AM</div>
+        <div class="activity-icon triage"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2 13 L6 7 L10 11 L14 4"/><path d="M11 4 L14 4 L14 7"/></svg></div>
+        <div class="activity-kind">Triage</div>
+        <div class="activity-body">
+          <div class="activity-title">Cap-rate run on <strong>Lexington Crossing</strong> — broker 6.8%, my run 7.4%</div>
+          <div class="activity-meta">340 bps tighter · adjusted vacancy assumption · draft pushback queued</div>
+        </div>
+        <button class="activity-action">Open</button>
+      </div>
+
+      <div class="activity-row">
+        <div class="activity-time">09:18 AM</div>
+        <div class="activity-icon sent"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2 L2 8 L7 9 L9 14 Z"/></svg></div>
+        <div class="activity-kind">Sent</div>
+        <div class="activity-body">
+          <div class="activity-title">Outreach to <strong>Brookfield Capital</strong> — 78k sqft warehouse, Memphis</div>
+          <div class="activity-meta">Approved by Casey at 09:16 · sent same minute · subject: "Quick question…"</div>
+        </div>
+        <button class="activity-action">Open</button>
+      </div>
+
+      <div class="activity-row day-divider">
+        <div class="day-label">Mon Jun 2 <span class="day-label-meta">6 events</span></div>
+      </div>
+
+      <div class="activity-row">
+        <div class="activity-time">04:11 PM</div>
+        <div class="activity-icon logged"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="2" width="10" height="12" rx="1"/><path d="M6 5 L10 5 M6 8 L10 8 M6 11 L9 11"/></svg></div>
+        <div class="activity-kind">Logged</div>
+        <div class="activity-body">
+          <div class="activity-title">2 prospect responses to <strong>Outreach Tracker · Q2 2026</strong></div>
+          <div class="activity-meta">Sheet rows 245–246 · Walker / Mehari (declined)</div>
+        </div>
+        <button class="activity-action">Open</button>
+      </div>
+
+      <div class="activity-row">
+        <div class="activity-time">01:55 PM</div>
+        <div class="activity-icon replied"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11 L3 5 A1 1 0 0 1 4 4 L13 4 L13 11 L7 11 L4.5 13 Z"/></svg></div>
+        <div class="activity-kind">Replied</div>
+        <div class="activity-body">
+          <div class="activity-title">Reply from <strong>Carmel Walker</strong> (Memphis Capital) — wants to chat</div>
+          <div class="activity-meta">"Send me a buyer profile and proposed terms" · routed to Casey for response</div>
+        </div>
+        <button class="activity-action">Open</button>
+      </div>
+
+      <div class="activity-row">
+        <div class="activity-time">09:30 AM</div>
+        <div class="activity-icon sourced"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5 L14 14"/></svg></div>
+        <div class="activity-kind">Sourced</div>
+        <div class="activity-body">
+          <div class="activity-title">CoStar source run — <span class="accent">9 of 18</span> properties met ICP</div>
+          <div class="activity-meta">Tulsa County · 50–150k sqft · 80s–90s vintage · 12 owner emails extracted</div>
+        </div>
+        <button class="activity-action">Open</button>
+      </div>
+
+      <div class="activity-row">
+        <div class="activity-time">09:00 AM</div>
+        <div class="activity-icon followup"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2 L2 8 L7 9 L9 14 Z"/></svg></div>
+        <div class="activity-kind">Follow-up</div>
+        <div class="activity-body">
+          <div class="activity-title">T+14 nudges to 4 cold prospects</div>
+          <div class="activity-meta">Carmel Walker · Anchor Park · Two Rivers · Bridgewater</div>
+        </div>
+        <button class="activity-action">Open</button>
+      </div>
+
+      <div class="activity-row">
+        <div class="activity-time">08:42 AM</div>
+        <div class="activity-icon digest"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="10" height="10" rx="1"/><path d="M6 6 L10 6 M6 8 L10 8 M6 10 L8.5 10"/></svg></div>
+        <div class="activity-kind">Digest</div>
+        <div class="activity-body">
+          <div class="activity-title">Morning digest — 9 new leads, 4 cold-follow nudges queued</div>
+          <div class="activity-meta">Composed at 08:42 · sent at 09:00 with rec batch</div>
+        </div>
+        <button class="activity-action">Open</button>
+      </div>
+
+      <div class="activity-row">
+        <div class="activity-time">08:15 AM</div>
+        <div class="activity-icon triage"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2 13 L6 7 L10 11 L14 4"/></svg></div>
+        <div class="activity-kind">Triage</div>
+        <div class="activity-body">
+          <div class="activity-title">Surfaced rec — <strong>"Expand search to Round Rock industrial flex"</strong></div>
+          <div class="activity-meta">Based on Texas reply pattern · 12 properties match ICP · awaiting your call</div>
+        </div>
+        <button class="activity-action">Open</button>
+      </div>
+
+      <div class="activity-row day-divider">
+        <div class="day-label">Sun Jun 1 <span class="day-label-meta">3 events</span></div>
+      </div>
+
+      <div class="activity-row">
+        <div class="activity-time">03:08 PM</div>
+        <div class="activity-icon booked"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="3.5" width="11" height="10" rx="1"/><path d="M2.5 6 L13.5 6 M5.5 2 L5.5 5 M10.5 2 L10.5 5"/><path d="M6 9 L7.5 10.5 L10 8"/></svg></div>
+        <div class="activity-kind">Booked</div>
+        <div class="activity-body">
+          <div class="activity-title">Tuesday 2pm CT with <strong>Carmel Walker</strong> (Memphis Capital)</div>
+          <div class="activity-meta">Via Calendly · Zoom link added · prepared brief in shared drive</div>
+        </div>
+        <button class="activity-action">Open</button>
+      </div>
+
+      <div class="activity-row">
+        <div class="activity-time">11:14 AM</div>
+        <div class="activity-icon sourced"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5 L14 14"/></svg></div>
+        <div class="activity-kind">Sourced</div>
+        <div class="activity-body">
+          <div class="activity-title">CoStar Sunday run — 8 new properties, all 80s flex</div>
+          <div class="activity-meta">2 already passed Crexi cross-reference · queued for Monday outreach</div>
+        </div>
+        <button class="activity-action">Open</button>
+      </div>
+
+      <div class="activity-row">
+        <div class="activity-time">09:08 AM</div>
+        <div class="activity-icon digest"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="10" height="10" rx="1"/><path d="M6 6 L10 6 M6 8 L10 8 M6 10 L8.5 10"/></svg></div>
+        <div class="activity-kind">Digest</div>
+        <div class="activity-body">
+          <div class="activity-title">Weekly digest sent to <strong>casey@litseycre.com</strong></div>
+          <div class="activity-meta">12 properties surfaced this week · 17% reply rate · 1 deal advanced</div>
+        </div>
+        <button class="activity-action">Open</button>
+      </div>
+
+      <div class="activity-row day-divider">
+        <div class="day-label">Sat May 31 <span class="day-label-meta">5 events · paused (weekend)</span></div>
+      </div>
+
+      <div class="activity-row">
+        <div class="activity-time">02:30 PM</div>
+        <div class="activity-icon sourced"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5 L14 14"/></svg></div>
+        <div class="activity-kind">X-ref</div>
+        <div class="activity-body">
+          <div class="activity-title">Crexi cross-check on 6 CoStar listings — <span class="accent">3 not double-listed</span></div>
+          <div class="activity-meta">Queued for Monday outreach · 3 dropped (already broker-engaged)</div>
+        </div>
+        <button class="activity-action">Open</button>
+      </div>
+
+    </div>
+
+    <!-- PAGINATION -->
+    <div class="pagination">
+      <div class="pagination-meta">
+        Showing <strong>1–15</strong> of <strong>127</strong> events · last 30 days
+      </div>
+      <div class="pagination-controls">
+        <button class="page-btn" disabled>←</button>
+        <button class="page-btn active">1</button>
+        <button class="page-btn">2</button>
+        <button class="page-btn">3</button>
+        <span style="color: var(--text-4); padding: 0 6px;">…</span>
+        <button class="page-btn">9</button>
+        <button class="page-btn">→</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+</body>
+</html>

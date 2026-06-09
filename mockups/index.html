@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Ambitt Agents · Portal Mockups</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..900,0..100,0..1&family=Geist:wght@300..900&family=Geist+Mono&display=swap" />
+
+<style>
+  :root {
+    --bg: #fafaf8;
+    --surface: #ffffff;
+    --surface-2: #f5f5f3;
+    --text: #171717;
+    --text-2: #404040;
+    --text-3: #737373;
+    --text-4: #a3a3a3;
+    --border: #ececec;
+    --border-strong: #d4d4d4;
+    --brand: #00b3b3;
+    --brand-hover: #099;
+    --brand-tint: rgba(0, 179, 179, 0.08);
+    --brand-tint-strong: rgba(0, 179, 179, 0.14);
+    --brand-shadow: 0 1px 2px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 179, 179, 0.28);
+    --emerald: #10b981;
+    --amber: #f59e0b;
+    --red: #dc2626;
+    --blue: #3b82f6;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Geist', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 15px;
+    line-height: 1.55;
+    font-feature-settings: "ss01" on, "cv11" on;
+    min-height: 100vh;
+  }
+
+  .display {
+    font-family: 'Fraunces', Georgia, serif;
+    font-variation-settings: "SOFT" 60, "WONK" 0, "opsz" 144;
+    letter-spacing: -0.022em;
+    color: var(--text);
+  }
+
+  .eyebrow {
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--brand-hover);
+  }
+
+  .mono { font-family: 'Geist Mono', 'SF Mono', Menlo, monospace; }
+
+  .page {
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 80px 32px 120px;
+  }
+
+  /* HERO ------------------------------------------------------------- */
+  .hero {
+    margin-bottom: 64px;
+  }
+
+  .hero-eyebrow {
+    margin-bottom: 22px;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .hero-eyebrow::before {
+    content: '';
+    width: 18px;
+    height: 1px;
+    background: var(--brand);
+  }
+
+  .hero h1 {
+    font-size: clamp(40px, 6vw, 64px);
+    font-weight: 400;
+    line-height: 1.05;
+    margin-bottom: 22px;
+    max-width: 16ch;
+  }
+  .hero h1 em {
+    font-style: italic;
+    font-variation-settings: "SOFT" 80, "WONK" 1, "opsz" 144;
+    color: var(--brand);
+  }
+
+  .hero p {
+    font-size: 17px;
+    color: var(--text-2);
+    max-width: 60ch;
+    line-height: 1.65;
+  }
+
+  /* DIVIDER ---------------------------------------------------------- */
+  .divider {
+    height: 1px;
+    background: var(--border);
+    margin: 48px 0;
+    position: relative;
+  }
+  .divider::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: -3px;
+    width: 28px;
+    height: 7px;
+    background: var(--brand);
+    border-radius: 2px;
+  }
+
+  /* MOCKUP CARDS ----------------------------------------------------- */
+  .grid {
+    display: grid;
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+  }
+
+  .card {
+    background: var(--surface);
+    padding: 36px 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    transition: background 0.15s ease;
+    text-decoration: none;
+    color: inherit;
+    position: relative;
+  }
+  .card:hover {
+    background: var(--surface-2);
+  }
+  .card:hover .card-arrow {
+    transform: translateX(4px);
+    color: var(--brand);
+  }
+
+  .card-num {
+    font-family: 'Geist Mono', monospace;
+    font-size: 11px;
+    color: var(--text-4);
+    letter-spacing: 0.04em;
+  }
+
+  .card h2 {
+    font-family: 'Fraunces', Georgia, serif;
+    font-variation-settings: "SOFT" 50, "WONK" 0, "opsz" 96;
+    font-size: 28px;
+    font-weight: 400;
+    line-height: 1.15;
+    letter-spacing: -0.018em;
+    color: var(--text);
+  }
+
+  .card p {
+    color: var(--text-2);
+    font-size: 14.5px;
+    line-height: 1.55;
+    max-width: 56ch;
+  }
+
+  .card-meta {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-top: auto;
+    padding-top: 14px;
+    border-top: 1px dashed var(--border);
+  }
+
+  .card-path {
+    font-family: 'Geist Mono', monospace;
+    font-size: 11.5px;
+    color: var(--text-3);
+  }
+
+  .card-arrow {
+    margin-left: auto;
+    color: var(--text-3);
+    font-size: 18px;
+    transition: all 0.2s ease;
+  }
+
+  .status-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 9px 3px 8px;
+    background: var(--brand-tint);
+    color: var(--brand-hover);
+    border-radius: 999px;
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    width: fit-content;
+  }
+  .status-chip::before {
+    content: '';
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--brand);
+  }
+
+  /* META FOOTER ------------------------------------------------------ */
+  .meta {
+    margin-top: 56px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 12.5px;
+    color: var(--text-3);
+  }
+
+  .pillrow {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .pill {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 5px 11px;
+    border-radius: 999px;
+    font-size: 11.5px;
+    color: var(--text-2);
+  }
+
+  @media (max-width: 720px) {
+    .hero h1 { font-size: 36px; }
+    .page { padding: 56px 22px 80px; }
+    .card { padding: 28px 24px; }
+  }
+</style>
+</head>
+<body>
+<main class="page">
+
+  <header class="hero">
+    <div class="hero-eyebrow eyebrow">Ambitt Agents · Portal Redesign · Mockups</div>
+    <h1 class="display">A quiet system, <em>only what the client needs</em>.</h1>
+    <p>
+      The portal isn't where the work happens — that's email, WhatsApp, the inbox.
+      The portal is where a client comes to <strong>see what their agent is doing for them</strong>,
+      <strong>plug in the keys</strong>, and <strong>say yes or no</strong> to the things the agent wants to do next.
+      It should feel like a single calm dashboard a consultant might have prepared.
+    </p>
+    <p style="margin-top: 14px; font-size: 14.5px; color: var(--text-3);">
+      <strong style="color: var(--text-2);">MVP scope locked at 4 surfaces.</strong>
+      The four boxed below are what we ship for v1 clients.
+      The four greyed at the bottom are exploration — we built mockups to think them through, but
+      we're <em>not</em> building them as routes yet. When a real client asks for one, we'll know it earned the space.
+    </p>
+  </header>
+
+  <div class="divider"></div>
+
+  <div class="eyebrow" style="margin-bottom: 16px;">— MVP · these get built into production</div>
+
+  <div class="grid" style="grid-template-columns: 1fr 1fr;">
+
+    <a class="card" href="./portal-agent-overview.html">
+      <span class="card-num">01 · Agent</span>
+      <span class="status-chip">Primary surface</span>
+      <h2>Overview</h2>
+      <p>
+        The page Casey lands on. KPI strip, attention callout, recent-activity feed, talk-to-Arthur compose,
+        cost meter, upcoming schedule.
+      </p>
+      <div class="card-meta">
+        <span class="card-path">/agents/arthur-litsey</span>
+        <span class="card-arrow">→</span>
+      </div>
+    </a>
+
+    <a class="card" href="./portal-tools.html">
+      <span class="card-num">02 · Agent</span>
+      <span class="status-chip">Credential flow</span>
+      <h2>Tools &amp; credentials</h2>
+      <p>
+        Every tool Arthur needs — connected, awaiting OAuth, awaiting login. Live request banner when Arthur
+        asks for access. Access log at the bottom for transparency.
+      </p>
+      <div class="card-meta">
+        <span class="card-path">/agents/arthur-litsey/tools</span>
+        <span class="card-arrow">→</span>
+      </div>
+    </a>
+
+    <a class="card" href="./portal-recommendations.html">
+      <span class="card-num">03 · Agent</span>
+      <span class="status-chip">Supervised mode</span>
+      <h2>Recommendations</h2>
+      <p>
+        Where supervised-mode lives. Arthur drafts the move, predicts the impact, names his reasoning —
+        Casey approves, dismisses, or asks for more.
+      </p>
+      <div class="card-meta">
+        <span class="card-path">/agents/arthur-litsey/recommendations</span>
+        <span class="card-arrow">→</span>
+      </div>
+    </a>
+
+    <a class="card" href="./portal-billing.html">
+      <span class="card-num">04 · Account</span>
+      <span class="status-chip">Cost by tool</span>
+      <h2>Billing &amp; invoices</h2>
+      <p>
+        Plan, retainer, model usage. Stacked-bar cost breakdown by tool (Sonnet / Composio / Haiku /
+        Browserbase). Invoice history with Stripe-hosted PDFs.
+      </p>
+      <div class="card-meta">
+        <span class="card-path">/billing</span>
+        <span class="card-arrow">→</span>
+      </div>
+    </a>
+
+  </div>
+
+  <div style="margin: 56px 0 16px;">
+    <div class="eyebrow" style="color: var(--text-4);">— Explored · not building unless a real client asks for it</div>
+    <p style="font-size: 13.5px; color: var(--text-3); margin-top: 6px; max-width: 64ch; line-height: 1.6;">
+      These mockups exist so we've thought through the shape. Shipping them now would bloat the surface
+      area for no client benefit — and every page we ship is a page we have to maintain. The principle:
+      <em>only what the client needs to use weekly.</em>
+    </p>
+  </div>
+
+  <div class="grid" style="grid-template-columns: 1fr 1fr; opacity: 0.55;">
+
+    <a class="card" href="./portal-activity.html" style="background: var(--surface-2);">
+      <span class="card-num" style="color: var(--text-4);">Deferred</span>
+      <span class="status-chip" style="background: var(--surface-2); color: var(--text-3);">No client has asked</span>
+      <h2>Activity log</h2>
+      <p>
+        The forensic view. Overview's feed covers the daily question (what did Arthur do today?). A
+        searchable, paginated full log is operator-territory — clients don't audit their consultant's
+        work hour-by-hour. Build when one actually requests an export.
+      </p>
+      <div class="card-meta">
+        <span class="card-path">would be · /agents/[id]/activity</span>
+        <span class="card-arrow">→</span>
+      </div>
+    </a>
+
+    <a class="card" href="./portal-settings.html" style="background: var(--surface-2);">
+      <span class="card-num" style="color: var(--text-4);">Deferred</span>
+      <span class="status-chip" style="background: var(--surface-2); color: var(--text-3);">Operator-tuned for now</span>
+      <h2>Settings (incl. KPI picker)</h2>
+      <p>
+        Schedule, voice, autonomy, KPIs — all of this lives on the agent's overview page already (or
+        in the dashboard for operator-side tuning). A dedicated Settings tab adds clicks without
+        adding control. The KPI picker is a great idea — we'll wire it onto Overview when KPIs themselves
+        ship.
+      </p>
+      <div class="card-meta">
+        <span class="card-path">would be · /agents/[id]/settings</span>
+        <span class="card-arrow">→</span>
+      </div>
+    </a>
+
+    <a class="card" href="./portal-team.html" style="background: var(--surface-2);">
+      <span class="card-num" style="color: var(--text-4);">Deferred</span>
+      <span class="status-chip" style="background: var(--surface-2); color: var(--text-3);">Single-seat at v1</span>
+      <h2>Team</h2>
+      <p>
+        v1 clients have one user — Casey is Litsey Real Estate's portal account. Multi-seat /
+        roles / invites earns its slot when a client actually asks to bring a teammate in. The
+        mockup is the design we'd ship when that happens.
+      </p>
+      <div class="card-meta">
+        <span class="card-path">would be · /team</span>
+        <span class="card-arrow">→</span>
+      </div>
+    </a>
+
+    <a class="card" href="./portal-notifications.html" style="background: var(--surface-2);">
+      <span class="card-num" style="color: var(--text-4);">Deferred</span>
+      <span class="status-chip" style="background: var(--surface-2); color: var(--text-3);">Defaults are good</span>
+      <h2>Notifications</h2>
+      <p>
+        Default channels and cadence (email + WhatsApp for urgents, daily digest) are sensible for
+        every v1 client. A dedicated preferences page is a setting most users never touch. Mockup
+        captured the design for when someone actually wants to silence something specific.
+      </p>
+      <div class="card-meta">
+        <span class="card-path">would be · /notifications</span>
+        <span class="card-arrow">→</span>
+      </div>
+    </a>
+
+  </div>
+
+  <footer class="meta">
+    <div>
+      <span class="pillrow">
+        <span class="pill">Fraunces · display</span>
+        <span class="pill">Geist · body</span>
+        <span class="pill">#00b3b3 · accent</span>
+        <span class="pill">No gradients</span>
+        <span class="pill">Editorial restraint</span>
+      </span>
+    </div>
+    <div>portal.ambitt.agency</div>
+  </footer>
+
+</main>
+</body>
+</html>

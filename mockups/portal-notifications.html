@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Notifications — Ambitt</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..900,0..100,0..1&family=Geist:wght@300..900&family=Geist+Mono&display=swap" />
+
+<style>
+  :root {
+    --bg: #fafaf8; --surface: #ffffff; --surface-2: #f5f5f3; --surface-3: #ebebe7;
+    --text: #171717; --text-2: #404040; --text-3: #737373; --text-4: #a3a3a3; --text-5: #d4d4d4;
+    --border: #ececec; --border-strong: #d4d4d4;
+    --brand: #00b3b3; --brand-hover: #099;
+    --brand-tint: rgba(0, 179, 179, 0.08); --brand-tint-strong: rgba(0, 179, 179, 0.14);
+    --brand-shadow: 0 1px 2px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 179, 179, 0.18);
+    --emerald: #10b981; --emerald-tint: rgba(16, 185, 129, 0.1);
+    --amber: #f59e0b; --amber-tint: rgba(245, 158, 11, 0.1);
+    --red: #dc2626; --red-tint: rgba(220, 38, 38, 0.08);
+    --blue: #3b82f6; --blue-tint: rgba(59, 130, 246, 0.08);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility; }
+  body { background: var(--bg); color: var(--text); font-family: 'Geist', -apple-system, sans-serif; font-size: 14px; line-height: 1.5; font-feature-settings: "ss01" on, "cv11" on; min-height: 100vh; }
+  a { color: inherit; text-decoration: none; }
+  button { font: inherit; cursor: pointer; border: none; background: none; color: inherit; }
+  .display { font-family: 'Fraunces', Georgia, serif; font-variation-settings: "SOFT" 50, "WONK" 0, "opsz" 144; letter-spacing: -0.022em; font-weight: 400; }
+  .mono { font-family: 'Geist Mono', 'SF Mono', Menlo, monospace; }
+
+  .sidebar { position: fixed; top: 0; left: 0; width: 248px; height: 100vh; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; z-index: 20; }
+  .main { margin-left: 248px; min-height: 100vh; display: flex; flex-direction: column; }
+  .side-brand { height: 56px; display: flex; align-items: center; gap: 9px; padding: 0 16px; border-bottom: 1px solid var(--border); }
+  .side-brand-mark { width: 22px; height: 22px; display: block; flex-shrink: 0; }
+  .side-brand-word { font-family: 'Geist Mono', monospace; font-size: 10.5px; font-weight: 600; letter-spacing: 0.18em; color: var(--text); }
+  .side-agent-picker { margin: 12px 12px 8px; padding: 10px 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 9px; display: flex; align-items: center; gap: 10px; cursor: pointer; }
+  .side-agent-picker:hover { background: var(--surface-3); }
+  .side-agent-avatar { width: 26px; height: 26px; border-radius: 7px; background: var(--brand-tint-strong); display: flex; align-items: center; justify-content: center; color: var(--brand-hover); font-family: 'Fraunces', serif; font-size: 14px; font-weight: 500; flex-shrink: 0; }
+  .side-agent-info { flex: 1; min-width: 0; line-height: 1.2; }
+  .side-agent-name { font-size: 13px; font-weight: 500; color: var(--text); display: flex; align-items: center; gap: 6px; }
+  .side-agent-role { font-size: 11.5px; color: var(--text-3); margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .side-agent-chev { color: var(--text-4); width: 13px; height: 13px; flex-shrink: 0; }
+  .dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; display: inline-block; }
+  .dot.pulse { position: relative; }
+  .dot.pulse::after { content: ''; position: absolute; inset: -3px; border-radius: 50%; border: 1px solid currentColor; opacity: 0.5; animation: pulseRing 2.4s ease-out infinite; }
+  @keyframes pulseRing { 0% { transform: scale(0.8); opacity: 0.6; } 100% { transform: scale(1.85); opacity: 0; } }
+  .dot-emerald { background: var(--emerald); color: var(--emerald); }
+  .side-nav { flex: 1; padding: 8px 8px 16px; overflow-y: auto; }
+  .side-section { margin-top: 16px; padding: 0 8px; }
+  .side-section-label { font-size: 10px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-4); padding: 0 8px 6px; }
+  .side-link { display: flex; align-items: center; gap: 9px; padding: 7px 8px; border-radius: 7px; font-size: 13px; color: var(--text-2); margin-bottom: 1px; transition: all 0.12s ease; position: relative; }
+  .side-link:hover { background: var(--surface-2); color: var(--text); }
+  .side-link.active { background: var(--brand-tint); color: var(--brand-hover); font-weight: 500; }
+  .side-link.active::before { content: ''; position: absolute; left: -8px; top: 6px; bottom: 6px; width: 2px; background: var(--brand); border-radius: 0 2px 2px 0; }
+  .side-link-icon { width: 15px; height: 15px; color: currentColor; opacity: 0.7; flex-shrink: 0; }
+  .side-link.active .side-link-icon { opacity: 1; }
+  .side-link-badge { margin-left: auto; background: var(--amber); color: white; font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 999px; min-width: 18px; text-align: center; }
+  .side-account { padding: 10px 12px; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 10px; cursor: pointer; transition: background 0.15s ease; }
+  .side-account:hover { background: var(--surface-2); }
+  .side-account-avatar { width: 26px; height: 26px; border-radius: 50%; background: linear-gradient(135deg, #fef3c7 0%, #fed7aa 100%); color: #b45309; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; flex-shrink: 0; }
+  .side-account-info { flex: 1; min-width: 0; line-height: 1.2; }
+  .side-account-name { font-size: 12.5px; font-weight: 500; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .side-account-tier { font-size: 11px; color: var(--text-3); margin-top: 1px; }
+
+  .topbar { height: 56px; border-bottom: 1px solid var(--border); background: var(--surface); display: flex; align-items: center; padding: 0 28px; gap: 16px; position: sticky; top: 0; z-index: 10; }
+  .crumb { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-3); }
+  .crumb-sep { color: var(--text-5); }
+  .crumb-current { color: var(--text); font-weight: 500; }
+  .topbar-spacer { flex: 1; }
+  .topbar-search { display: flex; align-items: center; gap: 8px; background: var(--surface-2); border: 1px solid transparent; border-radius: 8px; padding: 6px 12px; font-size: 13px; color: var(--text-3); min-width: 220px; }
+  .topbar-search svg { width: 13px; height: 13px; color: var(--text-4); }
+  .topbar-search kbd { margin-left: auto; font-family: 'Geist Mono', monospace; font-size: 11px; background: var(--surface); border: 1px solid var(--border); color: var(--text-4); padding: 1px 5px; border-radius: 4px; }
+
+  .page { padding: 28px 32px 64px; max-width: 1100px; width: 100%; }
+  .page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; flex-wrap: wrap; margin-bottom: 22px; }
+  .page-head-left { min-width: 0; }
+  .page-head-meta { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-3); margin-bottom: 8px; }
+  .page-head-meta-tag { font-size: 10.5px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--brand-hover); background: var(--brand-tint); padding: 2px 7px; border-radius: 4px; }
+  .page-title { font-size: 36px; line-height: 1; color: var(--text); margin-bottom: 8px; }
+  .page-subtitle { font-size: 14px; color: var(--text-3); max-width: 64ch; line-height: 1.55; }
+
+  .btn { display: inline-flex; align-items: center; gap: 7px; padding: 8px 14px; border-radius: 8px; font-size: 13px; font-weight: 500; border: 1px solid var(--border); background: var(--surface); color: var(--text-2); transition: all 0.15s ease; cursor: pointer; }
+  .btn:hover { border-color: var(--border-strong); color: var(--text); }
+  .btn-primary { background: var(--brand); color: white; border-color: var(--brand); box-shadow: var(--brand-shadow); }
+  .btn-primary:hover { background: var(--brand-hover); border-color: var(--brand-hover); color: white; }
+  .btn-sm { padding: 6px 11px; font-size: 12.5px; }
+  .btn svg { width: 13px; height: 13px; }
+
+  /* PANEL */
+  .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-bottom: 24px; }
+  .panel-head { padding: 16px 22px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .panel-head h3 { font-size: 14px; font-weight: 500; color: var(--text); }
+  .panel-head-desc { font-size: 12px; color: var(--text-3); margin-top: 2px; }
+  .panel-body { padding: 18px 22px; }
+
+  /* CHANNEL CARDS */
+  .channels { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .channel {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    transition: border-color 0.15s ease;
+  }
+  .channel.active { border-color: var(--brand); background: var(--brand-tint); }
+  .channel.muted { opacity: 0.55; }
+  .channel-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+  .channel-icon {
+    width: 30px;
+    height: 30px;
+    border-radius: 7px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .channel-icon.email { background: var(--brand-tint-strong); color: var(--brand-hover); }
+  .channel-icon.whatsapp { background: var(--emerald-tint); color: var(--emerald); }
+  .channel-icon.portal { background: var(--blue-tint); color: var(--blue); }
+  .channel-icon svg { width: 15px; height: 15px; }
+  .channel-name { font-size: 13.5px; font-weight: 500; color: var(--text); }
+  .channel-target { font-size: 11.5px; color: var(--text-3); margin-top: 2px; font-family: 'Geist Mono', monospace; }
+  .channel-target.regular { font-family: 'Geist', sans-serif; }
+  .channel-control { display: flex; align-items: center; justify-content: space-between; margin-top: 12px; }
+  .channel-edit { font-size: 12px; color: var(--text-3); text-decoration: underline; text-decoration-color: var(--text-5); text-underline-offset: 3px; }
+  .channel-edit:hover { color: var(--brand-hover); text-decoration-color: var(--brand); }
+
+  /* TOGGLE */
+  .toggle {
+    width: 32px;
+    height: 18px;
+    background: var(--surface-3);
+    border-radius: 999px;
+    position: relative;
+    cursor: pointer;
+    transition: background 0.15s ease;
+    flex-shrink: 0;
+  }
+  .toggle::after {
+    content: '';
+    position: absolute;
+    top: 2px; left: 2px;
+    width: 14px; height: 14px;
+    background: white;
+    border-radius: 50%;
+    transition: all 0.15s ease;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+  }
+  .toggle.on { background: var(--brand); }
+  .toggle.on::after { left: 16px; }
+
+  /* MATRIX */
+  .matrix {
+    display: grid;
+    grid-template-columns: 1.6fr repeat(3, 90px);
+    gap: 0;
+  }
+  .matrix > div {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+  }
+  .matrix > div.head {
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-3);
+    background: var(--surface-2);
+    border-bottom-color: var(--border);
+  }
+  .matrix > div.col {
+    justify-content: center;
+  }
+  .matrix > div.event {
+    display: block;
+    padding: 14px 16px;
+  }
+  .event-title { font-size: 13.5px; color: var(--text); font-weight: 500; }
+  .event-sub { font-size: 11.5px; color: var(--text-3); margin-top: 2px; line-height: 1.4; }
+  .event-badge {
+    display: inline-block;
+    font-size: 9.5px;
+    font-weight: 600;
+    padding: 1px 6px;
+    border-radius: 3px;
+    margin-left: 6px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    vertical-align: 0.06em;
+  }
+  .event-badge.high { background: var(--red-tint); color: #991b1b; }
+  .event-badge.med { background: var(--amber-tint); color: #b45309; }
+  .event-badge.low { background: var(--surface-2); color: var(--text-3); }
+  .checkbox {
+    width: 18px;
+    height: 18px;
+    border-radius: 5px;
+    border: 1.6px solid var(--border-strong);
+    background: var(--surface);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .checkbox:hover { border-color: var(--text-3); }
+  .checkbox.checked {
+    background: var(--brand);
+    border-color: var(--brand);
+  }
+  .checkbox.checked::after {
+    content: '';
+    width: 9px;
+    height: 9px;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 9 9'><path fill='none' stroke='white' stroke-width='1.8' stroke-linecap='round' d='M2 5 L4 7 L7 3'/></svg>");
+    background-repeat: no-repeat;
+    background-size: contain;
+  }
+  .checkbox.disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+
+  /* QUIET HOURS */
+  .qh {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr 1fr;
+    gap: 24px;
+    align-items: center;
+  }
+  .qh-help { font-size: 12.5px; color: var(--text-3); line-height: 1.55; }
+  .qh-help strong { color: var(--text); font-weight: 500; }
+  .qh-row { display: flex; align-items: center; gap: 10px; }
+  .qh-label { font-size: 13px; color: var(--text-2); width: 50px; }
+  .input {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    padding: 6px 10px;
+    font-size: 13px;
+    font-family: 'Geist Mono', monospace;
+    color: var(--text);
+    width: 90px;
+  }
+  .input:focus { outline: none; border-color: var(--brand); background: var(--surface); }
+
+  /* DIGEST PREF */
+  .digest-row {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr 1fr;
+    gap: 24px;
+    align-items: center;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .digest-row:last-child { border-bottom: none; }
+  .digest-label { font-size: 13.5px; color: var(--text); font-weight: 500; }
+  .digest-sub { font-size: 11.5px; color: var(--text-3); margin-top: 2px; line-height: 1.4; }
+  .select {
+    background: var(--surface-2) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'><path fill='none' stroke='%23737373' stroke-width='1.4' stroke-linecap='round' d='M2 4 L5 7 L8 4'/></svg>") no-repeat right 10px center;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    padding: 7px 28px 7px 11px;
+    font-size: 13px;
+    color: var(--text);
+    appearance: none;
+    cursor: pointer;
+    width: 100%;
+  }
+
+  @media (max-width: 980px) {
+    .channels { grid-template-columns: 1fr; }
+    .qh { grid-template-columns: 1fr; gap: 12px; }
+  }
+  @media (max-width: 880px) {
+    .sidebar { transform: translateX(-100%); transition: transform 0.2s ease; }
+    .main { margin-left: 0; }
+    .page { padding: 22px 20px 60px; }
+    .matrix { grid-template-columns: 1fr; }
+    .matrix > div.head.col, .matrix > div.col { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<aside class="sidebar">
+  <a href="./index.html" class="side-brand">
+    <svg class="side-brand-mark" viewBox="0 0 22 22" fill="none"><rect width="22" height="22" rx="5" fill="#171717"/><circle cx="11" cy="11" r="4.2" fill="none" stroke="#00b3b3" stroke-width="1.6"/><circle cx="11" cy="11" r="1.4" fill="#00b3b3"/></svg>
+    <span class="side-brand-word">AMBITT AGENTS</span>
+  </a>
+  <div class="side-agent-picker">
+    <div class="side-agent-avatar">A</div>
+    <div class="side-agent-info">
+      <div class="side-agent-name">Arthur <span class="dot dot-emerald pulse" style="width:5px;height:5px;"></span></div>
+      <div class="side-agent-role">CRE deal sourcing</div>
+    </div>
+    <svg class="side-agent-chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 4 L8 7 L11 4 M5 8 L8 11 L11 8"/></svg>
+  </div>
+  <nav class="side-nav">
+    <div class="side-section">
+      <div class="side-section-label">Agent</div>
+      <a class="side-link" href="./portal-agent-overview.html"><svg class="side-link-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="5.5" height="5.5" rx="1"/><rect x="8.5" y="2" width="5.5" height="5.5" rx="1"/><rect x="2" y="8.5" width="5.5" height="5.5" rx="1"/><rect x="8.5" y="8.5" width="5.5" height="5.5" rx="1"/></svg> Overview</a>
+      <a class="side-link" href="./portal-tools.html"><svg class="side-link-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 2 L13 4 L8 9 L6 7 Z"/><path d="M6 7 L2 11 L4 13 L8 9"/></svg> Tools &amp; credentials <span class="side-link-badge">1</span></a>
+      <a class="side-link" href="./portal-recommendations.html"><svg class="side-link-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13 L3 6 L8 2 L13 6 L13 13 Z"/><path d="M6 13 L6 9 L10 9 L10 13"/></svg> Recommendations <span class="side-link-badge">3</span></a>
+      <a class="side-link" href="./portal-activity.html"><svg class="side-link-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4 L14 4"/><path d="M2 8 L14 8"/><path d="M2 12 L14 12"/></svg> Activity log</a>
+      <a class="side-link" href="./portal-settings.html"><svg class="side-link-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="2.5"/><path d="M8 1.5 L8 3 M8 13 L8 14.5 M1.5 8 L3 8 M13 8 L14.5 8"/></svg> Settings</a>
+    </div>
+    <div class="side-section">
+      <div class="side-section-label">Account</div>
+      <a class="side-link" href="./portal-billing.html"><svg class="side-link-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="4" width="12" height="9" rx="1.5"/><path d="M2 7 L14 7"/></svg> Billing &amp; invoices</a>
+      <a class="side-link" href="./portal-team.html"><svg class="side-link-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M11 14 A4 4 0 0 0 3 14"/><circle cx="7" cy="6.5" r="2.5"/></svg> Team</a>
+      <a class="side-link active" href=""><svg class="side-link-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6 A5 5 0 0 1 13 6 L13 10 L14 12 L2 12 L3 10 Z"/><path d="M6 12 A2 2 0 0 0 10 12"/></svg> Notifications</a>
+    </div>
+  </nav>
+  <div class="side-account">
+    <div class="side-account-avatar">CL</div>
+    <div class="side-account-info">
+      <div class="side-account-name">Casey Litsey</div>
+      <div class="side-account-tier">Scale tier · $2,499/mo</div>
+    </div>
+    <svg style="color: var(--text-4); width: 13px; height: 13px;" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M6 5 L10 8 L6 11"/></svg>
+  </div>
+</aside>
+
+<div class="main">
+  <header class="topbar">
+    <div class="crumb"><span>Litsey Real Estate</span><span class="crumb-sep">/</span><span class="crumb-current">Notifications</span></div>
+    <div class="topbar-spacer"></div>
+    <div class="topbar-search"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5 L14 14"/></svg>Search…<kbd>⌘K</kbd></div>
+  </header>
+
+  <div class="page">
+
+    <div class="page-head">
+      <div class="page-head-left">
+        <div class="page-head-meta">
+          <span class="page-head-meta-tag">3 channels · 9 events</span>
+          <span>How Arthur gets your attention.</span>
+        </div>
+        <h1 class="display page-title">Notifications</h1>
+        <p class="page-subtitle">
+          Arthur defaults to email — quiet by design. Add WhatsApp for urgent flags, mute everything during quiet hours.
+        </p>
+      </div>
+    </div>
+
+    <!-- CHANNELS -->
+    <div class="panel">
+      <div class="panel-head">
+        <div>
+          <h3>Channels</h3>
+          <div class="panel-head-desc">How Arthur can reach you. At least one must be on.</div>
+        </div>
+      </div>
+      <div class="panel-body">
+        <div class="channels">
+
+          <div class="channel active">
+            <div class="channel-head">
+              <div class="channel-icon email"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="12" height="10" rx="1"/><path d="M2 5 L8 9 L14 5"/></svg></div>
+              <div>
+                <div class="channel-name">Email</div>
+                <div class="channel-target">casey@litseycre.com</div>
+              </div>
+            </div>
+            <div class="channel-control">
+              <div class="toggle on"></div>
+              <a class="channel-edit" href="#">Change address</a>
+            </div>
+          </div>
+
+          <div class="channel active">
+            <div class="channel-head">
+              <div class="channel-icon whatsapp"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.5 A6.5 6.5 0 0 0 1.5 8 A6.5 6.5 0 0 0 2.5 11.5 L1.5 14.5 L4.7 13.5 A6.5 6.5 0 0 0 8 14.5 A6.5 6.5 0 0 0 14.5 8 A6.5 6.5 0 0 0 8 1.5 Z M5.5 5.5 C 6 5 6.5 5 7 5.5 L8 7 C 7.5 7.5 7.5 8 8 8.5 L9 9.5 C 9.5 10 10 10 10.5 9.5 L11 9 C 11 10 10 11 9 11 C 8 11 5 9.5 5 7 C 5 6 5 5.5 5.5 5.5 Z"/></svg></div>
+              <div>
+                <div class="channel-name">WhatsApp</div>
+                <div class="channel-target">+1 (918) 555-0142</div>
+              </div>
+            </div>
+            <div class="channel-control">
+              <div class="toggle on"></div>
+              <a class="channel-edit" href="#">Change number</a>
+            </div>
+          </div>
+
+          <div class="channel">
+            <div class="channel-head">
+              <div class="channel-icon portal"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><path d="M8 5 L8 8.5 L10 10"/></svg></div>
+              <div>
+                <div class="channel-name">In-portal only</div>
+                <div class="channel-target regular">Banner on next visit</div>
+              </div>
+            </div>
+            <div class="channel-control">
+              <div class="toggle"></div>
+              <a class="channel-edit" href="#" style="color: var(--text-4);">No setup needed</a>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- EVENT MATRIX -->
+    <div class="panel">
+      <div class="panel-head">
+        <div>
+          <h3>What pings you, and how</h3>
+          <div class="panel-head-desc">For each event Arthur can trigger, choose which channels light up. Some are mandatory — those you can't turn off.</div>
+        </div>
+        <button class="btn btn-sm">Defaults</button>
+      </div>
+
+      <div class="matrix">
+
+        <div class="head">Event</div>
+        <div class="head col">Email</div>
+        <div class="head col">WhatsApp</div>
+        <div class="head col">Portal</div>
+
+        <div class="event">
+          <div class="event-title">Arthur sent an outreach <span class="event-badge low">Info</span></div>
+          <div class="event-sub">After every approved send · roll-up in the daily digest by default</div>
+        </div>
+        <div class="col"><div class="checkbox"></div></div>
+        <div class="col"><div class="checkbox"></div></div>
+        <div class="col"><div class="checkbox checked"></div></div>
+
+        <div class="event">
+          <div class="event-title">Warm reply received <span class="event-badge med">Worth a look</span></div>
+          <div class="event-sub">Inbound that Arthur classified as positive intent. The good ones.</div>
+        </div>
+        <div class="col"><div class="checkbox checked"></div></div>
+        <div class="col"><div class="checkbox checked"></div></div>
+        <div class="col"><div class="checkbox checked"></div></div>
+
+        <div class="event">
+          <div class="event-title">New recommendation surfaced <span class="event-badge med">Worth a look</span></div>
+          <div class="event-sub">Arthur wants to do something and needs your call. Includes draft + reasoning.</div>
+        </div>
+        <div class="col"><div class="checkbox checked"></div></div>
+        <div class="col"><div class="checkbox"></div></div>
+        <div class="col"><div class="checkbox checked"></div></div>
+
+        <div class="event">
+          <div class="event-title">Outreach bounced or got marked as spam <span class="event-badge high">Urgent</span></div>
+          <div class="event-sub">Bouncebacks are revenue events in your funnel. Mandatory ping.</div>
+        </div>
+        <div class="col"><div class="checkbox checked disabled" title="Mandatory"></div></div>
+        <div class="col"><div class="checkbox checked"></div></div>
+        <div class="col"><div class="checkbox checked disabled" title="Mandatory"></div></div>
+
+        <div class="event">
+          <div class="event-title">Tool authentication expired <span class="event-badge high">Urgent</span></div>
+          <div class="event-sub">A connected tool needs you to reconnect — Arthur is blocked until you do.</div>
+        </div>
+        <div class="col"><div class="checkbox checked disabled"></div></div>
+        <div class="col"><div class="checkbox checked"></div></div>
+        <div class="col"><div class="checkbox checked disabled"></div></div>
+
+        <div class="event">
+          <div class="event-title">Reply rate dropped &gt; 5 pts <span class="event-badge med">Worth a look</span></div>
+          <div class="event-sub">Trailing 14-day window. Tells you outreach quality is degrading before it craters.</div>
+        </div>
+        <div class="col"><div class="checkbox checked"></div></div>
+        <div class="col"><div class="checkbox"></div></div>
+        <div class="col"><div class="checkbox checked"></div></div>
+
+        <div class="event">
+          <div class="event-title">Cost hit 80% of monthly cap <span class="event-badge med">Worth a look</span></div>
+          <div class="event-sub">Heads-up before Arthur auto-pauses at 100%.</div>
+        </div>
+        <div class="col"><div class="checkbox checked"></div></div>
+        <div class="col"><div class="checkbox checked"></div></div>
+        <div class="col"><div class="checkbox checked"></div></div>
+
+        <div class="event">
+          <div class="event-title">Daily digest <span class="event-badge low">Info</span></div>
+          <div class="event-sub">9am CT — everything from yesterday in one email.</div>
+        </div>
+        <div class="col"><div class="checkbox checked"></div></div>
+        <div class="col"><div class="checkbox"></div></div>
+        <div class="col"><div class="checkbox"></div></div>
+
+        <div class="event" style="border-bottom: none;">
+          <div class="event-title">Weekly performance digest <span class="event-badge low">Info</span></div>
+          <div class="event-sub">Mondays 9am CT — KPI deltas + recommendations summary.</div>
+        </div>
+        <div class="col" style="border-bottom: none;"><div class="checkbox checked"></div></div>
+        <div class="col" style="border-bottom: none;"><div class="checkbox"></div></div>
+        <div class="col" style="border-bottom: none;"><div class="checkbox checked"></div></div>
+
+      </div>
+    </div>
+
+    <!-- QUIET HOURS -->
+    <div class="panel">
+      <div class="panel-head">
+        <div>
+          <h3>Quiet hours</h3>
+          <div class="panel-head-desc">When Arthur holds non-urgent pings. Urgent events (bounces, expired auth) still fire.</div>
+        </div>
+        <div class="toggle on"></div>
+      </div>
+      <div class="panel-body">
+        <div class="qh">
+          <div class="qh-help">
+            Arthur queues non-urgent notifications during these hours and sends them in a single batch the next morning. <strong>Currently set to 7pm – 7am CT</strong>, Monday through Friday. Weekends are quiet by default.
+          </div>
+          <div>
+            <div class="qh-row">
+              <span class="qh-label">From</span>
+              <input class="input" value="19:00" />
+            </div>
+            <div class="qh-row" style="margin-top: 10px;">
+              <span class="qh-label">To</span>
+              <input class="input" value="07:00" />
+            </div>
+          </div>
+          <div>
+            <select class="select"><option>Mon – Fri (weekends always quiet)</option><option>Every day</option><option>Mon – Sat</option></select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DIGEST PREFERENCES -->
+    <div class="panel">
+      <div class="panel-head">
+        <div>
+          <h3>Digest cadence</h3>
+          <div class="panel-head-desc">When Arthur sends the morning + weekly roll-ups.</div>
+        </div>
+      </div>
+      <div class="panel-body">
+        <div class="digest-row">
+          <div>
+            <div class="digest-label">Morning digest</div>
+            <div class="digest-sub">Yesterday's activity + things needing your input today</div>
+          </div>
+          <select class="select"><option>9am CT every weekday</option><option>7am CT every weekday</option><option>9am CT Mon–Sat</option><option>Off</option></select>
+          <div></div>
+        </div>
+        <div class="digest-row">
+          <div>
+            <div class="digest-label">Weekly performance digest</div>
+            <div class="digest-sub">KPI deltas, top recommendations, what shipped</div>
+          </div>
+          <select class="select"><option>Monday 9am CT</option><option>Friday 5pm CT</option><option>Off</option></select>
+          <div></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+</body>
+</html>

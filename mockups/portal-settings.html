@@ -1,0 +1,939 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Arthur · Settings — Ambitt</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..900,0..100,0..1&family=Geist:wght@300..900&family=Geist+Mono&display=swap" />
+
+<style>
+  :root {
+    --bg: #fafaf8; --surface: #ffffff; --surface-2: #f5f5f3; --surface-3: #ebebe7;
+    --text: #171717; --text-2: #404040; --text-3: #737373; --text-4: #a3a3a3; --text-5: #d4d4d4;
+    --border: #ececec; --border-strong: #d4d4d4;
+    --brand: #00b3b3; --brand-hover: #099;
+    --brand-tint: rgba(0, 179, 179, 0.08); --brand-tint-strong: rgba(0, 179, 179, 0.14);
+    --brand-shadow: 0 1px 2px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 179, 179, 0.18);
+    --emerald: #10b981; --emerald-tint: rgba(16, 185, 129, 0.1);
+    --amber: #f59e0b; --amber-tint: rgba(245, 158, 11, 0.1);
+    --red: #dc2626; --red-tint: rgba(220, 38, 38, 0.08);
+    --blue: #3b82f6; --blue-tint: rgba(59, 130, 246, 0.08);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility; }
+  body { background: var(--bg); color: var(--text); font-family: 'Geist', -apple-system, sans-serif; font-size: 14px; line-height: 1.5; font-feature-settings: "ss01" on, "cv11" on; min-height: 100vh; }
+  a { color: inherit; text-decoration: none; }
+  button { font: inherit; cursor: pointer; border: none; background: none; color: inherit; }
+  .display { font-family: 'Fraunces', Georgia, serif; font-variation-settings: "SOFT" 50, "WONK" 0, "opsz" 144; letter-spacing: -0.022em; font-weight: 400; }
+  .mono { font-family: 'Geist Mono', 'SF Mono', Menlo, monospace; }
+
+  .sidebar { position: fixed; top: 0; left: 0; width: 248px; height: 100vh; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; z-index: 20; }
+  .main { margin-left: 248px; min-height: 100vh; display: flex; flex-direction: column; }
+  .side-brand { height: 56px; display: flex; align-items: center; gap: 9px; padding: 0 16px; border-bottom: 1px solid var(--border); }
+  .side-brand-mark { width: 22px; height: 22px; display: block; flex-shrink: 0; }
+  .side-brand-word { font-family: 'Geist Mono', monospace; font-size: 10.5px; font-weight: 600; letter-spacing: 0.18em; color: var(--text); }
+  .side-agent-picker { margin: 12px 12px 8px; padding: 10px 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 9px; display: flex; align-items: center; gap: 10px; cursor: pointer; }
+  .side-agent-picker:hover { background: var(--surface-3); }
+  .side-agent-avatar { width: 26px; height: 26px; border-radius: 7px; background: var(--brand-tint-strong); display: flex; align-items: center; justify-content: center; color: var(--brand-hover); font-family: 'Fraunces', serif; font-size: 14px; font-weight: 500; flex-shrink: 0; }
+  .side-agent-info { flex: 1; min-width: 0; line-height: 1.2; }
+  .side-agent-name { font-size: 13px; font-weight: 500; color: var(--text); display: flex; align-items: center; gap: 6px; }
+  .side-agent-role { font-size: 11.5px; color: var(--text-3); margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .side-agent-chev { color: var(--text-4); width: 13px; height: 13px; flex-shrink: 0; }
+  .dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; display: inline-block; }
+  .dot.pulse { position: relative; }
+  .dot.pulse::after { content: ''; position: absolute; inset: -3px; border-radius: 50%; border: 1px solid currentColor; opacity: 0.5; animation: pulseRing 2.4s ease-out infinite; }
+  @keyframes pulseRing { 0% { transform: scale(0.8); opacity: 0.6; } 100% { transform: scale(1.85); opacity: 0; } }
+  .dot-emerald { background: var(--emerald); color: var(--emerald); }
+  .dot-amber { background: var(--amber); color: var(--amber); }
+  .dot-blue { background: var(--blue); color: var(--blue); }
+  .dot-muted { background: var(--text-4); color: var(--text-4); }
+  .side-nav { flex: 1; padding: 8px 8px 16px; overflow-y: auto; }
+  .side-section { margin-top: 16px; padding: 0 8px; }
+  .side-section-label { font-size: 10px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-4); padding: 0 8px 6px; }
+  .side-link { display: flex; align-items: center; gap: 9px; padding: 7px 8px; border-radius: 7px; font-size: 13px; color: var(--text-2); margin-bottom: 1px; transition: all 0.12s ease; position: relative; }
+  .side-link:hover { background: var(--surface-2); color: var(--text); }
+  .side-link.active { background: var(--brand-tint); color: var(--brand-hover); font-weight: 500; }
+  .side-link.active::before { content: ''; position: absolute; left: -8px; top: 6px; bottom: 6px; width: 2px; background: var(--brand); border-radius: 0 2px 2px 0; }
+  .side-link-icon { width: 15px; height: 15px; color: currentColor; opacity: 0.7; flex-shrink: 0; }
+  .side-link.active .side-link-icon { opacity: 1; }
+  .side-link-badge { margin-left: auto; background: var(--amber); color: white; font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 999px; min-width: 18px; text-align: center; }
+  .side-account { padding: 10px 12px; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 10px; cursor: pointer; transition: background 0.15s ease; }
+  .side-account:hover { background: var(--surface-2); }
+  .side-account-avatar { width: 26px; height: 26px; border-radius: 50%; background: linear-gradient(135deg, #fef3c7 0%, #fed7aa 100%); color: #b45309; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; flex-shrink: 0; }
+  .side-account-info { flex: 1; min-width: 0; line-height: 1.2; }
+  .side-account-name { font-size: 12.5px; font-weight: 500; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .side-account-tier { font-size: 11px; color: var(--text-3); margin-top: 1px; }
+
+  .topbar { height: 56px; border-bottom: 1px solid var(--border); background: var(--surface); display: flex; align-items: center; padding: 0 28px; gap: 16px; position: sticky; top: 0; z-index: 10; }
+  .crumb { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-3); }
+  .crumb-sep { color: var(--text-5); }
+  .crumb-current { color: var(--text); font-weight: 500; }
+  .topbar-status { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-3); background: var(--emerald-tint); padding: 3px 9px 3px 10px; border-radius: 999px; margin-left: 4px; }
+  .topbar-status .dot { background: var(--emerald); }
+  .topbar-spacer { flex: 1; }
+  .topbar-search { display: flex; align-items: center; gap: 8px; background: var(--surface-2); border: 1px solid transparent; border-radius: 8px; padding: 6px 12px; font-size: 13px; color: var(--text-3); min-width: 220px; }
+  .topbar-search:hover { border-color: var(--border); }
+  .topbar-search svg { width: 13px; height: 13px; color: var(--text-4); }
+  .topbar-search kbd { margin-left: auto; font-family: 'Geist Mono', monospace; font-size: 11px; background: var(--surface); border: 1px solid var(--border); color: var(--text-4); padding: 1px 5px; border-radius: 4px; }
+  .topbar-icon-btn { width: 32px; height: 32px; border-radius: 7px; display: flex; align-items: center; justify-content: center; color: var(--text-3); }
+  .topbar-icon-btn:hover { background: var(--surface-2); color: var(--text); }
+  .topbar-icon-btn svg { width: 16px; height: 16px; }
+
+  .page { padding: 28px 32px 64px; max-width: 1200px; width: 100%; }
+  .page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; flex-wrap: wrap; margin-bottom: 22px; }
+  .page-head-left { min-width: 0; }
+  .page-head-meta { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-3); margin-bottom: 8px; }
+  .page-head-meta-tag { font-size: 10.5px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--brand-hover); background: var(--brand-tint); padding: 2px 7px; border-radius: 4px; }
+  .page-title { font-size: 36px; line-height: 1; color: var(--text); margin-bottom: 8px; }
+  .page-subtitle { font-size: 14px; color: var(--text-3); max-width: 64ch; line-height: 1.55; }
+  .page-head-actions { display: flex; align-items: center; gap: 8px; }
+
+  .btn { display: inline-flex; align-items: center; gap: 7px; padding: 8px 14px; border-radius: 8px; font-size: 13px; font-weight: 500; border: 1px solid var(--border); background: var(--surface); color: var(--text-2); transition: all 0.15s ease; cursor: pointer; }
+  .btn:hover { border-color: var(--border-strong); color: var(--text); }
+  .btn-primary { background: var(--brand); color: white; border-color: var(--brand); box-shadow: var(--brand-shadow); }
+  .btn-primary:hover { background: var(--brand-hover); border-color: var(--brand-hover); color: white; }
+  .btn-sm { padding: 6px 11px; font-size: 12.5px; }
+  .btn-text { border: none; background: transparent; color: var(--text-3); padding: 6px 10px; }
+  .btn-text:hover { color: var(--text); background: var(--surface-2); }
+  .btn-danger { color: var(--red); }
+  .btn-danger:hover { color: var(--red); background: var(--red-tint); border-color: var(--red-tint); }
+  .btn svg { width: 13px; height: 13px; }
+
+  /* SETTINGS — 2-column inner nav */
+  .settings-grid {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    gap: 32px;
+    align-items: start;
+  }
+  .settings-nav {
+    position: sticky;
+    top: 84px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .settings-nav-link {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 11px;
+    border-radius: 7px;
+    font-size: 13px;
+    color: var(--text-3);
+    transition: all 0.12s ease;
+  }
+  .settings-nav-link:hover { background: var(--surface-2); color: var(--text); }
+  .settings-nav-link.active {
+    background: var(--text);
+    color: white;
+    font-weight: 500;
+  }
+  .settings-nav-link .badge {
+    margin-left: auto;
+    font-size: 10px;
+    background: var(--brand-tint);
+    color: var(--brand-hover);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .settings-nav-link.active .badge { background: rgba(255,255,255,0.18); color: white; }
+  .settings-nav-sep {
+    height: 1px;
+    background: var(--border);
+    margin: 8px 11px;
+  }
+
+  .settings-content {
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+  }
+
+  /* Each settings section */
+  .sec { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; scroll-margin-top: 70px; }
+  .sec-head {
+    padding: 18px 22px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .sec-head-left { min-width: 0; }
+  .sec-head h2 {
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+  .sec-head-desc {
+    font-size: 12.5px;
+    color: var(--text-3);
+    line-height: 1.5;
+    max-width: 60ch;
+  }
+  .sec-body { padding: 18px 22px; }
+  .sec-row {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    gap: 24px;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--border);
+    align-items: center;
+  }
+  .sec-row:last-child { border-bottom: none; }
+  .sec-row-label {
+    font-size: 13px;
+    color: var(--text-2);
+    font-weight: 500;
+  }
+  .sec-row-help {
+    font-size: 11.5px;
+    color: var(--text-3);
+    margin-top: 2px;
+    line-height: 1.4;
+  }
+  .sec-row-control {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .input {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    padding: 7px 11px;
+    font-size: 13px;
+    color: var(--text);
+    width: 280px;
+    transition: border-color 0.15s ease;
+  }
+  .input:focus { outline: none; border-color: var(--brand); background: var(--surface); }
+  .select {
+    background: var(--surface-2) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'><path fill='none' stroke='%23737373' stroke-width='1.4' stroke-linecap='round' d='M2 4 L5 7 L8 4'/></svg>") no-repeat right 10px center;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    padding: 7px 28px 7px 11px;
+    font-size: 13px;
+    color: var(--text);
+    appearance: none;
+    cursor: pointer;
+  }
+
+  /* Toggle */
+  .toggle {
+    width: 32px;
+    height: 18px;
+    background: var(--surface-3);
+    border-radius: 999px;
+    position: relative;
+    cursor: pointer;
+    transition: background 0.15s ease;
+    flex-shrink: 0;
+  }
+  .toggle::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 14px;
+    height: 14px;
+    background: white;
+    border-radius: 50%;
+    transition: all 0.15s ease;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+  }
+  .toggle.on { background: var(--brand); }
+  .toggle.on::after { left: 16px; }
+
+  /* Radio-card group */
+  .radio-cards { display: flex; gap: 8px; }
+  .radio-card {
+    flex: 1;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    position: relative;
+  }
+  .radio-card:hover { border-color: var(--border-strong); }
+  .radio-card.selected { border-color: var(--brand); background: var(--brand-tint); }
+  .radio-card.selected::after {
+    content: '';
+    position: absolute;
+    top: 11px; right: 11px;
+    width: 14px; height: 14px;
+    background: var(--brand);
+    border-radius: 50%;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'><path fill='none' stroke='white' stroke-width='2' stroke-linecap='round' d='M4 7 L6 9 L10 5'/></svg>");
+  }
+  .radio-card-title { font-size: 13px; font-weight: 500; color: var(--text); margin-bottom: 2px; }
+  .radio-card-desc { font-size: 11.5px; color: var(--text-3); line-height: 1.4; }
+
+  /* KPI PICKER (star feature) */
+  .kpi-picker-intro {
+    background: var(--brand-tint);
+    border: 1px solid var(--brand-tint-strong);
+    border-radius: 9px;
+    padding: 12px 16px;
+    font-size: 12.5px;
+    color: var(--text-2);
+    line-height: 1.55;
+    margin-bottom: 18px;
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+  }
+  .kpi-picker-intro::before {
+    content: 'ⓘ';
+    color: var(--brand-hover);
+    font-weight: 600;
+  }
+  .kpi-picker-intro strong { color: var(--text); font-weight: 500; }
+
+  .kpi-active { display: flex; flex-direction: column; gap: 8px; margin-bottom: 24px; }
+  .kpi-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    padding: 14px 16px;
+    display: grid;
+    grid-template-columns: 14px 36px 1fr auto auto;
+    gap: 14px;
+    align-items: center;
+    transition: border-color 0.15s ease;
+  }
+  .kpi-item:hover { border-color: var(--border-strong); }
+  .kpi-drag {
+    color: var(--text-4);
+    cursor: grab;
+    width: 14px;
+    height: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .kpi-drag svg { width: 12px; height: 14px; }
+  .kpi-pos {
+    width: 36px;
+    height: 28px;
+    background: var(--surface-2);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Geist Mono', monospace;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-3);
+  }
+  .kpi-body { min-width: 0; }
+  .kpi-label-input {
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 5px;
+    padding: 3px 6px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text);
+    margin-left: -6px;
+    width: 100%;
+    transition: all 0.15s ease;
+  }
+  .kpi-label-input:hover { border-color: var(--border); background: var(--surface-2); }
+  .kpi-label-input:focus { outline: none; border-color: var(--brand); background: var(--surface); }
+  .kpi-source {
+    font-size: 11.5px;
+    color: var(--text-3);
+    margin-top: 2px;
+    padding: 0 6px;
+  }
+  .kpi-source .mono { color: var(--text-2); }
+  .kpi-format {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    font-size: 11.5px;
+    color: var(--text-2);
+  }
+  .kpi-remove {
+    width: 28px; height: 28px;
+    border-radius: 6px;
+    color: var(--text-4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+  }
+  .kpi-remove:hover { color: var(--red); background: var(--red-tint); }
+  .kpi-remove svg { width: 14px; height: 14px; }
+
+  /* Available KPIs */
+  .kpi-available-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+    padding: 0 4px;
+  }
+  .kpi-available-title {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-3);
+  }
+  .kpi-available-help {
+    font-size: 12px;
+    color: var(--text-3);
+  }
+  .kpi-available-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .kpi-avail {
+    border: 1px dashed var(--border-strong);
+    border-radius: 9px;
+    padding: 12px 14px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 10px;
+    align-items: center;
+    background: var(--surface);
+  }
+  .kpi-avail-body { min-width: 0; }
+  .kpi-avail-label { font-size: 13px; font-weight: 500; color: var(--text); }
+  .kpi-avail-desc { font-size: 11.5px; color: var(--text-3); margin-top: 2px; line-height: 1.4; }
+  .kpi-add-btn {
+    padding: 5px 10px;
+    border: 1px solid var(--border-strong);
+    border-radius: 6px;
+    font-size: 12px;
+    color: var(--text-2);
+    transition: all 0.15s ease;
+  }
+  .kpi-add-btn:hover { border-color: var(--brand); color: var(--brand-hover); background: var(--brand-tint); }
+
+  .kpi-custom {
+    margin-top: 18px;
+    padding-top: 18px;
+    border-top: 1px dashed var(--border);
+  }
+  .kpi-custom-link {
+    color: var(--brand-hover);
+    font-size: 13px;
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .kpi-custom-link:hover { color: var(--brand); }
+  .kpi-custom-help { font-size: 11.5px; color: var(--text-3); margin-top: 4px; }
+
+  /* DANGER ZONE */
+  .danger-zone {
+    border-color: rgba(220, 38, 38, 0.18);
+    background: var(--surface);
+  }
+  .danger-zone .sec-head { border-bottom-color: rgba(220, 38, 38, 0.18); }
+  .danger-zone .sec-head h2 { color: var(--red); }
+  .danger-row {
+    padding: 14px 0;
+    border-bottom: 1px solid rgba(220, 38, 38, 0.12);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+  .danger-row:last-child { border-bottom: none; }
+  .danger-row-title { font-size: 13px; font-weight: 500; color: var(--text); }
+  .danger-row-help { font-size: 11.5px; color: var(--text-3); margin-top: 2px; line-height: 1.4; max-width: 56ch; }
+
+  @media (max-width: 980px) {
+    .settings-grid { grid-template-columns: 1fr; }
+    .settings-nav { position: relative; top: 0; flex-direction: row; flex-wrap: wrap; }
+    .kpi-available-grid { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 880px) {
+    .sidebar { transform: translateX(-100%); transition: transform 0.2s ease; }
+    .main { margin-left: 0; }
+    .page { padding: 22px 20px 60px; }
+    .sec-row { grid-template-columns: 1fr; gap: 8px; }
+    .kpi-item { grid-template-columns: 14px 1fr; }
+    .kpi-pos, .kpi-format, .kpi-remove { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<aside class="sidebar">
+  <a href="./index.html" class="side-brand">
+    <svg class="side-brand-mark" viewBox="0 0 22 22" fill="none"><rect width="22" height="22" rx="5" fill="#171717"/><circle cx="11" cy="11" r="4.2" fill="none" stroke="#00b3b3" stroke-width="1.6"/><circle cx="11" cy="11" r="1.4" fill="#00b3b3"/></svg>
+    <span class="side-brand-word">AMBITT AGENTS</span>
+  </a>
+  <div class="side-agent-picker">
+    <div class="side-agent-avatar">A</div>
+    <div class="side-agent-info">
+      <div class="side-agent-name">Arthur <span class="dot dot-emerald pulse" style="width:5px;height:5px;"></span></div>
+      <div class="side-agent-role">CRE deal sourcing</div>
+    </div>
+    <svg class="side-agent-chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 4 L8 7 L11 4 M5 8 L8 11 L11 8"/></svg>
+  </div>
+  <nav class="side-nav">
+    <div class="side-section">
+      <div class="side-section-label">Agent</div>
+      <a class="side-link" href="./portal-agent-overview.html"><svg class="side-link-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="5.5" height="5.5" rx="1"/><rect x="8.5" y="2" width="5.5" height="5.5" rx="1"/><rect x="2" y="8.5" width="5.5" height="5.5" rx="1"/><rect x="8.5" y="8.5" width="5.5" height="5.5" rx="1"/></svg> Overview</a>
+      <a class="side-link" href="./portal-tools.html"><svg class="side-link-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 2 L13 4 L8 9 L6 7 Z"/><path d="M6 7 L2 11 L4 13 L8 9"/></svg> Tools &amp; credentials <span class="side-link-badge">1</span></a>
+      <a class="side-link" href="./portal-recommendations.html"><svg class="side-link-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13 L3 6 L8 2 L13 6 L13 13 Z"/><path d="M6 13 L6 9 L10 9 L10 13"/></svg> Recommendations <span class="side-link-badge">3</span></a>
+      <a class="side-link" href="./portal-activity.html"><svg class="side-link-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4 L14 4"/><path d="M2 8 L14 8"/><path d="M2 12 L14 12"/></svg> Activity log</a>
+      <a class="side-link active" href=""><svg class="side-link-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="2.5"/><path d="M8 1.5 L8 3 M8 13 L8 14.5 M1.5 8 L3 8 M13 8 L14.5 8"/></svg> Settings</a>
+    </div>
+    <div class="side-section">
+      <div class="side-section-label">Account</div>
+      <a class="side-link" href="./portal-billing.html"><svg class="side-link-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="4" width="12" height="9" rx="1.5"/><path d="M2 7 L14 7"/></svg> Billing &amp; invoices</a>
+      <a class="side-link" href="./portal-team.html"><svg class="side-link-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M11 14 A4 4 0 0 0 3 14"/><circle cx="7" cy="6.5" r="2.5"/></svg> Team</a>
+      <a class="side-link" href="./portal-notifications.html"><svg class="side-link-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6 A5 5 0 0 1 13 6 L13 10 L14 12 L2 12 L3 10 Z"/><path d="M6 12 A2 2 0 0 0 10 12"/></svg> Notifications</a>
+    </div>
+  </nav>
+  <div class="side-account">
+    <div class="side-account-avatar">CL</div>
+    <div class="side-account-info">
+      <div class="side-account-name">Casey Litsey</div>
+      <div class="side-account-tier">Scale tier · $2,499/mo</div>
+    </div>
+    <svg style="color: var(--text-4); width: 13px; height: 13px;" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M6 5 L10 8 L6 11"/></svg>
+  </div>
+</aside>
+
+<div class="main">
+  <header class="topbar">
+    <div class="crumb"><span>Agents</span><span class="crumb-sep">/</span><span>Arthur</span><span class="crumb-sep">/</span><span class="crumb-current">Settings</span></div>
+    <div class="topbar-status"><span class="dot"></span> Active</div>
+    <div class="topbar-spacer"></div>
+    <div class="topbar-search"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5 L14 14"/></svg>Search…<kbd>⌘K</kbd></div>
+    <button class="topbar-icon-btn"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6 A5 5 0 0 1 13 6 L13 10 L14 12 L2 12 L3 10 Z"/><path d="M6 12 A2 2 0 0 0 10 12"/></svg></button>
+  </header>
+
+  <div class="page">
+
+    <div class="page-head">
+      <div class="page-head-left">
+        <div class="page-head-meta">
+          <span class="page-head-meta-tag">Arthur · CRE deal sourcing</span>
+          <span>Changes save automatically · last saved 2 min ago</span>
+        </div>
+        <h1 class="display page-title">Settings</h1>
+        <p class="page-subtitle">
+          How Arthur behaves, what he tracks, what counts as success. Most of this came from your onboarding answers — change anything below and Arthur picks it up on his next run.
+        </p>
+      </div>
+      <div class="page-head-actions">
+        <button class="btn"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3 8 A5 5 0 0 1 13 8 M13 8 L11 6 M13 8 L11 10"/></svg> Reset to defaults</button>
+      </div>
+    </div>
+
+    <div class="settings-grid">
+
+      <!-- LEFT NAV -->
+      <nav class="settings-nav">
+        <a class="settings-nav-link" href="#identity">Identity &amp; voice</a>
+        <a class="settings-nav-link" href="#schedule">Schedule</a>
+        <a class="settings-nav-link" href="#autonomy">Autonomy</a>
+        <a class="settings-nav-link active" href="#kpis">
+          KPIs <span class="badge">New</span>
+        </a>
+        <a class="settings-nav-link" href="#memory">Memory</a>
+        <a class="settings-nav-link" href="#handoffs">Hand-offs</a>
+        <div class="settings-nav-sep"></div>
+        <a class="settings-nav-link" href="#danger" style="color: var(--red);">Danger zone</a>
+      </nav>
+
+      <!-- CONTENT -->
+      <div class="settings-content">
+
+        <!-- IDENTITY -->
+        <section class="sec" id="identity">
+          <div class="sec-head">
+            <div class="sec-head-left">
+              <h2>Identity &amp; voice</h2>
+              <p class="sec-head-desc">How Arthur introduces himself, what voice he uses, and what email he sends from.</p>
+            </div>
+          </div>
+          <div class="sec-body">
+            <div class="sec-row">
+              <div>
+                <div class="sec-row-label">Agent name</div>
+                <div class="sec-row-help">Shown in subject lines and signatures.</div>
+              </div>
+              <div class="sec-row-control"><input class="input" value="Arthur" /></div>
+            </div>
+            <div class="sec-row">
+              <div>
+                <div class="sec-row-label">Role / job title</div>
+                <div class="sec-row-help">One line — used in the digest header and the email signature.</div>
+              </div>
+              <div class="sec-row-control"><input class="input" value="CRE lead-gen, outreach &amp; deal-sourcing agent" style="width: 380px;" /></div>
+            </div>
+            <div class="sec-row">
+              <div>
+                <div class="sec-row-label">Send-from address</div>
+                <div class="sec-row-help">Outbound emails appear from this. Replies route back via Reply-To.</div>
+              </div>
+              <div class="sec-row-control">
+                <span class="mono" style="font-size: 13px; color: var(--text-2);">casey@litseycre.com</span>
+                <span class="dot dot-emerald" style="width:5px;height:5px;"></span>
+                <span style="font-size: 11.5px; color: var(--text-3);">Connected via Gmail OAuth</span>
+              </div>
+            </div>
+            <div class="sec-row">
+              <div>
+                <div class="sec-row-label">Brand voice</div>
+                <div class="sec-row-help">Atlas tunes Arthur's drafts to this tone. Used in proposal generation too.</div>
+              </div>
+              <div class="sec-row-control">
+                <select class="select" style="width: 280px;">
+                  <option>Casey-style — direct, brief, dry humor</option>
+                  <option>Formal — pure professional, no contractions</option>
+                  <option>Warm — friendly, conversational, longer</option>
+                  <option>Custom — paste samples</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- SCHEDULE -->
+        <section class="sec" id="schedule">
+          <div class="sec-head">
+            <div class="sec-head-left">
+              <h2>Schedule</h2>
+              <p class="sec-head-desc">When and how Arthur runs. Triggered = reacts to events (inbound emails, calendar changes). Scheduled = fires on a fixed cadence.</p>
+            </div>
+          </div>
+          <div class="sec-body">
+            <div class="sec-row">
+              <div>
+                <div class="sec-row-label">Run mode</div>
+                <div class="sec-row-help">How Arthur kicks off work.</div>
+              </div>
+              <div class="sec-row-control" style="width: 100%;">
+                <div class="radio-cards" style="width: 100%;">
+                  <div class="radio-card selected">
+                    <div class="radio-card-title">Triggered</div>
+                    <div class="radio-card-desc">Reacts to inbound events. Also runs a scheduled morning source pass.</div>
+                  </div>
+                  <div class="radio-card">
+                    <div class="radio-card-title">Scheduled only</div>
+                    <div class="radio-card-desc">Fixed times of day. No inbound reactions.</div>
+                  </div>
+                  <div class="radio-card">
+                    <div class="radio-card-title">Paused</div>
+                    <div class="radio-card-desc">Won't run. Held state — keeps memory + tools.</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="sec-row">
+              <div>
+                <div class="sec-row-label">Timezone</div>
+                <div class="sec-row-help">Used for digest send times and "business hours" guardrails.</div>
+              </div>
+              <div class="sec-row-control"><select class="select"><option>America/Chicago (CT)</option><option>America/New_York (ET)</option><option>America/Los_Angeles (PT)</option></select></div>
+            </div>
+            <div class="sec-row">
+              <div>
+                <div class="sec-row-label">Morning source pass</div>
+                <div class="sec-row-help">Daily CoStar + Crexi run.</div>
+              </div>
+              <div class="sec-row-control">
+                <select class="select"><option>09:00 CT — every weekday</option><option>07:00 CT — every weekday</option><option>09:00 CT — Mon-Sat</option></select>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- AUTONOMY -->
+        <section class="sec" id="autonomy">
+          <div class="sec-head">
+            <div class="sec-head-left">
+              <h2>Autonomy</h2>
+              <p class="sec-head-desc">How much Arthur does without asking. Most clients keep this on supervised until they trust the agent.</p>
+            </div>
+          </div>
+          <div class="sec-body">
+            <div class="sec-row">
+              <div>
+                <div class="sec-row-label">Mode</div>
+                <div class="sec-row-help">Toggle once you've seen 2 weeks of solid drafts.</div>
+              </div>
+              <div class="sec-row-control" style="width: 100%;">
+                <div class="radio-cards">
+                  <div class="radio-card selected">
+                    <div class="radio-card-title">Supervised</div>
+                    <div class="radio-card-desc">Drafts everything, waits for your approval before send.</div>
+                  </div>
+                  <div class="radio-card">
+                    <div class="radio-card-title">Autonomous</div>
+                    <div class="radio-card-desc">Sends without approval inside hard limits. Stops on edge cases.</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="sec-row">
+              <div>
+                <div class="sec-row-label">Hard limits</div>
+                <div class="sec-row-help">Even in autonomous mode, Arthur stops at these.</div>
+              </div>
+              <div class="sec-row-control" style="flex-direction: column; align-items: flex-start; gap: 8px; width: 100%;">
+                <label style="display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--text-2);"><div class="toggle on"></div> Cap outreach at 50 emails/day</label>
+                <label style="display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--text-2);"><div class="toggle on"></div> Never email anyone twice within 7 days</label>
+                <label style="display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--text-2);"><div class="toggle on"></div> Stop if reply rate drops &gt; 5 pts</label>
+                <label style="display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--text-2);"><div class="toggle"></div> Don't run on weekends</label>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- KPIs (STAR FEATURE) -->
+        <section class="sec" id="kpis">
+          <div class="sec-head">
+            <div class="sec-head-left">
+              <h2>Dashboard KPIs</h2>
+              <p class="sec-head-desc">The four numbers shown on your Overview page. Pick what tells YOU Arthur is working. Drag to reorder, rename to fit your vocabulary, swap any of them out.</p>
+            </div>
+            <button class="btn btn-sm"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3 8 A5 5 0 0 1 13 8 M13 8 L11 6 M13 8 L11 10"/></svg> Restore defaults</button>
+          </div>
+          <div class="sec-body">
+
+            <div class="kpi-picker-intro">
+              <span>
+                <strong>How this works</strong> · these came from your onboarding answers about "what should Arthur do for you?". Atlas proposed them based on your domain (B2B CRE lead-gen). Casey says: <em>"a CRE broker measures pipeline by outreach volume, reply rate, leads sourced, and cost — but you might frame it differently."</em>
+              </span>
+            </div>
+
+            <!-- Active 4 KPIs -->
+            <div class="kpi-active">
+
+              <div class="kpi-item">
+                <span class="kpi-drag" title="Drag to reorder"><svg viewBox="0 0 12 14" fill="currentColor"><circle cx="3" cy="3" r="1"/><circle cx="9" cy="3" r="1"/><circle cx="3" cy="7" r="1"/><circle cx="9" cy="7" r="1"/><circle cx="3" cy="11" r="1"/><circle cx="9" cy="11" r="1"/></svg></span>
+                <div class="kpi-pos">01</div>
+                <div class="kpi-body">
+                  <input class="kpi-label-input" value="Outreach sent" />
+                  <div class="kpi-source">Source: <span class="mono">count(activity.kind = "sent")</span> · weekly window</div>
+                </div>
+                <div class="kpi-format">int</div>
+                <button class="kpi-remove" title="Remove"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 4 L12 12 M12 4 L4 12"/></svg></button>
+              </div>
+
+              <div class="kpi-item">
+                <span class="kpi-drag"><svg viewBox="0 0 12 14" fill="currentColor"><circle cx="3" cy="3" r="1"/><circle cx="9" cy="3" r="1"/><circle cx="3" cy="7" r="1"/><circle cx="9" cy="7" r="1"/><circle cx="3" cy="11" r="1"/><circle cx="9" cy="11" r="1"/></svg></span>
+                <div class="kpi-pos">02</div>
+                <div class="kpi-body">
+                  <input class="kpi-label-input" value="Reply rate" />
+                  <div class="kpi-source">Source: <span class="mono">replied / sent</span> · weekly window</div>
+                </div>
+                <div class="kpi-format">%</div>
+                <button class="kpi-remove"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 4 L12 12 M12 4 L4 12"/></svg></button>
+              </div>
+
+              <div class="kpi-item">
+                <span class="kpi-drag"><svg viewBox="0 0 12 14" fill="currentColor"><circle cx="3" cy="3" r="1"/><circle cx="9" cy="3" r="1"/><circle cx="3" cy="7" r="1"/><circle cx="9" cy="7" r="1"/><circle cx="3" cy="11" r="1"/><circle cx="9" cy="11" r="1"/></svg></span>
+                <div class="kpi-pos">03</div>
+                <div class="kpi-body">
+                  <input class="kpi-label-input" value="Leads sourced" />
+                  <div class="kpi-source">Source: <span class="mono">count(activity.kind = "sourced")</span> · weekly window</div>
+                </div>
+                <div class="kpi-format">int</div>
+                <button class="kpi-remove"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 4 L12 12 M12 4 L4 12"/></svg></button>
+              </div>
+
+              <div class="kpi-item">
+                <span class="kpi-drag"><svg viewBox="0 0 12 14" fill="currentColor"><circle cx="3" cy="3" r="1"/><circle cx="9" cy="3" r="1"/><circle cx="3" cy="7" r="1"/><circle cx="9" cy="7" r="1"/><circle cx="3" cy="11" r="1"/><circle cx="9" cy="11" r="1"/></svg></span>
+                <div class="kpi-pos">04</div>
+                <div class="kpi-body">
+                  <input class="kpi-label-input" value="Cost this month" />
+                  <div class="kpi-source">Source: <span class="mono">sum(ApiUsage.costInCents)</span> · monthly · always available</div>
+                </div>
+                <div class="kpi-format">$</div>
+                <button class="kpi-remove" disabled style="opacity: 0.3;"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 4 L12 12 M12 4 L4 12"/></svg></button>
+              </div>
+
+            </div>
+
+            <!-- Available KPIs -->
+            <div class="kpi-available-head">
+              <span class="kpi-available-title">Available — Arthur could compute these</span>
+              <span class="kpi-available-help">Drop one in to replace an active KPI</span>
+            </div>
+            <div class="kpi-available-grid">
+
+              <div class="kpi-avail">
+                <div class="kpi-avail-body">
+                  <div class="kpi-avail-label">Deals advanced</div>
+                  <div class="kpi-avail-desc"># prospects who moved from cold → warm → call-booked this week</div>
+                </div>
+                <button class="kpi-add-btn">+ Add</button>
+              </div>
+
+              <div class="kpi-avail">
+                <div class="kpi-avail-body">
+                  <div class="kpi-avail-label">Avg time to first reply</div>
+                  <div class="kpi-avail-desc">From send to first inbound · indicates list quality</div>
+                </div>
+                <button class="kpi-add-btn">+ Add</button>
+              </div>
+
+              <div class="kpi-avail">
+                <div class="kpi-avail-body">
+                  <div class="kpi-avail-label">Cold-revival rate</div>
+                  <div class="kpi-avail-desc">% of T+21 nudges that wake up a cold prospect</div>
+                </div>
+                <button class="kpi-add-btn">+ Add</button>
+              </div>
+
+              <div class="kpi-avail">
+                <div class="kpi-avail-body">
+                  <div class="kpi-avail-label">Calls booked</div>
+                  <div class="kpi-avail-desc">Calendly events Arthur scheduled this week</div>
+                </div>
+                <button class="kpi-add-btn">+ Add</button>
+              </div>
+
+              <div class="kpi-avail">
+                <div class="kpi-avail-body">
+                  <div class="kpi-avail-label">Properties cross-referenced</div>
+                  <div class="kpi-avail-desc">CoStar + Crexi dedupe pass · indicates source quality</div>
+                </div>
+                <button class="kpi-add-btn">+ Add</button>
+              </div>
+
+              <div class="kpi-avail">
+                <div class="kpi-avail-body">
+                  <div class="kpi-avail-label">Recommendations approved</div>
+                  <div class="kpi-avail-desc">Your approval rate on Arthur's suggestions</div>
+                </div>
+                <button class="kpi-add-btn">+ Add</button>
+              </div>
+
+            </div>
+
+            <div class="kpi-custom">
+              <a href="#" class="kpi-custom-link">
+                <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M8 3 L8 13 M3 8 L13 8"/></svg>
+                Define a custom KPI
+              </a>
+              <div class="kpi-custom-help">Write a formula in plain English — Atlas will translate it into a query Arthur can run.</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- MEMORY (collapsed-ish) -->
+        <section class="sec" id="memory">
+          <div class="sec-head">
+            <div class="sec-head-left">
+              <h2>Memory</h2>
+              <p class="sec-head-desc">What Arthur remembers between runs — your ICP, your tone preferences, your pet-peeves with brokers. Updated automatically; you can edit any of it.</p>
+            </div>
+            <button class="btn btn-sm">View memory</button>
+          </div>
+          <div class="sec-body">
+            <div class="sec-row">
+              <div>
+                <div class="sec-row-label">Last updated</div>
+                <div class="sec-row-help">Arthur updates memory after every run if something material changed.</div>
+              </div>
+              <div class="sec-row-control"><span class="mono" style="font-size: 13px; color: var(--text-2);">2h ago · Wed Jun 4 09:14 CT</span></div>
+            </div>
+            <div class="sec-row">
+              <div>
+                <div class="sec-row-label">Size</div>
+                <div class="sec-row-help">Total stored memory (system prompt + persistent notes).</div>
+              </div>
+              <div class="sec-row-control"><span class="mono" style="font-size: 13px; color: var(--text-2);">7,418 chars · 2,143 tokens</span></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- HAND-OFFS -->
+        <section class="sec" id="handoffs">
+          <div class="sec-head">
+            <div class="sec-head-left">
+              <h2>Hand-offs</h2>
+              <p class="sec-head-desc">When Arthur escalates to you — and how.</p>
+            </div>
+          </div>
+          <div class="sec-body">
+            <div class="sec-row">
+              <div>
+                <div class="sec-row-label">Escalation channel</div>
+                <div class="sec-row-help">How Arthur reaches you when something needs human judgment.</div>
+              </div>
+              <div class="sec-row-control"><select class="select"><option>Email + WhatsApp</option><option>Email only</option><option>WhatsApp only</option></select></div>
+            </div>
+            <div class="sec-row">
+              <div>
+                <div class="sec-row-label">Escalation triggers</div>
+                <div class="sec-row-help">Events that pull you in.</div>
+              </div>
+              <div class="sec-row-control" style="flex-direction: column; align-items: flex-start; gap: 8px; width: 100%;">
+                <label style="display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--text-2);"><div class="toggle on"></div> Warm inbound reply (anyone responds with "yes")</label>
+                <label style="display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--text-2);"><div class="toggle on"></div> Cap-rate flag &gt; 200 bps gap</label>
+                <label style="display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--text-2);"><div class="toggle on"></div> Tool authentication expires</label>
+                <label style="display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--text-2);"><div class="toggle"></div> Reply rate drops below 10%</label>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- DANGER ZONE -->
+        <section class="sec danger-zone" id="danger">
+          <div class="sec-head">
+            <div class="sec-head-left">
+              <h2>Danger zone</h2>
+              <p class="sec-head-desc">Permanent or destructive actions — please be sure.</p>
+            </div>
+          </div>
+          <div class="sec-body" style="padding: 0 22px;">
+            <div class="danger-row">
+              <div>
+                <div class="danger-row-title">Pause Arthur</div>
+                <div class="danger-row-help">Holds all activity. Memory + tools stay connected. Resumable any time.</div>
+              </div>
+              <button class="btn">Pause</button>
+            </div>
+            <div class="danger-row">
+              <div>
+                <div class="danger-row-title">Transfer ownership</div>
+                <div class="danger-row-help">Move Arthur to a teammate's account. They take over billing.</div>
+              </div>
+              <button class="btn">Transfer →</button>
+            </div>
+            <div class="danger-row">
+              <div>
+                <div class="danger-row-title">Retire Arthur</div>
+                <div class="danger-row-help">Disconnects tools, archives memory, stops billing at the end of the period. Cannot be undone.</div>
+              </div>
+              <button class="btn btn-danger">Retire agent</button>
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </div>
+
+  </div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Arthur · Billing — Ambitt</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..900,0..100,0..1&family=Geist:wght@300..900&family=Geist+Mono&display=swap" />
+
+<style>
+  :root {
+    --bg: #fafaf8; --surface: #ffffff; --surface-2: #f5f5f3; --surface-3: #ebebe7;
+    --text: #171717; --text-2: #404040; --text-3: #737373; --text-4: #a3a3a3; --text-5: #d4d4d4;
+    --border: #ececec; --border-strong: #d4d4d4;
+    --brand: #00b3b3; --brand-hover: #099;
+    --brand-tint: rgba(0, 179, 179, 0.08); --brand-tint-strong: rgba(0, 179, 179, 0.14);
+    --brand-shadow: 0 1px 2px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 179, 179, 0.18);
+    --emerald: #10b981; --emerald-tint: rgba(16, 185, 129, 0.1);
+    --amber: #f59e0b; --amber-tint: rgba(245, 158, 11, 0.1);
+    --red: #dc2626; --red-tint: rgba(220, 38, 38, 0.08);
+    --blue: #3b82f6; --blue-tint: rgba(59, 130, 246, 0.08);
+    --purple: #8b5cf6; --purple-tint: rgba(139, 92, 246, 0.1);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility; }
+  body { background: var(--bg); color: var(--text); font-family: 'Geist', -apple-system, sans-serif; font-size: 14px; line-height: 1.5; font-feature-settings: "ss01" on, "cv11" on; min-height: 100vh; }
+  a { color: inherit; text-decoration: none; }
+  button { font: inherit; cursor: pointer; border: none; background: none; color: inherit; }
+  .display { font-family: 'Fraunces', Georgia, serif; font-variation-settings: "SOFT" 50, "WONK" 0, "opsz" 144; letter-spacing: -0.022em; font-weight: 400; }
+  .mono { font-family: 'Geist Mono', 'SF Mono', Menlo, monospace; }
+
+  .sidebar { position: fixed; top: 0; left: 0; width: 248px; height: 100vh; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; z-index: 20; }
+  .main { margin-left: 248px; min-height: 100vh; display: flex; flex-direction: column; }
+  .side-brand { height: 56px; display: flex; align-items: center; gap: 9px; padding: 0 16px; border-bottom: 1px solid var(--border); }
+  .side-brand-mark { width: 22px; height: 22px; display: block; flex-shrink: 0; }
+  .side-brand-word { font-family: 'Geist Mono', monospace; font-size: 10.5px; font-weight: 600; letter-spacing: 0.18em; color: var(--text); }
+  .side-agent-picker { margin: 12px 12px 8px; padding: 10px 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 9px; display: flex; align-items: center; gap: 10px; cursor: pointer; }
+  .side-agent-picker:hover { background: var(--surface-3); }
+  .side-agent-avatar { width: 26px; height: 26px; border-radius: 7px; background: var(--brand-tint-strong); display: flex; align-items: center; justify-content: center; color: var(--brand-hover); font-family: 'Fraunces', serif; font-size: 14px; font-weight: 500; flex-shrink: 0; }
+  .side-agent-info { flex: 1; min-width: 0; line-height: 1.2; }
+  .side-agent-name { font-size: 13px; font-weight: 500; color: var(--text); display: flex; align-items: center; gap: 6px; }
+  .side-agent-role { font-size: 11.5px; color: var(--text-3); margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .side-agent-chev { color: var(--text-4); width: 13px; height: 13px; flex-shrink: 0; }
+  .dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; display: inline-block; }
+  .dot.pulse { position: relative; }
+  .dot.pulse::after { content: ''; position: absolute; inset: -3px; border-radius: 50%; border: 1px solid currentColor; opacity: 0.5; animation: pulseRing 2.4s ease-out infinite; }
+  @keyframes pulseRing { 0% { transform: scale(0.8); opacity: 0.6; } 100% { transform: scale(1.85); opacity: 0; } }
+  .dot-emerald { background: var(--emerald); color: var(--emerald); }
+  .side-nav { flex: 1; padding: 8px 8px 16px; overflow-y: auto; }
+  .side-section { margin-top: 16px; padding: 0 8px; }
+  .side-section-label { font-size: 10px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-4); padding: 0 8px 6px; }
+  .side-link { display: flex; align-items: center; gap: 9px; padding: 7px 8px; border-radius: 7px; font-size: 13px; color: var(--text-2); margin-bottom: 1px; transition: all 0.12s ease; position: relative; }
+  .side-link:hover { background: var(--surface-2); color: var(--text); }
+  .side-link.active { background: var(--brand-tint); color: var(--brand-hover); font-weight: 500; }
+  .side-link.active::before { content: ''; position: absolute; left: -8px; top: 6px; bottom: 6px; width: 2px; background: var(--brand); border-radius: 0 2px 2px 0; }
+  .side-link-icon { width: 15px; height: 15px; color: currentColor; opacity: 0.7; flex-shrink: 0; }
+  .side-link.active .side-link-icon { opacity: 1; }
+  .side-link-badge { margin-left: auto; background: var(--amber); color: white; font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 999px; min-width: 18px; text-align: center; }
+  .side-account { padding: 10px 12px; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 10px; cursor: pointer; transition: background 0.15s ease; }
+  .side-account:hover { background: var(--surface-2); }
+  .side-account-avatar { width: 26px; height: 26px; border-radius: 50%; background: linear-gradient(135deg, #fef3c7 0%, #fed7aa 100%); color: #b45309; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; flex-shrink: 0; }
+  .side-account-info { flex: 1; min-width: 0; line-height: 1.2; }
+  .side-account-name { font-size: 12.5px; font-weight: 500; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .side-account-tier { font-size: 11px; color: var(--text-3); margin-top: 1px; }
+
+  .topbar { height: 56px; border-bottom: 1px solid var(--border); background: var(--surface); display: flex; align-items: center; padding: 0 28px; gap: 16px; position: sticky; top: 0; z-index: 10; }
+  .crumb { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-3); }
+  .crumb-sep { color: var(--text-5); }
+  .crumb-current { color: var(--text); font-weight: 500; }
+  .topbar-status { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-3); background: var(--emerald-tint); padding: 3px 9px 3px 10px; border-radius: 999px; margin-left: 4px; }
+  .topbar-status .dot { background: var(--emerald); }
+  .topbar-spacer { flex: 1; }
+  .topbar-search { display: flex; align-items: center; gap: 8px; background: var(--surface-2); border: 1px solid transparent; border-radius: 8px; padding: 6px 12px; font-size: 13px; color: var(--text-3); min-width: 220px; }
+  .topbar-search:hover { border-color: var(--border); }
+  .topbar-search svg { width: 13px; height: 13px; color: var(--text-4); }
+  .topbar-search kbd { margin-left: auto; font-family: 'Geist Mono', monospace; font-size: 11px; background: var(--surface); border: 1px solid var(--border); color: var(--text-4); padding: 1px 5px; border-radius: 4px; }
+  .topbar-icon-btn { width: 32px; height: 32px; border-radius: 7px; display: flex; align-items: center; justify-content: center; color: var(--text-3); }
+  .topbar-icon-btn:hover { background: var(--surface-2); color: var(--text); }
+  .topbar-icon-btn svg { width: 16px; height: 16px; }
+
+  .page { padding: 28px 32px 64px; max-width: 1200px; width: 100%; }
+  .page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; flex-wrap: wrap; margin-bottom: 22px; }
+  .page-head-left { min-width: 0; }
+  .page-head-meta { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-3); margin-bottom: 8px; }
+  .page-head-meta-tag { font-size: 10.5px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--brand-hover); background: var(--brand-tint); padding: 2px 7px; border-radius: 4px; }
+  .page-title { font-size: 36px; line-height: 1; color: var(--text); margin-bottom: 8px; }
+  .page-subtitle { font-size: 14px; color: var(--text-3); max-width: 64ch; line-height: 1.55; }
+  .page-head-actions { display: flex; align-items: center; gap: 8px; }
+
+  .btn { display: inline-flex; align-items: center; gap: 7px; padding: 8px 14px; border-radius: 8px; font-size: 13px; font-weight: 500; border: 1px solid var(--border); background: var(--surface); color: var(--text-2); transition: all 0.15s ease; cursor: pointer; }
+  .btn:hover { border-color: var(--border-strong); color: var(--text); }
+  .btn-primary { background: var(--brand); color: white; border-color: var(--brand); box-shadow: var(--brand-shadow); }
+  .btn-primary:hover { background: var(--brand-hover); border-color: var(--brand-hover); color: white; }
+  .btn-sm { padding: 6px 11px; font-size: 12.5px; }
+  .btn svg { width: 13px; height: 13px; }
+
+  /* HERO TOP STRIP */
+  .billing-strip {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 28px;
+  }
+  .bcell {
+    padding: 18px 22px;
+    border-right: 1px solid var(--border);
+  }
+  .bcell:last-child { border-right: none; }
+  .bcell-label {
+    font-size: 11px;
+    color: var(--text-3);
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .bcell-value {
+    font-size: 24px;
+    font-weight: 500;
+    color: var(--text);
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+  }
+  .bcell-value .unit { font-size: 14px; font-weight: 400; color: var(--text-3); margin-left: 2px; }
+  .bcell-meta { font-size: 11.5px; color: var(--text-3); margin-top: 4px; }
+
+  /* SECTION CARDS */
+  .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-bottom: 24px; }
+  .panel-head { padding: 16px 22px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .panel-head-left h3 { font-size: 14px; font-weight: 500; color: var(--text); margin-bottom: 2px; }
+  .panel-head-left-desc { font-size: 12px; color: var(--text-3); }
+  .panel-head-actions { display: flex; align-items: center; gap: 8px; }
+  .panel-body { padding: 20px 22px; }
+
+  /* COST BREAKDOWN — stacked bar */
+  .cost-bar {
+    display: flex;
+    height: 22px;
+    border-radius: 6px;
+    overflow: hidden;
+    margin-bottom: 16px;
+    background: var(--surface-2);
+  }
+  .cost-bar-seg {
+    height: 100%;
+    transition: opacity 0.15s ease;
+    cursor: pointer;
+  }
+  .cost-bar-seg:hover { opacity: 0.85; }
+  .cost-bar-seg.sonnet { background: var(--brand); }
+  .cost-bar-seg.haiku { background: var(--brand-tint-strong); border-left: 1px solid var(--surface); }
+  .cost-bar-seg.composio { background: var(--blue); border-left: 1px solid var(--surface); }
+  .cost-bar-seg.browserbase { background: var(--purple); border-left: 1px solid var(--surface); }
+
+  /* COST LEGEND TABLE */
+  .cost-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .cost-table th {
+    text-align: left;
+    padding: 8px 0;
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    color: var(--text-3);
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--border);
+  }
+  .cost-table th.num { text-align: right; }
+  .cost-table td {
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-2);
+  }
+  .cost-table tr:last-child td { border-bottom: none; }
+  .cost-table td.num { text-align: right; font-family: 'Geist Mono', monospace; font-size: 12.5px; color: var(--text); }
+  .cost-table td.label { display: flex; align-items: center; gap: 10px; }
+  .cost-table tfoot td {
+    padding-top: 14px;
+    font-weight: 600;
+    color: var(--text);
+    font-size: 13.5px;
+    border-bottom: none;
+    border-top: 1px solid var(--border-strong);
+  }
+  .cost-table tfoot td.num { font-size: 14.5px; }
+  .cost-key {
+    width: 10px;
+    height: 10px;
+    border-radius: 3px;
+    flex-shrink: 0;
+  }
+  .cost-key.sonnet { background: var(--brand); }
+  .cost-key.haiku { background: var(--brand-tint-strong); }
+  .cost-key.composio { background: var(--blue); }
+  .cost-key.browserbase { background: var(--purple); }
+  .cost-table-name { font-weight: 500; color: var(--text); }
+  .cost-table-sub { font-size: 11.5px; color: var(--text-3); margin-top: 1px; }
+
+  /* INVOICE TABLE */
+  .invoice-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .invoice-table thead {
+    background: var(--surface-2);
+  }
+  .invoice-table th {
+    text-align: left;
+    padding: 9px 22px;
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    color: var(--text-3);
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--border);
+  }
+  .invoice-table th.num { text-align: right; padding-right: 22px; }
+  .invoice-table td {
+    padding: 12px 22px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-2);
+  }
+  .invoice-table tr:last-child td { border-bottom: none; }
+  .invoice-table td.num { text-align: right; font-family: 'Geist Mono', monospace; }
+  .invoice-table td.date { font-family: 'Geist Mono', monospace; font-size: 11.5px; color: var(--text-3); width: 130px; }
+  .invoice-table td.id { font-family: 'Geist Mono', monospace; font-size: 11.5px; color: var(--text-4); width: 140px; }
+  .invoice-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 2px 8px;
+    border-radius: 999px;
+  }
+  .invoice-status.paid { background: var(--emerald-tint); color: #047857; }
+  .invoice-status.due { background: var(--amber-tint); color: #b45309; }
+  .invoice-status::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: currentColor; opacity: 0.7; }
+
+  /* PLAN CARD */
+  .plan-grid {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr;
+    gap: 22px;
+    align-items: start;
+  }
+  .plan-detail { font-size: 13px; color: var(--text-2); line-height: 1.6; }
+  .plan-detail p { margin-bottom: 8px; }
+  .plan-detail ul { padding-left: 20px; }
+  .plan-detail li { margin-bottom: 5px; color: var(--text-2); }
+  .plan-detail li::marker { color: var(--brand); }
+
+  .upgrade-card {
+    background: var(--surface-2);
+    border: 1px dashed var(--border-strong);
+    border-radius: 9px;
+    padding: 18px;
+    text-align: center;
+  }
+  .upgrade-card h4 {
+    font-family: 'Fraunces', serif;
+    font-size: 18px;
+    font-weight: 500;
+    margin-bottom: 6px;
+    color: var(--text);
+    letter-spacing: -0.018em;
+  }
+  .upgrade-card-desc { font-size: 12px; color: var(--text-3); line-height: 1.5; margin-bottom: 14px; }
+
+  @media (max-width: 980px) {
+    .billing-strip { grid-template-columns: 1fr 1fr; }
+    .bcell { border-right: none; border-bottom: 1px solid var(--border); }
+    .plan-grid { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 880px) {
+    .sidebar { transform: translateX(-100%); transition: transform 0.2s ease; }
+    .main { margin-left: 0; }
+    .page { padding: 22px 20px 60px; }
+  }
+</style>
+</head>
+<body>
+
+<aside class="sidebar">
+  <a href="./index.html" class="side-brand">
+    <svg class="side-brand-mark" viewBox="0 0 22 22" fill="none"><rect width="22" height="22" rx="5" fill="#171717"/><circle cx="11" cy="11" r="4.2" fill="none" stroke="#00b3b3" stroke-width="1.6"/><circle cx="11" cy="11" r="1.4" fill="#00b3b3"/></svg>
+    <span class="side-brand-word">AMBITT AGENTS</span>
+  </a>
+  <div class="side-agent-picker">
+    <div class="side-agent-avatar">A</div>
+    <div class="side-agent-info">
+      <div class="side-agent-name">Arthur <span class="dot dot-emerald pulse" style="width:5px;height:5px;"></span></div>
+      <div class="side-agent-role">CRE deal sourcing</div>
+    </div>
+    <svg class="side-agent-chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 4 L8 7 L11 4 M5 8 L8 11 L11 8"/></svg>
+  </div>
+  <nav class="side-nav">
+    <div class="side-section">
+      <div class="side-section-label">Agent</div>
+    </div>
+    <div class="side-section">
+      <div class="side-section-label">Account</div>
+      <a class="side-link active" href=""><svg class="side-link-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="4" width="12" height="9" rx="1.5"/><path d="M2 7 L14 7"/></svg> Billing &amp; invoices</a>
+    </div>
+  </nav>
+  <div class="side-account">
+    <div class="side-account-avatar">CL</div>
+    <div class="side-account-info">
+      <div class="side-account-name">Casey Litsey</div>
+      <div class="side-account-tier">Scale tier · $2,499/mo</div>
+    </div>
+    <svg style="color: var(--text-4); width: 13px; height: 13px;" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M6 5 L10 8 L6 11"/></svg>
+  </div>
+</aside>
+
+<div class="main">
+  <header class="topbar">
+    <div class="crumb"><span>Litsey Real Estate</span><span class="crumb-sep">/</span><span class="crumb-current">Billing &amp; invoices</span></div>
+    <div class="topbar-spacer"></div>
+    <div class="topbar-search"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5 L14 14"/></svg>Search invoices…<kbd>⌘K</kbd></div>
+    <button class="topbar-icon-btn"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6 A5 5 0 0 1 13 6 L13 10 L14 12 L2 12 L3 10 Z"/><path d="M6 12 A2 2 0 0 0 10 12"/></svg></button>
+  </header>
+
+  <div class="page">
+
+    <!-- HEAD -->
+    <div class="page-head">
+      <div class="page-head-left">
+        <div class="page-head-meta">
+          <span class="page-head-meta-tag">Scale tier</span>
+          <span>Billing period · June 1 – June 30, 2026</span>
+        </div>
+        <h1 class="display page-title">Billing &amp; invoices</h1>
+        <p class="page-subtitle">
+          Your monthly retainer covers Arthur's existence and our ongoing tuning. Model usage rolls up under your $1,000/mo cap — every API call attributed to the tool it served.
+        </p>
+      </div>
+      <div class="page-head-actions">
+        <button class="btn"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 11 L4 13 A1 1 0 0 0 5 14 L11 14 A1 1 0 0 0 12 13 L12 11"/><path d="M8 10 L8 3 M5 6 L8 3 L11 6"/></svg> Download all (CSV)</button>
+        <button class="btn"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="2.5" y="3.5" width="11" height="10" rx="1"/><path d="M5.5 2 L5.5 5 M10.5 2 L10.5 5"/></svg> Change period</button>
+      </div>
+    </div>
+
+    <!-- TOP STRIP -->
+    <div class="billing-strip">
+      <div class="bcell">
+        <div class="bcell-label">Plan</div>
+        <div class="bcell-value">Scale</div>
+        <div class="bcell-meta">$2,499 / month · billed monthly</div>
+      </div>
+      <div class="bcell">
+        <div class="bcell-label">Model usage · this month</div>
+        <div class="bcell-value">$128<span class="unit">.42</span></div>
+        <div class="bcell-meta">of $1,000 cap · <span style="color: var(--emerald);">on track</span></div>
+      </div>
+      <div class="bcell">
+        <div class="bcell-label">Setup fee</div>
+        <div class="bcell-value">$4,500</div>
+        <div class="bcell-meta">Paid May 26 · invoice <span class="mono" style="color: var(--text-3);">INV-2026-0413</span></div>
+      </div>
+      <div class="bcell">
+        <div class="bcell-label">Next invoice</div>
+        <div class="bcell-value">Jul 1</div>
+        <div class="bcell-meta">Visa •• 4242 · auto-pay</div>
+      </div>
+    </div>
+
+    <!-- COST BREAKDOWN -->
+    <div class="panel">
+      <div class="panel-head">
+        <div class="panel-head-left">
+          <h3>Cost breakdown · June 2026</h3>
+          <div class="panel-head-left-desc">Where Arthur's $128.42 of model + tool usage went this month. Hover any segment for detail.</div>
+        </div>
+        <div class="panel-head-actions">
+          <button class="btn btn-sm">View raw usage</button>
+        </div>
+      </div>
+      <div class="panel-body">
+
+        <!-- Stacked bar -->
+        <div class="cost-bar">
+          <div class="cost-bar-seg sonnet" style="flex: 0 0 45%" title="Sonnet · $58.20"></div>
+          <div class="cost-bar-seg composio" style="flex: 0 0 41%" title="Composio · $52.42"></div>
+          <div class="cost-bar-seg haiku" style="flex: 0 0 12%" title="Haiku · $15.40"></div>
+          <div class="cost-bar-seg browserbase" style="flex: 0 0 2%" title="Browserbase · $2.40"></div>
+        </div>
+
+        <!-- Legend / table -->
+        <table class="cost-table">
+          <thead>
+            <tr>
+              <th>Tool</th>
+              <th>What it did</th>
+              <th class="num">Calls</th>
+              <th class="num">% of total</th>
+              <th class="num">Cost</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="label">
+                <span class="cost-key sonnet"></span>
+                <div>
+                  <div class="cost-table-name">Claude Sonnet 4.6</div>
+                  <div class="cost-table-sub">Outreach drafts · reply triage · cap-rate triage</div>
+                </div>
+              </td>
+              <td>Drafted 47 outreach + 8 reply drafts + 6 recommendations</td>
+              <td class="num">214</td>
+              <td class="num">45.3%</td>
+              <td class="num">$58.20</td>
+            </tr>
+            <tr>
+              <td class="label">
+                <span class="cost-key composio"></span>
+                <div>
+                  <div class="cost-table-name">Composio</div>
+                  <div class="cost-table-sub">Gmail send/read · Drive sheet writes</div>
+                </div>
+              </td>
+              <td>47 emails sent · 8 inbound reads · 73 sheet writes</td>
+              <td class="num">128</td>
+              <td class="num">40.8%</td>
+              <td class="num">$52.42</td>
+            </tr>
+            <tr>
+              <td class="label">
+                <span class="cost-key haiku"></span>
+                <div>
+                  <div class="cost-table-name">Claude Haiku 4.5</div>
+                  <div class="cost-table-sub">Triage loops · pre-screening · dynamic intake</div>
+                </div>
+              </td>
+              <td>Triaged 318 sourced properties, screened 142 inbound emails</td>
+              <td class="num">461</td>
+              <td class="num">12.0%</td>
+              <td class="num">$15.40</td>
+            </tr>
+            <tr>
+              <td class="label">
+                <span class="cost-key browserbase"></span>
+                <div>
+                  <div class="cost-table-name">Browserbase</div>
+                  <div class="cost-table-sub">CoStar + Crexi browse sessions (when login is provided)</div>
+                </div>
+              </td>
+              <td>2 test runs · CoStar login not yet provided (real usage starts then)</td>
+              <td class="num">2</td>
+              <td class="num">1.9%</td>
+              <td class="num">$2.40</td>
+            </tr>
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colspan="3" style="font-weight: 600;">Total · June 1 – Jun 4</td>
+              <td class="num">100%</td>
+              <td class="num">$128.42</td>
+            </tr>
+          </tfoot>
+        </table>
+
+        <p style="font-size: 12px; color: var(--text-3); margin-top: 14px; line-height: 1.55;">
+          Projecting <span class="mono" style="color: var(--text-2);">~$420</span> for the full month at current pace — well under the $1,000 cap. Cap pauses Arthur until you raise it; you'll get a heads-up at 80%.
+        </p>
+      </div>
+    </div>
+
+    <!-- INVOICE HISTORY -->
+    <div class="panel">
+      <div class="panel-head">
+        <div class="panel-head-left">
+          <h3>Invoices</h3>
+          <div class="panel-head-left-desc">Monthly retainer + one-time setup. PDFs hosted by Stripe.</div>
+        </div>
+      </div>
+      <table class="invoice-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Invoice</th>
+            <th>Description</th>
+            <th>Status</th>
+            <th class="num">Amount</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="date">Jun 1, 2026</td>
+            <td class="id">INV-2026-0418</td>
+            <td>Scale retainer · June 2026</td>
+            <td><span class="invoice-status paid">Paid</span></td>
+            <td class="num">$2,499.00</td>
+            <td><a href="#" style="color: var(--brand-hover); font-size: 12px;">PDF →</a></td>
+          </tr>
+          <tr>
+            <td class="date">May 26, 2026</td>
+            <td class="id">INV-2026-0413</td>
+            <td>Setup fee · build of Arthur</td>
+            <td><span class="invoice-status paid">Paid</span></td>
+            <td class="num">$4,500.00</td>
+            <td><a href="#" style="color: var(--brand-hover); font-size: 12px;">PDF →</a></td>
+          </tr>
+          <tr style="opacity: 0.55;">
+            <td class="date">Jul 1, 2026</td>
+            <td class="id">INV-2026-0444</td>
+            <td>Scale retainer · July 2026</td>
+            <td><span class="invoice-status due">Upcoming</span></td>
+            <td class="num">$2,499.00</td>
+            <td><span style="color: var(--text-4); font-size: 11.5px;">Auto-pay</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- PLAN -->
+    <div class="panel">
+      <div class="panel-head">
+        <div class="panel-head-left">
+          <h3>Your plan</h3>
+          <div class="panel-head-left-desc">Scale tier — designed for clients running 1 agent with multi-tool flows.</div>
+        </div>
+        <div class="panel-head-actions"><button class="btn btn-sm">Change plan</button></div>
+      </div>
+      <div class="panel-body">
+        <div class="plan-grid">
+          <div class="plan-detail">
+            <p style="color: var(--text);"><strong style="font-weight: 500;">Included in $2,499/month:</strong></p>
+            <ul>
+              <li>1 named agent (Arthur)</li>
+              <li>Unlimited interactions — no per-message billing</li>
+              <li>Up to 5 tools (3 custom_browse + Composio integrations)</li>
+              <li>Supervised + autonomous modes both available</li>
+              <li>$1,000/month model + tool usage cap (overage at $0.10/interaction once enabled)</li>
+              <li>Tuning + ongoing scope adjustments (1 / month at this tier)</li>
+              <li>Email + WhatsApp support · response within 4 business hours</li>
+            </ul>
+          </div>
+          <div class="upgrade-card">
+            <h4>Enterprise tier</h4>
+            <div class="upgrade-card-desc">Multiple agents, custom tools, dedicated infrastructure, white-glove ongoing tuning.</div>
+            <button class="btn btn-primary btn-sm">Talk to us</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+</body>
+</html>
