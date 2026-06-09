@@ -357,6 +357,10 @@ export async function approveAgent(
     data: {
       status: "active",
       approvedAt: new Date(),
+      // Auto-flip dry-run OFF when agent goes live. Operator can manually
+      // re-enable from the dashboard if they want to test something on an
+      // already-active agent.
+      dryRun: false,
     },
   });
 

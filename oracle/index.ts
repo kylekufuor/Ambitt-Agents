@@ -389,6 +389,99 @@ app.post("/agents/:id/approve", async (req: Request, res: Response) => {
   }
 });
 
+// Operator-initiated "let's get your tools connected" email to the client.
+// Wraps the dormant renderToolsHandoffEmail template (intentionally not
+// auto-fired at Convert — see commit fad7fd4 for the "no premature emails"
+// rule). The operator clicks this button on the agent page when they're
+// ready to invite the client to OAuth their tools.
+app.post("/agents/:id/send-tools-invite", async (req: Request, res: Response) => {
+  void req;
+  const agentId = param(req, "id");
+  try {
+    const agent = await prisma.agent.findUnique({
+      where: { id: agentId },
+      include: {
+        client: { select: { email: true, contactName: true } },
+      },
+    });
+    if (!agent) {
+      res.status(404).json({ error: "Agent not found" });
+      return;
+    }
+
+    const atlas = await prisma.agent.findUnique({
+      where: { email: "atlas@ambitt.agency" },
+      select: { id: true, name: true, status: true },
+    });
+    if (!atlas || atlas.status !== "active") {
+      res.status(500).json({ error: "Atlas is not seeded or not active" });
+      return;
+    }
+
+    const portalBase = process.env.CLIENT_PORTAL_URL ?? "https://client-portal-production-77a9.up.railway.app";
+    const toolsUrl = `${portalBase}/agents/${agent.id}/tools`;
+
+    // Try to surface the actual tool list from the originating Prospect.prdData
+    // if we can find it. Fall back to a generic empty list — the template
+    // handles either gracefully.
+    let toolsList: Array<{ name: string; source: string }> = [];
+    try {
+      const prospect = await prisma.prospect.findFirst({
+        where: { convertedClientId: agent.clientId },
+        select: { prdData: true },
+      });
+      const prd = prospect?.prdData as { tools?: Array<{ name: string; source: string }> } | null;
+      if (prd?.tools && Array.isArray(prd.tools)) {
+        toolsList = prd.tools.map((t) => ({ name: t.name, source: t.source }));
+      }
+    } catch (err) {
+      logger.warn("Tools-invite: PRD lookup failed (using empty list)", {
+        agentId,
+        err: err instanceof Error ? err.message : String(err),
+      });
+    }
+
+    const firstName = (agent.client.contactName ?? "").split(/\s+/)[0] || "there";
+
+    const { sendEmail } = await import("../shared/email.js");
+    await sendEmail({
+      agentId: atlas.id,
+      agentName: atlas.name,
+      to: agent.client.email,
+      subject: `Let's get ${agent.name} ready to start`,
+      html: renderToolsHandoffEmail({
+        firstName,
+        agentName: agent.name,
+        agentRole: agent.purpose.split(".")[0].slice(0, 80) || "your AI teammate",
+        toolsUrl,
+        portalBase,
+        toolsList,
+      }),
+      replyToAgentId: atlas.id,
+      emailType: "tools_invite",
+    });
+
+    await prisma.oracleAction.create({
+      data: {
+        actionType: "send_tools_invite",
+        description: `Tools-invite email sent for agent ${agent.name} to ${agent.client.email}`,
+        agentId,
+        clientId: agent.clientId,
+        status: "completed",
+      },
+    });
+
+    logger.info("Tools-invite sent", { agentId, to: agent.client.email });
+    res.json({ status: "sent", to: agent.client.email });
+  } catch (error) {
+    logger.error("Tools-invite send failed", {
+      agentId,
+      err: error instanceof Error ? error.message : String(error),
+    });
+    res.status(500).json({ error: "Tools-invite send failed" });
+  }
+});
+
 // Reject agent
 app.post("/agents/:id/reject", async (req: Request, res: Response) => {
   try {
@@ -2793,6 +2886,10 @@ app.post("/onboarding/prospects/:id/convert", async (req: Request, res: Response
         analyticsModel: "gemini",
         creativeModel: "gpt-4o",
         status: "pending_approval", // existing scaffold-approval flow takes over here
+        // Born in dry-run mode — operator dry-runs scenarios from the
+        // dashboard, validates behavior, THEN approves (which flips dryRun
+        // back to false). Safer default than "active straight out of the gate."
+        dryRun: true,
         // Quote pricing wins over PRD pricing — quote is what the client accepted.
         monthlyRetainerCents: quote.pricing.monthlyCents,
         setupFeeCents: quote.pricing.setupCents,

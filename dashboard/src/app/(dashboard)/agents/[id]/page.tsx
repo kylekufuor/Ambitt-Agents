@@ -218,6 +218,19 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
             <>
               <form action={agentAction}>
                 <input type="hidden" name="agentId" value={agent.id} />
+                <input type="hidden" name="action" value="send-tools-invite" />
+                <button className="text-[11px] font-semibold px-3 py-1.5 rounded-md bg-brand/10 text-[color:var(--brand-hover)] hover:bg-brand/20 ring-1 ring-brand/20 transition-colors" style={{ color: "#0d8a8a" }}>
+                  Send tools-invite
+                </button>
+              </form>
+              <Link
+                href={`/agents/${agent.id}/dry-run`}
+                className="text-[11px] font-semibold px-3 py-1.5 rounded-md bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 ring-1 ring-blue-500/20 transition-colors inline-flex items-center"
+              >
+                Dry-run
+              </Link>
+              <form action={agentAction}>
+                <input type="hidden" name="agentId" value={agent.id} />
                 <input type="hidden" name="action" value="approve" />
                 <button className="text-[11px] font-semibold px-3 py-1.5 rounded-md bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 ring-1 ring-emerald-500/20 transition-colors">
                   Approve
@@ -230,6 +243,23 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
                   Reject
                 </button>
               </form>
+            </>
+          )}
+          {agent.status === "active" && (
+            <>
+              <form action={agentAction}>
+                <input type="hidden" name="agentId" value={agent.id} />
+                <input type="hidden" name="action" value="send-tools-invite" />
+                <button className="text-[11px] font-semibold px-3 py-1.5 rounded-md bg-foreground/5 text-muted-foreground hover:bg-foreground/10 hover:text-foreground ring-1 ring-border transition-colors" title="Re-send the connect-your-tools email — useful if the client lost the original.">
+                  Re-send tools-invite
+                </button>
+              </form>
+              <Link
+                href={`/agents/${agent.id}/dry-run`}
+                className="text-[11px] font-semibold px-3 py-1.5 rounded-md bg-foreground/5 text-muted-foreground hover:bg-foreground/10 hover:text-foreground ring-1 ring-border transition-colors inline-flex items-center"
+              >
+                Dry-run
+              </Link>
             </>
           )}
           {agent.status !== "killed" && (
