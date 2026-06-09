@@ -161,6 +161,7 @@ model Agent {
   toolConnectionRequests ToolConnectionRequest[]
   browserSessions        BrowserSession[]
   credentialAccesses     CredentialAccess[]
+  builds                 Build[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -761,6 +762,10 @@ model Prospect {
   // state in the dashboard and alert on bounces. See `EmailSend` model.
   emailSends EmailSend[]
 
+  // Atlas-on-Fable build runs. Created when the prospect's quote is accepted.
+  // 1:N because a rejected build can trigger a fresh one — keep history.
+  builds Build[]
+
   lastActivityAt DateTime @default(now())
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -769,6 +774,68 @@ model Prospect {
   @@index([token])
   @@index([lastActivityAt])
   @@index([convertedClientId])
+}
+
+// Build = one Atlas-on-Fable orchestration run, fired when a Prospect's quote
+// is accepted. Atlas (coordinator) delegates to Vera (QA), Story-writer
+// (generates 6-12 dry-run scenarios from the PRD), Builder (drafts the agent
+// system prompt + tool selection), and Tester sub-agents (run each scenario
+// against the candidate agent in dry-run mode, capturing into DryRunLog rows).
+//
+// Lifecycle:
+//   queued    — row created, Managed Agents session not yet started
+//   running   — session live, sub-agents executing
+//   completed — all scenarios ran, Vera reviewed, ready for operator approval
+//   failed    — session crashed / hit cost cap / cancelled by operator
+//
+// The candidate Agent is created EARLY (in "pending_approval" + dryRun=true)
+// so Tester sub-agents have a real Agent row to run scenarios against. If the
+// operator rejects the build, the Agent stays in pending_approval until they
+// either re-trigger Fable or hit "Skip Fable, go manual".
+model Build {
+  id String @id @default(cuid())
+
+  prospectId String
+  prospect   Prospect @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+
+  // The candidate agent being built. Nullable because the row is created
+  // before the Builder sub-agent has spawned the Agent (a few seconds of
+  // window). Set as soon as Builder calls create_agent_row via the MCP.
+  agentId String?
+  agent   Agent?  @relation(fields: [agentId], references: [id], onDelete: SetNull)
+
+  // Anthropic Managed Agents handles
+  managedAgentId String? // /v1/agents id for Atlas (the coordinator agent definition)
+  sessionId      String? // /v1/sessions id — the running build session
+  environmentId  String? // /v1/environments id — the sandbox
+
+  status String @default("queued")
+  // queued | running | completed | failed | cancelled
+
+  // Scenarios Atlas generated via Story-writer. Shape: [{id, label, inboundEmail, expectedOutcome}, ...]
+  scenarios Json @default("[]")
+
+  // Vera's per-capture verdicts after the build runs.
+  // Shape: [{captureId, scenarioId, verdict: "approve"|"reject", issues: [...]}]
+  veraVerdicts Json @default("[]")
+
+  // Running cost counter in cents, summed across all sub-agent token usage in
+  // this session. Build is killed if it exceeds budgetCents (env-controlled
+  // default $200).
+  costCents   Int @default(0)
+  budgetCents Int @default(20000)
+
+  failureReason String? @db.Text
+
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([prospectId])
+  @@index([agentId])
+  @@index([status])
+  @@index([createdAt])
 }
 
 model OracleAction {

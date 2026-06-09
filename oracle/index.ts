@@ -690,6 +690,227 @@ app.post("/agents/:id/dry-run", async (req: Request, res: Response) => {
   }
 });
 
+// ===========================================================================
+// MCP server for Atlas-on-Fable sub-agents (Vera, Story-writer, Builder)
+// ===========================================================================
+//
+// Mounted at /mcp/builder. Atlas references this URL via the
+// AMBITT_BUILDER_MCP_URL env var and seeds it as `mcp_servers[0]` on the
+// coordinator agent definition. Stateless (no session IDs), so a single
+// transport handles every sub-agent's tool call.
+
+app.all("/mcp/builder", async (req: Request, res: Response) => {
+  const { handleBuilderMcpRequest } = await import("./mcp-server/builder.js");
+  await handleBuilderMcpRequest(req, res);
+});
+
+// ===========================================================================
+// Builds (Atlas-on-Fable orchestration)
+// ===========================================================================
+//
+// A Build is one Managed-Agents-driven orchestration that turns a quote-
+// accepted Prospect into a candidate Agent. Atlas (coordinator) delegates to
+// Vera (QA), Story-writer (scenarios), Builder (prompt + tool selection), and
+// Tester sub-agents (run scenarios as dry-runs against the candidate). The
+// hybrid UX: this populates DryRunLog rows that the existing dry-run page
+// renders; "Skip Fable, go manual" hits the legacy Convert+Scaffold path.
+
+// Start a build for a prospect whose quote has been accepted. Fire-and-
+// forget: returns immediately with the queued Build row; orchestration runs
+// in the background.
+app.post("/builds", async (req: Request, res: Response) => {
+  try {
+    const { prospectId } = (req.body ?? {}) as { prospectId?: string };
+    if (typeof prospectId !== "string" || !prospectId) {
+      res.status(400).json({ error: "prospectId (string) is required" });
+      return;
+    }
+
+    const prospect = await prisma.prospect.findUnique({
+      where: { id: prospectId },
+      select: {
+        id: true,
+        status: true,
+        prdData: true,
+        prdApprovedAt: true,
+        quoteDraft: true,
+        quoteAcceptedAt: true,
+      },
+    });
+    if (!prospect) {
+      res.status(404).json({ error: "Prospect not found" });
+      return;
+    }
+    if (!prospect.prdData || !prospect.prdApprovedAt) {
+      res.status(409).json({ error: "Prospect PRD not approved; cannot start build" });
+      return;
+    }
+    if (!prospect.quoteDraft || !prospect.quoteAcceptedAt) {
+      res.status(409).json({ error: "Quote not accepted yet; cannot start build" });
+      return;
+    }
+
+    // Refuse a duplicate active build for the same prospect.
+    const existing = await prisma.build.findFirst({
+      where: { prospectId, status: { in: ["queued", "running"] } },
+      select: { id: true, status: true, createdAt: true },
+    });
+    if (existing) {
+      res.status(409).json({
+        error: "Build already in flight for this prospect",
+        existingBuild: existing,
+      });
+      return;
+    }
+
+    const budgetCents = Number(process.env.FABLE_BUILD_BUDGET_CENTS ?? "20000");
+
+    const build = await prisma.build.create({
+      data: {
+        prospectId,
+        status: "queued",
+        budgetCents,
+      },
+    });
+
+    logger.info("Build queued", { buildId: build.id, prospectId });
+
+    // Fire and forget — kickoffBuild swallows errors and persists them to the
+    // Build row. We don't want the HTTP layer waiting on Managed Agents.
+    void (async () => {
+      try {
+        const { kickoffBuild } = await import("./builds/orchestrator.js");
+        await kickoffBuild(build.id);
+      } catch (err) {
+        logger.error("Build kickoff threw outside guard", {
+          buildId: build.id,
+          err: err instanceof Error ? err.message : String(err),
+        });
+      }
+    })();
+
+    res.status(202).json({
+      id: build.id,
+      status: build.status,
+      budgetCents: build.budgetCents,
+      createdAt: build.createdAt.toISOString(),
+    });
+  } catch (error) {
+    logger.error("Build start handler failed", {
+      err: error instanceof Error ? error.message : String(error),
+    });
+    res.status(500).json({ error: "Build start failed" });
+  }
+});
+
+// Poll a build's status. Dashboard /agents/[id]/dry-run page hits this on
+// auto-refresh; the page swaps from "building..." spinner to capture list as
+// soon as status flips to completed.
+app.get("/builds/:id", async (req: Request, res: Response) => {
+  try {
+    const id = param(req, "id");
+    const build = await prisma.build.findUnique({
+      where: { id },
+      include: {
+        prospect: { select: { id: true, contactName: true, businessName: true } },
+        agent: { select: { id: true, name: true, status: true } },
+      },
+    });
+    if (!build) {
+      res.status(404).json({ error: "Build not found" });
+      return;
+    }
+    res.json({
+      id: build.id,
+      status: build.status,
+      prospectId: build.prospectId,
+      prospect: build.prospect,
+      agentId: build.agentId,
+      agent: build.agent,
+      sessionId: build.sessionId,
+      environmentId: build.environmentId,
+      scenarios: build.scenarios,
+      veraVerdicts: build.veraVerdicts,
+      costCents: build.costCents,
+      budgetCents: build.budgetCents,
+      failureReason: build.failureReason,
+      startedAt: build.startedAt?.toISOString() ?? null,
+      completedAt: build.completedAt?.toISOString() ?? null,
+      createdAt: build.createdAt.toISOString(),
+    });
+  } catch (error) {
+    logger.error("Build get handler failed", {
+      err: error instanceof Error ? error.message : String(error),
+    });
+    res.status(500).json({ error: "Build fetch failed" });
+  }
+});
+
+// List builds for a prospect (newest first). Powers the dashboard "build
+// history" strip on the dry-run page.
+app.get("/prospects/:id/builds", async (req: Request, res: Response) => {
+  try {
+    const prospectId = param(req, "id");
+    const builds = await prisma.build.findMany({
+      where: { prospectId },
+      orderBy: { createdAt: "desc" },
+      take: 10,
+      select: {
+        id: true,
+        status: true,
+        agentId: true,
+        sessionId: true,
+        costCents: true,
+        failureReason: true,
+        startedAt: true,
+        completedAt: true,
+        createdAt: true,
+      },
+    });
+    res.json({
+      builds: builds.map((b) => ({
+        ...b,
+        startedAt: b.startedAt?.toISOString() ?? null,
+        completedAt: b.completedAt?.toISOString() ?? null,
+        createdAt: b.createdAt.toISOString(),
+      })),
+    });
+  } catch (error) {
+    logger.error("Prospect builds list handler failed", {
+      err: error instanceof Error ? error.message : String(error),
+    });
+    res.status(500).json({ error: "Build list failed" });
+  }
+});
+
+// Cancel a running build (operator action — e.g. spotted obvious wrong path
+// mid-stream). Marks status=cancelled; Phase 2's stream consumer reads this
+// to abort sub-agent calls + archive the session.
+app.post("/builds/:id/cancel", async (req: Request, res: Response) => {
+  try {
+    const id = param(req, "id");
+    const build = await prisma.build.findUnique({ where: { id }, select: { id: true, status: true } });
+    if (!build) {
+      res.status(404).json({ error: "Build not found" });
+      return;
+    }
+    if (build.status !== "queued" && build.status !== "running") {
+      res.status(409).json({ error: `Build is ${build.status}; cannot cancel` });
+      return;
+    }
+    await prisma.build.update({
+      where: { id },
+      data: { status: "cancelled", completedAt: new Date() },
+    });
+    res.json({ ok: true });
+  } catch (error) {
+    logger.error("Build cancel handler failed", {
+      err: error instanceof Error ? error.message : String(error),
+    });
+    res.status(500).json({ error: "Build cancel failed" });
+  }
+});
+
 // Kill agent
 app.post("/agents/:id/kill", async (req: Request, res: Response) => {
   try {
