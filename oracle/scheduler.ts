@@ -195,6 +195,7 @@ export async function initScheduler(): Promise<void> {
   startDigestCron();
   startPRDRetryCron();
   startBuildPollCron();
+  startImprovementCrons();
 
   logger.info("Scheduler initialized", {
     activeAgents: agents.length,
@@ -577,4 +578,41 @@ export function startBuildPollCron(): void {
     }
   });
   logger.info("Build-poll cron started", { schedule: "* * * * *" });
+}
+
+// ---------------------------------------------------------------------------
+// Atlas-Improver weekly cron — Sunday 02:00 UTC, fans out one improvement
+// per active Agent. Plus same minute poll-tick for cost cap + stale check
+// as Builds. Full logic in oracle/improvements/orchestrator.ts.
+// ---------------------------------------------------------------------------
+
+let improvementPollCronTask: ScheduledTask | null = null;
+let improvementWeeklyCronTask: ScheduledTask | null = null;
+
+export function startImprovementCrons(): void {
+  if (!improvementPollCronTask) {
+    improvementPollCronTask = cron.schedule("* * * * *", async () => {
+      try {
+        const { pollActiveImprovements, drainImprovementQueue } = await import(
+          "./improvements/orchestrator.js"
+        );
+        await pollActiveImprovements();
+        await drainImprovementQueue();
+      } catch (error) {
+        logger.error("Improvement-poll cron tick threw", { error });
+      }
+    });
+    logger.info("Improvement-poll cron started", { schedule: "* * * * *" });
+  }
+  if (!improvementWeeklyCronTask) {
+    improvementWeeklyCronTask = cron.schedule("0 2 * * 0", async () => {
+      try {
+        const { scheduleWeeklyImprovements } = await import("./improvements/orchestrator.js");
+        await scheduleWeeklyImprovements();
+      } catch (error) {
+        logger.error("Improvement weekly cron tick threw", { error });
+      }
+    });
+    logger.info("Improvement weekly cron started", { schedule: "0 2 * * 0 (Sun 02:00 UTC)" });
+  }
 }

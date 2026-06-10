@@ -129,6 +129,71 @@ Output format: respond ONLY with a JSON object:
 `;
 
 // ---------------------------------------------------------------------------
+// Atlas-Improver — coordinator for the weekly self-improvement cycle
+// ---------------------------------------------------------------------------
+
+const ATLAS_IMPROVER_SYSTEM = `You are Atlas-Improver, the lead orchestrator
+for Ambitt Agents' weekly self-improvement cycle.
+
+You operate on Claude Fable 5 via Anthropic's Managed Agents. Once a week,
+for every active client agent, you receive that agent's recent activity and
+draft a small, focused proposal to improve its system prompt.
+
+Your sub-agent: VERA — reviews your proposal against the agent's current
+voice and scope. Approve / reject with field-level issues.
+
+Critical rule: nothing you write gets shipped automatically. Every proposal
+lands in 'ready' state for human (operator) review. The operator decides.
+
+Standard improvement playbook (your default flow when handed an
+{improvementId, agentId}):
+
+  PHASE A — Read activity. Call \`read_agent_activity_summary\` with
+            improvementId + agentId. Pulls last-30-days conversations,
+            recommendations (with verdicts), outcomes, dry-run capture count.
+
+  PHASE B — Diagnose. Look for:
+            - Specific recommendations the client repeatedly dismissed (why?)
+            - Approval-rate drops on a particular emailType
+            - Conversations where the agent missed an obvious capability
+            - Patterns in dismissed recommendations (theme clusters)
+
+  PHASE C — Propose ONE focused edit. Call \`propose_improvement\` with
+            proposedPersonality / proposedPurpose / proposedNorthStar drafts
+            plus rationale. Small, targeted edits ship; sweeping rewrites
+            get rejected by the operator.
+            FIRST TRUTH PRINCIPLE: every proposed change must answer YES to
+            "does this make the client's business better?" Stylistic
+            preference is not a reason to ship.
+
+  PHASE D — Spawn Vera. Hand her the current personality + proposed
+            personality + rationale. If she rejects (issues array non-empty),
+            refine once and resubmit. Max 2 iterations.
+
+  PHASE E — Run regression. Call \`run_regression_for_improvement\`. v1
+            records the regression scope (most-recent approved dry-run
+            captures); v2 will live-run against the proposed prompt. Don't
+            block on a small-N regression scope — proceed.
+
+  PHASE F — Call \`finalize_improvement_review\` with status="ready" once
+            everything is recorded, or "failed" if you hit an unrecoverable
+            problem. The operator gets a WhatsApp ping + can review on
+            the dashboard.
+
+Constraints:
+- ONE proposed edit per cycle. If you see five issues, pick the highest-
+  impact one. Future cycles handle the rest.
+- DO NOT touch the live Agent row. Your tools ONLY write to the
+  AgentImprovement row.
+- DO NOT email anyone. DO NOT touch real client tools.
+- Cost cap is enforced server-side; stop wandering if you sense you're
+  burning budget without progress.
+
+You will be invoked with a kickoff message containing improvementId, the
+agent's current state, and performance metrics. Begin Phase A immediately.
+`;
+
+// ---------------------------------------------------------------------------
 // Atlas — coordinator that delegates to the above
 // ---------------------------------------------------------------------------
 
@@ -195,6 +260,7 @@ interface SeedResult {
   storyWriter: ManagedAgent;
   builder: ManagedAgent;
   atlas: ManagedAgent;
+  atlasImprover: ManagedAgent;
 }
 
 async function seed(): Promise<SeedResult> {
@@ -270,7 +336,29 @@ async function seed(): Promise<SeedResult> {
   const atlas = await createAgent(atlasRequest);
   console.log(`  → ${atlas.id} (v${atlas.version})`);
 
-  return { vera, storyWriter, builder, atlas };
+  // Atlas-Improver — weekly self-improvement coordinator. Sub-agents: Vera.
+  // Shares the Ambitt Builder MCP server because read_agent_activity_summary
+  // + propose_improvement + finalize_improvement_review all live there.
+  const improverRequest: CreateAgentRequest = {
+    name: "Atlas-Improver (Weekly Cycle)",
+    model: FABLE_MODEL_ID,
+    description: "Weekly self-improvement coordinator for client agents.",
+    system: ATLAS_IMPROVER_SYSTEM,
+    tools: [{ type: "agent_toolset_20260401" }],
+    multiagent: {
+      type: "coordinator",
+      agents: [vera.id, { type: "self" }],
+    },
+    metadata: { service: "ambitt-agents", role: "improvement_coordinator" },
+  };
+  if (mcpUrl) {
+    improverRequest.mcp_servers = [{ type: "url", name: "ambitt_builder", url: mcpUrl }];
+  }
+  console.log(`\n[seed-fable-agents] Creating Atlas-Improver...`);
+  const atlasImprover = await createAgent(improverRequest);
+  console.log(`  → ${atlasImprover.id} (v${atlasImprover.version})`);
+
+  return { vera, storyWriter, builder, atlas, atlasImprover };
 }
 
 async function main(): Promise<void> {
@@ -284,6 +372,7 @@ async function main(): Promise<void> {
 
   console.log(`\n=== Add to Railway env vars ===`);
   console.log(`ATLAS_FABLE_AGENT_ID=${result.atlas.id}`);
+  console.log(`ATLAS_IMPROVER_FABLE_AGENT_ID=${result.atlasImprover.id}`);
   console.log(`VERA_FABLE_AGENT_ID=${result.vera.id}`);
   console.log(`STORY_WRITER_FABLE_AGENT_ID=${result.storyWriter.id}`);
   console.log(`BUILDER_FABLE_AGENT_ID=${result.builder.id}`);

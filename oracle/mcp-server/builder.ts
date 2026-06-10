@@ -108,6 +108,46 @@ const MarkBuildCompleteInput = {
   failureReason: z.string().optional(),
 };
 
+// --- Improvement-flow tool inputs ---
+
+const ReadAgentActivitySummaryInput = {
+  improvementId: z.string().min(1),
+  agentId: z.string().min(1),
+  // 30-day default rolling window
+  windowDays: z.number().int().min(1).max(180).default(30),
+};
+
+const ProposeImprovementInput = {
+  improvementId: z.string().min(1),
+  proposedPersonality: z.string().optional(),
+  proposedPurpose: z.string().optional(),
+  proposedNorthStar: z.string().optional(),
+  proposedToolSlugs: z.array(z.string()).optional(),
+  rationale: z.string().min(20),
+  activitySummary: z
+    .object({
+      conversationCount: z.number().int().min(0),
+      recommendationCount: z.number().int().min(0),
+      approvalRate: z.number().min(0).max(1),
+      implementationRate: z.number().min(0).max(1),
+      topComplaintThemes: z.array(z.string()).default([]),
+    })
+    .optional(),
+};
+
+const RunRegressionForImprovementInput = {
+  improvementId: z.string().min(1),
+  // Optionally bound how many past scenarios to re-run. Sub-agent picks the
+  // most-recent N if not all scenarios are needed.
+  maxScenarios: z.number().int().min(1).max(20).default(10),
+};
+
+const FinalizeImprovementReviewInput = {
+  improvementId: z.string().min(1),
+  status: z.enum(["ready", "failed"]),
+  failureReason: z.string().optional(),
+};
+
 // ---------------------------------------------------------------------------
 // Tool handlers
 // ---------------------------------------------------------------------------
@@ -444,6 +484,260 @@ async function handleUpdateBuildScenarios(
   return textResult({ ok: true, scenarioCount: args.scenarios.length });
 }
 
+// ---------------------------------------------------------------------------
+// Improvement-flow handlers
+// ---------------------------------------------------------------------------
+
+async function handleReadAgentActivitySummary(
+  args: z.infer<z.ZodObject<typeof ReadAgentActivitySummaryInput>>
+) {
+  const improvement = await prisma.agentImprovement.findUnique({
+    where: { id: args.improvementId },
+    select: { id: true, agentId: true },
+  });
+  if (!improvement) return errorResult(`Improvement ${args.improvementId} not found`);
+  if (improvement.agentId !== args.agentId) {
+    return errorResult(
+      `Improvement ${args.improvementId} is bound to agent ${improvement.agentId}, not ${args.agentId}`
+    );
+  }
+
+  const since = new Date(Date.now() - args.windowDays * 86_400_000);
+
+  const [agent, conversations, recommendations, outcomes, dryRunCount] = await Promise.all([
+    prisma.agent.findUnique({
+      where: { id: args.agentId },
+      select: {
+        id: true,
+        name: true,
+        personality: true,
+        purpose: true,
+        clientNorthStar: true,
+        totalTasksCompleted: true,
+        totalRecommendations: true,
+        approvalRate: true,
+        implementationRate: true,
+        tools: true,
+      },
+    }),
+    prisma.conversationMessage.findMany({
+      where: { agentId: args.agentId, createdAt: { gte: since } },
+      orderBy: { createdAt: "desc" },
+      take: 50,
+      select: {
+        id: true,
+        role: true,
+        content: true,
+        createdAt: true,
+      },
+    }),
+    prisma.recommendation.findMany({
+      where: { agentId: args.agentId, sentAt: { gte: since } },
+      orderBy: { sentAt: "desc" },
+      take: 30,
+      select: {
+        id: true,
+        title: true,
+        reasoning: true,
+        status: true,
+        emailType: true,
+        sentAt: true,
+        resolvedAt: true,
+      },
+    }),
+    prisma.outcome.findMany({
+      where: { agentId: args.agentId, createdAt: { gte: since } },
+      orderBy: { createdAt: "desc" },
+      take: 30,
+      select: {
+        id: true,
+        metric: true,
+        baselineValue: true,
+        measuredValue: true,
+        changePercent: true,
+        confidenceLevel: true,
+        implementationVerified: true,
+        createdAt: true,
+      },
+    }),
+    prisma.dryRunLog.count({
+      where: { agentId: args.agentId, capturedAt: { gte: since } },
+    }),
+  ]);
+
+  if (!agent) return errorResult(`Agent ${args.agentId} not found`);
+
+  // Lightweight rates from the windowed data so Atlas-Improver doesn't have
+  // to derive them. Approval rate = approved / (approved + dismissed).
+  const approved = recommendations.filter((r) => r.status === "approved" || r.status === "executed" || r.status === "verified").length;
+  const dismissed = recommendations.filter((r) => r.status === "dismissed").length;
+  const windowedApprovalRate = approved + dismissed === 0 ? 0 : approved / (approved + dismissed);
+
+  return textResult({
+    agent,
+    window: { sinceIso: since.toISOString(), days: args.windowDays },
+    counts: {
+      conversations: conversations.length,
+      recommendations: recommendations.length,
+      outcomes: outcomes.length,
+      dryRunCaptures: dryRunCount,
+    },
+    derived: {
+      windowedApprovalRate,
+    },
+    conversations,
+    recommendations,
+    outcomes,
+  });
+}
+
+async function handleProposeImprovement(
+  args: z.infer<z.ZodObject<typeof ProposeImprovementInput>>
+) {
+  const improvement = await prisma.agentImprovement.findUnique({
+    where: { id: args.improvementId },
+    select: { id: true, status: true },
+  });
+  if (!improvement) return errorResult(`Improvement ${args.improvementId} not found`);
+  if (improvement.status !== "pending") {
+    return errorResult(`Improvement is ${improvement.status}; cannot accept new proposal`);
+  }
+
+  await prisma.agentImprovement.update({
+    where: { id: args.improvementId },
+    data: {
+      proposedPersonality: args.proposedPersonality ?? null,
+      proposedPurpose: args.proposedPurpose ?? null,
+      proposedNorthStar: args.proposedNorthStar ?? null,
+      proposedToolSlugs: args.proposedToolSlugs
+        ? (args.proposedToolSlugs as unknown as object)
+        : undefined,
+      rationale: args.rationale,
+      activitySummary: args.activitySummary
+        ? (args.activitySummary as unknown as object)
+        : undefined,
+    },
+  });
+
+  return textResult({ ok: true });
+}
+
+async function handleRunRegressionForImprovement(
+  args: z.infer<z.ZodObject<typeof RunRegressionForImprovementInput>>
+) {
+  const improvement = await prisma.agentImprovement.findUnique({
+    where: { id: args.improvementId },
+    select: {
+      id: true,
+      status: true,
+      agentId: true,
+      proposedPersonality: true,
+      proposedPurpose: true,
+    },
+  });
+  if (!improvement) return errorResult(`Improvement ${args.improvementId} not found`);
+  if (improvement.status !== "pending") {
+    return errorResult(`Improvement is ${improvement.status}; regression run aborted`);
+  }
+  if (!improvement.proposedPersonality && !improvement.proposedPurpose) {
+    return errorResult(
+      "No proposed personality/purpose to regress against. Call propose_improvement first."
+    );
+  }
+
+  // Pull the most-recent reviewedOk=true dry-run captures for this agent, up
+  // to maxScenarios. We use these as the "baseline that should still pass".
+  const baselineCaptures = await prisma.dryRunLog.findMany({
+    where: { agentId: improvement.agentId, reviewedOk: true },
+    orderBy: { capturedAt: "desc" },
+    take: args.maxScenarios,
+    select: {
+      id: true,
+      kind: true,
+      payload: true,
+      scenario: true,
+      capturedAt: true,
+    },
+  });
+
+  if (baselineCaptures.length === 0) {
+    // No history yet — record an empty regression and let the operator know.
+    await prisma.agentImprovement.update({
+      where: { id: args.improvementId },
+      data: { regressionResults: [] as unknown as object[] },
+    });
+    return textResult({
+      ok: true,
+      ran: 0,
+      note: "No prior approved dry-run captures for this agent; regression skipped.",
+    });
+  }
+
+  // For v1 we DON'T re-fire the agent against scenarios live — that would
+  // require swapping the system prompt in-place, which is fragile and risks
+  // shipping bad behavior even in dry-run. Instead, record the baseline
+  // capture set as "regression scope" and let the operator inspect them on
+  // the dashboard. v2 will add a true regression runner that swaps the prompt
+  // through a runtime override.
+  const regressionResults = baselineCaptures.map((c) => ({
+    scenarioId: c.scenario ?? c.id,
+    captureId: c.id,
+    baselinePass: true,
+    proposedPass: null, // not run live in v1
+    delta: "neutral" as const,
+    note: "v1: baseline scope recorded; live regression run lands in v2",
+  }));
+
+  await prisma.agentImprovement.update({
+    where: { id: args.improvementId },
+    data: { regressionResults: regressionResults as unknown as object[] },
+  });
+
+  return textResult({ ok: true, ran: regressionResults.length });
+}
+
+async function handleFinalizeImprovementReview(
+  args: z.infer<z.ZodObject<typeof FinalizeImprovementReviewInput>>
+) {
+  const improvement = await prisma.agentImprovement.findUnique({
+    where: { id: args.improvementId },
+    select: { id: true, status: true, agentId: true },
+  });
+  if (!improvement) return errorResult(`Improvement ${args.improvementId} not found`);
+  if (improvement.status !== "pending") {
+    return errorResult(`Improvement is already ${improvement.status}`);
+  }
+
+  await prisma.agentImprovement.update({
+    where: { id: args.improvementId },
+    data: {
+      status: args.status,
+      failureReason: args.failureReason ?? null,
+      completedAt: new Date(),
+    },
+  });
+
+  // Alert the operator that there's a proposal to review.
+  if (args.status === "ready") {
+    try {
+      const agent = await prisma.agent.findUnique({
+        where: { id: improvement.agentId },
+        select: { name: true },
+      });
+      const { sendKyleWhatsApp } = await import("../../shared/whatsapp.js");
+      if (process.env.KYLE_WHATSAPP_NUMBER) {
+        await sendKyleWhatsApp(
+          `Atlas-Improver has a new proposal for ${agent?.name ?? "an agent"}. Open the dashboard to review.`
+        );
+      }
+    } catch (err) {
+      logger.warn("Improvement-ready WhatsApp alert failed", { err });
+    }
+  }
+
+  return textResult({ ok: true, status: args.status });
+}
+
 async function handleMarkBuildComplete(args: z.infer<z.ZodObject<typeof MarkBuildCompleteInput>>) {
   const build = await prisma.build.findUnique({
     where: { id: args.buildId },
@@ -557,6 +851,48 @@ export function buildMcpServer(): McpServer {
       inputSchema: MarkBuildCompleteInput,
     },
     async (args) => handleMarkBuildComplete(args)
+  );
+
+  // --- Improvement-flow tools ---
+
+  server.registerTool(
+    "read_agent_activity_summary",
+    {
+      description:
+        "Pull the agent's recent activity (conversations, recommendations, outcomes, dry-run capture count) for use by Atlas-Improver in the weekly self-improvement cycle. windowDays defaults to 30.",
+      inputSchema: ReadAgentActivitySummaryInput,
+    },
+    async (args) => handleReadAgentActivitySummary(args)
+  );
+
+  server.registerTool(
+    "propose_improvement",
+    {
+      description:
+        "Record Atlas-Improver's proposed edit to the agent's personality / purpose / clientNorthStar / tools. Operator reviews on the dashboard before anything ships — this tool does NOT mutate the live Agent row.",
+      inputSchema: ProposeImprovementInput,
+    },
+    async (args) => handleProposeImprovement(args)
+  );
+
+  server.registerTool(
+    "run_regression_for_improvement",
+    {
+      description:
+        "Snapshot the agent's most-recent approved dry-run captures as the regression scope for the proposed change. v1 records the scope only; v2 will live-run the proposed prompt against each capture and score deltas.",
+      inputSchema: RunRegressionForImprovementInput,
+    },
+    async (args) => handleRunRegressionForImprovement(args)
+  );
+
+  server.registerTool(
+    "finalize_improvement_review",
+    {
+      description:
+        "Finalize the improvement cycle (status=ready | failed). Atlas-Improver calls this as the final step; on 'ready' the operator gets a WhatsApp ping + can review on the dashboard.",
+      inputSchema: FinalizeImprovementReviewInput,
+    },
+    async (args) => handleFinalizeImprovementReview(args)
   );
 
   return server;

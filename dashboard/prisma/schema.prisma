@@ -162,6 +162,7 @@ model Agent {
   browserSessions        BrowserSession[]
   credentialAccesses     CredentialAccess[]
   builds                 Build[]
+  improvements           AgentImprovement[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -836,6 +837,80 @@ model Build {
   @@index([agentId])
   @@index([status])
   @@index([createdAt])
+}
+
+// AgentImprovement = one weekly Atlas-on-Fable self-improvement cycle for an
+// active Agent. Atlas reads the agent's recent activity (conversations,
+// recommendations, outcomes), proposes a system-prompt edit, runs the edit
+// against past dry-run scenarios as a regression sanity-check, and emits a
+// proposal for human review. Per Kyle's spec: self-improvement requires
+// human-in-the-loop intervention — NO auto-ship, even on 100% regression
+// pass. Operator approves/rejects in the dashboard; on approve the Agent
+// row's personality/purpose/clientNorthStar fields update.
+//
+// Lifecycle:
+//   pending  — Atlas opened a session, work in progress
+//   ready    — Atlas finished + emitted a proposal, awaiting human review
+//   shipped  — operator approved; Agent row updated; old values stored
+//              in `previousPersonality`/`previousPurpose` so we can revert
+//   rejected — operator declined the proposal
+//   failed   — Atlas crashed mid-cycle; failureReason set
+//
+// One row per (agent, week) — the cron skips agents that already have a
+// pending or ready row for the current calendar week.
+model AgentImprovement {
+  id      String @id @default(cuid())
+  agentId String
+  agent   Agent  @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  // Managed Agents handles
+  sessionId     String?
+  environmentId String?
+
+  status String @default("pending")
+  // pending | ready | shipped | rejected | failed
+
+  // Atlas's proposal — the new draft.
+  proposedPersonality String? @db.Text
+  proposedPurpose     String? @db.Text
+  proposedNorthStar   String? @db.Text
+  proposedToolSlugs   Json? // ["string"] — when Atlas suggests adding/removing tools
+  rationale           String? @db.Text
+
+  // Snapshot of the prior values (taken at the moment we ship) so we can revert.
+  previousPersonality String? @db.Text
+  previousPurpose     String? @db.Text
+  previousNorthStar   String? @db.Text
+
+  // Regression test results — Atlas re-runs past dry-run scenarios against
+  // the proposed prompt. Shape: { scenarioId, baselinePass, proposedPass,
+  // delta: "improved" | "regressed" | "neutral", note }
+  regressionResults Json @default("[]")
+
+  // Activity signals Atlas used to reach the proposal (saved for operator
+  // review so they can sanity-check the diagnosis):
+  //   { conversationCount, recommendationCount, approvalRate,
+  //     implementationRate, topComplaintThemes: [...] }
+  activitySummary Json?
+
+  // Operator decision
+  reviewedAt   DateTime?
+  reviewedNote String?   @db.Text
+
+  failureReason String? @db.Text
+
+  costCents   Int @default(0)
+  budgetCents Int @default(5000) // $50 default — improvements are cheaper than builds
+
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([agentId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([agentId, createdAt])
 }
 
 model OracleAction {

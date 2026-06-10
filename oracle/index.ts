@@ -889,6 +889,192 @@ app.get("/prospects/:id/builds", async (req: Request, res: Response) => {
   }
 });
 
+// ===========================================================================
+// Improvements (Atlas-Improver weekly self-improvement cycles)
+// ===========================================================================
+
+// List improvements for an agent (newest first). Powers the dashboard
+// /agents/[id]/improvements page.
+app.get("/agents/:id/improvements", async (req: Request, res: Response) => {
+  try {
+    const agentId = param(req, "id");
+    const improvements = await prisma.agentImprovement.findMany({
+      where: { agentId },
+      orderBy: { createdAt: "desc" },
+      take: 20,
+    });
+    res.json({
+      improvements: improvements.map((i) => ({
+        id: i.id,
+        status: i.status,
+        sessionId: i.sessionId,
+        proposedPersonality: i.proposedPersonality,
+        proposedPurpose: i.proposedPurpose,
+        proposedNorthStar: i.proposedNorthStar,
+        proposedToolSlugs: i.proposedToolSlugs,
+        rationale: i.rationale,
+        previousPersonality: i.previousPersonality,
+        previousPurpose: i.previousPurpose,
+        previousNorthStar: i.previousNorthStar,
+        regressionResults: i.regressionResults,
+        activitySummary: i.activitySummary,
+        reviewedAt: i.reviewedAt?.toISOString() ?? null,
+        reviewedNote: i.reviewedNote,
+        failureReason: i.failureReason,
+        costCents: i.costCents,
+        budgetCents: i.budgetCents,
+        startedAt: i.startedAt?.toISOString() ?? null,
+        completedAt: i.completedAt?.toISOString() ?? null,
+        createdAt: i.createdAt.toISOString(),
+      })),
+    });
+  } catch (error) {
+    logger.error("Improvements list handler failed", { error });
+    res.status(500).json({ error: "Improvements list failed" });
+  }
+});
+
+// Approve a "ready" improvement — ships the proposal to the live Agent row.
+// Snapshots prior values into previous* fields so we can revert.
+app.post("/improvements/:id/approve", async (req: Request, res: Response) => {
+  try {
+    const id = param(req, "id");
+    const { note } = (req.body ?? {}) as { note?: string };
+
+    const improvement = await prisma.agentImprovement.findUnique({
+      where: { id },
+      include: {
+        agent: {
+          select: { id: true, personality: true, purpose: true, clientNorthStar: true, tools: true },
+        },
+      },
+    });
+    if (!improvement) {
+      res.status(404).json({ error: "Improvement not found" });
+      return;
+    }
+    if (improvement.status !== "ready") {
+      res.status(409).json({ error: `Improvement is ${improvement.status}; cannot ship` });
+      return;
+    }
+
+    const newPersonality = improvement.proposedPersonality ?? improvement.agent.personality;
+    const newPurpose = improvement.proposedPurpose ?? improvement.agent.purpose;
+    const newNorthStar = improvement.proposedNorthStar ?? improvement.agent.clientNorthStar;
+    const newTools = Array.isArray(improvement.proposedToolSlugs)
+      ? (improvement.proposedToolSlugs as string[])
+      : improvement.agent.tools;
+
+    await prisma.$transaction([
+      prisma.agentImprovement.update({
+        where: { id },
+        data: {
+          status: "shipped",
+          reviewedAt: new Date(),
+          reviewedNote: note ?? null,
+          previousPersonality: improvement.agent.personality,
+          previousPurpose: improvement.agent.purpose,
+          previousNorthStar: improvement.agent.clientNorthStar,
+        },
+      }),
+      prisma.agent.update({
+        where: { id: improvement.agent.id },
+        data: {
+          personality: newPersonality,
+          purpose: newPurpose,
+          clientNorthStar: newNorthStar,
+          tools: newTools,
+        },
+      }),
+    ]);
+
+    logger.info("Improvement shipped", { improvementId: id, agentId: improvement.agent.id });
+    res.json({ ok: true, status: "shipped" });
+  } catch (error) {
+    logger.error("Improvement approve handler failed", { error });
+    res.status(500).json({ error: "Improvement approve failed" });
+  }
+});
+
+// Reject a "ready" improvement. Captures the reason for future learning.
+app.post("/improvements/:id/reject", async (req: Request, res: Response) => {
+  try {
+    const id = param(req, "id");
+    const { note } = (req.body ?? {}) as { note?: string };
+
+    const improvement = await prisma.agentImprovement.findUnique({
+      where: { id },
+      select: { id: true, status: true },
+    });
+    if (!improvement) {
+      res.status(404).json({ error: "Improvement not found" });
+      return;
+    }
+    if (improvement.status !== "ready") {
+      res.status(409).json({ error: `Improvement is ${improvement.status}; cannot reject` });
+      return;
+    }
+
+    await prisma.agentImprovement.update({
+      where: { id },
+      data: {
+        status: "rejected",
+        reviewedAt: new Date(),
+        reviewedNote: note ?? null,
+      },
+    });
+
+    res.json({ ok: true, status: "rejected" });
+  } catch (error) {
+    logger.error("Improvement reject handler failed", { error });
+    res.status(500).json({ error: "Improvement reject failed" });
+  }
+});
+
+// Revert a "shipped" improvement back to the previous prompt. Operator
+// escape hatch when an approved change turns out worse than the baseline.
+app.post("/improvements/:id/revert", async (req: Request, res: Response) => {
+  try {
+    const id = param(req, "id");
+    const improvement = await prisma.agentImprovement.findUnique({
+      where: { id },
+      include: { agent: { select: { id: true } } },
+    });
+    if (!improvement) {
+      res.status(404).json({ error: "Improvement not found" });
+      return;
+    }
+    if (improvement.status !== "shipped") {
+      res.status(409).json({ error: `Improvement is ${improvement.status}; nothing to revert` });
+      return;
+    }
+    if (improvement.previousPersonality === null && improvement.previousPurpose === null) {
+      res.status(409).json({ error: "No previous values stored; revert not possible" });
+      return;
+    }
+
+    await prisma.$transaction([
+      prisma.agent.update({
+        where: { id: improvement.agent.id },
+        data: {
+          personality: improvement.previousPersonality ?? undefined,
+          purpose: improvement.previousPurpose ?? undefined,
+          clientNorthStar: improvement.previousNorthStar ?? undefined,
+        },
+      }),
+      prisma.agentImprovement.update({
+        where: { id },
+        data: { status: "rejected", reviewedNote: "Reverted by operator after shipping" },
+      }),
+    ]);
+
+    res.json({ ok: true, status: "reverted" });
+  } catch (error) {
+    logger.error("Improvement revert handler failed", { error });
+    res.status(500).json({ error: "Improvement revert failed" });
+  }
+});
+
 // Cancel a running build (operator action — e.g. spotted obvious wrong path
 // mid-stream). Marks status=cancelled; Phase 2's stream consumer reads this
 // to abort sub-agent calls + archive the session.
