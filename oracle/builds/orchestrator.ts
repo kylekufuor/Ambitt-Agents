@@ -50,6 +50,13 @@ const FABLE_PRICING_PER_M = {
 // can override via env if a particular workload needs more.
 const MAX_BUILD_HOURS = Number(process.env.FABLE_MAX_BUILD_HOURS ?? "6");
 
+// Soft concurrency cap. POST /builds creates the row in "queued" but only
+// calls kickoffBuild when the running count is below this. The cron tick
+// drains the queue as slots free. Cap exists so a quote-accept stampede
+// doesn't open dozens of Fable sessions in parallel and blow the
+// Anthropic API rate cap (300 rpm for session creation).
+const MAX_CONCURRENT_BUILDS = Number(process.env.FABLE_MAX_CONCURRENT_BUILDS ?? "5");
+
 // ---------------------------------------------------------------------------
 // Kickoff prompt — the message Atlas receives once. Atlas's system prompt has
 // the playbook; this kickoff hands over the specific prospect to build for.
@@ -204,6 +211,11 @@ export async function kickoffBuild(buildId: string): Promise<void> {
     const message = err instanceof Error ? err.message : String(err);
     logger.error("kickoffBuild failed", { buildId, err: message });
     await failBuild(buildId, message);
+    // Crash on the session-open path is operator-actionable — we should know
+    // immediately rather than discovering it next time we check the dashboard.
+    await alertOps(
+      `Fable build ${buildId} for prospect ${build.prospect.id} failed at kickoff: ${message.slice(0, 200)}`
+    );
   }
 }
 
@@ -443,4 +455,51 @@ async function alertOps(message: string): Promise<void> {
   }
 }
 
-export default { kickoffBuild, pollActiveBuilds, reapCancelledBuilds };
+// ---------------------------------------------------------------------------
+// Concurrency gate — used by POST /builds AND by the cron tick to drain the
+// queue. If we're at or above MAX_CONCURRENT_BUILDS running, leaves the
+// queued row alone (cron will drain it on the next tick).
+// ---------------------------------------------------------------------------
+
+export async function canStartNewBuild(): Promise<boolean> {
+  const runningCount = await prisma.build.count({
+    where: { status: "running" },
+  });
+  return runningCount < MAX_CONCURRENT_BUILDS;
+}
+
+export async function drainBuildQueue(): Promise<void> {
+  // How many slots are open?
+  const runningCount = await prisma.build.count({
+    where: { status: "running" },
+  });
+  const slots = MAX_CONCURRENT_BUILDS - runningCount;
+  if (slots <= 0) return;
+
+  // FIFO — oldest queued first.
+  const queued = await prisma.build.findMany({
+    where: { status: "queued" },
+    orderBy: { createdAt: "asc" },
+    take: slots,
+    select: { id: true },
+  });
+  for (const b of queued) {
+    try {
+      logger.info("Draining queued build", { buildId: b.id });
+      await kickoffBuild(b.id);
+    } catch (err) {
+      logger.error("Queue drain: kickoff threw outside guard", {
+        buildId: b.id,
+        err: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+}
+
+export default {
+  kickoffBuild,
+  pollActiveBuilds,
+  reapCancelledBuilds,
+  canStartNewBuild,
+  drainBuildQueue,
+};

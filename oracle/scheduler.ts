@@ -566,9 +566,12 @@ export function startBuildPollCron(): void {
   if (buildPollCronTask) return;
   buildPollCronTask = cron.schedule("* * * * *", async () => {
     try {
-      const { pollActiveBuilds, reapCancelledBuilds } = await import("./builds/orchestrator.js");
+      const { pollActiveBuilds, reapCancelledBuilds, drainBuildQueue } = await import(
+        "./builds/orchestrator.js"
+      );
       await pollActiveBuilds();
       await reapCancelledBuilds();
+      await drainBuildQueue();
     } catch (error) {
       logger.error("Build-poll cron tick threw", { error });
     }

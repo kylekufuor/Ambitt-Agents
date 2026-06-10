@@ -775,11 +775,17 @@ app.post("/builds", async (req: Request, res: Response) => {
 
     logger.info("Build queued", { buildId: build.id, prospectId });
 
-    // Fire and forget — kickoffBuild swallows errors and persists them to the
-    // Build row. We don't want the HTTP layer waiting on Managed Agents.
+    // Fire-and-forget kickoff, but only if a slot is open. The minute-cron
+    // (drainBuildQueue) picks up queued rows as soon as a slot frees.
     void (async () => {
       try {
-        const { kickoffBuild } = await import("./builds/orchestrator.js");
+        const { kickoffBuild, canStartNewBuild } = await import("./builds/orchestrator.js");
+        if (!(await canStartNewBuild())) {
+          logger.info("Build held in queue (concurrency cap reached)", {
+            buildId: build.id,
+          });
+          return;
+        }
         await kickoffBuild(build.id);
       } catch (err) {
         logger.error("Build kickoff threw outside guard", {
