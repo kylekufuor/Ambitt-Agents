@@ -2,12 +2,17 @@ import prisma from "@/lib/db";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { DryRunUI } from "./dry-run-ui";
+import { BuildPanel, type BuildScenario, type BuildSnapshot, type VeraVerdict } from "./build-panel";
 
 export const dynamic = "force-dynamic";
 
-// Operator-facing dry-run surface. Server component fetches the agent +
-// recent DryRunLog captures (grouped by scenario label client-side).
-// Heavy lifting + interactivity in DryRunUI.
+// Operator-facing dry-run + build-report surface. Server component fetches:
+//   1. The agent + its recent DryRunLog captures (operator + Fable both write
+//      here).
+//   2. The most recent Atlas-on-Fable Build linked to this agent (if any).
+//      If found, BuildPanel renders the build report above the dry-run UI
+//      and polls /api/builds/:id for live updates. Hybrid UX target: same
+//      page, Fable populates → operator approves OR hits "Skip Fable".
 export default async function DryRunPage({
   params,
 }: {
@@ -15,7 +20,7 @@ export default async function DryRunPage({
 }) {
   const { id } = await params;
 
-  const [agent, captures] = await Promise.all([
+  const [agent, captures, latestBuild] = await Promise.all([
     prisma.agent.findUnique({
       where: { id },
       include: {
@@ -27,9 +32,37 @@ export default async function DryRunPage({
       orderBy: { capturedAt: "desc" },
       take: 200,
     }),
+    // Most recent build linked to this agent. We only need the latest; if a
+    // rebuild ever happens, the new Build supersedes the old in this view.
+    prisma.build.findFirst({
+      where: { agentId: id },
+      orderBy: { createdAt: "desc" },
+      include: {
+        prospect: { select: { id: true, token: true } },
+      },
+    }),
   ]);
 
   if (!agent) notFound();
+
+  const buildSnapshot: BuildSnapshot | null = latestBuild
+    ? {
+        id: latestBuild.id,
+        status: latestBuild.status as BuildSnapshot["status"],
+        prospectId: latestBuild.prospectId,
+        agentId: latestBuild.agentId,
+        sessionId: latestBuild.sessionId,
+        environmentId: latestBuild.environmentId,
+        scenarios: (latestBuild.scenarios as unknown as BuildScenario[]) ?? [],
+        veraVerdicts: (latestBuild.veraVerdicts as unknown as VeraVerdict[]) ?? [],
+        costCents: latestBuild.costCents,
+        budgetCents: latestBuild.budgetCents,
+        failureReason: latestBuild.failureReason,
+        startedAt: latestBuild.startedAt?.toISOString() ?? null,
+        completedAt: latestBuild.completedAt?.toISOString() ?? null,
+        createdAt: latestBuild.createdAt.toISOString(),
+      }
+    : null;
 
   return (
     <div className="p-6 space-y-4 max-w-7xl">
@@ -55,6 +88,14 @@ export default async function DryRunPage({
           </p>
         </div>
       </div>
+
+      {buildSnapshot && (
+        <BuildPanel
+          initialBuild={buildSnapshot}
+          agentId={agent.id}
+          prospectToken={latestBuild?.prospect?.token ?? null}
+        />
+      )}
 
       <DryRunUI
         agentId={agent.id}
