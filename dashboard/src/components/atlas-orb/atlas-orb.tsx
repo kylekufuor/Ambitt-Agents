@@ -32,6 +32,11 @@ interface AtlasOrbProps {
   state?: OrbState;
   /** Mutable 0..1 audio level, read per-frame (no re-renders). */
   levelRef?: React.MutableRefObject<number>;
+  /**
+   * Atlas's remaining context capacity, 0..1. Grades the hologram's color:
+   * 1.0 = fresh golden amber, 0 = deep ember red. Lerped smoothly.
+   */
+  capacity?: number;
   /** Canvas square size in px. */
   size?: number;
   className?: string;
@@ -113,6 +118,7 @@ const FILAMENT_VERT = /* glsl */ `
 const FILAMENT_FRAG = /* glsl */ `
   uniform float uBrightness;
   uniform float uAlphaMul;
+  uniform float uCapacity;
   varying vec3 vColor;
   varying float vFlicker;
 
@@ -120,7 +126,15 @@ const FILAMENT_FRAG = /* glsl */ `
     float d = length(gl_PointCoord - 0.5);
     if (d > 0.5) discard;
     float alpha = pow(smoothstep(0.5, 0.0, d), 1.7) * uAlphaMul;
-    gl_FragColor = vec4(vColor * uBrightness * vFlicker, alpha);
+    // Context-capacity color grade: full capacity leaves the amber palette
+    // untouched; as capacity drains, green/blue collapse and the hologram
+    // smolders toward ember red.
+    vec3 graded = vColor * vec3(
+      1.0,
+      mix(0.34, 1.0, uCapacity),
+      mix(0.18, 1.0, uCapacity)
+    );
+    gl_FragColor = vec4(graded * uBrightness * vFlicker, alpha);
   }
 `;
 
@@ -356,10 +370,18 @@ function makeCoreTexture(): THREE.CanvasTexture {
 // Component
 // ---------------------------------------------------------------------------
 
-export function AtlasOrb({ state = "idle", levelRef, size = 300, className }: AtlasOrbProps) {
+export function AtlasOrb({
+  state = "idle",
+  levelRef,
+  capacity = 1,
+  size = 300,
+  className,
+}: AtlasOrbProps) {
   const mountRef = useRef<HTMLDivElement>(null);
   const stateRef = useRef<OrbState>(state);
   stateRef.current = state;
+  const capacityRef = useRef(capacity);
+  capacityRef.current = capacity;
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -399,6 +421,7 @@ export function AtlasOrb({ state = "idle", levelRef, size = 300, className }: At
       uTurb: { value: 0 },
       uBrightness: { value: 0.92 },
       uRim: { value: 0.32 },
+      uCapacity: { value: 1 },
       uPixelRatio: { value: dpr },
     };
 
@@ -479,12 +502,25 @@ export function AtlasOrb({ state = "idle", levelRef, size = 300, className }: At
       const attack = rawLevel > current.audio ? 1 - Math.exp(-30 * dt) : 1 - Math.exp(-8 * dt);
       current.audio += (rawLevel - current.audio) * attack;
 
+      // Capacity drifts slowly — a gauge, not a strobe.
+      const capTarget = Math.min(1, Math.max(0, capacityRef.current));
+      sharedUniforms.uCapacity.value +=
+        (capTarget - sharedUniforms.uCapacity.value) * (1 - Math.exp(-2.0 * dt));
+
       sharedUniforms.uTime.value = t;
       sharedUniforms.uContract.value = current.contract;
       sharedUniforms.uTurb.value = current.turb;
       sharedUniforms.uBrightness.value = current.brightness;
       sharedUniforms.uRim.value = current.rim;
       sharedUniforms.uAudio.value = current.audio;
+
+      // Core sprite follows the same grade so the heart matches the body.
+      const cap = sharedUniforms.uCapacity.value;
+      (core.material as THREE.SpriteMaterial).color.setRGB(
+        1.0,
+        0.34 + 0.66 * cap,
+        0.18 + 0.82 * cap
+      );
       // Per-pass uniforms share the objects from sharedUniforms, but each
       // material captured its own uSizeMul/uAlphaMul — nothing to sync.
 

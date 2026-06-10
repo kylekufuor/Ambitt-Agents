@@ -30,6 +30,10 @@ export function OracleOrb({ pendingCount }: { pendingCount?: number }) {
   // agent audio → speaking).
   const [orbState, setOrbState] = useState<OrbState>("idle");
   const [demoMode, setDemoMode] = useState(false);
+  // Context capacity 0..1 — V2 wires this to Atlas's live Fable session
+  // (context-window usage from the Managed Agents thread stats). Until then
+  // it defaults to full and the demo slider drives it.
+  const [capacity, setCapacity] = useState(1);
   const levelRef = useRef(0);
 
   useEffect(() => {
@@ -132,7 +136,7 @@ export function OracleOrb({ pendingCount }: { pendingCount?: number }) {
           <div className={`relative rounded-full transition-all duration-700 ${
             open ? "scale-90" : "group-hover:scale-[1.03]"
           }`}>
-            <AtlasOrb state={orbState} levelRef={levelRef} size={430} />
+            <AtlasOrb state={orbState} levelRef={levelRef} capacity={capacity} size={430} />
           </div>
 
           {/* Pending badge */}
@@ -156,23 +160,40 @@ export function OracleOrb({ pendingCount }: { pendingCount?: number }) {
         </div>
       )}
 
-      {/* Demo state switcher — only with ?orbDemo=1. Lets the operator
-          preview listening/thinking/speaking before the voice loop exists. */}
+      {/* Demo controls — only with ?orbDemo=1. State switcher + context-
+          capacity slider, so every orb behavior can be previewed before the
+          voice loop and live telemetry exist. */}
       {demoMode && (
-        <div className="flex items-center gap-1.5 mt-4 bg-card border border-border rounded-full px-2 py-1.5">
-          {DEMO_STATES.map((s) => (
-            <button
-              key={s}
-              onClick={() => setOrbState(s)}
-              className={`text-xs font-medium px-3 py-1 rounded-full transition-colors ${
-                orbState === s
-                  ? "bg-foreground text-background"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {s}
-            </button>
-          ))}
+        <div className="flex flex-col items-center gap-2 mt-4">
+          <div className="flex items-center gap-1.5 bg-card border border-border rounded-full px-2 py-1.5">
+            {DEMO_STATES.map((s) => (
+              <button
+                key={s}
+                onClick={() => setOrbState(s)}
+                className={`text-xs font-medium px-3 py-1 rounded-full transition-colors ${
+                  orbState === s
+                    ? "bg-foreground text-background"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-3 bg-card border border-border rounded-full px-4 py-1.5">
+            <span className="text-xs text-muted-foreground whitespace-nowrap">context</span>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={Math.round(capacity * 100)}
+              onChange={(e) => setCapacity(Number(e.target.value) / 100)}
+              className="w-44 accent-amber-500"
+            />
+            <span className="text-xs font-mono text-foreground w-9 text-right">
+              {Math.round(capacity * 100)}%
+            </span>
+          </div>
         </div>
       )}
     </div>
