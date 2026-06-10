@@ -75,9 +75,6 @@ export function OracleOrb({ pendingCount }: { pendingCount?: number }) {
     <div className="flex flex-col items-center justify-center py-6">
       <div className="relative" style={{ width: "580px", height: "580px" }}>
 
-        {/* Shadow pool beneath the universe */}
-        <div className="absolute left-1/2 top-[58%] -translate-x-1/2 w-[230px] h-[44px] rounded-full bg-black/10 dark:bg-white/[0.03] blur-2xl" />
-
         {/* Orbital rings */}
         <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] rounded-full border border-neutral-300/30 dark:border-white/[0.06] animate-orb-spin-slow" />
         <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[350px] h-[350px] rounded-full border border-neutral-300/20 dark:border-white/[0.04] animate-orb-spin-reverse" />
@@ -131,11 +128,9 @@ export function OracleOrb({ pendingCount }: { pendingCount?: number }) {
           className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 group cursor-pointer z-10"
           aria-label="Atlas Command"
         >
-          {/* Ambient glow — warm hologram light, breathes with the orb */}
-          <div className="absolute -inset-14 rounded-full bg-amber-500/[0.08] dark:bg-amber-400/[0.06] blur-3xl animate-pulse-slow" />
-
+          {/* The hologram floats bare — no glow pools, no shadows, no discs */}
           <div className={`relative rounded-full transition-all duration-700 ${
-            open ? "scale-90" : "group-hover:scale-[1.03] animate-breathe"
+            open ? "scale-90" : "group-hover:scale-[1.03]"
           }`}>
             <AtlasOrb state={orbState} levelRef={levelRef} size={300} />
           </div>

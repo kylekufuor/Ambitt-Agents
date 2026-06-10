@@ -124,44 +124,8 @@ const FILAMENT_FRAG = /* glsl */ `
   }
 `;
 
-// Inner void — warm-black backdrop so the amber core reads on a light page.
-const VOID_VERT = /* glsl */ `
-  void main() {
-    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-  }
-`;
-
-const VOID_FRAG = /* glsl */ `
-  void main() {
-    gl_FragColor = vec4(0.028, 0.016, 0.008, 0.95);
-  }
-`;
-
-// Fresnel rim — faint golden boundary; the hologram's edge.
-const RIM_VERT = /* glsl */ `
-  varying vec3 vNormal;
-  varying vec3 vView;
-  void main() {
-    vNormal = normalize(normalMatrix * normal);
-    vec4 mv = modelViewMatrix * vec4(position, 1.0);
-    vView = -mv.xyz;
-    gl_Position = projectionMatrix * mv;
-  }
-`;
-
-const RIM_FRAG = /* glsl */ `
-  uniform float uRim;
-  uniform float uAudio;
-  varying vec3 vNormal;
-  varying vec3 vView;
-
-  void main() {
-    float fres = pow(1.0 - abs(dot(normalize(vNormal), normalize(vView))), 3.4);
-    vec3 rimColor = vec3(1.0, 0.72, 0.32);
-    float strength = fres * uRim * (1.0 + uAudio * 0.6);
-    gl_FragColor = vec4(rimColor * strength, strength * 0.8);
-  }
-`;
+// No backdrop, no boundary shell — the hologram floats bare on the page,
+// exactly like the film. The filaments and their glow are the whole object.
 
 // ---------------------------------------------------------------------------
 // Filament network generation
@@ -473,19 +437,6 @@ export function AtlasOrb({ state = "idle", levelRef, size = 300, className }: At
       group.add(new THREE.Points(geo, sharpMat));
     }
 
-    // Void backdrop.
-    const voidMesh = new THREE.Mesh(
-      new THREE.SphereGeometry(1.0, 48, 48),
-      new THREE.ShaderMaterial({
-        vertexShader: VOID_VERT,
-        fragmentShader: VOID_FRAG,
-        side: THREE.BackSide,
-        transparent: true,
-        depthWrite: false,
-      })
-    );
-    universe.add(voidMesh);
-
     // Core glow sprite.
     const coreTexture = makeCoreTexture();
     const core = new THREE.Sprite(
@@ -498,20 +449,6 @@ export function AtlasOrb({ state = "idle", levelRef, size = 300, className }: At
     );
     core.scale.setScalar(0.3);
     universe.add(core);
-
-    // Golden fresnel rim.
-    const rim = new THREE.Mesh(
-      new THREE.SphereGeometry(1.0, 64, 64),
-      new THREE.ShaderMaterial({
-        vertexShader: RIM_VERT,
-        fragmentShader: RIM_FRAG,
-        uniforms: sharedUniforms,
-        transparent: true,
-        depthWrite: false,
-        blending: THREE.AdditiveBlending,
-      })
-    );
-    scene.add(rim);
 
     // Animation loop.
     const clock = new THREE.Clock();
@@ -579,10 +516,6 @@ export function AtlasOrb({ state = "idle", levelRef, size = 300, className }: At
       shells.mid.dispose();
       shells.inner.dispose();
       for (const m of materials) m.dispose();
-      voidMesh.geometry.dispose();
-      (voidMesh.material as THREE.Material).dispose();
-      rim.geometry.dispose();
-      (rim.material as THREE.Material).dispose();
       (core.material as THREE.SpriteMaterial).dispose();
       coreTexture.dispose();
       renderer.dispose();
