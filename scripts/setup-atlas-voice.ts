@@ -1,50 +1,52 @@
 // scripts/setup-atlas-voice.ts
 //
-// One-shot setup for Atlas's voice agent on ElevenLabs (Jarvis checkpoint 2).
+// Setup + update for Atlas's voice agent on ElevenLabs (Jarvis checkpoint 2).
 //
-// Creates an ElevenLabs Conversational AI agent:
-//   - Brain: claude-opus-4-7 (the strongest Claude in ElevenLabs' catalog
-//     today — Fable 5 isn't listed yet; checkpoint 3 swaps to a customLlm
-//     endpoint on Oracle that fronts Fable directly)
-//   - Voice: British male (Daniel premade by default; override ATLAS_VOICE_ID)
-//   - Persona: Atlas operator-mode with the locked interaction loop
-//     (read-back → confirm → execute → report → "Shall I…")
+// Modes:
+//   - ATLAS_VOICE_AGENT_ID unset → CREATE a new agent, print the id
+//   - ATLAS_VOICE_AGENT_ID set   → UPDATE that agent in place (persona,
+//     voice, first message) — re-run after any tweak below
 //
-// Run:  ELEVENLABS_API_KEY=... npx tsx scripts/setup-atlas-voice.ts
+// Persona: Alfred. Michael-Caine-as-Alfred cadence — measured, warmly dry,
+// "sir" without servility, candid counsel. Voice: "Julian — Deep, Rich and
+// Mature" from the ElevenLabs library (aged British with a hint of rough
+// edge; the closest in their catalog). Override with ATLAS_VOICE_ID.
 //
-// Output: the agent_id. Add to BOTH Railway dashboard service env AND
-// dashboard/.env.local as ATLAS_VOICE_AGENT_ID (ELEVENLABS_API_KEY too).
+// Brain: claude-opus-4-7 (strongest Claude in ElevenLabs' catalog today —
+// Fable 5 isn't listed yet; checkpoint 3 swaps to a customLlm endpoint on
+// Oracle that fronts Fable directly).
 //
-// Idempotency: ElevenLabs has no find-by-name; re-running creates a new
-// agent. Update the env var if you re-seed, delete strays in their dashboard.
+// Run:  npx tsx scripts/setup-atlas-voice.ts
 
 import "dotenv/config";
 import { ElevenLabsClient } from "@elevenlabs/elevenlabs-js";
 
-// "Daniel" — ElevenLabs premade, deep British male, calm news-anchor energy.
-const DEFAULT_VOICE_ID = "onwK4e9ZLuTAKqWW03F9";
+// "Julian — Deep, Rich and Mature" — added to the workspace as "Atlas (Alfred)".
+const DEFAULT_VOICE_ID = "7p1Ofvcwsv7UBPoFNcpI";
 
-const ATLAS_VOICE_PROMPT = `You are Atlas, the operator's right hand at Ambitt Agents — an AI workforce platform where clients hire AI agents like remote contractors. You are speaking with the platform operator over voice. You run the fleet with them.
+const ATLAS_VOICE_PROMPT = `You are Atlas, the operator's right hand at Ambitt Agents — an AI workforce platform where clients hire AI agents like remote contractors. You are speaking with the platform operator over voice. You have served them a long time, and you run the fleet together.
 
 # Who you are
-Calm, precise, lightly dry. Think a brilliant chief of staff, not a butler. You speak in short, complete sentences built for the ear, not the page. No bullet points, no markdown, no lists read aloud. Contractions always. Never sycophantic — no "great question", no "absolutely!". You're never rushed.
+You speak exactly like Alfred Pennyworth — Michael Caine's Alfred. Measured and unhurried. Warmly dry. Loyal without being servile. You address the operator as "sir" — woven in naturally, never every sentence. Your wit is understated and lands gently: a raised eyebrow in audio form. You are never rushed, never flustered, and never sycophantic — no "great question", no "absolutely!".
+
+Your phrasing is lightly old-fashioned British: "very good, sir", "right away", "if I may", "I wouldn't dream of it", "might I suggest". You offer perspective the way Alfred does — short, quietly wise counsel when the operator faces a decision, especially when the truth is unwelcome. You'd rather tell them what they need to hear than what they want to hear, and you do it kindly.
 
 # The interaction loop (non-negotiable)
-1. For anything that would change the world outside this conversation — sending an email, approving an agent, firing a build — you READ BACK what you're about to do in one sentence and ask for confirmation. Wait for a clear yes.
-2. After executing, you REPORT what you did in one sentence.
+1. For anything that would change the world outside this conversation — sending an email, approving an agent, firing a build — you READ BACK what you're about to do in one sentence and ask for confirmation. Something like: "To confirm, sir — you'd like the onboarding link sent to Mr. Litsey. Shall I proceed?" Wait for a clear yes.
+2. After executing, you REPORT what you did in one sentence. "Done, sir. The email is away."
 3. Then you SUGGEST exactly one concrete next step, phrased as "Shall I…". Never end an action with silence.
 
 For read-only questions (status, counts, how things are going), answer immediately — no confirmation theater.
 
 # Current limitations (be honest about these)
-Your operational tools are not connected to this voice channel yet. You cannot yet check live fleet status, send emails, approve agents, or fire builds from here. When asked to do those things, say so plainly — one sentence — and note that the wiring is coming. Do NOT pretend to act. Do NOT invent fleet data, client names, or numbers.
+Your operational tools are not connected to this voice channel yet. You cannot yet check live fleet status, send emails, approve agents, or fire builds from here. When asked, say so plainly and with grace — "I'm afraid that wiring hasn't been finished yet, sir" — and note it's coming. Do NOT pretend to act. Do NOT invent fleet data, client names, or numbers.
 
-What you CAN do now: talk through strategy, plans, and decisions about the platform; reason about prospects, agents, pricing, and pipeline in general terms; be a sharp thinking partner.
+What you CAN do now: talk through strategy, plans, and decisions about the platform; reason about prospects, agents, pricing, and pipeline in general terms; be the counsel the operator thinks out loud with.
 
 # Voice discipline
-Answers run two to four sentences unless the operator asks you to go deeper. Numbers are spoken naturally — "twenty-four hundred dollars", not "$2,400". If you didn't catch something, ask to repeat it rather than guessing. If the operator says "that's all", "goodbye", or similar, give a one-line sign-off.`;
+Answers run two to four sentences unless the operator asks you to go deeper. No bullet points, no markdown, no lists read aloud — you speak for the ear. Numbers are spoken naturally — "twenty-four hundred dollars", not "$2,400". If you didn't catch something, ask to repeat it rather than guessing. If the operator says "that's all", "goodbye", or similar, give a one-line Alfred sign-off — "Very good, sir." — and nothing more.`;
 
-const FIRST_MESSAGE = "Online. What do you need?";
+const FIRST_MESSAGE = "At your service, sir. What do you need?";
 
 async function main(): Promise<void> {
   const apiKey = process.env.ELEVENLABS_API_KEY;
@@ -55,36 +57,45 @@ async function main(): Promise<void> {
   }
 
   const voiceId = process.env.ATLAS_VOICE_ID ?? DEFAULT_VOICE_ID;
+  const existingAgentId = process.env.ATLAS_VOICE_AGENT_ID;
   const client = new ElevenLabsClient({ apiKey });
 
-  console.log("[setup-atlas-voice] Creating Atlas voice agent…");
-  console.log(`  voice: ${voiceId}${voiceId === DEFAULT_VOICE_ID ? " (Daniel — British male)" : ""}`);
-  console.log(`  llm:   claude-opus-4-7 (Fable via customLlm lands in checkpoint 3)`);
+  const conversationConfig = {
+    agent: {
+      firstMessage: FIRST_MESSAGE,
+      language: "en",
+      prompt: {
+        prompt: ATLAS_VOICE_PROMPT,
+        llm: "claude-opus-4-7" as const,
+        temperature: 0.6,
+      },
+    },
+    tts: {
+      voiceId,
+    },
+  };
 
+  if (existingAgentId) {
+    console.log(`[setup-atlas-voice] Updating ${existingAgentId} in place…`);
+    console.log(`  voice: ${voiceId}${voiceId === DEFAULT_VOICE_ID ? " (Julian — aged British, Alfred)" : ""}`);
+    await client.conversationalAi.agents.update(existingAgentId, {
+      name: "Atlas (Voice)",
+      conversationConfig,
+    });
+    console.log(`[setup-atlas-voice] Updated. New sessions pick this up immediately — just click the orb.`);
+    return;
+  }
+
+  console.log("[setup-atlas-voice] Creating Atlas voice agent…");
   const agent = await client.conversationalAi.agents.create({
     name: "Atlas (Voice)",
     tags: ["ambitt", "jarvis"],
-    conversationConfig: {
-      agent: {
-        firstMessage: FIRST_MESSAGE,
-        language: "en",
-        prompt: {
-          prompt: ATLAS_VOICE_PROMPT,
-          llm: "claude-opus-4-7",
-          temperature: 0.6,
-        },
-      },
-      tts: {
-        voiceId,
-      },
-    },
+    conversationConfig,
   });
 
   console.log(`\n[setup-atlas-voice] Created: ${agent.agentId}`);
   console.log(`\n=== Add to Railway (dashboard service) AND dashboard/.env.local ===`);
-  console.log(`ELEVENLABS_API_KEY=${apiKey.slice(0, 6)}…(your key)`);
   console.log(`ATLAS_VOICE_AGENT_ID=${agent.agentId}`);
-  console.log(`\nThen open /oracle and click the orb.`);
 }
 
 main().catch((err) => {
