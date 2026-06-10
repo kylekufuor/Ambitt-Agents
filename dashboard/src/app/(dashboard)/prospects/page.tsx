@@ -36,6 +36,7 @@ export default async function ProspectsPage() {
       quoteSentAt: true,
       quoteAcceptedAt: true,
       quoteDeniedAt: true,
+      quoteDeniedReason: true,
       convertedClientId: true,
       lastActivityAt: true,
       createdAt: true,
@@ -44,6 +45,31 @@ export default async function ProspectsPage() {
   });
 
   const buckets = bucketByStatus(prospects);
+
+  // Funnel action queues — relocated from the Oracle home when that page
+  // became Atlas's room. Derived from the full list above, no extra queries.
+  const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const quotesAwaitingConvert = prospects.filter(
+    (p) =>
+      p.quoteAcceptedAt &&
+      !p.convertedClientId &&
+      p.status !== "archived" &&
+      p.status !== "ghosted"
+  );
+  const prdsPendingReview = prospects.filter(
+    (p) =>
+      p.prdGeneratedAt &&
+      !p.prdApprovedAt &&
+      p.status !== "archived" &&
+      p.status !== "ghosted"
+  );
+  const recentQuoteDecisions = prospects
+    .filter(
+      (p) =>
+        (p.quoteAcceptedAt && p.quoteAcceptedAt >= oneWeekAgo) ||
+        (p.quoteDeniedAt && p.quoteDeniedAt >= oneWeekAgo)
+    )
+    .slice(0, 15);
 
   return (
     <div className="p-6 space-y-6 max-w-7xl">
@@ -58,6 +84,115 @@ export default async function ProspectsPage() {
         </div>
         <SpawnProspectForm />
       </div>
+
+      {/* Quotes accepted → click Convert (most urgent — paying client waiting) */}
+      {quotesAwaitingConvert.length > 0 && (
+        <div className="bg-emerald-500/5 border border-emerald-500/30 rounded-xl overflow-hidden">
+          <div className="px-5 py-4 border-b border-emerald-500/15 flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <h2 className="font-semibold text-emerald-300 text-[15px]">Quotes accepted — convert now</h2>
+            <span className="text-emerald-400/60 text-xs ml-auto">{quotesAwaitingConvert.length}</span>
+          </div>
+          <div className="divide-y divide-emerald-500/15">
+            {quotesAwaitingConvert.map((p) => (
+              <div key={p.id} className="px-5 py-3 flex items-center justify-between">
+                <div>
+                  <div className="font-medium text-foreground text-sm">
+                    {p.contactName ?? "(no name)"}
+                    {p.businessName && <span className="text-muted-foreground font-normal"> · {p.businessName}</span>}
+                  </div>
+                  <div className="text-muted-foreground text-xs mt-0.5">
+                    {p.email} · accepted {relativeTime(p.quoteAcceptedAt!)}
+                  </div>
+                </div>
+                <Link
+                  href={`/prospects/${p.id}/quote`}
+                  className="text-[11px] font-semibold px-3 py-1.5 rounded-md bg-emerald-500 text-white hover:bg-emerald-400"
+                >
+                  Convert →
+                </Link>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* PRDs awaiting review */}
+      {prdsPendingReview.length > 0 && (
+        <div className="bg-blue-500/5 border border-blue-500/25 rounded-xl overflow-hidden">
+          <div className="px-5 py-4 border-b border-blue-500/15 flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+            <h2 className="font-semibold text-blue-300 text-[15px]">PRDs awaiting your review</h2>
+            <span className="text-blue-400/60 text-xs ml-auto">{prdsPendingReview.length}</span>
+          </div>
+          <div className="divide-y divide-blue-500/15">
+            {prdsPendingReview.map((p) => (
+              <div key={p.id} className="px-5 py-3 flex items-center justify-between">
+                <div>
+                  <div className="font-medium text-foreground text-sm">
+                    {p.contactName ?? "(no name)"}
+                    {p.businessName && <span className="text-muted-foreground font-normal"> · {p.businessName}</span>}
+                  </div>
+                  <div className="text-muted-foreground text-xs mt-0.5">
+                    {p.email} · PRD generated {relativeTime(p.prdGeneratedAt!)} · status {p.status}
+                  </div>
+                </div>
+                <Link
+                  href={`/prospects/${p.id}/prd`}
+                  className="text-[11px] font-semibold px-3 py-1.5 rounded-md bg-blue-500/15 text-blue-300 hover:bg-blue-500/25 ring-1 ring-blue-500/30"
+                >
+                  Review →
+                </Link>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Recent quote decisions — awareness, past 7 days */}
+      {recentQuoteDecisions.length > 0 && (
+        <div className="bg-card border border-border rounded-xl overflow-hidden">
+          <div className="px-5 py-3 border-b border-border flex items-center gap-2">
+            <h2 className="font-semibold text-foreground text-sm">Recent quote decisions</h2>
+            <span className="text-muted-foreground text-xs ml-auto">past 7 days</span>
+          </div>
+          <div className="divide-y divide-border">
+            {recentQuoteDecisions.map((p) => {
+              const accepted = Boolean(p.quoteAcceptedAt);
+              const ts = accepted ? p.quoteAcceptedAt! : p.quoteDeniedAt!;
+              const labelColor = accepted ? "text-emerald-400" : "text-amber-400";
+              const labelText = accepted
+                ? p.convertedClientId
+                  ? "Accepted · Converted"
+                  : "Accepted · Convert pending"
+                : "Denied";
+              return (
+                <Link
+                  key={p.id}
+                  href={`/prospects/${p.id}/quote`}
+                  className="px-5 py-2.5 flex items-center justify-between hover:bg-muted/30 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className={`text-[10.5px] font-semibold uppercase tracking-wider ${labelColor}`}>
+                      {labelText}
+                    </span>
+                    <span className="text-foreground text-sm">
+                      {p.contactName ?? "(no name)"}
+                      {p.businessName && <span className="text-muted-foreground"> · {p.businessName}</span>}
+                    </span>
+                    {!accepted && p.quoteDeniedReason && (
+                      <span className="text-muted-foreground/70 text-xs italic max-w-md truncate">
+                        “{p.quoteDeniedReason}”
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-muted-foreground text-xs">{relativeTime(ts)}</span>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {prospects.length === 0 ? (
         <div className="bg-card border border-border rounded-xl px-5 py-16 text-center">

@@ -27,14 +27,32 @@ interface QuoteLike {
   pricing?: QuotePricing;
 }
 
+async function approveAction(formData: FormData) {
+  "use server";
+  const agentId = formData.get("agentId") as string;
+  const oracleUrl = process.env.ORACLE_URL ?? "https://oracle-production-c0ff.up.railway.app";
+  await fetch(`${oracleUrl}/agents/${agentId}/approve`, { method: "POST" });
+  const { redirect } = await import("next/navigation");
+  redirect("/agents");
+}
+
+async function rejectAction(formData: FormData) {
+  "use server";
+  const agentId = formData.get("agentId") as string;
+  const oracleUrl = process.env.ORACLE_URL ?? "https://oracle-production-c0ff.up.railway.app";
+  await fetch(`${oracleUrl}/agents/${agentId}/reject`, { method: "POST" });
+  const { redirect } = await import("next/navigation");
+  redirect("/agents");
+}
+
 export default async function AgentsPage() {
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  const [agents, apiUsageMonth, pendingFromPRD] = await Promise.all([
+  const [agents, apiUsageMonth, pendingFromPRD, scaffoldedFromProspects] = await Promise.all([
     prisma.agent.findMany({
       include: {
-        client: { select: { id: true, businessName: true } },
+        client: { select: { id: true, businessName: true, industry: true } },
       },
       orderBy: { createdAt: "desc" },
     }),
@@ -67,6 +85,13 @@ export default async function AgentsPage() {
         quoteAcceptedAt: true,
       },
     }),
+    // Source-PRD lookup for the approval queue: Phase-D-scaffolded agents
+    // originated from a Prospect; the "View source PRD" link sends Kyle to
+    // /prospects/[id]/prd before approving.
+    prisma.prospect.findMany({
+      where: { convertedClientId: { not: null } },
+      select: { id: true, convertedClientId: true },
+    }),
   ]);
 
   const agentSpend: Record<string, number> = {};
@@ -80,6 +105,12 @@ export default async function AgentsPage() {
     else if (agent.status === "pending_approval") statusCounts.pending++;
     else if (agent.status === "paused") statusCounts.paused++;
     else if (agent.status === "killed") statusCounts.killed++;
+  }
+
+  const pendingApprovals = agents.filter((a) => a.status === "pending_approval");
+  const prospectByClient = new Map<string, string>();
+  for (const p of scaffoldedFromProspects) {
+    if (p.convertedClientId) prospectByClient.set(p.convertedClientId, p.id);
   }
 
   return (
@@ -100,6 +131,74 @@ export default async function AgentsPage() {
         <FleetDot color="bg-zinc-500" label="Paused" count={statusCounts.paused} />
         <FleetDot color="bg-red-500" label="Killed" count={statusCounts.killed} />
       </div>
+
+      {/* ─── Awaiting Approval (moved from Oracle home) ───────────────────── */}
+      {pendingApprovals.length > 0 && (
+        <div className="bg-amber-500/5 border border-amber-500/20 rounded-xl overflow-hidden">
+          <div className="px-5 py-4 border-b border-amber-500/10 flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+            <h2 className="font-semibold text-amber-400 text-[15px]">Awaiting Approval</h2>
+            <span className="text-amber-500/60 text-xs ml-auto">{pendingApprovals.length} pending</span>
+          </div>
+          <div className="divide-y divide-amber-500/10">
+            {pendingApprovals.map((agent) => {
+              const sourceProspectId = prospectByClient.get(agent.client.id);
+              return (
+                <div key={agent.id} className="px-5 py-4">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-foreground">{agent.name}</span>
+                        <span className="text-muted-foreground text-xs font-mono">{agent.agentType}</span>
+                      </div>
+                      <p className="text-muted-foreground text-xs mt-1">
+                        {agent.client.businessName} — {agent.client.industry}
+                      </p>
+                      <div className="flex gap-4 mt-2 text-xs text-muted-foreground/60 flex-wrap">
+                        <span>Retainer: ${agent.monthlyRetainerCents / 100}/mo</span>
+                        <span>Setup: ${agent.setupFeeCents / 100}</span>
+                        <span>Schedule: {agent.schedule || "triggered"}</span>
+                        <span>Autonomy: {agent.autonomyLevel}</span>
+                        {sourceProspectId ? (
+                          <Link
+                            href={`/prospects/${sourceProspectId}/prd`}
+                            className="text-amber-400 hover:text-amber-300 font-medium"
+                          >
+                            View source PRD →
+                          </Link>
+                        ) : (
+                          <span className="text-muted-foreground/40">No source PRD (manual)</span>
+                        )}
+                      </div>
+                      <p className="text-muted-foreground text-xs mt-1.5 max-w-2xl">{agent.purpose}</p>
+                    </div>
+                    <div className="flex gap-2 shrink-0 ml-4">
+                      <Link
+                        href={`/agents/${agent.id}`}
+                        className="text-[11px] font-medium px-3 py-1.5 rounded-md border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors"
+                      >
+                        Open
+                      </Link>
+                      <form action={approveAction}>
+                        <input type="hidden" name="agentId" value={agent.id} />
+                        <button className="text-[11px] font-semibold px-3 py-1.5 rounded-md bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 ring-1 ring-emerald-500/20 transition-colors">
+                          Approve
+                        </button>
+                      </form>
+                      <form action={rejectAction}>
+                        <input type="hidden" name="agentId" value={agent.id} />
+                        <button className="text-[11px] font-semibold px-3 py-1.5 rounded-md bg-red-500/10 text-red-400 hover:bg-red-500/20 ring-1 ring-red-500/20 transition-colors">
+                          Reject
+                        </button>
+                      </form>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* ─── Pipeline · awaiting build ─────────────────────────────────────── */}
       {pendingFromPRD.length > 0 && (

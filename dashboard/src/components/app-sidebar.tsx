@@ -9,6 +9,7 @@ import {
   DollarSign,
   Zap,
   UserPlus,
+  Activity,
 } from "lucide-react"
 
 import { ThemeToggle } from "@/components/theme-toggle"
@@ -28,16 +29,17 @@ import {
   SidebarRail,
 } from "@/components/ui/sidebar"
 
-// Sidebar reflects the funnel we actually run: Oracle (ops home + queue) →
-// Prospects (pipeline) → Clients (signed) → Agents (built) → Costs.
-// Removed: "Create Agent" (manual form superseded by Prospect → Convert
-// auto-scaffold; route kept as an emergency escape hatch — just hidden);
-// "Activity" (stub since April — real activity lives on Oracle home).
+// Sidebar reflects the funnel we actually run: Oracle (Atlas's room — orb +
+// context bar only) → Prospects (pipeline + funnel queues) → Clients (signed)
+// → Agents (built + approval queue) → Activity (event feed + ops sweeps) →
+// Costs. Removed: "Create Agent" (manual form superseded by Prospect →
+// Convert auto-scaffold; route kept as an emergency escape hatch — hidden).
 const navItems = [
   { title: "Oracle", href: "/oracle", icon: Zap },
   { title: "Prospects", href: "/prospects", icon: UserPlus },
   { title: "Clients", href: "/clients", icon: Users },
   { title: "Agents", href: "/agents", icon: Bot },
+  { title: "Activity", href: "/activity", icon: Activity },
   { title: "Costs", href: "/costs", icon: DollarSign },
 ]
 

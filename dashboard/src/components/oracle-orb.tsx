@@ -11,12 +11,14 @@ import {
 } from "lucide-react";
 import { AtlasOrb, type OrbState } from "@/components/atlas-orb/atlas-orb";
 
+// Radial destinations follow the relocated surfaces: approvals queue lives
+// on /agents, fleet-health + improvement runs live on /activity.
 const actions = [
   { label: "Run Agent", icon: Play, href: "/agents", color: "bg-violet-500" },
-  { label: "Fleet Health", icon: Activity, href: "/oracle", color: "bg-emerald-500" },
-  { label: "Approvals", icon: CheckCircle, href: "/oracle", color: "bg-amber-500", badgeKey: "approvals" as const },
+  { label: "Fleet Health", icon: Activity, href: "/activity", color: "bg-emerald-500" },
+  { label: "Approvals", icon: CheckCircle, href: "/agents", color: "bg-amber-500", badgeKey: "approvals" as const },
   { label: "Create Agent", icon: Bot, href: "/agents/create", color: "bg-blue-500" },
-  { label: "Improvements", icon: Lightbulb, href: "/oracle", color: "bg-pink-500" },
+  { label: "Improvements", icon: Lightbulb, href: "/activity", color: "bg-pink-500" },
 ];
 
 const DEMO_STATES: OrbState[] = ["idle", "listening", "thinking", "speaking"];
@@ -153,12 +155,24 @@ export function OracleOrb({ pendingCount }: { pendingCount?: number }) {
         Click to command
       </p>
 
-      {!open && pendingCount && pendingCount > 0 && (
-        <div className="flex items-center gap-2 mt-3 bg-amber-500/10 text-amber-400 px-3 py-1.5 rounded-lg text-xs font-semibold ring-1 ring-amber-500/20">
-          <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
-          {pendingCount} awaiting approval
+      {/* Context bar — Atlas's remaining context capacity. Fill + hue track
+          the same signal that grades the orb (gold full → ember red empty).
+          V2 wires this to the live Fable session; defaults to full. */}
+      <div className={`flex items-center gap-3 mt-4 transition-opacity duration-300 ${open ? "opacity-0" : "opacity-100"}`}>
+        <span className="text-[11px] uppercase tracking-wider text-muted-foreground/60">Context</span>
+        <div className="w-56 h-1.5 rounded-full bg-muted overflow-hidden">
+          <div
+            className="h-full rounded-full transition-all duration-700"
+            style={{
+              width: `${Math.round(capacity * 100)}%`,
+              background: `linear-gradient(90deg, rgb(255, ${Math.round(80 + 130 * capacity)}, ${Math.round(30 + 60 * capacity)}), rgb(255, ${Math.round(120 + 100 * capacity)}, ${Math.round(40 + 100 * capacity)}))`,
+            }}
+          />
         </div>
-      )}
+        <span className="text-[11px] font-mono text-muted-foreground tabular-nums w-8">
+          {Math.round(capacity * 100)}%
+        </span>
+      </div>
 
       {/* Demo controls — only with ?orbDemo=1. State switcher + context-
           capacity slider, so every orb behavior can be previewed before the
