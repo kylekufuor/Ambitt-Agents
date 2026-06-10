@@ -15,9 +15,16 @@ export default async function OraclePage() {
     where: { status: "pending_approval" },
   });
 
+  // Voice goes live when both env vars exist (key + the agent created by
+  // scripts/setup-atlas-voice.ts). Until then the orb keeps its radial-menu
+  // click behavior.
+  const voiceEnabled = Boolean(
+    process.env.ELEVENLABS_API_KEY && process.env.ATLAS_VOICE_AGENT_ID
+  );
+
   return (
     <div className="flex items-center justify-center min-h-[calc(100vh-3rem)]">
-      <OracleOrb pendingCount={pendingCount} />
+      <OracleOrb pendingCount={pendingCount} voiceEnabled={voiceEnabled} />
     </div>
   );
 }
