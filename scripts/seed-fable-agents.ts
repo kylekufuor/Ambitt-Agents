@@ -370,6 +370,12 @@ async function seed(): Promise<SeedResult> {
         url: mcpUrl,
       },
     ];
+    // Required by Managed Agents: every mcp_server must be referenced by an
+    // mcp_toolset entry in tools, else the create call returns 400.
+    atlasRequest.tools = [
+      { type: "agent_toolset_20260401" },
+      { type: "mcp_toolset", mcp_server_name: "ambitt_builder" },
+    ];
     console.log(`\n[seed-fable-agents] Attaching Ambitt Builder MCP: ${mcpUrl}`);
   } else {
     console.log(
@@ -398,6 +404,10 @@ async function seed(): Promise<SeedResult> {
   };
   if (mcpUrl) {
     improverRequest.mcp_servers = [{ type: "url", name: "ambitt_builder", url: mcpUrl }];
+    improverRequest.tools = [
+      { type: "agent_toolset_20260401" },
+      { type: "mcp_toolset", mcp_server_name: "ambitt_builder" },
+    ];
   }
   console.log(`\n[seed-fable-agents] Creating Atlas-Improver...`);
   const atlasImprover = await createAgent(improverRequest);
@@ -417,6 +427,10 @@ async function seed(): Promise<SeedResult> {
   };
   if (mcpUrl) {
     funnelRequest.mcp_servers = [{ type: "url", name: "ambitt_builder", url: mcpUrl }];
+    funnelRequest.tools = [
+      { type: "agent_toolset_20260401" },
+      { type: "mcp_toolset", mcp_server_name: "ambitt_builder" },
+    ];
   }
   console.log(`\n[seed-fable-agents] Creating Atlas-Funnel...`);
   const atlasFunnel = await createAgent(funnelRequest);

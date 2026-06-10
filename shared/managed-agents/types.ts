@@ -18,7 +18,18 @@ export interface AgentToolset20260401 {
   type: "agent_toolset_20260401";
 }
 
-export type AgentTool = AgentToolset20260401 | { type: string; [k: string]: unknown };
+// Reference a custom MCP server declared in `mcp_servers`. Required pairing —
+// Managed Agents validates that every entry in mcp_servers has a matching
+// mcp_toolset in tools, else 400 invalid_request_error.
+export interface McpToolset {
+  type: "mcp_toolset";
+  mcp_server_name: string;
+}
+
+export type AgentTool =
+  | AgentToolset20260401
+  | McpToolset
+  | { type: string; [k: string]: unknown };
 
 export interface AgentMcpServer {
   type: "url";
