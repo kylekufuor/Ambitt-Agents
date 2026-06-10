@@ -131,8 +131,8 @@ export function OracleOrb({ pendingCount }: { pendingCount?: number }) {
           className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 group cursor-pointer z-10"
           aria-label="Atlas Command"
         >
-          {/* Ambient glow — cool starlight, breathes with the orb */}
-          <div className="absolute -inset-14 rounded-full bg-cyan-500/[0.07] dark:bg-cyan-400/[0.05] blur-3xl animate-pulse-slow" />
+          {/* Ambient glow — warm hologram light, breathes with the orb */}
+          <div className="absolute -inset-14 rounded-full bg-amber-500/[0.08] dark:bg-amber-400/[0.06] blur-3xl animate-pulse-slow" />
 
           <div className={`relative rounded-full transition-all duration-700 ${
             open ? "scale-90" : "group-hover:scale-[1.03] animate-breathe"

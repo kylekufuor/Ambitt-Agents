@@ -1,21 +1,27 @@
 "use client";
 
-// AtlasOrb — the observable universe in a sphere.
+// AtlasOrb — the JARVIS neural core.
 //
-// A GPU particle galaxy (3-arm logarithmic spiral, ~42k particles, differential
-// rotation — inner stars orbit faster) plus a volumetric halo star field,
-// contained inside a fresnel-rimmed glass boundary. Sits on the Oracle page as
-// Atlas's physical presence; later phases drive it with live voice audio.
+// Inspired by the Age-of-Ultron hologram: a sphere of golden filament
+// circuitry — great-circle arc fragments, radial spokes, surface circuit
+// patches — around a white-hot center. Built as ~90k GPU particles sampled
+// densely along the filament paths (particle trails read grittier and more
+// holographic than solid lines, and WebGL can't thicken lines anyway).
+//
+// Three counter-rotating shells (outer slow, mid reverse, inner fast) give
+// the layered orbital motion from the film. Each filament group renders
+// twice — a soft oversized pass underneath (cheap bloom) and a sharp pass on
+// top — so the glow holds up at high DPR.
 //
 // States (smoothly lerped uniforms, never a hard cut):
-//   idle      — slow swirl, calm brightness, gentle core breathing
-//   listening — brightens, rotation eases, slight inward contraction (attentive)
-//   thinking  — rotation speeds up ~3.4×, turbulence ripples the arms
-//   speaking  — audio level drives radial swell + brightness pulse
+//   idle      — slow shell rotation, calm amber, core breathing
+//   listening — brightens, rotation eases, slight inward contraction
+//   thinking  — shells spin ~3×, filament turbulence, core flicker
+//   speaking  — audio level drives radial swell + brightness + flicker rate
 //
-// Audio: pass `levelRef` (a mutable ref holding 0..1). The render loop reads
-// it every frame — no React re-renders in the hot path. V2 wires this to an
-// AnalyserNode on the ElevenLabs output stream.
+// Audio: pass `levelRef` (mutable 0..1). The render loop reads it per frame —
+// no React re-renders in the hot path. V2 wires this to an AnalyserNode on
+// the ElevenLabs output stream.
 
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
@@ -31,19 +37,17 @@ interface AtlasOrbProps {
   className?: string;
 }
 
-// Per-state shader uniform targets. Lerped at ~3.5/s for liquid transitions.
 const STATE_TARGETS: Record<
   OrbState,
   { brightness: number; spinMul: number; contract: number; turb: number; rim: number; core: number }
 > = {
-  idle: { brightness: 0.9, spinMul: 1.0, contract: 0.0, turb: 0.0, rim: 0.5, core: 0.7 },
-  listening: { brightness: 1.3, spinMul: 0.55, contract: 1.0, turb: 0.0, rim: 1.05, core: 1.0 },
-  thinking: { brightness: 1.12, spinMul: 3.4, contract: 0.3, turb: 1.0, rim: 0.8, core: 1.15 },
-  speaking: { brightness: 1.35, spinMul: 1.35, contract: 0.0, turb: 0.12, rim: 1.15, core: 1.2 },
+  idle: { brightness: 1.05, spinMul: 1.0, contract: 0.0, turb: 0.0, rim: 0.32, core: 0.75 },
+  listening: { brightness: 1.4, spinMul: 0.55, contract: 1.0, turb: 0.0, rim: 0.7, core: 1.0 },
+  thinking: { brightness: 1.22, spinMul: 3.0, contract: 0.25, turb: 1.0, rim: 0.5, core: 1.15 },
+  speaking: { brightness: 1.45, spinMul: 1.3, contract: 0.0, turb: 0.1, rim: 0.8, core: 1.2 },
 };
 
-// Mulberry32 — tiny seeded PRNG so the galaxy is identical every visit.
-// Atlas should feel like the same celestial object, not a re-roll.
+// Mulberry32 — seeded PRNG so Atlas is the same neural core every visit.
 function mulberry32(seed: number): () => number {
   let a = seed >>> 0;
   return () => {
@@ -56,128 +60,84 @@ function mulberry32(seed: number): () => number {
 }
 
 function gaussian(rand: () => number): number {
-  // Box-Muller
   const u = Math.max(rand(), 1e-9);
   const v = rand();
   return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
 }
 
-const DISK_VERT = /* glsl */ `
+// ---------------------------------------------------------------------------
+// Shaders
+// ---------------------------------------------------------------------------
+
+const FILAMENT_VERT = /* glsl */ `
   uniform float uTime;
-  uniform float uSpinMul;
   uniform float uContract;
   uniform float uAudio;
   uniform float uTurb;
   uniform float uPixelRatio;
+  uniform float uSizeMul;
   attribute float aScale;
   attribute vec3 aColor;
   attribute float aRand;
   varying vec3 vColor;
+  varying float vFlicker;
 
   void main() {
     vec3 pos = position;
-    float r = length(pos.xz);
 
-    // Non-accumulating differential shear — oscillates instead of winding, so
-    // the spiral arms stay crisp forever. (True differential rotation winds
-    // the arms into concentric rings within a minute; rigid rotation happens
-    // on the parent group in JS.)
-    float angle = atan(pos.z, pos.x);
-    angle += sin(uTime * 0.25 + r * 7.0) * 0.035 * uSpinMul;
-    pos.x = cos(angle) * r;
-    pos.z = sin(angle) * r;
-
-    // Thinking turbulence — cheap per-particle phase noise.
-    pos += uTurb * 0.05 * vec3(
-      sin(uTime * 2.1 + aRand * 37.0),
-      sin(uTime * 1.7 + aRand * 23.0) * 0.6,
-      cos(uTime * 2.3 + aRand * 51.0)
+    // Thinking turbulence — filaments shiver.
+    pos += uTurb * 0.035 * vec3(
+      sin(uTime * 2.3 + aRand * 41.0),
+      sin(uTime * 1.9 + aRand * 29.0),
+      cos(uTime * 2.6 + aRand * 53.0)
     );
 
-    // Speaking swell — radial push, slightly desynced per particle so the
-    // surface shimmers instead of breathing as one rigid body.
-    float swell = 1.0 + uAudio * 0.16 * (0.45 + 0.55 * sin(aRand * 40.0 + uTime * 9.0));
+    // Speaking swell — radial push, desynced per particle.
+    float swell = 1.0 + uAudio * 0.13 * (0.5 + 0.5 * sin(aRand * 40.0 + uTime * 9.0));
     pos *= swell;
 
-    // Listening contraction — pulls the whole field inward ~4%.
+    // Listening contraction.
     pos *= 1.0 - uContract * 0.04;
 
     vec4 mv = modelViewMatrix * vec4(pos, 1.0);
     gl_Position = projectionMatrix * mv;
-    gl_PointSize = aScale * uPixelRatio * (5.4 / -mv.z);
+    gl_PointSize = aScale * uSizeMul * uPixelRatio * (5.2 / -mv.z);
     vColor = aColor;
+
+    // Holographic flicker — slow shimmer idle, faster + deeper with audio.
+    float rate = 2.0 + aRand * 4.0 + uAudio * 6.0;
+    vFlicker = 0.78 + 0.22 * sin(uTime * rate + aRand * 120.0);
   }
 `;
 
-const DISK_FRAG = /* glsl */ `
+const FILAMENT_FRAG = /* glsl */ `
   uniform float uBrightness;
+  uniform float uAlphaMul;
   varying vec3 vColor;
+  varying float vFlicker;
 
   void main() {
     float d = length(gl_PointCoord - 0.5);
     if (d > 0.5) discard;
-    float alpha = pow(smoothstep(0.5, 0.0, d), 1.6);
-    gl_FragColor = vec4(vColor * uBrightness, alpha);
+    float alpha = pow(smoothstep(0.5, 0.0, d), 1.7) * uAlphaMul;
+    gl_FragColor = vec4(vColor * uBrightness * vFlicker, alpha);
   }
 `;
 
-const HALO_VERT = /* glsl */ `
-  uniform float uTime;
-  uniform float uAudio;
-  uniform float uPixelRatio;
-  attribute float aScale;
-  attribute float aRand;
-  varying float vTwinkle;
-
-  void main() {
-    vec3 pos = position;
-    // Barely-there counter-rotation so the halo feels independent of the disk.
-    float r = length(pos.xz);
-    float angle = atan(pos.z, pos.x) - uTime * 0.012;
-    pos.x = cos(angle) * r;
-    pos.z = sin(angle) * r;
-
-    vec4 mv = modelViewMatrix * vec4(pos, 1.0);
-    gl_Position = projectionMatrix * mv;
-    gl_PointSize = aScale * uPixelRatio * (3.2 / -mv.z);
-    // Highs make the deep-field stars twinkle harder while speaking.
-    vTwinkle = 0.55 + 0.45 * sin(uTime * (1.5 + aRand * 3.0) + aRand * 80.0) * (1.0 + uAudio * 1.5);
-  }
-`;
-
-const HALO_FRAG = /* glsl */ `
-  uniform float uBrightness;
-  varying float vTwinkle;
-
-  void main() {
-    float d = length(gl_PointCoord - 0.5);
-    if (d > 0.5) discard;
-    float alpha = pow(smoothstep(0.5, 0.0, d), 2.0) * vTwinkle;
-    gl_FragColor = vec4(vec3(0.62, 0.72, 0.86) * uBrightness, alpha * 0.5);
-  }
-`;
-
-// Inner void — the deep-space backdrop that makes the universe read as INSIDE
-// a sphere even on a light dashboard. BackSide so we see its inner surface.
+// Inner void — warm-black backdrop so the amber core reads on a light page.
 const VOID_VERT = /* glsl */ `
-  varying vec3 vNormal;
-  varying vec3 vView;
   void main() {
-    vNormal = normalize(normalMatrix * normal);
-    vec4 mv = modelViewMatrix * vec4(position, 1.0);
-    vView = -mv.xyz;
-    gl_Position = projectionMatrix * mv;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
   }
 `;
 
 const VOID_FRAG = /* glsl */ `
   void main() {
-    // Deep indigo-black, slightly lifted at the center for nebular depth.
-    gl_FragColor = vec4(0.012, 0.016, 0.038, 0.97);
+    gl_FragColor = vec4(0.028, 0.016, 0.008, 0.95);
   }
 `;
 
-// Fresnel rim — the "glass" of the observable universe.
+// Fresnel rim — faint golden boundary; the hologram's edge.
 const RIM_VERT = /* glsl */ `
   varying vec3 vNormal;
   varying vec3 vView;
@@ -196,101 +156,222 @@ const RIM_FRAG = /* glsl */ `
   varying vec3 vView;
 
   void main() {
-    float fres = pow(1.0 - abs(dot(normalize(vNormal), normalize(vView))), 3.2);
-    // Brand-teal rim cooled toward starlight blue.
-    vec3 rimColor = mix(vec3(0.0, 0.72, 0.72), vec3(0.55, 0.78, 1.0), 0.45);
-    float strength = fres * uRim * (1.0 + uAudio * 0.5);
-    gl_FragColor = vec4(rimColor * strength, strength * 0.85);
+    float fres = pow(1.0 - abs(dot(normalize(vNormal), normalize(vView))), 3.4);
+    vec3 rimColor = vec3(1.0, 0.72, 0.32);
+    float strength = fres * uRim * (1.0 + uAudio * 0.6);
+    gl_FragColor = vec4(rimColor * strength, strength * 0.8);
   }
 `;
 
-function buildGalaxy(rand: () => number) {
-  const COUNT = 42000;
-  const ARMS = 3;
-  const R_DISK = 0.92;
+// ---------------------------------------------------------------------------
+// Filament network generation
+// ---------------------------------------------------------------------------
+//
+// Each shell gets its own geometry (so shells can counter-rotate). Particles
+// are pushed into flat arrays via this small accumulator.
 
-  const positions = new Float32Array(COUNT * 3);
-  const colors = new Float32Array(COUNT * 3);
-  const scales = new Float32Array(COUNT);
-  const rands = new Float32Array(COUNT);
+interface ParticleSink {
+  positions: number[];
+  colors: number[];
+  scales: number[];
+  rands: number[];
+}
 
-  // Palette: white-gold core → brand teal arms → deep indigo rim.
-  const cCore = new THREE.Color("#fff3d6");
-  const cMid = new THREE.Color("#27c8c8");
-  const cOuter = new THREE.Color("#2a3a8c");
+// Palette — graded amber. Highlight filaments run white-hot.
+const C_DEEP = new THREE.Color("#b04f08");
+const C_BASE = new THREE.Color("#f59825");
+const C_HIGH = new THREE.Color("#ffd98c");
+const C_HOT = new THREE.Color("#fff4dd");
 
-  for (let i = 0; i < COUNT; i++) {
-    // Radial distribution — gentler core bias so the arms keep enough stars
-    // to read as structure instead of one bright blob.
-    const r = Math.pow(rand(), 1.35) * R_DISK;
-    const armIndex = i % ARMS;
+function pushPoint(
+  sink: ParticleSink,
+  rand: () => number,
+  x: number,
+  y: number,
+  z: number,
+  color: THREE.Color,
+  brightness: number,
+  scale: number
+) {
+  // Tiny positional grain so trails don't read as perfect curves.
+  sink.positions.push(
+    x + gaussian(rand) * 0.0035,
+    y + gaussian(rand) * 0.0035,
+    z + gaussian(rand) * 0.0035
+  );
+  const v = brightness * (0.85 + rand() * 0.3);
+  sink.colors.push(color.r * v, color.g * v, color.b * v);
+  sink.scales.push(scale * (0.7 + rand() * 0.6));
+  sink.rands.push(rand());
+}
 
-    // Logarithmic spiral: angle grows with log(r). 2.35 = arm tightness.
-    const armAngle = (armIndex / ARMS) * Math.PI * 2 + Math.log(r + 0.08) * 2.35;
+// Random orientation basis: returns two orthonormal vectors spanning a great
+// circle plane, oriented by a random quaternion.
+function randomBasis(rand: () => number): [THREE.Vector3, THREE.Vector3] {
+  const q = new THREE.Quaternion(
+    gaussian(rand),
+    gaussian(rand),
+    gaussian(rand),
+    gaussian(rand)
+  ).normalize();
+  const u = new THREE.Vector3(1, 0, 0).applyQuaternion(q);
+  const v = new THREE.Vector3(0, 1, 0).applyQuaternion(q);
+  return [u, v];
+}
 
-    // Tight scatter keeps the arms crisp edge to edge.
-    const scatter = gaussian(rand) * (0.04 + r * 0.09);
-    const angle = armAngle + scatter;
+// Arc fragments — the dominant structure. Short pieces of great circles at a
+// given shell radius, like shattered orbital rings.
+function addArcs(
+  sink: ParticleSink,
+  rand: () => number,
+  count: number,
+  rMin: number,
+  rMax: number
+) {
+  const SPACING = 0.0048;
+  for (let i = 0; i < count; i++) {
+    const r = rMin + rand() * (rMax - rMin);
+    const [u, v] = randomBasis(rand);
+    const theta0 = rand() * Math.PI * 2;
+    const arcLen = 0.15 + Math.pow(rand(), 1.6) * 1.5; // most short, few long
+    const steps = Math.max(4, Math.floor((r * arcLen) / SPACING));
 
-    // Disk thickness — thin, thinner at the edge.
-    const y = gaussian(rand) * 0.045 * (1.0 - r * 0.55);
+    // A handful of arcs run white-hot; most stay dim so the bright ones pop.
+    const roll = rand();
+    const color =
+      roll < 0.06 ? C_HOT : roll < 0.24 ? C_HIGH : roll < 0.8 ? C_BASE : C_DEEP;
+    const brightness =
+      roll < 0.06 ? 1.6 : roll < 0.24 ? 1.1 : 0.55 + rand() * 0.35;
 
-    const x = Math.cos(angle) * r;
-    const z = Math.sin(angle) * r;
-
-    positions[i * 3] = x;
-    positions[i * 3 + 1] = y;
-    positions[i * 3 + 2] = z;
-
-    // Color ramp by radius + per-star variance.
-    const t = r / R_DISK;
-    const col = new THREE.Color();
-    if (t < 0.32) {
-      col.lerpColors(cCore, cMid, t / 0.32);
-    } else {
-      col.lerpColors(cMid, cOuter, (t - 0.32) / 0.68);
+    for (let s = 0; s <= steps; s++) {
+      const th = theta0 + (s / steps) * arcLen;
+      const x = (u.x * Math.cos(th) + v.x * Math.sin(th)) * r;
+      const y = (u.y * Math.cos(th) + v.y * Math.sin(th)) * r;
+      const z = (u.z * Math.cos(th) + v.z * Math.sin(th)) * r;
+      pushPoint(sink, rand, x, y, z, color, brightness, 1.0);
     }
-    const variance = 0.85 + rand() * 0.45;
-    colors[i * 3] = col.r * variance;
-    colors[i * 3 + 1] = col.g * variance;
-    colors[i * 3 + 2] = col.b * variance;
-
-    // Core stars render slightly larger.
-    scales[i] = (0.5 + rand() * 0.9) * (t < 0.25 ? 1.5 : 1.0);
-    rands[i] = rand();
   }
+}
 
+// Radial spokes — lines from near the core out to the shell, slightly bowed.
+function addSpokes(sink: ParticleSink, rand: () => number, count: number) {
+  const SPACING = 0.0052;
+  for (let i = 0; i < count; i++) {
+    const dir = new THREE.Vector3(gaussian(rand), gaussian(rand), gaussian(rand)).normalize();
+    const bow = new THREE.Vector3(gaussian(rand), gaussian(rand), gaussian(rand))
+      .normalize()
+      .multiplyScalar(0.06 + rand() * 0.1);
+    const r0 = 0.12 + rand() * 0.15;
+    const r1 = 0.55 + rand() * 0.42;
+    const steps = Math.max(6, Math.floor((r1 - r0) / SPACING));
+    const color = rand() < 0.18 ? C_HIGH : C_BASE;
+
+    for (let s = 0; s <= steps; s++) {
+      const t = s / steps;
+      const r = r0 + (r1 - r0) * t;
+      const sag = Math.sin(t * Math.PI); // bow peaks mid-spoke
+      const x = dir.x * r + bow.x * sag;
+      const y = dir.y * r + bow.y * sag;
+      const z = dir.z * r + bow.z * sag;
+      // Spokes fade slightly toward the rim.
+      pushPoint(sink, rand, x, y, z, color, 0.95 - t * 0.3, 0.9);
+    }
+  }
+}
+
+// Circuit patches — small dense clusters on the shell surface, like city
+// blocks / chip dies. Gives the patchwork density variation from the still.
+function addPatches(
+  sink: ParticleSink,
+  rand: () => number,
+  count: number,
+  rMin: number,
+  rMax: number
+) {
+  for (let i = 0; i < count; i++) {
+    const r = rMin + rand() * (rMax - rMin);
+    const center = new THREE.Vector3(gaussian(rand), gaussian(rand), gaussian(rand))
+      .normalize()
+      .multiplyScalar(r);
+    // Tangent plane basis at the patch center.
+    const n = center.clone().normalize();
+    const tan1 = new THREE.Vector3(0, 1, 0).cross(n);
+    if (tan1.lengthSq() < 0.01) tan1.set(1, 0, 0).cross(n);
+    tan1.normalize();
+    const tan2 = n.clone().cross(tan1);
+
+    const w = 0.03 + rand() * 0.09;
+    const h = 0.03 + rand() * 0.09;
+    const pts = Math.floor(20 + rand() * 50);
+    const color = rand() < 0.25 ? C_HIGH : C_BASE;
+    const bright = 0.7 + rand() * 0.5;
+
+    for (let p = 0; p < pts; p++) {
+      // Grid-ish placement inside the patch — circuitry, not noise.
+      const gx = (Math.floor(rand() * 6) / 6 - 0.5 + rand() * 0.04) * w;
+      const gy = (Math.floor(rand() * 6) / 6 - 0.5 + rand() * 0.04) * h;
+      const pos = center.clone().addScaledVector(tan1, gx).addScaledVector(tan2, gy);
+      pushPoint(sink, rand, pos.x, pos.y, pos.z, color, bright, 0.85);
+    }
+  }
+}
+
+// Core cloud — dense white-hot center.
+function addCore(sink: ParticleSink, rand: () => number, count: number) {
+  for (let i = 0; i < count; i++) {
+    const r = Math.pow(rand(), 2.2) * 0.3;
+    const dir = new THREE.Vector3(gaussian(rand), gaussian(rand), gaussian(rand)).normalize();
+    const color = r < 0.12 ? C_HOT : C_HIGH;
+    pushPoint(
+      sink,
+      rand,
+      dir.x * r,
+      dir.y * r,
+      dir.z * r,
+      color,
+      1.3 - r * 1.5,
+      1.1
+    );
+  }
+}
+
+function sinkToGeometry(sink: ParticleSink): THREE.BufferGeometry {
   const geo = new THREE.BufferGeometry();
-  geo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-  geo.setAttribute("aColor", new THREE.BufferAttribute(colors, 3));
-  geo.setAttribute("aScale", new THREE.BufferAttribute(scales, 1));
-  geo.setAttribute("aRand", new THREE.BufferAttribute(rands, 1));
+  geo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(sink.positions), 3));
+  geo.setAttribute("aColor", new THREE.BufferAttribute(new Float32Array(sink.colors), 3));
+  geo.setAttribute("aScale", new THREE.BufferAttribute(new Float32Array(sink.scales), 1));
+  geo.setAttribute("aRand", new THREE.BufferAttribute(new Float32Array(sink.rands), 1));
   return geo;
 }
 
-function buildHalo(rand: () => number) {
-  const COUNT = 6500;
-  const positions = new Float32Array(COUNT * 3);
-  const scales = new Float32Array(COUNT);
-  const rands = new Float32Array(COUNT);
+function buildShells(rand: () => number): {
+  outer: THREE.BufferGeometry;
+  mid: THREE.BufferGeometry;
+  inner: THREE.BufferGeometry;
+} {
+  const outer: ParticleSink = { positions: [], colors: [], scales: [], rands: [] };
+  const mid: ParticleSink = { positions: [], colors: [], scales: [], rands: [] };
+  const inner: ParticleSink = { positions: [], colors: [], scales: [], rands: [] };
 
-  for (let i = 0; i < COUNT; i++) {
-    // Uniform-in-volume, biased toward the shell so the void reads deep.
-    const r = Math.cbrt(rand()) * 0.97;
-    const theta = rand() * Math.PI * 2;
-    const phi = Math.acos(2 * rand() - 1);
-    positions[i * 3] = r * Math.sin(phi) * Math.cos(theta);
-    positions[i * 3 + 1] = r * Math.cos(phi);
-    positions[i * 3 + 2] = r * Math.sin(phi) * Math.sin(theta);
-    scales[i] = 0.3 + rand() * 0.55;
-    rands[i] = rand();
-  }
+  // Outer shell — ring fragments + patches near the boundary. Dense weave
+  // with visible dark gaps — the film hologram glows but you can see through.
+  addArcs(outer, rand, 620, 0.78, 0.97);
+  addPatches(outer, rand, 75, 0.8, 0.96);
 
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-  geo.setAttribute("aScale", new THREE.BufferAttribute(scales, 1));
-  geo.setAttribute("aRand", new THREE.BufferAttribute(rands, 1));
-  return geo;
+  // Mid shell — arcs + the radial spoke system.
+  addArcs(mid, rand, 460, 0.5, 0.78);
+  addSpokes(mid, rand, 175);
+  addPatches(mid, rand, 45, 0.52, 0.76);
+
+  // Inner shell — tighter arcs + the white-hot core cloud.
+  addArcs(inner, rand, 270, 0.28, 0.5);
+  addCore(inner, rand, 3200);
+
+  return {
+    outer: sinkToGeometry(outer),
+    mid: sinkToGeometry(mid),
+    inner: sinkToGeometry(inner),
+  };
 }
 
 function makeCoreTexture(): THREE.CanvasTexture {
@@ -298,14 +379,18 @@ function makeCoreTexture(): THREE.CanvasTexture {
   c.width = c.height = 128;
   const ctx = c.getContext("2d")!;
   const g = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
-  g.addColorStop(0, "rgba(255,244,214,1)");
-  g.addColorStop(0.25, "rgba(255,236,190,0.55)");
-  g.addColorStop(0.6, "rgba(120,220,220,0.12)");
+  g.addColorStop(0, "rgba(255,246,224,1)");
+  g.addColorStop(0.22, "rgba(255,216,150,0.6)");
+  g.addColorStop(0.55, "rgba(245,152,37,0.16)");
   g.addColorStop(1, "rgba(0,0,0,0)");
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, 128, 128);
   return new THREE.CanvasTexture(c);
 }
+
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
 
 export function AtlasOrb({ state = "idle", levelRef, size = 300, className }: AtlasOrbProps) {
   const mountRef = useRef<HTMLDivElement>(null);
@@ -328,35 +413,67 @@ export function AtlasOrb({ state = "idle", levelRef, size = 300, className }: At
 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 10);
-    // Far enough back that the full sphere silhouette (plus swell headroom)
-    // fits inside the square canvas — sphere spans ~78% of it.
-    camera.position.set(0, 0.64, 3.7);
+    // Sphere spans ~78% of the canvas with swell headroom.
+    camera.position.set(0, 0.5, 3.7);
     camera.lookAt(0, 0, 0);
 
-    // Outer group holds the tilt; inner "spinner" carries the rigid disk
-    // rotation so spinning happens in the disk plane, not world Y.
+    // Outer group holds a gentle tilt; shells counter-rotate inside it.
     const universe = new THREE.Group();
-    universe.rotation.x = 0.42;
-    universe.rotation.z = -0.12;
+    universe.rotation.x = 0.18;
+    universe.rotation.z = -0.08;
     scene.add(universe);
 
-    const spinner = new THREE.Group();
-    universe.add(spinner);
+    const shellOuter = new THREE.Group();
+    const shellMid = new THREE.Group();
+    const shellInner = new THREE.Group();
+    universe.add(shellOuter, shellMid, shellInner);
 
-    const uniforms = {
+    const sharedUniforms = {
       uTime: { value: 0 },
-      uSpinMul: { value: 1 },
       uContract: { value: 0 },
       uAudio: { value: 0 },
       uTurb: { value: 0 },
-      uBrightness: { value: 0.9 },
-      uRim: { value: 0.5 },
+      uBrightness: { value: 0.92 },
+      uRim: { value: 0.32 },
       uPixelRatio: { value: dpr },
     };
 
     const rand = mulberry32(20260610);
+    const shells = buildShells(rand);
 
-    // 1. The void — deep space inside the sphere.
+    // Two passes per shell: soft glow underneath (big dim points), sharp on
+    // top. Same geometry, two materials — cheap bloom without postprocessing.
+    const materials: THREE.ShaderMaterial[] = [];
+    const makePass = (sizeMul: number, alphaMul: number) => {
+      const mat = new THREE.ShaderMaterial({
+        vertexShader: FILAMENT_VERT,
+        fragmentShader: FILAMENT_FRAG,
+        uniforms: {
+          ...sharedUniforms,
+          uSizeMul: { value: sizeMul },
+          uAlphaMul: { value: alphaMul },
+        },
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+      });
+      materials.push(mat);
+      return mat;
+    };
+
+    const softMat = makePass(2.8, 0.032);
+    const sharpMat = makePass(1.0, 0.85);
+
+    for (const [group, geo] of [
+      [shellOuter, shells.outer],
+      [shellMid, shells.mid],
+      [shellInner, shells.inner],
+    ] as const) {
+      group.add(new THREE.Points(geo, softMat));
+      group.add(new THREE.Points(geo, sharpMat));
+    }
+
+    // Void backdrop.
     const voidMesh = new THREE.Mesh(
       new THREE.SphereGeometry(1.0, 48, 48),
       new THREE.ShaderMaterial({
@@ -369,31 +486,7 @@ export function AtlasOrb({ state = "idle", levelRef, size = 300, className }: At
     );
     universe.add(voidMesh);
 
-    // 2. Halo deep-field stars.
-    const haloMat = new THREE.ShaderMaterial({
-      vertexShader: HALO_VERT,
-      fragmentShader: HALO_FRAG,
-      uniforms,
-      transparent: true,
-      depthWrite: false,
-      blending: THREE.AdditiveBlending,
-    });
-    const halo = new THREE.Points(buildHalo(rand), haloMat);
-    spinner.add(halo);
-
-    // 3. The galaxy disk.
-    const diskMat = new THREE.ShaderMaterial({
-      vertexShader: DISK_VERT,
-      fragmentShader: DISK_FRAG,
-      uniforms,
-      transparent: true,
-      depthWrite: false,
-      blending: THREE.AdditiveBlending,
-    });
-    const disk = new THREE.Points(buildGalaxy(rand), diskMat);
-    spinner.add(disk);
-
-    // 4. Core glow sprite.
+    // Core glow sprite.
     const coreTexture = makeCoreTexture();
     const core = new THREE.Sprite(
       new THREE.SpriteMaterial({
@@ -403,16 +496,16 @@ export function AtlasOrb({ state = "idle", levelRef, size = 300, className }: At
         blending: THREE.AdditiveBlending,
       })
     );
-    core.scale.setScalar(0.34);
-    spinner.add(core);
+    core.scale.setScalar(0.3);
+    universe.add(core);
 
-    // 5. Fresnel rim — the glass boundary.
+    // Golden fresnel rim.
     const rim = new THREE.Mesh(
       new THREE.SphereGeometry(1.0, 64, 64),
       new THREE.ShaderMaterial({
         vertexShader: RIM_VERT,
         fragmentShader: RIM_FRAG,
-        uniforms,
+        uniforms: sharedUniforms,
         transparent: true,
         depthWrite: false,
         blending: THREE.AdditiveBlending,
@@ -420,7 +513,7 @@ export function AtlasOrb({ state = "idle", levelRef, size = 300, className }: At
     );
     scene.add(rim);
 
-    // Animation loop with smooth state lerping.
+    // Animation loop.
     const clock = new THREE.Clock();
     const current = { ...STATE_TARGETS.idle, audio: 0 };
     let raf = 0;
@@ -442,28 +535,32 @@ export function AtlasOrb({ state = "idle", levelRef, size = 300, className }: At
       current.rim += (target.rim - current.rim) * lerpK;
       current.core += (target.core - current.core) * lerpK;
 
-      // Audio is fast-attack, slower-release so speech feels punchy.
       const rawLevel = stateRef.current === "speaking" ? (levelRef?.current ?? 0) : 0;
       const attack = rawLevel > current.audio ? 1 - Math.exp(-30 * dt) : 1 - Math.exp(-8 * dt);
       current.audio += (rawLevel - current.audio) * attack;
 
-      uniforms.uTime.value = t;
-      uniforms.uSpinMul.value = current.spinMul;
-      uniforms.uContract.value = current.contract;
-      uniforms.uTurb.value = current.turb;
-      uniforms.uBrightness.value = current.brightness;
-      uniforms.uRim.value = current.rim;
-      uniforms.uAudio.value = current.audio;
+      sharedUniforms.uTime.value = t;
+      sharedUniforms.uContract.value = current.contract;
+      sharedUniforms.uTurb.value = current.turb;
+      sharedUniforms.uBrightness.value = current.brightness;
+      sharedUniforms.uRim.value = current.rim;
+      sharedUniforms.uAudio.value = current.audio;
+      // Per-pass uniforms share the objects from sharedUniforms, but each
+      // material captured its own uSizeMul/uAlphaMul — nothing to sync.
 
-      // Rigid disk-plane rotation — arms never wind. ~75s per revolution
-      // idle; thinking spins ~3.4× faster via spinMul.
-      spinner.rotation.y += dt * 0.085 * current.spinMul;
+      // Counter-rotating shells. Different axes wobble slightly for life.
+      const spin = dt * current.spinMul;
+      shellOuter.rotation.y += spin * 0.05;
+      shellMid.rotation.y -= spin * 0.075;
+      shellMid.rotation.x = Math.sin(t * 0.07) * 0.04;
+      shellInner.rotation.y += spin * 0.11;
+      shellInner.rotation.z = Math.sin(t * 0.09) * 0.05;
 
       // Core breathes idle, flickers thinking, pulses with voice.
       const breathe = 1 + Math.sin(t * 0.8) * 0.05;
-      const flicker = stateRef.current === "thinking" ? 1 + Math.sin(t * 13.0) * 0.06 : 1;
-      core.scale.setScalar(0.34 * current.core * breathe * flicker * (1 + current.audio * 0.35));
-      (core.material as THREE.SpriteMaterial).opacity = 0.85 * current.core;
+      const flicker = stateRef.current === "thinking" ? 1 + Math.sin(t * 13.0) * 0.07 : 1;
+      core.scale.setScalar(0.3 * current.core * breathe * flicker * (1 + current.audio * 0.4));
+      (core.material as THREE.SpriteMaterial).opacity = 0.9 * current.core;
 
       renderer.render(scene, camera);
     };
@@ -471,20 +568,20 @@ export function AtlasOrb({ state = "idle", levelRef, size = 300, className }: At
 
     const onVisibility = () => {
       hidden = document.hidden;
-      if (!hidden) clock.getDelta(); // swallow the gap so dt doesn't spike
+      if (!hidden) clock.getDelta();
     };
     document.addEventListener("visibilitychange", onVisibility);
 
     return () => {
       cancelAnimationFrame(raf);
       document.removeEventListener("visibilitychange", onVisibility);
-      disk.geometry.dispose();
-      halo.geometry.dispose();
+      shells.outer.dispose();
+      shells.mid.dispose();
+      shells.inner.dispose();
+      for (const m of materials) m.dispose();
       voidMesh.geometry.dispose();
-      rim.geometry.dispose();
-      diskMat.dispose();
-      haloMat.dispose();
       (voidMesh.material as THREE.Material).dispose();
+      rim.geometry.dispose();
       (rim.material as THREE.Material).dispose();
       (core.material as THREE.SpriteMaterial).dispose();
       coreTexture.dispose();
