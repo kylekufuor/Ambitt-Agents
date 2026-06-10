@@ -425,8 +425,11 @@ export function AtlasOrb({ state = "idle", levelRef, size = 300, className }: At
       return mat;
     };
 
-    const softMat = makePass(2.8, 0.032);
-    const sharpMat = makePass(1.0, 0.85);
+    // Point sizes are in device pixels — scale with canvas size so the
+    // filament density reads the same at any orb diameter.
+    const sizeScale = size / 300;
+    const softMat = makePass(2.8 * sizeScale, 0.032);
+    const sharpMat = makePass(1.0 * sizeScale, 0.85);
 
     for (const [group, geo] of [
       [shellOuter, shells.outer],

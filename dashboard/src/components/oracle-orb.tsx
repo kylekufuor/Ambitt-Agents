@@ -67,17 +67,17 @@ export function OracleOrb({ pendingCount }: { pendingCount?: number }) {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handleKeyDown]);
 
-  const radius = 240;
+  const radius = 285;
   const spread = 220;
   const angleStep = spread / (actions.length - 1);
 
   return (
     <div className="flex flex-col items-center justify-center py-6">
-      <div className="relative" style={{ width: "580px", height: "580px" }}>
+      <div className="relative" style={{ width: "660px", height: "660px" }}>
 
         {/* Orbital rings */}
-        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] rounded-full border border-neutral-300/30 dark:border-white/[0.06] animate-orb-spin-slow" />
-        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[350px] h-[350px] rounded-full border border-neutral-300/20 dark:border-white/[0.04] animate-orb-spin-reverse" />
+        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[560px] h-[560px] rounded-full border border-neutral-300/30 dark:border-white/[0.06] animate-orb-spin-slow" />
+        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[495px] h-[495px] rounded-full border border-neutral-300/20 dark:border-white/[0.04] animate-orb-spin-reverse" />
 
         {/* Radial Actions */}
         {actions.map((action, i) => {
@@ -132,12 +132,12 @@ export function OracleOrb({ pendingCount }: { pendingCount?: number }) {
           <div className={`relative rounded-full transition-all duration-700 ${
             open ? "scale-90" : "group-hover:scale-[1.03]"
           }`}>
-            <AtlasOrb state={orbState} levelRef={levelRef} size={300} />
+            <AtlasOrb state={orbState} levelRef={levelRef} size={430} />
           </div>
 
           {/* Pending badge */}
           {!open && pendingCount && pendingCount > 0 && (
-            <div className="absolute top-3 right-3 w-7 h-7 rounded-full bg-amber-500 text-black text-xs font-bold flex items-center justify-center ring-2 ring-background z-20">
+            <div className="absolute top-8 right-8 w-7 h-7 rounded-full bg-amber-500 text-black text-xs font-bold flex items-center justify-center ring-2 ring-background z-20">
               {pendingCount}
             </div>
           )}
