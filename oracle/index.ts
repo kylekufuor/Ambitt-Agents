@@ -2310,13 +2310,23 @@ app.post("/onboarding/prospects/:id/event", async (req: Request, res: Response) 
       }
 
       // Pass 1 — Atlas reads the intake and emits ProposalEmailData JSON.
-      const pass1 = await processInboundMessage({
-        agentId: atlas.id,
-        userMessage: buildAtlasProposalPrompt(prospect),
-        channel: "chat",
-        threadId,
+      // Routes to Atlas-Funnel-on-Fable when FABLE_FUNNEL_ENABLED=true, else
+      // through the legacy Sonnet runtime engine. Falls back automatically
+      // if Fable errors.
+      const { runFunnelTask } = await import("./funnel-fable/hybrid.js");
+      const pass1Result = await runFunnelTask({
+        kind: "proposal",
+        legacyAgentId: atlas.id,
+        prospectId: prospect.id,
         senderEmail: prospect.email,
-        billable: false,
+        threadId,
+        userMessage: buildAtlasProposalPrompt(prospect),
+      });
+      const pass1 = { response: pass1Result.responseText };
+      logger.info("Proposal pass 1 routed", {
+        prospectId: prospect.id,
+        via: pass1Result.via,
+        sessionId: pass1Result.sessionId,
       });
 
       // Parse → validate. Retry up to MAX_RETRY_ATTEMPTS times on validation
@@ -2394,8 +2404,11 @@ Re-emit the COMPLETE ProposalEmailData JSON matching this exact shape. Output ON
       };
 
       let rendered: { html: string; data: unknown };
-      let toolsUsed = pass1.toolsUsed.length;
-      let loopCount = pass1.loopCount;
+      // toolsUsed/loopCount only populated via the Sonnet runtime engine;
+      // Fable funnel runs don't surface tool counts. We retain the locals
+      // so existing logging downstream stays well-formed.
+      let toolsUsed = 0;
+      let loopCount = 0;
       let lastResponse = pass1.response;
       let attempt = 0;
 
@@ -2422,17 +2435,17 @@ Re-emit the COMPLETE ProposalEmailData JSON matching this exact shape. Output ON
             maxAttempts: MAX_RETRY_ATTEMPTS,
             issues: issuesPreview,
           });
-          const passN = await processInboundMessage({
-            agentId: atlas.id,
-            userMessage: buildCorrection(err.issues),
-            channel: "chat",
-            threadId,
+          const passNResult = await runFunnelTask({
+            kind: "proposal",
+            legacyAgentId: atlas.id,
+            prospectId: prospect.id,
             senderEmail: prospect.email,
-            billable: false,
+            threadId,
+            userMessage: buildCorrection(err.issues),
           });
-          lastResponse = passN.response;
-          toolsUsed += passN.toolsUsed.length;
-          loopCount += passN.loopCount;
+          lastResponse = passNResult.responseText;
+          // Tool/loop counts only meaningful on Sonnet path; Fable doesn't
+          // surface them. Skip accumulation when via=fable.
         }
       }
 
@@ -2597,16 +2610,22 @@ app.post("/onboarding/prospects/:id/generate-prd", async (req: Request, res: Res
     }
 
     const threadId = `prospect-${prospect.id}-prd`;
-    const { processInboundMessage } = await import("../shared/runtime/index.js");
     const { renderPRD, parseAtlasPRDOutput, PRDValidationError } = await import("./templates/prd/render.js");
+    const { runFunnelTask } = await import("./funnel-fable/hybrid.js");
 
-    const pass1 = await processInboundMessage({
-      agentId: atlas.id,
-      userMessage: buildAtlasPRDPrompt(prospect, regenNotes),
-      channel: "chat",
-      threadId,
+    const pass1Result = await runFunnelTask({
+      kind: "prd",
+      legacyAgentId: atlas.id,
+      prospectId: prospect.id,
       senderEmail: prospect.email,
-      billable: false,
+      threadId,
+      userMessage: buildAtlasPRDPrompt(prospect, regenNotes),
+    });
+    const pass1 = { response: pass1Result.responseText };
+    logger.info("PRD pass 1 routed", {
+      prospectId: prospect.id,
+      via: pass1Result.via,
+      sessionId: pass1Result.sessionId,
     });
 
     const tryValidate = (raw: string): { data: unknown; html: string } => {
@@ -2632,15 +2651,15 @@ app.post("/onboarding/prospects/:id/generate-prd", async (req: Request, res: Res
       const correction = `Your previous PRD didn't pass schema validation. Issues:\n${err.issues
         .map((i, n) => `${n + 1}. ${i.path.join(".") || "(root)"}: ${i.message}`)
         .join("\n")}\n\nRe-emit the COMPLETE AgentPRDData JSON with these fixed. Output ONLY the JSON object, no commentary, no code fences.`;
-      const pass2 = await processInboundMessage({
-        agentId: atlas.id,
-        userMessage: correction,
-        channel: "chat",
-        threadId,
+      const pass2Result = await runFunnelTask({
+        kind: "prd",
+        legacyAgentId: atlas.id,
+        prospectId: prospect.id,
         senderEmail: prospect.email,
-        billable: false,
+        threadId,
+        userMessage: correction,
       });
-      result = tryValidate(pass2.response);
+      result = tryValidate(pass2Result.responseText);
     }
 
     await prisma.prospect.update({
@@ -2825,16 +2844,22 @@ app.post("/onboarding/prospects/:id/generate-quote", async (req: Request, res: R
     }
 
     const threadId = `prospect-${prospect.id}-quote`;
-    const { processInboundMessage } = await import("../shared/runtime/index.js");
     const { renderQuote, parseAtlasQuoteOutput, QuoteValidationError } = await import("./templates/quote/render.js");
+    const { runFunnelTask } = await import("./funnel-fable/hybrid.js");
 
-    const pass1 = await processInboundMessage({
-      agentId: atlas.id,
-      userMessage: buildAtlasQuotePrompt(prospect),
-      channel: "chat",
-      threadId,
+    const pass1Result = await runFunnelTask({
+      kind: "quote",
+      legacyAgentId: atlas.id,
+      prospectId: prospect.id,
       senderEmail: prospect.email,
-      billable: false,
+      threadId,
+      userMessage: buildAtlasQuotePrompt(prospect),
+    });
+    const pass1 = { response: pass1Result.responseText };
+    logger.info("Quote pass 1 routed", {
+      prospectId: prospect.id,
+      via: pass1Result.via,
+      sessionId: pass1Result.sessionId,
     });
 
     const QUOTE_MAX_RETRY_ATTEMPTS = 2;
@@ -2924,15 +2949,15 @@ Re-emit the COMPLETE QuoteData JSON matching this exact shape. Output ONLY the J
           maxAttempts: QUOTE_MAX_RETRY_ATTEMPTS,
           issues: issuesPreview,
         });
-        const passN = await processInboundMessage({
-          agentId: atlas.id,
-          userMessage: buildQuoteCorrection(err.issues),
-          channel: "chat",
-          threadId,
+        const passNResult = await runFunnelTask({
+          kind: "quote",
+          legacyAgentId: atlas.id,
+          prospectId: prospect.id,
           senderEmail: prospect.email,
-          billable: false,
+          threadId,
+          userMessage: buildQuoteCorrection(err.issues),
         });
-        lastResponse = passN.response;
+        lastResponse = passNResult.responseText;
       }
     }
 

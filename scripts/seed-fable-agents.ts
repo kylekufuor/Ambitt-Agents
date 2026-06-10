@@ -129,6 +129,50 @@ Output format: respond ONLY with a JSON object:
 `;
 
 // ---------------------------------------------------------------------------
+// Atlas-Funnel — runs proposal / PRD / quote drafting tasks
+// ---------------------------------------------------------------------------
+
+const ATLAS_FUNNEL_SYSTEM = `You are Atlas-Funnel, the operator-facing
+draft-writer for Ambitt Agents.
+
+You handle three discrete tasks:
+  1. Proposal-email drafting (ProposalEmailData JSON for the onboarding deck)
+  2. PRD drafting (AgentPRDData JSON — the internal spec the operator reviews)
+  3. Quote drafting (QuoteData JSON — pricing + scope summary)
+
+You are invoked one task per session. The user message tells you which task
++ hands you the prospect data + the exact schema you must match.
+
+Rules that apply to every task:
+
+- Output ONLY the JSON object the schema describes. Wrap it in a single
+  triple-backtick \`\`\`json fenced block. No prose before, no commentary
+  after. No fields that aren't in the schema — Zod will reject those and
+  trigger a costly retry.
+
+- Voice: Ambitt house style. Speak as "we", never name the operator. Active
+  voice. Contractions. No AI tells ("leverage", "robust", "seamless",
+  "delve into"). No tricolons. No em-dash filler. Slack-DM test: would you
+  send this to a coworker?
+
+- First Truth Principle: every claim must answer YES to "does this make the
+  client's business better?" Cut anything that's hype, generic, or filler.
+
+- Specificity beats elegance: the prospect's industry / role / website /
+  uploaded SOPs are gold. Use them. Don't paraphrase — quote when it lands.
+
+- Pricing: never invent numbers. Use what the prospect data + the
+  ambittpricing constants give you. If a number isn't supplied, leave the
+  field for the operator.
+
+You have a research tool (web_search) available via Composio for tasks that
+benefit from a quick market scan (especially quotes). Use it sparingly —
+funnel tasks are time-sensitive; one search is usually enough.
+
+Begin output with the JSON fence as soon as you're confident in the shape.
+`;
+
+// ---------------------------------------------------------------------------
 // Atlas-Improver — coordinator for the weekly self-improvement cycle
 // ---------------------------------------------------------------------------
 
@@ -261,6 +305,7 @@ interface SeedResult {
   builder: ManagedAgent;
   atlas: ManagedAgent;
   atlasImprover: ManagedAgent;
+  atlasFunnel: ManagedAgent;
 }
 
 async function seed(): Promise<SeedResult> {
@@ -358,7 +403,26 @@ async function seed(): Promise<SeedResult> {
   const atlasImprover = await createAgent(improverRequest);
   console.log(`  → ${atlasImprover.id} (v${atlasImprover.version})`);
 
-  return { vera, storyWriter, builder, atlas, atlasImprover };
+  // Atlas-Funnel — solo agent (no sub-agents) for one-shot proposal/PRD/quote
+  // drafting. Same MCP server attaches so future tools (e.g. web_search via
+  // Composio) drop in here. No multiagent block — funnel tasks are
+  // single-pass; Vera reviews via a separate call when needed.
+  const funnelRequest: CreateAgentRequest = {
+    name: "Atlas-Funnel (Proposal/PRD/Quote Writer)",
+    model: FABLE_MODEL_ID,
+    description: "Synchronous funnel-task drafter (proposal, PRD, quote).",
+    system: ATLAS_FUNNEL_SYSTEM,
+    tools: [{ type: "agent_toolset_20260401" }],
+    metadata: { service: "ambitt-agents", role: "funnel_drafter" },
+  };
+  if (mcpUrl) {
+    funnelRequest.mcp_servers = [{ type: "url", name: "ambitt_builder", url: mcpUrl }];
+  }
+  console.log(`\n[seed-fable-agents] Creating Atlas-Funnel...`);
+  const atlasFunnel = await createAgent(funnelRequest);
+  console.log(`  → ${atlasFunnel.id} (v${atlasFunnel.version})`);
+
+  return { vera, storyWriter, builder, atlas, atlasImprover, atlasFunnel };
 }
 
 async function main(): Promise<void> {
@@ -373,6 +437,7 @@ async function main(): Promise<void> {
   console.log(`\n=== Add to Railway env vars ===`);
   console.log(`ATLAS_FABLE_AGENT_ID=${result.atlas.id}`);
   console.log(`ATLAS_IMPROVER_FABLE_AGENT_ID=${result.atlasImprover.id}`);
+  console.log(`ATLAS_FUNNEL_FABLE_AGENT_ID=${result.atlasFunnel.id}`);
   console.log(`VERA_FABLE_AGENT_ID=${result.vera.id}`);
   console.log(`STORY_WRITER_FABLE_AGENT_ID=${result.storyWriter.id}`);
   console.log(`BUILDER_FABLE_AGENT_ID=${result.builder.id}`);
@@ -380,6 +445,9 @@ async function main(): Promise<void> {
   console.log(`# FABLE_MODEL_ID=${FABLE_MODEL_ID}`);
   console.log(`# Set after first build creates the shared environment:`);
   console.log(`# FABLE_ENVIRONMENT_ID=env_...`);
+  console.log(`#`);
+  console.log(`# Flip funnel routing to Fable (default off → Sonnet):`);
+  console.log(`# FABLE_FUNNEL_ENABLED=true`);
 }
 
 main().catch((err) => {
