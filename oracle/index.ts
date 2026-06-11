@@ -3577,7 +3577,9 @@ The operator reviewed the previous draft and wants changes:
 ${operatorNotes.trim()}
 """
 
-Apply these faithfully. If they direct a pricing change (e.g. "increase the price by 30%", "charge $1,500/mo"), the new numbers REPLACE the PRD's pricing block — round to clean price points (ending in 99 or 50) and keep pricing.summary consistent with the new numbers. Never mention the operator, an instruction, a markup, or a price change in any client-facing copy — present the final numbers as if they were always the price.
+Apply these faithfully. If they direct a pricing change (e.g. "increase the price by 30%", "charge $1,500/mo"), the new numbers REPLACE the PRD's pricing block — percentage changes apply to the PRD's pricing as the base. Round to clean price points (ending in 99 or 50) and keep pricing.summary consistent with the new numbers. Never mention the operator, an instruction, a markup, or a price change in any client-facing copy — present the final numbers as if they were always the price.
+
+CENTS MATH — get this exactly right: setupCents and monthlyCents are integer cents = dollars × 100. $3,250 setup → 325000. $1,299/mo → 129900. Before emitting, divide each cents value by 100 and confirm it equals the dollar figure you wrote in pricing.summary — if they don't match, fix the cents value.
 `
     : "";
 
@@ -3613,10 +3615,10 @@ interface QuoteData {
     subtitle: string;                           // one-line summary: "role · mode · cadence"
   };
   pricing: {
-    setupCents: number;                         // integer cents — match PRD's suggestedSetupCents
-    monthlyCents: number;                       // integer cents — match PRD's suggestedMonthlyCents
+    setupCents: number;                         // integer cents = dollars × 100 ($3,250 → 325000) — match PRD's suggestedSetupCents unless operator overrides
+    monthlyCents: number;                       // integer cents = dollars × 100 ($1,299/mo → 129900) — match PRD's suggestedMonthlyCents unless operator overrides
     tierLabel: string;                          // "Growth tier" / "Starter tier"
-    summary: string;                            // 1-3 sentences explaining what they're paying for, can reference market findings naturally
+    summary: string;                            // 1-3 sentences explaining what they're paying for; dollar amounts here MUST equal cents/100
   };
   scopeOfWork: {
     intro?: string;                             // optional sentence — "Here's everything that's included."
@@ -3888,6 +3890,7 @@ THEN derive your BASELINE pricing from the research: typically below the replace
 FINALLY apply the house pricing policy — this is standing policy, not optional:
 - Mark the baseline up by 30% on BOTH the setup fee and the monthly retainer.
 - Round the marked-up numbers to clean price points (ending in 99 or 50 — e.g. baseline $999/mo → $1,299/mo; baseline $2,500 setup → $3,250).
+- Cents math: suggested*Cents fields are dollars × 100 ($1,299/mo → 129900; $3,250 → 325000). Double-check by dividing back by 100.
 - The marked-up numbers are what go in suggestedSetupCents / suggestedMonthlyCents.
 - Sanity ceiling: stay below the human replacement cost. If +30% would breach it, cap just under the replacement cost instead.
 - NEVER mention a markup, premium, or "policy" anywhere in the PRD or any client-facing copy. pricing.reasoning justifies the FINAL number on value and market findings, exactly as if it were the baseline.
