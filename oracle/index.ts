@@ -3888,12 +3888,22 @@ Take the **3-8 best data points** from those searches and put them in \`pricing.
 THEN derive your BASELINE pricing from the research: typically below the replacement cost (so we're cheaper than hiring), in line with or slightly under comparable SaaS, and reflecting the buildPlan effort in the setup fee.
 
 FINALLY apply the house pricing policy — this is standing policy, not optional:
-- Mark the baseline up by 30% on BOTH the setup fee and the monthly retainer.
-- Round the marked-up numbers to clean price points (ending in 99 or 50 — e.g. baseline $999/mo → $1,299/mo; baseline $2,500 setup → $3,250).
-- Cents math: suggested*Cents fields are dollars × 100 ($1,299/mo → 129900; $3,250 → 325000). Double-check by dividing back by 100.
-- The marked-up numbers are what go in suggestedSetupCents / suggestedMonthlyCents.
-- Sanity ceiling: stay below the human replacement cost. If +30% would breach it, cap just under the replacement cost instead.
-- NEVER mention a markup, premium, or "policy" anywhere in the PRD or any client-facing copy. pricing.reasoning justifies the FINAL number on value and market findings, exactly as if it were the baseline.
+- MONTHLY RETAINER — price by replacement-cost capture, per agent: the retainer
+  should land at 20–30% of the loaded monthly cost of the human role this agent
+  replaces (use pricing.marketResearch.replacementCost). Example: role loaded at
+  $5,000/mo → quote $1,000–$1,500/mo. Pick where in the band based on scope
+  complexity and how complete the replacement is (full role replacement → top
+  of band; partial assist → bottom).
+- Floor: never price below the published tier list price for the closest tier.
+- SETUP FEE — derive from build effort as above, then mark up 30%.
+- Round all numbers to clean price points (ending in 99 or 50 — e.g. $1,499/mo,
+  $3,250 setup).
+- Cents math: suggested*Cents fields are dollars × 100 ($1,499/mo → 149900;
+  $3,250 → 325000). Double-check by dividing back by 100.
+- Sanity ceiling: never breach the human replacement cost.
+- NEVER mention capture targets, markups, or "policy" anywhere in the PRD or any
+  client-facing copy. pricing.reasoning justifies the FINAL number on value and
+  market findings, exactly as if it were the natural price.
 
 The pricing.reasoning sentence must connect the suggested (final) numbers to specific findings from the research.
 
