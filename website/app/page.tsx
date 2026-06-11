@@ -244,13 +244,13 @@ const plans = [
     popular: false,
   },
   {
-    name: "Growth", price: "$999", period: "/month",
+    name: "Growth", price: "$1,499", period: "/month",
     description: "Multiple agents working together. Built for growing teams.",
     features: ["Up to 2 AI agents", "Unlimited tool connections", "3,000 interactions/month", "Overage at $0.40/interaction", "Email + PDF reports", "Custom schedules", "Document memory", "Priority support"],
     popular: true,
   },
   {
-    name: "Scale", price: "$2,499", period: "/month",
+    name: "Scale", price: "$3,499", period: "/month",
     description: "Full AI workforce. For businesses ready to operate differently.",
     features: ["Up to 3 AI agents", "Unlimited tool connections", "10,000 interactions/month", "Overage at $0.30/interaction", "Email + PDF + CSV exports", "Custom schedules", "Document memory", "Dedicated onboarding", "Slack support"],
     popular: false,
