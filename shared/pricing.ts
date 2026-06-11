@@ -91,7 +91,7 @@ export async function recalcClientRetainers(clientId: string): Promise<{
 }> {
   const agents = await prisma.agent.findMany({
     where: { clientId, status: { in: ["active", "pending_approval"] } },
-    select: { id: true, pricingTier: true },
+    select: { id: true, pricingTier: true, monthlyRetainerCents: true },
     orderBy: { createdAt: "asc" },
   });
 
@@ -100,8 +100,21 @@ export async function recalcClientRetainers(clientId: string): Promise<{
   for (let i = 0; i < agents.length; i++) {
     const agent = agents[i];
     const tier = agent.pricingTier as PricingTier;
-    const monthlyCents = computeAgentRetainerCents(tier, i);
+    const tierBase = TIERS[tier]?.monthlyCents ?? 0;
     const interactionLimit = TIERS[tier]?.interactionsPerMonth ?? TIERS.starter.interactionsPerMonth;
+
+    // Preserve quoted + grandfathered pricing: the quote is the binding
+    // commitment (Phase-D convert writes quote pricing onto the Agent row),
+    // and clients signed before a tier raise keep their old rate. Only
+    // (re)derive from the tier table when the stored retainer is unset (0)
+    // or sits exactly at the CURRENT tier base — i.e. a pure tier-priced
+    // agent that's eligible for the second-agent position discount. Anything
+    // else (quote-priced, legacy-priced) passes through untouched.
+    const current = agent.monthlyRetainerCents;
+    const monthlyCents =
+      current === 0 || current === tierBase
+        ? computeAgentRetainerCents(tier, i)
+        : current;
 
     await prisma.agent.update({
       where: { id: agent.id },
