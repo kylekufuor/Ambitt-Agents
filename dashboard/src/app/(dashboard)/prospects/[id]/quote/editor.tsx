@@ -27,6 +27,9 @@ export function QuoteEditor({ prospectId, quoteHtmlUrl, initialJson, alreadySent
   const [sending, setSending] = useState(false);
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const [regenerating, setRegenerating] = useState(false);
+  // Optional instructions Atlas applies as overrides when regenerating —
+  // "increase the price by 30%", "tighten the scope items", etc.
+  const [regenNotes, setRegenNotes] = useState("");
 
   // Bust iframe cache when we save so the preview reflects the new draft.
   const [previewKey, setPreviewKey] = useState(0);
@@ -87,17 +90,25 @@ export function QuoteEditor({ prospectId, quoteHtmlUrl, initialJson, alreadySent
   }
 
   async function regenerate() {
-    if (!confirm("Regenerate the quote draft from scratch? Your current edits will be overwritten with Atlas's fresh draft from the PRD.")) return;
+    const notes = regenNotes.trim();
+    const confirmMsg = notes
+      ? `Regenerate the quote with your instructions applied?\n\n"${notes}"\n\nYour current edits will be overwritten with Atlas's fresh draft.`
+      : "Regenerate the quote draft from scratch? Your current edits will be overwritten with Atlas's fresh draft from the PRD.";
+    if (!confirm(confirmMsg)) return;
     setRegenerating(true);
     setError(null);
-    const res = await fetch(`/api/prospects/${prospectId}/quote-regenerate`, { method: "POST" });
+    const res = await fetch(`/api/prospects/${prospectId}/quote-regenerate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(notes ? { notes } : {}),
+    });
     setRegenerating(false);
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
       setError(body.error ?? `Regen failed (${res.status})`);
       return;
     }
-    // Atlas takes ~2 min. Tell the user to refresh.
+    setRegenNotes("");
     router.refresh();
   }
 
@@ -116,13 +127,21 @@ export function QuoteEditor({ prospectId, quoteHtmlUrl, initialJson, alreadySent
           {savedAt && <span className="text-emerald-400 text-xs">Saved ✓</span>}
         </div>
         <div className="flex items-center gap-2">
+          <input
+            type="text"
+            value={regenNotes}
+            onChange={(e) => setRegenNotes(e.target.value)}
+            disabled={locked || saving || sending || regenerating}
+            placeholder='Tell Atlas — e.g. "increase the price by 30%"'
+            className="text-xs px-3 py-1.5 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-foreground/30 w-72 disabled:opacity-40"
+          />
           <button
             type="button"
             onClick={regenerate}
             disabled={locked || saving || sending || regenerating}
             className="text-xs font-medium px-3 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors disabled:opacity-40"
           >
-            {regenerating ? "Regenerating…" : "Regenerate from PRD"}
+            {regenerating ? "Regenerating…" : regenNotes.trim() ? "Regenerate with instructions" : "Regenerate from PRD"}
           </button>
           <button
             type="button"

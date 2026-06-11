@@ -2819,6 +2819,12 @@ app.post("/onboarding/prospects/:id/prd-approve", async (req: Request, res: Resp
 app.post("/onboarding/prospects/:id/generate-quote", async (req: Request, res: Response) => {
   try {
     const prospectId = param(req, "id");
+    // Optional operator instructions ("increase the price by 30%", "tighten
+    // the scope items") — folded into the quote prompt as an override section.
+    const operatorNotes =
+      typeof (req.body as { notes?: unknown })?.notes === "string"
+        ? ((req.body as { notes: string }).notes ?? "").slice(0, 2000)
+        : undefined;
 
     const prospect = await prisma.prospect.findUnique({ where: { id: prospectId } });
     if (!prospect) {
@@ -2853,13 +2859,14 @@ app.post("/onboarding/prospects/:id/generate-quote", async (req: Request, res: R
       prospectId: prospect.id,
       senderEmail: prospect.email,
       threadId,
-      userMessage: buildAtlasQuotePrompt(prospect),
+      userMessage: buildAtlasQuotePrompt(prospect, operatorNotes),
     });
     const pass1 = { response: pass1Result.responseText };
     logger.info("Quote pass 1 routed", {
       prospectId: prospect.id,
       via: pass1Result.via,
       sessionId: pass1Result.sessionId,
+      hasOperatorNotes: Boolean(operatorNotes),
     });
 
     const QUOTE_MAX_RETRY_ATTEMPTS = 2;
@@ -3545,20 +3552,37 @@ function renderConvertedNotice(
 </div>`;
 }
 
-function buildAtlasQuotePrompt(prospect: {
-  id: string;
-  email: string;
-  token: string;
-  contactName: string | null;
-  businessName: string | null;
-  prdData: unknown;
-}): string {
+function buildAtlasQuotePrompt(
+  prospect: {
+    id: string;
+    email: string;
+    token: string;
+    contactName: string | null;
+    businessName: string | null;
+    prdData: unknown;
+  },
+  operatorNotes?: string
+): string {
   const portalBase = process.env.CLIENT_PORTAL_URL ?? "https://client-portal-production-77a9.up.railway.app";
   const approveUrl = `${portalBase}/quotes/${prospect.token}/approve`;
   const denyUrl = `${portalBase}/quotes/${prospect.token}/deny`;
   const prdJson = JSON.stringify(prospect.prdData, null, 2);
 
+  const operatorSection = operatorNotes?.trim()
+    ? `
+# OPERATOR INSTRUCTIONS — these OVERRIDE any conflicting rule below
+The operator reviewed the previous draft and wants changes:
+
+"""
+${operatorNotes.trim()}
+"""
+
+Apply these faithfully. If they direct a pricing change (e.g. "increase the price by 30%", "charge $1,500/mo"), the new numbers REPLACE the PRD's pricing block — round to clean price points (ending in 99 or 50) and keep pricing.summary consistent with the new numbers. Never mention the operator, an instruction, a markup, or a price change in any client-facing copy — present the final numbers as if they were always the price.
+`
+    : "";
+
   return `The PRD for this prospect has been approved. Now draft the quote — the client-facing artifact they'll Approve or Deny on a hosted page.
+${operatorSection}
 
 Output a single JSON object matching the QuoteData TypeScript contract below. JSON only — no preamble, no code fences, no commentary.
 
@@ -3631,7 +3655,7 @@ interface QuoteData {
 
 # Hard rules
 - Output ONLY the JSON object. No preamble, no code fences.
-- Pricing numbers MUST match the PRD's pricing block exactly. Don't second-guess Kyle's reviewed pricing.
+- Pricing numbers MUST match the PRD's pricing block exactly — UNLESS the OPERATOR INSTRUCTIONS section above directs a pricing change, in which case the operator's numbers win.
 - scopeOfWork.items: translate PRD.buildPlan + PRD.tools into client-readable scope items. The CLIENT is reading this — write descriptions a non-technical person can follow. e.g. PRD's "Wire Gmail OAuth" becomes "Gmail integration" with description "We'll connect your Gmail so the agent can send and log emails from your address." Don't include internal/operator-only items like "Internal QA dry runs" unless they're genuinely something the prospect should know about.
 - timeline.buildWindow: pick a range based on the SUM of PRD.buildPlan[].estimatedDays. Add some buffer. Examples: <5 days total → "1-2 weeks"; 5-15 days → "2-4 weeks"; 15-30 days → "4-6 weeks"; 30+ days → "6-8 weeks". Stay within the platform-promised "2-8 weeks" window.
 - monthlyIncludes: what they get for the recurring retainer — typically things like "Daily agent runs", "Email/Slack escalation", "Ongoing prompt refinement based on results", "Tool maintenance when APIs change", "Monthly performance review".
@@ -3859,7 +3883,16 @@ Before you finalize the pricing block, run **web_search** to ground your numbers
 
 Take the **3-8 best data points** from those searches and put them in \`pricing.marketResearch.findings\`. Synthesize the overall picture in \`pricing.marketResearch.summary\` (2-4 sentences). Set \`pricing.marketResearch.replacementCost\` to the loaded monthly cost of the human alternative (null only if there genuinely isn't a human equivalent — rare).
 
-THEN propose pricing that fits the research: typically below the replacement cost (so we're cheaper than hiring), in line with or slightly under comparable SaaS, and reflecting the buildPlan effort in the setup fee. The pricing.reasoning sentence must connect the suggested numbers to specific findings from the research.
+THEN derive your BASELINE pricing from the research: typically below the replacement cost (so we're cheaper than hiring), in line with or slightly under comparable SaaS, and reflecting the buildPlan effort in the setup fee.
+
+FINALLY apply the house pricing policy — this is standing policy, not optional:
+- Mark the baseline up by 30% on BOTH the setup fee and the monthly retainer.
+- Round the marked-up numbers to clean price points (ending in 99 or 50 — e.g. baseline $999/mo → $1,299/mo; baseline $2,500 setup → $3,250).
+- The marked-up numbers are what go in suggestedSetupCents / suggestedMonthlyCents.
+- Sanity ceiling: stay below the human replacement cost. If +30% would breach it, cap just under the replacement cost instead.
+- NEVER mention a markup, premium, or "policy" anywhere in the PRD or any client-facing copy. pricing.reasoning justifies the FINAL number on value and market findings, exactly as if it were the baseline.
+
+The pricing.reasoning sentence must connect the suggested (final) numbers to specific findings from the research.
 
 # Hard rules
 - Output ONLY the JSON object. No prose before/after, no code fences.
