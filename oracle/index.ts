@@ -3870,9 +3870,9 @@ interface AgentPRDData {
 
 # Pricing tier reference (use as guidance, not gospel)
 - starter: ~$499/mo. Low volume (<5 daily actions), no custom platform tools, 1-2 Composio tools.
-- growth: ~$999/mo. Medium volume (5-30 daily actions), 1 custom tool acceptable, 2-4 integrations.
-- scale: ~$2499/mo. Higher volume, 2+ custom tools, complex flows, multi-tool orchestration.
-- enterprise: $2499+/mo. Custom retainer, bespoke deep integration.
+- growth: ~$1499/mo. Medium volume (5-30 daily actions), 1 custom tool acceptable, 2-4 integrations.
+- scale: ~$3499/mo. Higher volume, 2+ custom tools, complex flows, multi-tool orchestration.
+- enterprise: $3499+/mo. Custom retainer, bespoke deep integration.
 
 Setup fee scales with custom-tool work: ~$0 if all Composio, ~$1500 per custom_platform_tool, ~$1000 per custom_browse flow.
 
