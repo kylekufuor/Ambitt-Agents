@@ -136,6 +136,44 @@ function ToolItem({
 }) {
   const badge = statusBadge(row.status);
   const last = row.credentials?.lastAccessedAt ?? null;
+  const [connecting, setConnecting] = useState(false);
+  const [connectError, setConnectError] = useState<string | null>(null);
+
+  // OAuth tools not yet connected get a "Connect" button. It asks the server
+  // for a Composio OAuth link (scoped to this client) and sends the browser
+  // there; Google consent, then Composio redirects back to this page.
+  const canConnectOAuth = row.authMethods.includes("oauth") && !row.oauth;
+
+  async function handleConnect() {
+    setConnecting(true);
+    setConnectError(null);
+    try {
+      const res = await fetch(`/api/agents/${agentId}/tools/connect`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ appName: row.name }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setConnectError(data.error ?? `Connect failed (${res.status})`);
+        setConnecting(false);
+        return;
+      }
+      if (data.alreadyConnected) {
+        window.location.reload();
+        return;
+      }
+      if (data.oauthUrl) {
+        window.location.href = data.oauthUrl;
+        return;
+      }
+      setConnectError("No authorization link returned");
+      setConnecting(false);
+    } catch (err) {
+      setConnectError(err instanceof Error ? err.message : "Connect failed");
+      setConnecting(false);
+    }
+  }
 
   return (
     <li className="rounded-lg border border-zinc-200 bg-white overflow-hidden">
@@ -155,16 +193,29 @@ function ToolItem({
             {!row.authMethods.includes("oauth") && row.authMethods.includes("credentials") && <>Credentials</>}
             {last && <> · Last accessed {timeAgo(last)}</>}
           </p>
+          {connectError && <p className="text-xs text-red-600 mt-1">{connectError}</p>}
         </div>
-        {row.credentials && (
-          <button
-            type="button"
-            onClick={onToggle}
-            className="text-xs font-medium text-zinc-700 hover:text-zinc-900 border border-zinc-200 rounded-md px-3 py-1.5 hover:bg-zinc-50"
-          >
-            {row.credentials.allFilled ? "Update" : "Add credentials"}
-          </button>
-        )}
+        <div className="flex items-center gap-2 shrink-0">
+          {canConnectOAuth && (
+            <button
+              type="button"
+              onClick={handleConnect}
+              disabled={connecting}
+              className="text-xs font-medium text-white bg-zinc-900 hover:bg-zinc-800 rounded-md px-3 py-1.5 disabled:opacity-50"
+            >
+              {connecting ? "Connecting…" : "Connect"}
+            </button>
+          )}
+          {row.credentials && (
+            <button
+              type="button"
+              onClick={onToggle}
+              className="text-xs font-medium text-zinc-700 hover:text-zinc-900 border border-zinc-200 rounded-md px-3 py-1.5 hover:bg-zinc-50"
+            >
+              {row.credentials.allFilled ? "Update" : "Add credentials"}
+            </button>
+          )}
+        </div>
       </div>
       {isExpanded && row.credentials && (
         <CredentialForm
