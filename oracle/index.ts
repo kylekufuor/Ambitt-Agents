@@ -4901,6 +4901,29 @@ app.get("/agents/:id/tools", async (req: Request, res: Response) => {
       }
     }
 
+    // Declared-but-not-yet-connected tools. The agent's `tools` array holds
+    // the Composio slugs it's configured to use (set at scaffold/build time).
+    // Without this pass, a fresh client sees an EMPTY tools page — nothing is
+    // connected yet, so there's nothing to click. Surface each declared tool
+    // as a "needs_setup" OAuth row so the client has a Connect button.
+    for (const slug of agent.tools) {
+      const key = normalize(slug);
+      if (usedComposioKeys.has(key)) continue; // already connected
+      if (tools.some((t) => normalize(t.name) === key)) continue; // already listed
+      const app = composioAppByName.get(key);
+      tools.push({
+        id: `declared:${slug}`,
+        name: app?.name ?? slug,
+        logoUrl: null,
+        category: (app?.categories ?? [])[0] ?? null,
+        authMethods: ["oauth"],
+        status: "needs_setup",
+        oauth: null,
+        credentials: null,
+      });
+      usedComposioKeys.add(key);
+    }
+
     res.json({ tools, personalInfo });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
