@@ -94,6 +94,13 @@ async function parseSingle(attachment: InboundAttachment): Promise<ParsedAttachm
     ext === "docx"
   ) {
     text = await parseDOCX(buffer);
+  } else if (
+    ct === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
+    ext === "xlsx"
+  ) {
+    // Spreadsheet exports (CoStar / Crexi / any tool's "export to Excel").
+    // Rendered to CSV-per-sheet text so the agent reads it like tabular data.
+    text = await parseXLSX(buffer);
   } else if (ct.startsWith("text/") || TEXT_EXTENSIONS.has(ext)) {
     text = buffer.toString("utf-8");
   } else if (ct === "application/json" || ext === "json") {
@@ -133,4 +140,47 @@ async function parseDOCX(buffer: Buffer): Promise<string> {
   const mammoth = await import("mammoth");
   const result = await mammoth.extractRawText({ buffer });
   return result.value ?? "";
+}
+
+// Render an .xlsx workbook to CSV text, one block per sheet. Tool exports
+// (CoStar/Crexi/Excel "export") come through here so the agent reads them as
+// the tabular data they are. exceljs is CommonJS — access defensively across
+// interop shapes.
+async function parseXLSX(buffer: Buffer): Promise<string> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const mod: any = await import("exceljs");
+  const Workbook = mod.Workbook ?? mod.default?.Workbook;
+  if (!Workbook) return "[Could not load spreadsheet parser]";
+
+  const workbook = new Workbook();
+  await workbook.xlsx.load(buffer);
+
+  const escape = (raw: unknown): string => {
+    let s: string;
+    if (raw == null) s = "";
+    else if (typeof raw === "object") {
+      // exceljs rich values: { text }, { result }, { hyperlink }, dates, etc.
+      const o = raw as Record<string, unknown>;
+      s = String(o.text ?? o.result ?? o.hyperlink ?? (raw instanceof Date ? raw.toISOString() : JSON.stringify(raw)));
+    } else s = String(raw);
+    // CSV-escape: quote if it contains comma, quote, or newline.
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+
+  const blocks: string[] = [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  for (const sheet of (workbook.worksheets as any[])) {
+    const lines: string[] = [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    sheet.eachRow({ includeEmpty: false }, (row: any) => {
+      // row.values is 1-indexed (index 0 is empty); slice it off.
+      const vals = Array.isArray(row.values) ? row.values.slice(1) : [];
+      lines.push(vals.map(escape).join(","));
+    });
+    if (lines.length > 0) {
+      blocks.push(`# Sheet: ${sheet.name}\n${lines.join("\n")}`);
+    }
+  }
+
+  return blocks.length > 0 ? blocks.join("\n\n") : "[Empty spreadsheet]";
 }
