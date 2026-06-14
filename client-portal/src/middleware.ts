@@ -26,6 +26,12 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next({ request });
   }
 
+  // Dev impersonation bypass — pairs with PORTAL_DEV_AS in supabase-server.ts.
+  // DOUBLE-GATED (dev-only + env var); inert in production.
+  if (process.env.NODE_ENV === "development" && process.env.PORTAL_DEV_AS) {
+    return NextResponse.next({ request });
+  }
+
   // --- Portal (clients.ambitt.agency) — Supabase-gated ---
   let supabaseResponse = NextResponse.next({ request });
 
