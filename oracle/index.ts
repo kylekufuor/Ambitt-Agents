@@ -4839,7 +4839,7 @@ app.get("/agents/:id/tools", async (req: Request, res: Response) => {
       tools.push({
         id: `composio:${conn.id}`,
         name: app?.name ?? conn.appName,
-        logoUrl: null, // listApps() return shape doesn't include logo today
+        logoUrl: app?.logo ?? `https://logos.composio.dev/api/${key}`,
         category: (app?.categories ?? [])[0] ?? null,
         authMethods: ["oauth"],
         status: "connected",
@@ -4886,7 +4886,7 @@ app.get("/agents/:id/tools", async (req: Request, res: Response) => {
         tools.push({
           id: `op:${item.id}`,
           name: app.name,
-          logoUrl: null,
+          logoUrl: app.logo ?? `https://logos.composio.dev/api/${key}`,
           category: (app.categories ?? [])[0] ?? null,
           authMethods: ["credentials"],
           status: allFilled ? "connected" : "needs_setup",
@@ -4914,7 +4914,7 @@ app.get("/agents/:id/tools", async (req: Request, res: Response) => {
       tools.push({
         id: `declared:${slug}`,
         name: app?.name ?? slug,
-        logoUrl: null,
+        logoUrl: app?.logo ?? `https://logos.composio.dev/api/${key}`,
         category: (app?.categories ?? [])[0] ?? null,
         authMethods: ["oauth"],
         status: "needs_setup",

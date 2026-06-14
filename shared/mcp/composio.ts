@@ -262,7 +262,7 @@ export async function executeTool(
  *     each `{slug, name}` entry to its slug for stability)
  */
 export async function listApps(): Promise<
-  Array<{ name: string; key: string; description: string; categories: string[] }>
+  Array<{ name: string; key: string; description: string; categories: string[]; logo: string | null }>
 > {
   const client = getClient();
   // NOTE: Composio overloaded `toolkits.get()` — calling with no args / a
@@ -283,6 +283,8 @@ export async function listApps(): Promise<
     categories: Array.isArray(t.meta?.categories)
       ? t.meta.categories.map((c: any) => c.slug ?? c.name ?? "").filter(Boolean)
       : [],
+    // Composio serves brand logos at logos.composio.dev/api/<slug>.
+    logo: t.meta?.logo ?? (t.slug ? `https://logos.composio.dev/api/${t.slug}` : null),
   }));
 }
 
