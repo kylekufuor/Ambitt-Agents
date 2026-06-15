@@ -1180,8 +1180,8 @@ const AGENT_CONFIG_ALLOWED_AUTONOMY = new Set(["supervised", "autonomous"]);
 app.patch("/agents/:id/config", async (req: Request, res: Response) => {
   try {
     const id = param(req, "id");
-    const { tone, emailFrequency, digestHour, digestDayOfWeek, autonomyLevel } = req.body ?? {};
-    const updates: { tone?: string; emailFrequency?: string; digestHour?: number; digestDayOfWeek?: number; autonomyLevel?: string } = {};
+    const { tone, emailFrequency, digestHour, digestDayOfWeek, autonomyLevel, maxEmailsPerDay, followUpDays } = req.body ?? {};
+    const updates: { tone?: string; emailFrequency?: string; digestHour?: number; digestDayOfWeek?: number; autonomyLevel?: string; maxEmailsPerDay?: number | null; followUpDays?: number[] } = {};
 
     if (tone !== undefined) {
       if (typeof tone !== "string" || !AGENT_CONFIG_ALLOWED_TONES.has(tone)) {
@@ -1223,6 +1223,27 @@ app.patch("/agents/:id/config", async (req: Request, res: Response) => {
       updates.autonomyLevel = autonomyLevel;
     }
 
+    if (maxEmailsPerDay !== undefined) {
+      // null clears the cap ("no explicit limit"); otherwise must be a sane positive integer.
+      if (maxEmailsPerDay === null) {
+        updates.maxEmailsPerDay = null;
+      } else if (typeof maxEmailsPerDay !== "number" || !Number.isInteger(maxEmailsPerDay) || maxEmailsPerDay < 1 || maxEmailsPerDay > 500) {
+        res.status(400).json({ error: "maxEmailsPerDay must be null or an integer 1-500" });
+        return;
+      } else {
+        updates.maxEmailsPerDay = maxEmailsPerDay;
+      }
+    }
+
+    if (followUpDays !== undefined) {
+      if (!Array.isArray(followUpDays) || followUpDays.length > 4 || !followUpDays.every((d) => typeof d === "number" && Number.isInteger(d) && d >= 1 && d <= 90)) {
+        res.status(400).json({ error: "followUpDays must be an array (max 4) of integers 1-90" });
+        return;
+      }
+      // de-dupe + sort ascending so the cadence is always well-formed
+      updates.followUpDays = [...new Set(followUpDays as number[])].sort((a, b) => a - b);
+    }
+
     if (Object.keys(updates).length === 0) {
       res.status(400).json({ error: "No valid config fields provided" });
       return;
@@ -1231,7 +1252,7 @@ app.patch("/agents/:id/config", async (req: Request, res: Response) => {
     const agent = await prisma.agent.update({
       where: { id },
       data: updates,
-      select: { id: true, tone: true, emailFrequency: true, digestHour: true, digestDayOfWeek: true, autonomyLevel: true },
+      select: { id: true, tone: true, emailFrequency: true, digestHour: true, digestDayOfWeek: true, autonomyLevel: true, maxEmailsPerDay: true, followUpDays: true },
     });
 
     logger.info("Agent config updated", { agentId: id, updates });

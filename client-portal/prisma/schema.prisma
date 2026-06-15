@@ -100,6 +100,12 @@ model Agent {
   // raw prompt. Atlas sets this on build; falls back to a generic line if null.
   clientDescription String?
 
+  // Client-configurable operating limits (portal Configure page). Both are
+  // injected into the agent's system prompt by prompt-assembler so the agent
+  // genuinely obeys them — null/[] means "no explicit limit, use judgement".
+  maxEmailsPerDay Int? // soft cap on outreach emails the agent sends per working day
+  followUpDays    Int[] @default([]) // e.g. [3, 7] — days after first contact to nudge non-responders
+
   primaryModel   String @default("claude-sonnet-4-6")
   analyticsModel String @default("gemini")
   creativeModel  String @default("gpt-4o")

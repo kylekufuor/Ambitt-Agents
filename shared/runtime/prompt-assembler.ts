@@ -25,6 +25,8 @@ export interface AgentContext {
   agentType: string;
   autonomyLevel: string;
   tone: string; // "formal" | "conversational" | "brief" — client-configurable via portal
+  maxEmailsPerDay: number | null; // client-set soft cap on outreach emails per working day
+  followUpDays: number[]; // client-set follow-up cadence, e.g. [3, 7] days after first contact
   clientBusinessName: string;
   clientName: string; // preferredName || contactName || businessName — for email salutations + BaseEmailProps
   clientIndustry: string;
@@ -91,6 +93,8 @@ export async function loadAgentContext(agentId: string): Promise<AgentContext> {
     agentType: agent.agentType,
     autonomyLevel: agent.autonomyLevel,
     tone: agent.tone,
+    maxEmailsPerDay: agent.maxEmailsPerDay ?? null,
+    followUpDays: agent.followUpDays ?? [],
     clientBusinessName: agent.client.businessName,
     clientName: agent.client.preferredName ?? agent.client.contactName ?? agent.client.businessName,
     clientIndustry: agent.client.industry,
@@ -137,6 +141,11 @@ export function assembleSystemPrompt(ctx: AgentContext): string {
 
   // 5c. Autonomy mode rules — govern when to pause for approval vs act directly
   sections.push(buildAutonomySection(ctx));
+
+  // 5c-ii. Client-set operating limits (outreach volume + follow-up cadence).
+  // Only rendered when the client has actually set them in the portal.
+  const limits = buildOperatingLimitsSection(ctx);
+  if (limits) sections.push(limits);
 
   // 5d. Proactive insights — optional trailing section in every email when
   // the agent notices something worth flagging beyond the assigned task.
@@ -374,6 +383,41 @@ The client has set you to supervised mode. You can gather information freely, bu
 4. Stop. The client's reply (APPROVE / DISMISS / natural-language modification) will re-enter the conversation and you'll proceed from there.
 
 If the client modifies the plan in their reply ("no, not that third one — try Y instead"), draft the revised plan and call \`request_approval\` again with the updated items.`;
+}
+
+/**
+ * Client-set operating limits — outreach volume cap + follow-up cadence.
+ * These come straight from the portal Configure page. They are real
+ * constraints the agent must honor; null/[] means the client left it to the
+ * agent's judgement, so we render nothing rather than inventing a limit.
+ */
+function buildOperatingLimitsSection(ctx: AgentContext): string | null {
+  const rules: string[] = [];
+
+  if (typeof ctx.maxEmailsPerDay === "number" && ctx.maxEmailsPerDay > 0) {
+    rules.push(
+      `- **Outreach volume:** Send at most **${ctx.maxEmailsPerDay} outreach email${ctx.maxEmailsPerDay === 1 ? "" : "s"} per working day.** This is the client's explicit cap — never exceed it. If you have more good prospects than the cap allows, send the best ones today and carry the rest to the next working day. Replies, follow-ups to people who wrote back, and internal updates to the client do NOT count against this cap — only new cold outreach does.`
+    );
+  }
+
+  if (Array.isArray(ctx.followUpDays) && ctx.followUpDays.length > 0) {
+    const sorted = [...ctx.followUpDays].sort((a, b) => a - b);
+    const ordinal = ["first", "second", "third", "fourth", "fifth"];
+    const lines = sorted
+      .map((d, i) => `${ordinal[i] ?? `${i + 1}th`} nudge ${d} day${d === 1 ? "" : "s"} after first contact`)
+      .join(", then a ");
+    rules.push(
+      `- **Follow-up cadence:** When a prospect doesn't reply, follow up on this schedule — a ${lines}. Stop following up once they reply (positive or negative) or after the last nudge. Keep each follow-up short and add a new angle; never just "bumping this."`
+    );
+  }
+
+  if (rules.length === 0) return null;
+
+  return `## Operating Limits (set by the client)
+
+The client has configured how hard you push. Treat these as firm boundaries, not suggestions:
+
+${rules.join("\n")}`;
 }
 
 const CREDENTIAL_RULES = `## Getting Tool Access — OAuth First, Then Credentials

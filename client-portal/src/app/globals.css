@@ -215,6 +215,36 @@ body {
 .pill-blue     { background: var(--blue-tint);    color: #1d4ed8; }
 .pill-muted    { background: var(--surface-2);    color: var(--text-3); }
 
+/* Selectable option card (Configure page knobs) */
+.opt {
+  background: var(--surface);
+  border-color: var(--border);
+}
+.opt:hover:not(:disabled) {
+  border-color: var(--border-strong);
+}
+.opt-selected {
+  background: var(--brand-tint);
+  border-color: color-mix(in srgb, var(--brand) 45%, var(--border));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--brand) 30%, transparent);
+}
+
+/* Compact selectable chip (hour / day pickers) */
+.chip {
+  background: var(--surface);
+  border-color: var(--border);
+  color: var(--text-2);
+}
+.chip:hover:not(:disabled) {
+  border-color: var(--border-strong);
+}
+.chip-selected {
+  background: var(--brand-tint);
+  border-color: color-mix(in srgb, var(--brand) 45%, var(--border));
+  color: var(--brand-hover);
+  font-weight: 500;
+}
+
 /* Status dot — small circular indicator */
 .dot {
   width: 8px;
