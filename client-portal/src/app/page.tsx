@@ -237,10 +237,10 @@ export default async function PortalPage() {
                 desc={`Set ${primaryAgent.name}'s pace`}
               />
               <NavCard
-                icon={<TableIcon />}
-                label="Leads"
-                desc="See the work"
-                soon
+                href={`/agents/${primaryAgent.id}/activity`}
+                icon={<ActivityIcon />}
+                label="Activity"
+                desc="See what's been sent"
               />
               <NavCard
                 icon={<ChatIcon />}
@@ -541,10 +541,10 @@ function SlidersIcon() {
     </svg>
   );
 }
-function TableIcon() {
+function ActivityIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="4" width="18" height="16" rx="2" /><path d="M3 9h18M9 9v11" />
+      <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
     </svg>
   );
 }

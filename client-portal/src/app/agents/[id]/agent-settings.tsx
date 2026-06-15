@@ -79,12 +79,14 @@ export function AgentSettings({
   agentName,
   agentTimezone,
   status,
+  sentToday,
   initial,
 }: {
   agentId: string;
   agentName: string;
   agentTimezone: string;
   status: string;
+  sentToday: number;
   initial: {
     schedule: string;
     autonomyLevel: string;
@@ -197,6 +199,13 @@ export function AgentSettings({
         hint={`The most new emails ${agentName} will send in a single day. Replies and follow-ups don't count toward this.`}
         flash={flash?.key === "volume" ? flash : null}
       >
+        <p className="text-[12.5px] text-[color:var(--text-3)] -mt-2 mb-3">
+          {sentToday === 0
+            ? `${agentName} hasn't sent any outreach today.`
+            : `${agentName} has sent ${sentToday} ${sentToday === 1 ? "email" : "emails"} today${
+                typeof volume === "number" ? ` of ${volume}` : ""
+              }.`}
+        </p>
         <OptionGrid cols={4}>
           {VOLUME.map((opt) => (
             <Opt

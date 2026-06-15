@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { getTierConfig, type PricingTier } from "@/lib/pricing-constants";
 import { PortalShell } from "@/components/portal-shell";
+import { getSendStats } from "@/lib/agent-activity";
 import { PauseToggle } from "./pause-toggle";
 import { AgentSettings } from "./agent-settings";
 import { DocumentUpload } from "./document-upload";
@@ -72,6 +73,7 @@ export default async function AgentDetailPage(
   const tier = getTierConfig(agent.pricingTier as PricingTier);
   const status = STATUS_PRESENTATION[agent.status] ?? STATUS_PRESENTATION.paused;
   const docs = parseDocuments(agent.clientMemoryObject);
+  const sendStats = await getSendStats(agent.id, agent.client.email, { take: 0 });
 
   // NEVER expose the raw system prompt — friendly description only.
   const description =
@@ -122,13 +124,19 @@ export default async function AgentDetailPage(
         <section className="mt-8 reveal" style={{ ["--i" as never]: 1 }}>
           <div className="flex items-baseline justify-between mb-4">
             <h2 className="font-display text-[22px] text-[color:var(--text)]">Settings</h2>
-            <span className="text-[12px] text-[color:var(--text-4)]">Changes save instantly</span>
+            <Link
+              href={`/agents/${agent.id}/activity`}
+              className="text-[12.5px] text-[color:var(--brand-hover)] hover:underline"
+            >
+              View activity →
+            </Link>
           </div>
           <AgentSettings
             agentId={agent.id}
             agentName={agent.name}
             agentTimezone={agent.timezone}
             status={agent.status}
+            sentToday={sendStats.today}
             initial={{
               schedule: agent.schedule,
               autonomyLevel: agent.autonomyLevel,
