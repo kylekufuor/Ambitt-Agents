@@ -25,6 +25,7 @@ import { sendAgentEmail } from "../../oracle/lib/emailRouter.js";
 import { logUsage, CLIENT_MODEL, TRIAGE_MODEL } from "../claude.js";
 import type { EmailAttachment } from "../email.js";
 import prisma from "../db.js";
+import { Prisma } from "@prisma/client";
 import logger from "../logger.js";
 
 // ---------------------------------------------------------------------------
@@ -85,6 +86,7 @@ const BUILTIN_TOOLS = new Set([
   "get_agent",
   "cost_summary",
   "browse",
+  "log_lead",
 ]);
 
 export interface RuntimeInput {
@@ -217,6 +219,53 @@ const BUILTIN_CLAUDE_TOOLS: Anthropic.Messages.Tool[] = [
         },
       },
       required: ["filename", "title", "content"],
+    },
+  },
+  // --- Lead logging (writes to the client's portal Leads table) ---
+  {
+    name: "log_lead",
+    description:
+      "Record a lead or opportunity you've sourced or worked, so it shows up in the client's portal Leads table. Use this whenever you find a real prospect worth tracking — a property and its owner, a company, a contact — or when you advance one (e.g. after you reach out, mark status 'contacted'). This is how the client sees the actual work you're doing. Calling it again for the SAME lead (same name + email) UPDATES that lead instead of duplicating it, so you can move a lead through its pipeline over multiple runs. Only log genuine, specific leads — never placeholders or examples.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        name: {
+          type: "string",
+          description:
+            "The headline for this lead — a person's name, a company, or a property/address, whatever best identifies it. Required. Example: 'Riverside Apartments, 1420 Oak St' or 'Jane Doe, Acme Holdings'.",
+        },
+        company: { type: "string", description: "Organization or owning entity, if distinct from the name." },
+        email: { type: "string", description: "Best contact email, if known." },
+        phone: { type: "string", description: "Best contact phone, if known." },
+        status: {
+          type: "string",
+          enum: ["new", "contacted", "replied", "qualified", "won", "lost", "archived"],
+          description:
+            "Where this lead is in the pipeline. Default 'new' when first sourced. Move to 'contacted' after you reach out, 'replied' when they respond, etc.",
+        },
+        source: {
+          type: "string",
+          description: "Where the lead came from, e.g. 'CoStar export', 'web research', 'referral'.",
+        },
+        value_usd: {
+          type: "number",
+          description: "Estimated deal value in whole US dollars (no cents), if you can reasonably estimate it. Optional.",
+        },
+        notes: {
+          type: "string",
+          description: "Short, useful context — why this is a good lead, what you found, what's next. Plain English.",
+        },
+        details: {
+          type: "object",
+          description:
+            "Domain-specific structured facts to surface as key/value pairs, e.g. { address, capRate, NOI, units, scenario }. Keep keys short and human-readable.",
+        },
+        mark_contacted: {
+          type: "boolean",
+          description: "Set true if you just reached out to this lead, to stamp the last-contacted time.",
+        },
+      },
+      required: ["name"],
     },
   },
   // --- Credential request (1Password-provisioned item) ---
@@ -599,6 +648,71 @@ async function executeBuiltinTool(
       attachments.push({ filename, content: buffer });
       return {
         content: `CSV generated: ${filename} (${rows.length} rows, ${headers.length} columns). It will be attached to your email response.`,
+        isError: false,
+      };
+    }
+
+    if (toolName === "log_lead") {
+      const a = args as {
+        name?: string;
+        company?: string;
+        email?: string;
+        phone?: string;
+        status?: string;
+        source?: string;
+        value_usd?: number;
+        notes?: string;
+        details?: Record<string, unknown>;
+        mark_contacted?: boolean;
+      };
+      const name = (a.name ?? "").trim();
+      if (!name) return { content: "log_lead failed: a lead name is required.", isError: true };
+
+      const VALID_STATUS = new Set(["new", "contacted", "replied", "qualified", "won", "lost", "archived"]);
+      const status = a.status && VALID_STATUS.has(a.status) ? a.status : undefined;
+      const email = a.email?.trim() || null;
+
+      // Upsert by (agentId, case-insensitive name [+ email]) so re-logging the
+      // same lead advances it through the pipeline instead of duplicating.
+      const existing = await prisma.lead.findFirst({
+        where: {
+          agentId,
+          name: { equals: name, mode: "insensitive" },
+          ...(email ? { email } : {}),
+        },
+        select: { id: true },
+      });
+
+      const fields = {
+        company: a.company?.trim() || undefined,
+        email: email ?? undefined,
+        phone: a.phone?.trim() || undefined,
+        status,
+        source: a.source?.trim() || undefined,
+        valueUsd:
+          typeof a.value_usd === "number" && Number.isFinite(a.value_usd)
+            ? Math.max(0, Math.round(a.value_usd))
+            : undefined,
+        notes: a.notes?.trim() || undefined,
+        details:
+          a.details && typeof a.details === "object"
+            ? (a.details as Prisma.InputJsonValue)
+            : undefined,
+        lastContactedAt: a.mark_contacted ? new Date() : undefined,
+      };
+
+      if (existing) {
+        await prisma.lead.update({ where: { id: existing.id }, data: fields });
+        return {
+          content: `Lead updated: "${name}"${status ? ` (status: ${status})` : ""}. It's live in the client's portal.`,
+          isError: false,
+        };
+      }
+      await prisma.lead.create({
+        data: { agentId, clientId, name, ...fields, status: status ?? "new" },
+      });
+      return {
+        content: `Lead logged: "${name}". It's now in the client's portal Leads table.`,
         isError: false,
       };
     }

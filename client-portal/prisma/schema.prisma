@@ -61,6 +61,7 @@ model Client {
   browserSessions        BrowserSession[]
   credentialAccesses     CredentialAccess[]
   prospectsConvertedFrom Prospect[]
+  leads                  Lead[]
 
   @@index([stripeCustomerId])
   @@index([billingStatus])
@@ -173,6 +174,7 @@ model Agent {
   credentialAccesses     CredentialAccess[]
   builds                 Build[]
   improvements           AgentImprovement[]
+  leads                  Lead[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -937,4 +939,39 @@ model OracleAction {
   @@index([actionType])
   @@index([agentId])
   @@index([createdAt])
+}
+
+model Lead {
+  id       String @id @default(cuid())
+  agentId  String
+  agent    Agent  @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  // What the agent sourced. `name` is the headline — a person, company, or
+  // property/address depending on the agent's domain.
+  name    String
+  company String?
+  email   String?
+  phone   String?
+
+  // Pipeline status. Free-form, but the portal understands these:
+  //   new | contacted | replied | qualified | won | lost | archived
+  status   String  @default("new")
+  source   String? // where it came from, e.g. "CoStar export", "web research"
+  valueUsd Int? // estimated deal value in whole US dollars (optional)
+
+  notes String? @db.Text
+  // Domain-specific structured fields the agent wants to surface, e.g.
+  // { address, capRate, NOI, units, scenario }. Rendered as key/value pairs.
+  details Json?
+
+  lastContactedAt DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([agentId])
+  @@index([clientId])
+  @@index([agentId, status])
+  @@index([agentId, createdAt])
 }

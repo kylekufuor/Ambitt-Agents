@@ -218,7 +218,7 @@ export default async function PortalPage() {
         {/* Navigation hub — the client always knows where to go */}
         {primaryAgent && (
           <section className="mb-12 reveal" style={{ ["--i" as never]: 2 }}>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
               <NavCard
                 href={`/agents/${primaryAgent.id}/tools`}
                 icon={<PlugIcon small />}
@@ -231,10 +231,10 @@ export default async function PortalPage() {
                 flag={needsSetup ? "Action needed" : undefined}
               />
               <NavCard
-                href={`/agents/${primaryAgent.id}`}
-                icon={<SlidersIcon />}
-                label="Configure"
-                desc={`Set ${primaryAgent.name}'s pace`}
+                href={`/agents/${primaryAgent.id}/leads`}
+                icon={<TableIcon />}
+                label="Leads"
+                desc="The work, tracked"
               />
               <NavCard
                 href={`/agents/${primaryAgent.id}/activity`}
@@ -243,9 +243,15 @@ export default async function PortalPage() {
                 desc="See what's been sent"
               />
               <NavCard
+                href={`/agents/${primaryAgent.id}`}
+                icon={<SlidersIcon />}
+                label="Configure"
+                desc={`Set ${primaryAgent.name}'s pace`}
+              />
+              <NavCard
                 icon={<ChatIcon />}
-                label={`Chat with ${primaryAgent.name}`}
-                desc="Ask a question"
+                label="Chat"
+                desc={`Message ${primaryAgent.name}`}
                 soon
               />
             </div>
@@ -545,6 +551,13 @@ function ActivityIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
       <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+    </svg>
+  );
+}
+function TableIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="4" width="18" height="16" rx="2" /><path d="M3 9h18M9 9v11" />
     </svg>
   );
 }
