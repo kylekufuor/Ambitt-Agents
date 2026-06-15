@@ -1,26 +1,456 @@
 @import "tailwindcss";
 
+/* ============================================================================
+   Ambitt Agents — design tokens.
+   Reference: brand identity. Warm-minimal SaaS — Fraunces display + Geist body,
+   teal accent on warm white, no gradients, restrained motion. Editorial-feel.
+   ============================================================================ */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Brand */
+  --brand: #00b3b3;
+  --brand-hover: #099;
+  --brand-bright: #00d4d4;
+  --brand-tint: rgba(0, 179, 179, 0.08);
+  --brand-tint-strong: rgba(0, 179, 179, 0.14);
+  --brand-shadow: 0 1px 2px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 179, 179, 0.28);
+
+  /* Warm neutrals */
+  --bg: #fafaf8;
+  --surface: #ffffff;
+  --surface-2: #f5f5f3;
+  --text: #171717;
+  --text-2: #404040;
+  --text-3: #737373;
+  --text-4: #a3a3a3;
+  --border: #ececec;
+  --border-strong: #d4d4d4;
+
+  /* Status */
+  --emerald: #10b981;
+  --emerald-tint: rgba(16, 185, 129, 0.1);
+  --amber: #f59e0b;
+  --amber-tint: rgba(245, 158, 11, 0.1);
+  --red: #dc2626;
+  --red-tint: rgba(220, 38, 38, 0.08);
+  --blue: #3b82f6;
+  --blue-tint: rgba(59, 130, 246, 0.08);
+
+  /* Typography */
+  --font-display: var(--font-fraunces), Georgia, "Times New Roman", serif;
+  --font-body: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: var(--font-geist-mono), "SF Mono", Menlo, monospace;
+
+  /* Layout */
+  --radius-sm: 6px;
+  --radius: 9px;
+  --radius-lg: 14px;
+  --radius-xl: 16px;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-background: var(--bg);
+  --color-foreground: var(--text);
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-text: var(--text);
+  --color-text-2: var(--text-2);
+  --color-text-3: var(--text-3);
+  --color-text-4: var(--text-4);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-emerald: var(--emerald);
+  --color-amber: var(--amber);
+  --color-red: var(--red);
+  --color-blue: var(--blue);
+
+  --font-sans: var(--font-body);
+  --font-display: var(--font-display);
+  --font-mono: var(--font-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* ============================================================================
+   Base
+   ============================================================================ */
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-feature-settings: "ss01" on, "cv11" on;
+}
+
+/* Display headers use Fraunces with subtle variable-font axes for warmth.
+   SOFT pushes the corners gentle; WONK off keeps the rounded forms sober. */
+.font-display {
+  font-family: var(--font-display);
+  font-variation-settings: "SOFT" 50, "WONK" 0;
+  letter-spacing: -0.022em;
+}
+
+/* Tiny uppercase section labels — used throughout the portal */
+.eyebrow {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--brand-hover);
+}
+
+/* Bordered card with consistent radius */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+/* Subtle hover lift on interactive cards */
+.card-hover {
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+}
+.card-hover:hover {
+  border-color: var(--border-strong);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03), 0 8px 24px rgba(23, 23, 23, 0.04);
+}
+
+/* Primary CTA */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 22px;
+  background: var(--brand);
+  color: #ffffff;
+  border-radius: var(--radius);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
+  box-shadow: var(--brand-shadow);
+}
+.btn-primary:hover {
+  background: var(--brand-hover);
+}
+.btn-primary:active {
+  transform: translateY(1px);
+}
+.btn-primary:disabled {
+  background: var(--border-strong);
+  color: #fff;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* Secondary button */
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 11px 20px;
+  background: var(--surface);
+  color: var(--text-2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+.btn-secondary:hover {
+  border-color: var(--text-3);
+  color: var(--text);
+}
+
+/* Ghost (tertiary) link-button */
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  color: var(--text-3);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  border-radius: var(--radius-sm);
+  transition: color 0.15s ease, background 0.15s ease;
+}
+.btn-ghost:hover {
+  color: var(--text);
+  background: var(--surface-2);
+}
+
+/* Pill (status / category indicator) */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.pill-brand    { background: var(--brand-tint);   color: var(--brand-hover); }
+.pill-emerald  { background: var(--emerald-tint); color: #047857; }
+.pill-amber    { background: var(--amber-tint);   color: #b45309; }
+.pill-red      { background: var(--red-tint);     color: #b91c1c; }
+.pill-blue     { background: var(--blue-tint);    color: #1d4ed8; }
+.pill-muted    { background: var(--surface-2);    color: var(--text-3); }
+
+/* Status dot — small circular indicator */
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.dot-emerald { background: var(--emerald); box-shadow: 0 0 0 3px var(--emerald-tint); }
+.dot-amber   { background: var(--amber);   box-shadow: 0 0 0 3px var(--amber-tint); }
+.dot-red     { background: var(--red);     box-shadow: 0 0 0 3px var(--red-tint); }
+.dot-blue    { background: var(--blue);    box-shadow: 0 0 0 3px var(--blue-tint); }
+.dot-muted   { background: var(--text-4); }
+
+/* Pulse animation for "live / generating" indicators */
+.dot-pulse {
+  animation: pulse 2s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 0 3px var(--brand-tint); }
+  50%      { box-shadow: 0 0 0 6px var(--brand-tint-strong); }
+}
+
+/* Input fields */
+input[type="text"],
+input[type="email"],
+input[type="search"],
+input[type="number"],
+textarea,
+select {
+  font-family: var(--font-body);
+  font-size: 14px;
+  color: var(--text);
+}
+
+.field {
+  width: 100%;
+  padding: 11px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.4;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.field:focus {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px var(--brand-tint-strong);
+}
+.field:disabled {
+  background: var(--surface-2);
+  color: var(--text-3);
+  cursor: not-allowed;
+}
+.field::placeholder {
+  color: var(--text-4);
+}
+
+.field-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-2);
+  margin-bottom: 6px;
+  letter-spacing: 0.01em;
+}
+
+.field-help {
+  font-size: 12.5px;
+  color: var(--text-3);
+  margin-top: 6px;
+  line-height: 1.55;
+}
+
+/* Tab nav (per-agent sub-pages) */
+.tabs {
+  display: flex;
+  gap: 2px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 24px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.tabs::-webkit-scrollbar { display: none; }
+.tab {
+  position: relative;
+  padding: 12px 14px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-3);
+  text-decoration: none;
+  transition: color 0.15s ease;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  white-space: nowrap;
+}
+.tab:hover {
+  color: var(--text);
+}
+.tab.active {
+  color: var(--text);
+  border-bottom-color: var(--brand);
+}
+.tab .count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 6px;
+  min-width: 20px;
+  height: 18px;
+  padding: 0 6px;
+  background: var(--brand-tint);
+  color: var(--brand-hover);
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 700;
+}
+
+/* Subtle divider */
+.hairline {
+  height: 1px;
+  background: var(--border);
+  border: 0;
+}
+
+/* Progress bar */
+.bar-track {
+  height: 6px;
+  background: var(--surface-2);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.bar-fill {
+  height: 100%;
+  background: var(--brand);
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+.bar-fill.warn   { background: var(--amber); }
+.bar-fill.danger { background: var(--red); }
+
+/* Page-level chrome: warm-paper surface with a faint vertical gradient that
+   gives the portal an editorial feel without screaming. */
+.page-wash {
+  background: linear-gradient(180deg, #fafaf8 0%, #f7f7f5 100%);
+  min-height: 100vh;
+}
+
+/* Reveal stagger — apply to a parent and use --i: <n> on each child for
+   subtle on-load cascade. Honors prefers-reduced-motion. */
+@media (prefers-reduced-motion: no-preference) {
+  .reveal > * {
+    opacity: 0;
+    animation: rise 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    animation-delay: calc(var(--i, 0) * 60ms);
+  }
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Accent stripe — decorative left-edge on cards. Differentiates active vs.
+   pending vs. paused agents at a glance. */
+.accent-stripe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--brand);
+  border-top-left-radius: var(--radius-lg);
+  border-bottom-left-radius: var(--radius-lg);
+}
+.accent-stripe.warn  { background: var(--amber); }
+.accent-stripe.blue  { background: var(--blue); }
+.accent-stripe.muted { background: var(--border-strong); }
+
+/* Timeline step (used in build-status page) */
+.tl-step {
+  position: relative;
+  padding-left: 36px;
+}
+.tl-step::before {
+  content: "";
+  position: absolute;
+  left: 10px;
+  top: 26px;
+  bottom: -20px;
+  width: 2px;
+  background: var(--border);
+}
+.tl-step:last-child::before {
+  display: none;
+}
+.tl-marker {
+  position: absolute;
+  left: 0;
+  top: 4px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 2px solid var(--border-strong);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+}
+.tl-marker.done {
+  background: var(--brand);
+  border-color: var(--brand);
+}
+.tl-marker.done::after {
+  content: "";
+  width: 8px;
+  height: 4px;
+  border-left: 2px solid #fff;
+  border-bottom: 2px solid #fff;
+  transform: rotate(-45deg) translate(1px, -1px);
+}
+.tl-marker.active {
+  border-color: var(--brand);
+  background: var(--surface);
+}
+.tl-marker.active::after {
+  content: "";
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--brand);
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+@keyframes pulse-dot {
+  0%, 100% { transform: scale(1);   opacity: 1; }
+  50%      { transform: scale(0.7); opacity: 0.6; }
 }

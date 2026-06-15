@@ -83,18 +83,22 @@ model Agent {
   // oracle/index.ts.
   acceptFromProspects Boolean @default(false)
 
-  tools            String[]
-  schedule         String
-  autonomyLevel    String    @default("supervised") // "supervised" | "autonomous" — supervised is default (plan-then-approve); client toggles to autonomous once they trust the agent. Legacy values "advisory" / "copilot" are migrated on-read in scaffold.ts.
-  timezone         String    @default("America/New_York") // IANA tz — governs cron firing + polite hours
-  deliveryFormat   String    @default("email_summary") // "email_summary" | "email_with_attachments" | "email_plus_sheet"
-  tone             String    @default("conversational") // "formal" | "conversational" | "brief" — client-configurable voice register
-  emailFrequency   String    @default("immediate") // "immediate" | "daily_digest" | "weekly_digest" — when non-immediate, runs queue to ScheduledEmail (kind="digest_pending") and the hourly processDueDigests cron rolls them up
+  tools             String[]
+  schedule          String
+  autonomyLevel     String    @default("supervised") // "supervised" | "autonomous" — supervised is default (plan-then-approve); client toggles to autonomous once they trust the agent. Legacy values "advisory" / "copilot" are migrated on-read in scaffold.ts.
+  timezone          String    @default("America/New_York") // IANA tz — governs cron firing + polite hours
+  deliveryFormat    String    @default("email_summary") // "email_summary" | "email_with_attachments" | "email_plus_sheet"
+  tone              String    @default("conversational") // "formal" | "conversational" | "brief" — client-configurable voice register
+  emailFrequency    String    @default("immediate") // "immediate" | "daily_digest" | "weekly_digest" — when non-immediate, runs queue to ScheduledEmail (kind="digest_pending") and the hourly processDueDigests cron rolls them up
   // Digest cadence (ignored when emailFrequency="immediate"). Client-configurable via portal; defaults are 8am agent-timezone / Monday.
-  digestHour       Int       @default(8) // 0-23 in agent timezone
-  digestDayOfWeek  Int       @default(1) // 0=Sun..6=Sat, used only for weekly_digest
-  lastDigestSentAt DateTime? // prevents double-send within a period
-  clientNorthStar  String?
+  digestHour        Int       @default(8) // 0-23 in agent timezone
+  digestDayOfWeek   Int       @default(1) // 0=Sun..6=Sat, used only for weekly_digest
+  lastDigestSentAt  DateTime? // prevents double-send within a period
+  clientNorthStar   String?
+  // One friendly, client-facing sentence shown in the portal in place of the
+  // internal system prompt (personality/purpose). Clients should NEVER see the
+  // raw prompt. Atlas sets this on build; falls back to a generic line if null.
+  clientDescription String?
 
   primaryModel   String @default("claude-sonnet-4-6")
   analyticsModel String @default("gemini")
