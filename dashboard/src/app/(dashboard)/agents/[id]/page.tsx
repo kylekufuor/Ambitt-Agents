@@ -1,7 +1,7 @@
 import prisma from "@/lib/db";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { recalcCostCents, centsToUsd, projectMonthEnd } from "@/lib/costs";
+import { recalcCostCents, centsToUsd, projectMonthEnd, formatTokens, MODEL_PRICING } from "@/lib/costs";
 import { getAgentErrorRate } from "@/lib/health";
 import { decrypt } from "@/lib/encryption";
 import { AgentTabs } from "./agent-tabs";
@@ -47,11 +47,20 @@ async function getAgentData(id: string) {
 
   const errorRate = await errorRatePromise;
 
-  // Recalculate costs accurately
+  // Recalculate costs accurately + accumulate token totals and a per-model
+  // breakdown (Arthur routes Haiku→Sonnet, so model split matters for cost).
   let thisMonthCost = 0;
   let thisMonthCalls = 0;
+  let tokensInput = 0;
+  let tokensOutput = 0;
+  let tokensCacheWrite = 0;
+  let tokensCacheRead = 0;
+  const byModelMap = new Map<
+    string,
+    { model: string; calls: number; input: number; output: number; cacheWrite: number; cacheRead: number; cost: number }
+  >();
   for (const row of thisMonthUsage) {
-    thisMonthCost += recalcCostCents(
+    const cost = recalcCostCents(
       row.model,
       row.inputTokens,
       row.outputTokens,
@@ -59,8 +68,32 @@ async function getAgentData(id: string) {
       row.cacheCreationTokens,
       row.cacheReadTokens
     );
+    thisMonthCost += cost;
     thisMonthCalls++;
+    tokensInput += row.inputTokens;
+    tokensOutput += row.outputTokens;
+    tokensCacheWrite += row.cacheCreationTokens;
+    tokensCacheRead += row.cacheReadTokens;
+
+    const m = byModelMap.get(row.model) ?? {
+      model: row.model,
+      calls: 0,
+      input: 0,
+      output: 0,
+      cacheWrite: 0,
+      cacheRead: 0,
+      cost: 0,
+    };
+    m.calls++;
+    m.input += row.inputTokens;
+    m.output += row.outputTokens;
+    m.cacheWrite += row.cacheCreationTokens;
+    m.cacheRead += row.cacheReadTokens;
+    m.cost += cost;
+    byModelMap.set(row.model, m);
   }
+  const byModel = [...byModelMap.values()].sort((a, b) => b.cost - a.cost);
+  const totalTokens = tokensInput + tokensOutput + tokensCacheWrite + tokensCacheRead;
 
   let lastMonthCost = 0;
   for (const row of lastMonthUsage) {
@@ -133,6 +166,12 @@ async function getAgentData(id: string) {
       thisMonthCalls,
       burnPct,
       errorRate,
+      totalTokens,
+      tokensInput,
+      tokensOutput,
+      tokensCacheWrite,
+      tokensCacheRead,
+      byModel,
     },
   };
 }
@@ -275,7 +314,7 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
       </div>
 
       {/* KPI Row */}
-      <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-7 gap-4">
         <div className="bg-card border border-border rounded-xl p-5">
           <p className="text-muted-foreground text-[11px] font-semibold uppercase tracking-wider">Tasks Completed</p>
           <p className="text-3xl font-bold text-foreground mt-2 tabular-nums">{agent.totalTasksCompleted}</p>
@@ -284,6 +323,13 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
           <p className="text-muted-foreground text-[11px] font-semibold uppercase tracking-wider">Cost (MTD)</p>
           <p className="text-3xl font-bold text-foreground mt-2 tabular-nums">{centsToUsd(stats.thisMonthCost)}</p>
           <p className="text-muted-foreground/60 text-xs mt-1">{stats.thisMonthCalls} calls</p>
+        </div>
+        <div className="bg-card border border-border rounded-xl p-5">
+          <p className="text-muted-foreground text-[11px] font-semibold uppercase tracking-wider">Tokens (MTD)</p>
+          <p className="text-3xl font-bold text-foreground mt-2 tabular-nums">{formatTokens(stats.totalTokens)}</p>
+          <p className="text-muted-foreground/60 text-xs mt-1 tabular-nums">
+            {formatTokens(stats.tokensInput)} in · {formatTokens(stats.tokensOutput)} out
+          </p>
         </div>
         <div className="bg-card border border-border rounded-xl p-5">
           <p className="text-muted-foreground text-[11px] font-semibold uppercase tracking-wider">Projected</p>
@@ -325,6 +371,59 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
               : "No runs yet"}
           </p>
         </div>
+      </div>
+
+      {/* Token & cost usage by model (this month) */}
+      <div className="bg-card border border-border rounded-xl overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
+          <p className="text-foreground text-sm font-semibold">Token &amp; cost usage by model</p>
+          <p className="text-muted-foreground/60 text-[11px] uppercase tracking-wider">This month</p>
+        </div>
+        {stats.byModel.length === 0 ? (
+          <p className="px-5 py-8 text-center text-muted-foreground/60 text-sm">No model usage recorded yet this month.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-muted-foreground/60 text-[11px] uppercase tracking-wider border-b border-border">
+                  <th className="text-left font-medium px-5 py-2.5">Model</th>
+                  <th className="text-right font-medium px-3 py-2.5">Calls</th>
+                  <th className="text-right font-medium px-3 py-2.5">Input</th>
+                  <th className="text-right font-medium px-3 py-2.5">Output</th>
+                  <th className="text-right font-medium px-3 py-2.5">Cache write</th>
+                  <th className="text-right font-medium px-3 py-2.5">Cache read</th>
+                  <th className="text-right font-medium px-5 py-2.5">Cost</th>
+                </tr>
+              </thead>
+              <tbody className="tabular-nums">
+                {stats.byModel.map((m) => (
+                  <tr key={m.model} className="border-b border-border/50 last:border-0">
+                    <td className="px-5 py-2.5 text-foreground">
+                      {MODEL_PRICING[m.model]?.label ?? m.model}
+                    </td>
+                    <td className="px-3 py-2.5 text-right text-muted-foreground">{m.calls}</td>
+                    <td className="px-3 py-2.5 text-right text-muted-foreground">{formatTokens(m.input)}</td>
+                    <td className="px-3 py-2.5 text-right text-muted-foreground">{formatTokens(m.output)}</td>
+                    <td className="px-3 py-2.5 text-right text-muted-foreground">{formatTokens(m.cacheWrite)}</td>
+                    <td className="px-3 py-2.5 text-right text-muted-foreground">{formatTokens(m.cacheRead)}</td>
+                    <td className="px-5 py-2.5 text-right text-foreground font-medium">{centsToUsd(m.cost)}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="border-t border-border text-foreground font-semibold tabular-nums">
+                  <td className="px-5 py-2.5">Total</td>
+                  <td className="px-3 py-2.5 text-right">{stats.thisMonthCalls}</td>
+                  <td className="px-3 py-2.5 text-right">{formatTokens(stats.tokensInput)}</td>
+                  <td className="px-3 py-2.5 text-right">{formatTokens(stats.tokensOutput)}</td>
+                  <td className="px-3 py-2.5 text-right">{formatTokens(stats.tokensCacheWrite)}</td>
+                  <td className="px-3 py-2.5 text-right">{formatTokens(stats.tokensCacheRead)}</td>
+                  <td className="px-5 py-2.5 text-right">{centsToUsd(stats.thisMonthCost)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Tabs */}
