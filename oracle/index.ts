@@ -4775,6 +4775,13 @@ interface ToolsListItem {
     allFilled: boolean;
     lastAccessedAt: string | null;
   } | null;
+  // Custom (non-Composio) tools the agent reaches via the browse tool with
+  // client-stored credentials. `siteUrl` drives the favicon + the helper copy.
+  // `vaultPending` is true when the client's secure vault isn't provisioned
+  // yet — the row shows but the credential form is held until it is.
+  source?: "composio" | "custom";
+  siteUrl?: string | null;
+  vaultPending?: boolean;
 }
 
 interface PersonalInfoItem {
@@ -4790,13 +4797,20 @@ app.get("/agents/:id/tools", async (req: Request, res: Response) => {
     const agentId = param(req, "id");
     const agent = await prisma.agent.findUnique({
       where: { id: agentId },
-      select: { id: true, clientId: true, tools: true },
+      select: {
+        id: true,
+        clientId: true,
+        tools: true,
+        customTools: true,
+        client: { select: { onepasswordVaultId: true } },
+      },
     });
     if (!agent) {
       res.status(404).json({ error: "Agent not found" });
       return;
     }
     const clientId = agent.clientId;
+    const hasVault = !!agent.client?.onepasswordVaultId;
 
     const [connectedAccounts, composioApps, vaultItems, audits] = await Promise.all([
       (async () => {
@@ -4943,6 +4957,79 @@ app.get("/agents/:id/tools", async (req: Request, res: Response) => {
         credentials: null,
       });
       usedComposioKeys.add(key);
+    }
+
+    // Custom (non-Composio) tools — CoStar, Crexi, etc. The agent reaches these
+    // via the browse tool using credentials the client enters here, stored in
+    // 1Password. Each shows as a credential-entry row. We back each with a 1P
+    // item (lazily created on first visit once the client's vault exists) so
+    // the existing credential form + populate route just work. With no vault
+    // yet, the row still shows but is flagged vaultPending.
+    type CustomToolDef = {
+      name: string;
+      source?: string;
+      siteUrl?: string;
+      fields?: Array<{ title: string; fieldType: string }>;
+    };
+    const customTools = Array.isArray(agent.customTools)
+      ? (agent.customTools as unknown as CustomToolDef[])
+      : [];
+    for (const ct of customTools) {
+      if (!ct?.name) continue;
+      const key = normalize(ct.name);
+      if (tools.some((t) => normalize(t.name) === key)) continue; // already listed
+      const host = (() => {
+        try {
+          return ct.siteUrl ? new URL(ct.siteUrl).hostname.replace(/^www\./, "") : null;
+        } catch {
+          return null;
+        }
+      })();
+      const logoUrl = host ? `https://www.google.com/s2/favicons?sz=64&domain=${host}` : null;
+      const declaredFields = (ct.fields ?? []).map((f) => ({ ...f, filled: false }));
+
+      // Is there already a 1P item for this tool?
+      const existingItem = vaultItems.find((it) => normalize(it.title) === key);
+      let credentials: ToolsListItem["credentials"] = null;
+      if (existingItem) {
+        const allFilled = existingItem.fields.length > 0 && existingItem.fields.every((f) => f.filled);
+        credentials = {
+          itemId: existingItem.id,
+          fields: existingItem.fields,
+          allFilled,
+          lastAccessedAt: lastAccessByTitle.get(existingItem.title.toLowerCase()) ?? null,
+        };
+      } else if (hasVault && declaredFields.length > 0) {
+        // Lazily provision the empty item so the form has something to write to.
+        try {
+          const { createCredentialItem } = await import("../shared/secrets/onepassword.js");
+          const created = await createCredentialItem(
+            clientId,
+            ct.name,
+            (ct.fields ?? []).map((f) => ({ title: f.title, fieldType: f.fieldType as "Text" | "Concealed" | "Email" | "Url" | "Phone" | "Totp" }))
+          );
+          credentials = { itemId: created.itemId, fields: declaredFields, allFilled: false, lastAccessedAt: null };
+        } catch (err) {
+          logger.warn("Tools endpoint: custom-tool 1P item provisioning failed", {
+            tool: ct.name,
+            err: (err as Error).message,
+          });
+        }
+      }
+
+      tools.push({
+        id: `custom:${key}`,
+        name: ct.name,
+        logoUrl,
+        category: "Custom",
+        authMethods: ["credentials"],
+        status: credentials?.allFilled ? "connected" : "needs_setup",
+        oauth: null,
+        credentials,
+        source: "custom",
+        siteUrl: ct.siteUrl ?? null,
+        vaultPending: !hasVault,
+      });
     }
 
     res.json({ tools, personalInfo });

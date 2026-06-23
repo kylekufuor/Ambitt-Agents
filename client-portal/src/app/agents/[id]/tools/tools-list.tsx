@@ -23,6 +23,11 @@ interface ToolRow {
     allFilled: boolean;
     lastAccessedAt: string | null;
   } | null;
+  // Custom (non-Composio) tools the agent signs into with client-entered
+  // credentials. vaultPending = the client's secure vault isn't ready yet.
+  source?: "composio" | "custom";
+  siteUrl?: string | null;
+  vaultPending?: boolean;
 }
 
 interface PersonalInfoRow {
@@ -139,6 +144,12 @@ function ToolItem({
   const [connecting, setConnecting] = useState(false);
   const [connectError, setConnectError] = useState<string | null>(null);
 
+  const isCustom = row.source === "custom";
+  const siteHost = (() => {
+    if (!row.siteUrl) return null;
+    try { return new URL(row.siteUrl).hostname.replace(/^www\./, ""); } catch { return null; }
+  })();
+
   // OAuth tools not yet connected get a "Connect" button. It asks the server
   // for a Composio OAuth link (scoped to this client) and sends the browser
   // there; Google consent, then Composio redirects back to this page.
@@ -188,11 +199,22 @@ function ToolItem({
             )}
           </div>
           <p className="text-xs text-zinc-500 mt-0.5">
-            {row.authMethods.includes("oauth") && row.authMethods.includes("credentials") && <>OAuth + credentials</>}
-            {row.authMethods.includes("oauth") && !row.authMethods.includes("credentials") && <>OAuth</>}
-            {!row.authMethods.includes("oauth") && row.authMethods.includes("credentials") && <>Credentials</>}
+            {isCustom ? (
+              <>Sign-in{siteHost ? <> · {siteHost}</> : null}</>
+            ) : (
+              <>
+                {row.authMethods.includes("oauth") && row.authMethods.includes("credentials") && <>OAuth + credentials</>}
+                {row.authMethods.includes("oauth") && !row.authMethods.includes("credentials") && <>OAuth</>}
+                {!row.authMethods.includes("oauth") && row.authMethods.includes("credentials") && <>Credentials</>}
+              </>
+            )}
             {last && <> · Last accessed {timeAgo(last)}</>}
           </p>
+          {isCustom && row.vaultPending && (
+            <p className="text-xs text-amber-700 mt-1">
+              Your secure credential vault is being set up — you&apos;ll be able to add this login here shortly.
+            </p>
+          )}
           {connectError && <p className="text-xs text-red-600 mt-1">{connectError}</p>}
         </div>
         <div className="flex items-center gap-2 shrink-0">
