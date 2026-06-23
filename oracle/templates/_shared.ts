@@ -108,11 +108,19 @@ export function emailWrapper(headerVariant: HeaderVariant, headerContent: string
 </html>`;
 }
 
+// Agent profile photo — the Ambitt robot mark in a teal disc. Hosted as a PNG
+// (email clients like Gmail strip inline SVG), served from the portal's public
+// brand folder which is reachable without auth.
+export const AGENT_AVATAR_URL = "https://portal.ambitt.agency/brand/ambitt-agent-avatar.png";
+
 export function headerBlock(agentName: string, productName: string, badgeLabel: string, badgeVariant: BadgeVariant): string {
   return `
 <table role="presentation" style="width: 100%;">
   <tr>
-    <td>
+    <td style="width: 44px; vertical-align: middle;">
+      <img src="${AGENT_AVATAR_URL}" width="40" height="40" alt="${agentName}" style="display: block; width: 40px; height: 40px; border-radius: 50%;" />
+    </td>
+    <td style="vertical-align: middle; padding-left: 12px;">
       <p style="margin: 0 0 2px 0; font-size: 14px; font-weight: 600; color: #ffffff;">${agentName}</p>
       <p style="margin: 0; font-size: 12px; color: #a1a1aa;">${productName}</p>
     </td>

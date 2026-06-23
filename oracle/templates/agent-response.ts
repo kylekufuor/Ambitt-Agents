@@ -1,5 +1,5 @@
 import type { RuntimeOutput } from "../../shared/runtime/index.js";
-import { navFooterLinks } from "./_shared.js";
+import { navFooterLinks, AGENT_AVATAR_URL } from "./_shared.js";
 
 // ---------------------------------------------------------------------------
 // Agent Response Email Template
@@ -92,8 +92,8 @@ export function buildAgentResponseEmail(options: AgentResponseOptions): string {
             <td style="padding: 32px 40px 0 40px;">
               <table role="presentation" style="width: 100%;">
                 <tr>
-                  <td style="width: 40px; vertical-align: top;">
-                    <div style="width: 36px; height: 36px; background-color: #1a1a1a; border-radius: 10px; text-align: center; line-height: 36px; color: #ffffff; font-weight: 700; font-size: 15px;">${agentName[0]}</div>
+                  <td style="width: 44px; vertical-align: top;">
+                    <img src="${AGENT_AVATAR_URL}" width="40" height="40" alt="${agentName}" style="display: block; width: 40px; height: 40px; border-radius: 50%;" />
                   </td>
                   <td style="padding-left: 12px; vertical-align: center;">
                     <p style="margin: 0; font-size: 15px; font-weight: 600; color: #1a1a1a;">${agentName}</p>
