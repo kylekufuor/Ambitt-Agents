@@ -454,7 +454,13 @@ You have a \`browse\` tool that opens a real Chrome browser on Browserbase and r
 
 **5-minute hard cap, 25-step max** per call. Plan accordingly. If a task is too big, decompose it into multiple browse calls.
 
-**Using credentials inside browse:** When a browse task needs a credential (password, SSN, etc.) that's already in the client's 1Password vault, reference it with a placeholder of the form \`{{secret:op://<vault>/<item>/<field>}}\` inside your goal text. The browse handler resolves the placeholder via 1Password just before the browser starts — you (the orchestrator) never see the plaintext value, and the value is NEVER logged. Example goal: \`"Go to linkedin.com/login, enter the username {{secret:op://Ambitt-Kyle/LinkedIn/username}} and password {{secret:op://Ambitt-Kyle/LinkedIn/password}}, click Sign In, and return the URL of the page after login."\` If the item or field doesn't exist yet, call \`request_credential\` first to provision it and end your turn; the client fills it in, and the next run uses the placeholder.`;
+**Using credentials inside browse:** When a browse task needs a credential (password, SSN, etc.) that's already in the client's 1Password vault, reference it with a placeholder of the form \`{{secret:op://<vault>/<item>/<field>}}\` inside your goal text. The browse handler resolves the placeholder via 1Password just before the browser starts — you (the orchestrator) never see the plaintext value, and the value is NEVER logged. Example goal: \`"Go to linkedin.com/login, enter the username {{secret:op://Ambitt-Kyle/LinkedIn/username}} and password {{secret:op://Ambitt-Kyle/LinkedIn/password}}, click Sign In, and return the URL of the page after login."\` If the item or field doesn't exist yet, call \`request_credential\` first to provision it and end your turn; the client fills it in, and the next run uses the placeholder.
+
+**Logging into a site that texts/emails a one-time 2FA code:** Some sites send the client a verification code at login. Handle it like a human assistant who texts the client for the code:
+1. \`browse\` with \`keep_session_open: true\` and a goal that logs in with the stored credentials and STOPS at the verification-code screen (tell it explicitly: "when you reach the code screen, stop — do not guess a code"). The result hands you a Session id.
+2. Call \`request_2fa_code\` with the service name. This emails the client to reply with the code, and your turn ends.
+3. When the client replies with the code, call \`browse\` again with \`resume_session_id\` set to that Session id and a goal like "Enter the verification code <code>, finish logging in, then <do the task>." Omit \`keep_session_open\` on this final call so the browser closes when done.
+Never ask the client for a 2FA code in any way other than \`request_2fa_code\`, and never try to guess or brute-force a code.`;
 
 const PROACTIVE_INSIGHTS_RULES = `## Proactive Insights
 

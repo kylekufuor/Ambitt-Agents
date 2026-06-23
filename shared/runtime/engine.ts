@@ -87,6 +87,7 @@ const BUILTIN_TOOLS = new Set([
   "cost_summary",
   "browse",
   "log_lead",
+  "request_2fa_code",
 ]);
 
 export interface RuntimeInput {
@@ -318,7 +319,7 @@ const BUILTIN_CLAUDE_TOOLS: Anthropic.Messages.Tool[] = [
   {
     name: "browse",
     description:
-      "Use a real web browser to complete a task on a website. Unlike web_search (which returns snippets), this actually navigates pages, clicks buttons, fills forms, and extracts data from dynamic/JS-rendered sites. Use when the information or action isn't available through a plain search or API — e.g. logging into a dashboard, submitting a form, scraping a dynamic page, or checking a site that blocks scrapers. 5-minute hard timeout per call; 25-step maximum. In SUPERVISED mode, any browse task with side effects (submitting forms, posting, modifying external state) must go through request_approval first — browse itself does not gate on that. Read-only browsing (pulling data, summarizing pages) is fine directly in either mode.",
+      "Use a real web browser to complete a task on a website. Unlike web_search (which returns snippets), this actually navigates pages, clicks buttons, fills forms, and extracts data from dynamic/JS-rendered sites. Use when the information or action isn't available through a plain search or API — e.g. logging into a dashboard, submitting a form, scraping a dynamic page, or checking a site that blocks scrapers. 5-minute hard timeout per call; 25-step maximum. In SUPERVISED mode, any browse task with side effects (submitting forms, posting, modifying external state) must go through request_approval first — browse itself does not gate on that. Read-only browsing (pulling data, summarizing pages) is fine directly in either mode.\n\nTWO-FACTOR LOGIN (texted/emailed code): some sites text the client a verification code at login. To handle this: (1) call browse with keep_session_open=true and a goal like 'Log in with username X and password {{secret:op://...}}. When you reach the verification-code screen, STOP — do not guess a code. Report that you've reached 2FA.' The result returns a session id. (2) Call request_2fa_code to email the client for the code; your turn ends. (3) When the client replies with the code, call browse again with resume_session_id set to that session id and a goal like 'Enter the verification code 123456, finish logging in, then <do the task>.' Omit keep_session_open on this final call so the session closes when done.",
     input_schema: {
       type: "object" as const,
       properties: {
@@ -330,10 +331,44 @@ const BUILTIN_CLAUDE_TOOLS: Anthropic.Messages.Tool[] = [
         starting_url: {
           type: "string",
           description:
-            "Optional URL to land on before the agent starts. Saves steps when you already know the target page. Omit when the agent needs to discover or search for the site.",
+            "Optional URL to land on before the agent starts. Saves steps when you already know the target page. Omit when the agent needs to discover or search for the site, or when resuming a session (the page is already where you left it).",
+        },
+        keep_session_open: {
+          type: "boolean",
+          description:
+            "Keep the browser open after this call so you can continue in a follow-up call — use this when you'll need to come back, e.g. you're about to wait for a 2FA code. The result returns a session id to pass to resume_session_id next. Default false (the browser closes when the call ends).",
+        },
+        resume_session_id: {
+          type: "string",
+          description:
+            "Continue in a browser you previously kept open. Pass the session id returned by the earlier keep_session_open call. The page is exactly where you left it. Omit keep_session_open here to close the browser when this call finishes.",
         },
       },
       required: ["goal"],
+    },
+  },
+  // --- 2FA code relay (pairs with browse keep_session_open) ---
+  // Emails the client asking them to reply with a verification code their
+  // service just texted/emailed them, then PAUSES the run. The client's email
+  // reply re-enters the agent, which reads the code and resumes the parked
+  // browser session. Mirrors how a human assistant relays a login code.
+  {
+    name: "request_2fa_code",
+    description:
+      "Email the client to ask for a one-time verification (2FA) code that a service just texted or emailed them, so you can finish logging in on their behalf. Use this ONLY after a browse call (with keep_session_open=true) has reached a verification-code screen. Your turn ends after calling this; when the client replies to the email with the code, you'll resume and pass it to a browse call with resume_session_id. Do NOT use this for passwords or anything stored long-term — those go through request_credential. This is only for ephemeral one-time codes.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        service: {
+          type: "string",
+          description: "The site/service you're logging into, e.g. 'CoStar'. Shown to the client so they know which code to send.",
+        },
+        reason: {
+          type: "string",
+          description: "One short sentence on what you're doing, e.g. 'I'm logging into CoStar to pull this week's new listings.'",
+        },
+      },
+      required: ["service"],
     },
   },
   // --- Approval gate (supervised mode) ---
@@ -754,12 +789,19 @@ async function executeBuiltinTool(
     }
 
     if (toolName === "browse") {
-      const { goal, starting_url } = args as { goal: string; starting_url?: string };
+      const { goal, starting_url, keep_session_open, resume_session_id } = args as {
+        goal: string;
+        starting_url?: string;
+        keep_session_open?: boolean;
+        resume_session_id?: string;
+      };
       const result = await runBrowserTask({
         agentId,
         clientId,
         goal,
         startingUrl: starting_url,
+        keepSessionOpen: keep_session_open,
+        resumeSessionId: resume_session_id,
       });
       // Compact summary for Claude — full action list + transcript live in
       // the BrowserSession row for debugging, not in the LLM context.
@@ -768,10 +810,44 @@ async function executeBuiltinTool(
         `Duration: ${(result.durationMs / 1000).toFixed(1)}s, ${result.actionCount} action(s).`,
         result.message ? `Result: ${result.message.slice(0, 1500)}` : "",
         result.browserbaseSessionId ? `Session: ${result.browserbaseSessionId}` : "",
+        result.keptOpen
+          ? "This browser session is still OPEN. To continue (e.g. after getting a 2FA code), call browse again with resume_session_id set to the Session id above."
+          : "",
       ].filter(Boolean).join("\n");
       return {
         content: summary,
         isError: result.status !== "success",
+      };
+    }
+
+    if (toolName === "request_2fa_code") {
+      const { service, reason } = args as { service: string; reason?: string };
+      const svc = (service ?? "the service").trim() || "the service";
+      const agentRow = await prisma.agent.findUnique({
+        where: { id: agentId },
+        select: { agentType: true, client: { select: { email: true } } },
+      });
+      const clientEmail = agentRow?.client?.email;
+      if (!clientEmail) {
+        return { content: "request_2fa_code failed: no client email on file.", isError: true };
+      }
+      const why = reason?.trim() ? `${reason.trim()} ` : "";
+      const responseBody = `${why}${svc} just sent you a one-time verification code so I can finish logging in on your behalf.\n\nPlease reply to this email with the code (just the digits) and I'll continue right away. The code is only used once and is never stored.`;
+      await sendAgentEmail({
+        trigger: "agent-response",
+        to: clientEmail,
+        agentId,
+        agentName,
+        agentRole: agentRow?.agentType ?? "Assistant",
+        clientBusinessName,
+        clientId,
+        responseBody,
+        toolsUsed: [],
+      });
+      return {
+        content: `Emailed ${clientEmail} asking them to reply with the ${svc} verification code. Run paused — when they reply with the code, resume the parked browser session (resume_session_id) and enter the code to finish logging in.`,
+        isError: false,
+        isPause: true,
       };
     }
 

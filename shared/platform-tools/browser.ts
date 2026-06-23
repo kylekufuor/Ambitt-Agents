@@ -1,4 +1,5 @@
 import { Stagehand } from "@browserbasehq/stagehand";
+import Browserbase from "@browserbasehq/sdk";
 import prisma from "../db.js";
 import logger from "../logger.js";
 import { resolveSecrets } from "../secrets/onepassword.js";
@@ -50,6 +51,13 @@ export interface RunBrowserTaskInput {
   clientId: string;
   goal: string;
   startingUrl?: string;
+  // Keep the remote browser alive after this call so a later call can resume
+  // it (e.g. parking on a 2FA screen while we email the client for the code).
+  keepSessionOpen?: boolean;
+  // Reconnect to a previously kept-open session instead of starting fresh.
+  // The page is wherever the prior call left it. When set and keepSessionOpen
+  // is falsy, the session is released after this call (the final step).
+  resumeSessionId?: string;
 }
 
 export interface RunBrowserTaskResult {
@@ -59,6 +67,7 @@ export interface RunBrowserTaskResult {
   browserbaseSessionId?: string;
   durationMs: number;
   actionCount: number;
+  keptOpen?: boolean;        // true if the remote session is still alive for a resume
 }
 
 /**
@@ -115,7 +124,7 @@ async function substituteSecrets(
 }
 
 export async function runBrowserTask(input: RunBrowserTaskInput): Promise<RunBrowserTaskResult> {
-  const { agentId, clientId, goal, startingUrl } = input;
+  const { agentId, clientId, goal, startingUrl, keepSessionOpen, resumeSessionId } = input;
 
   if (!process.env.BROWSERBASE_API_KEY || !process.env.BROWSERBASE_PROJECT_ID) {
     throw new Error("BROWSERBASE_API_KEY and BROWSERBASE_PROJECT_ID must be set");
@@ -190,9 +199,22 @@ export async function runBrowserTask(input: RunBrowserTaskInput): Promise<RunBro
       apiKey: process.env.BROWSERBASE_API_KEY,
       projectId: process.env.BROWSERBASE_PROJECT_ID,
       verbose: 0,
+      // Resume a parked session by id, OR start fresh. When we plan to come
+      // back (keepSessionOpen), create it with keepAlive so the remote browser
+      // survives our disconnect and the next call can reconnect to it.
+      ...(resumeSessionId
+        ? { browserbaseSessionID: resumeSessionId }
+        : keepSessionOpen
+          ? {
+              browserbaseSessionCreateParams: {
+                projectId: process.env.BROWSERBASE_PROJECT_ID!,
+                keepAlive: true,
+              },
+            }
+          : {}),
     });
     await stagehand.init();
-    browserbaseSessionId = stagehand.browserbaseSessionID;
+    browserbaseSessionId = resumeSessionId ?? stagehand.browserbaseSessionID;
 
     const agent = stagehand.agent({
       // "provider/model-id" format. Sonnet 4-5 is the Stagehand-tested model
@@ -252,8 +274,28 @@ export async function runBrowserTask(input: RunBrowserTaskInput): Promise<RunBro
         err: closeErr instanceof Error ? closeErr.message : String(closeErr),
       });
     }
+    // Closing disconnects our SDK. A keepAlive session stays alive on
+    // Browserbase regardless, so a later call can resume it. When we're
+    // resuming and NOT keeping it open (the final step), explicitly release
+    // it so we don't leak a parked browser. Non-keepAlive one-shots are
+    // released by close() automatically — nothing to do.
+    if (resumeSessionId && !keepSessionOpen && browserbaseSessionId) {
+      try {
+        const bb = new Browserbase({ apiKey: process.env.BROWSERBASE_API_KEY! });
+        await bb.sessions.update(browserbaseSessionId, {
+          status: "REQUEST_RELEASE",
+          projectId: process.env.BROWSERBASE_PROJECT_ID!,
+        });
+      } catch (relErr) {
+        logger.warn("Browserbase session release failed (non-fatal)", {
+          browserbaseSessionId,
+          err: relErr instanceof Error ? relErr.message : String(relErr),
+        });
+      }
+    }
   }
 
+  const keptOpen = !!keepSessionOpen;
   const durationMs = Date.now() - startedAt.getTime();
 
   await prisma.browserSession.update({
@@ -280,5 +322,6 @@ export async function runBrowserTask(input: RunBrowserTaskInput): Promise<RunBro
     browserbaseSessionId,
     durationMs,
     actionCount,
+    keptOpen,
   };
 }
