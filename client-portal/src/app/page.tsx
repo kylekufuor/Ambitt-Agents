@@ -151,6 +151,12 @@ export default async function PortalPage() {
   const oneAgent = activeAgents.length === 1;
   const agentLabel = oneAgent ? activeAgents[0].name : "your team";
 
+  // Only show the Stripe billing portal button when there's a real Stripe
+  // customer. Manually-converted / $0 clients carry a "pending_stripe_…"
+  // placeholder, and the Stripe portal call would silently fail.
+  const hasRealBilling =
+    !!client.stripeCustomerId && !client.stripeCustomerId.startsWith("pending_stripe_");
+
   return (
     <PortalShell
       user={{
@@ -328,7 +334,20 @@ export default async function PortalPage() {
                   ` · ${activeAgents.length} agent${activeAgents.length === 1 ? "" : "s"}`}
               </p>
               <div className="mt-5 pt-4 border-t border-[color:var(--border)]">
-                <ManageBillingButton />
+                {hasRealBilling ? (
+                  <ManageBillingButton />
+                ) : (
+                  <p className="text-[12.5px] text-[color:var(--text-3)] leading-relaxed">
+                    Billed directly — no card on file. Questions about your plan? Reach us at{" "}
+                    <a
+                      href="mailto:support@ambitt.agency"
+                      className="text-[color:var(--brand-hover)] hover:underline"
+                    >
+                      support@ambitt.agency
+                    </a>
+                    .
+                  </p>
+                )}
               </div>
             </div>
           </div>
