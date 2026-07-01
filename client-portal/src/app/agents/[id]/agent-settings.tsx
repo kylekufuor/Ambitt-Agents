@@ -49,6 +49,7 @@ const VOLUME: Choice<number | null>[] = [
   { value: 10, label: "Up to 10 a day", desc: "Steady and selective" },
   { value: 25, label: "Up to 25 a day", desc: "A healthy pipeline" },
   { value: 50, label: "Up to 50 a day", desc: "Aggressive outreach" },
+  { value: 100, label: "Up to 100 a day", desc: "High-volume mail-merge campaigns" },
   { value: null, label: "No daily limit", desc: "Send as many as make sense" },
 ];
 

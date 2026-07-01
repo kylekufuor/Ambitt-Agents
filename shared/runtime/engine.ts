@@ -13,6 +13,7 @@ import { runBrowserTask } from "../platform-tools/browser.js";
 import { requestReview } from "../platform-tools/review.js";
 import { httpRequest, formatHttpResult } from "../platform-tools/http-request.js";
 import { spawnProspect } from "../platform-tools/spawn-prospect.js";
+import { sendMailMerge, type MailMergeRow } from "../platform-tools/mail-merge.js";
 import {
   pipelineSummary,
   listProspects,
@@ -88,6 +89,7 @@ const BUILTIN_TOOLS = new Set([
   "browse",
   "log_lead",
   "request_2fa_code",
+  "send_mail_merge",
 ]);
 
 export interface RuntimeInput {
@@ -369,6 +371,33 @@ const BUILTIN_CLAUDE_TOOLS: Anthropic.Messages.Tool[] = [
         },
       },
       required: ["service"],
+    },
+  },
+  {
+    name: "send_mail_merge",
+    description:
+      "Send a batch of PERSONALIZED emails through the client's connected Gmail — a mail merge, like YAMM. You give ONE subject template and ONE body template written with {{placeholders}}, plus a list of recipient rows (each row = one person's email + the values for the placeholders). Every email is filled in from its row and sent from the client's Gmail, spaced out to protect deliverability. Respects the client's daily send cap — anything over the cap is held for the next day. Use this for volume outreach (10s–100s of near-identical, per-recipient-customized emails). For a single bespoke email, just send it normally instead — don't use mail merge for one. This actually sends on the client's behalf, so in SUPERVISED mode you MUST call request_approval first, present the batch (how many, who, a sample filled-in email), and wait for the client's go-ahead before calling this. Requires the client's Gmail connected via their tools; every {{placeholder}} in the templates must have a matching field in every row.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        subject_template: {
+          type: "string",
+          description:
+            "The subject line, with {{placeholders}} for the parts that vary per recipient. Example: 'Interest in {{property_name}}'. No surrounding quotes.",
+        },
+        body_template: {
+          type: "string",
+          description:
+            "The email body, with {{placeholders}} for the parts that vary per recipient. Plain text, written in a natural personal tone (not marketing-y). Example: 'Hi {{first_name}},\\n\\nI came across {{property_name}} on {{street}} and wanted to reach out...'. Every placeholder must be filled by a field in each row.",
+        },
+        rows: {
+          type: "array",
+          description:
+            "One object per recipient. Each object MUST include an 'email' field plus a value for every {{placeholder}} used in the templates. Example: [{ \"email\": \"a@x.com\", \"first_name\": \"Dana\", \"property_name\": \"Oak Plaza\", \"street\": \"5th Ave\" }, ...]. This is exactly the merge file YAMM would use.",
+          items: { type: "object" as const },
+        },
+      },
+      required: ["subject_template", "body_template", "rows"],
     },
   },
   // --- Approval gate (supervised mode) ---
@@ -849,6 +878,28 @@ async function executeBuiltinTool(
         isError: false,
         isPause: true,
       };
+    }
+
+    if (toolName === "send_mail_merge") {
+      const { subject_template, body_template, rows } = args as {
+        subject_template?: string;
+        body_template?: string;
+        rows?: MailMergeRow[];
+      };
+      if (!subject_template || !body_template) {
+        return {
+          content: "send_mail_merge failed: both subject_template and body_template are required.",
+          isError: true,
+        };
+      }
+      const result = await sendMailMerge({
+        agentId,
+        clientId,
+        subjectTemplate: subject_template,
+        bodyTemplate: body_template,
+        rows: Array.isArray(rows) ? rows : [],
+      });
+      return { content: result.message, isError: result.isError };
     }
 
     if (toolName === "request_approval") {
