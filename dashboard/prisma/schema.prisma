@@ -372,6 +372,9 @@ model Credential {
   // Encrypted JSON of custom-tool field values (username/password/etc) for
   // clients without a 1Password vault. AES-256-GCM via shared/encryption.ts.
   secretsEncrypted String? @db.Text
+  // Outcome of the agent's last browser login with these creds: "ok" | "failed".
+  lastUseStatus String?
+  lastUseError  String? @db.Text
 
   connectedAt DateTime  @default(now())
   lastUsedAt  DateTime?

@@ -3,7 +3,7 @@ import Browserbase from "@browserbasehq/sdk";
 import prisma from "../db.js";
 import logger from "../logger.js";
 import { resolveSecrets } from "../secrets/onepassword.js";
-import { substituteCustomCredentials } from "../secrets/db-credentials.js";
+import { substituteCustomCredentials, recordCredentialUse } from "../secrets/db-credentials.js";
 
 // ---------------------------------------------------------------------------
 // browse — Stagehand-on-Browserbase browser agent (single-tool shape)
@@ -155,13 +155,16 @@ export async function runBrowserTask(input: RunBrowserTaskInput): Promise<RunBro
   // form.
   let resolvedGoal: string;
   let resolvedRefCount = 0;
+  let credToolsUsed: string[] = [];
   try {
     const sub = await substituteSecrets(clientId, goal);
     resolvedGoal = sub.substituted;
     resolvedRefCount = sub.resolvedCount;
     // Also resolve {{cred:Tool/field}} placeholders from DB-stored custom-tool
     // credentials (CoStar/Crexi/etc — for clients without a 1Password vault).
-    resolvedGoal = await substituteCustomCredentials(clientId, resolvedGoal);
+    const credSub = await substituteCustomCredentials(clientId, resolvedGoal);
+    resolvedGoal = credSub.text;
+    credToolsUsed = credSub.toolsUsed;
     if (resolvedRefCount > 0) {
       logger.info("Browser task: secret placeholders resolved", {
         agentId, clientId, sessionRowId: row.id, count: resolvedRefCount,
@@ -319,6 +322,21 @@ export async function runBrowserTask(input: RunBrowserTaskInput): Promise<RunBro
       browserbaseSessionId: browserbaseSessionId ?? null,
     },
   });
+
+  // Record how the login went for any custom tool whose creds this task used,
+  // so the client's Tools page can flag "last sign-in failed — check your login".
+  if (credToolsUsed.length > 0) {
+    const authFailed =
+      status !== "success" ||
+      /incorrect|invalid (password|credential|login|username)|could ?n.?t (log|sign) ?in|authentication failed|wrong password|(login|sign.?in) (failed|unsuccessful)|access denied|couldn.?t sign you in/i.test(
+        message ?? ""
+      );
+    await Promise.all(
+      credToolsUsed.map((tool) =>
+        recordCredentialUse(clientId, tool, !authFailed, authFailed ? (errorMessage ?? message ?? "").slice(0, 300) : undefined)
+      )
+    );
+  }
 
   logger.info("Browser task complete", {
     agentId, clientId, sessionRowId: row.id, browserbaseSessionId,

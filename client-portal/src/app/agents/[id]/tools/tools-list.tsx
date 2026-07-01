@@ -30,6 +30,8 @@ interface ToolRow {
   vaultPending?: boolean;
   accountEmail?: string | null; // which inbox (Gmail can have several)
   appSlug?: string | null; // for "Add another account"
+  loginStatus?: "ok" | "failed" | null; // last browser login outcome (custom tools)
+  loginError?: string | null;
 }
 
 interface PersonalInfoRow {
@@ -231,8 +233,14 @@ function ToolItem({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <p className="text-sm font-medium text-zinc-900">{row.name}</p>
-            <span className={`text-xs font-medium px-2 py-0.5 rounded border ${badge.classes}`}>{badge.label}</span>
-            {row.credentials?.allFilled && (
+            {row.loginStatus === "failed" ? (
+              <span className="text-xs font-medium px-2 py-0.5 rounded border bg-red-50 text-red-700 border-red-200">
+                Sign-in failed
+              </span>
+            ) : (
+              <span className={`text-xs font-medium px-2 py-0.5 rounded border ${badge.classes}`}>{badge.label}</span>
+            )}
+            {row.credentials?.allFilled && row.loginStatus !== "failed" && (
               <span className="text-[10px] text-zinc-500 px-1.5 py-0.5 rounded bg-zinc-100">🔒 Encrypted</span>
             )}
           </div>
@@ -253,6 +261,11 @@ function ToolItem({
           {isCustom && row.vaultPending && (
             <p className="text-xs text-amber-700 mt-1">
               Your secure credential vault is being set up — you&apos;ll be able to add this login here shortly.
+            </p>
+          )}
+          {row.loginStatus === "failed" && (
+            <p className="text-xs text-red-600 mt-1">
+              Couldn&apos;t sign in to {row.name} with the saved login. Update the username/password below and we&apos;ll try again on the next run.
             </p>
           )}
           {connectError && <p className="text-xs text-red-600 mt-1">{connectError}</p>}

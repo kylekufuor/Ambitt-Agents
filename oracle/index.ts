@@ -4873,6 +4873,10 @@ interface ToolsListItem {
   accountEmail?: string | null;
   // App slug for "Add another account" (re-run the connect flow for this app).
   appSlug?: string | null;
+  // Outcome of the agent's last browser login with a custom tool's creds:
+  // "ok" | "failed" | null (untested). Surfaces a bad login to the client.
+  loginStatus?: "ok" | "failed" | null;
+  loginError?: string | null;
 }
 
 interface PersonalInfoItem {
@@ -4942,7 +4946,7 @@ app.get("/agents/:id/tools", async (req: Request, res: Response) => {
           return await listCustomCredentialTools(clientId);
         } catch (err) {
           logger.warn("Tools endpoint: DB custom-credential listing failed", { err: (err as Error).message });
-          return new Set<string>();
+          return new Map<string, { lastUseStatus: string | null; lastUseError: string | null }>();
         }
       })(),
       (async () => {
@@ -5130,7 +5134,8 @@ app.get("/agents/:id/tools", async (req: Request, res: Response) => {
       // DB-backed credentials (works for every client — no 1Password vault
       // needed). If we've stored values for this tool, it's connected and all
       // declared fields count as filled (we store them together).
-      const hasDbCreds = dbCredTools.has(ct.name);
+      const credInfo = dbCredTools.get(ct.name);
+      const hasDbCreds = !!credInfo;
       const declaredFields = (ct.fields ?? []).map((f) => ({ ...f, filled: hasDbCreds }));
       const credentials: ToolsListItem["credentials"] = {
         itemId: `db:${key}`,
@@ -5138,6 +5143,8 @@ app.get("/agents/:id/tools", async (req: Request, res: Response) => {
         allFilled: hasDbCreds,
         lastAccessedAt: lastAccessByTitle.get(ct.name.toLowerCase()) ?? null,
       };
+      const loginStatus =
+        credInfo?.lastUseStatus === "ok" ? "ok" : credInfo?.lastUseStatus === "failed" ? "failed" : null;
 
       tools.push({
         id: `custom:${key}`,
@@ -5145,12 +5152,16 @@ app.get("/agents/:id/tools", async (req: Request, res: Response) => {
         logoUrl,
         category: "Custom",
         authMethods: ["credentials"],
+        // A failed login is still "connected" (creds present) but flagged via
+        // loginStatus so the client sees the problem without losing their entry.
         status: hasDbCreds ? "connected" : "needs_setup",
         oauth: null,
         credentials,
         source: "custom",
         siteUrl: ct.siteUrl ?? null,
         vaultPending: false,
+        loginStatus,
+        loginError: loginStatus === "failed" ? credInfo?.lastUseError ?? null : null,
       });
     }
 

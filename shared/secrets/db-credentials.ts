@@ -54,13 +54,20 @@ export async function resolveCustomCredentials(
   }
 }
 
-/** Tool names (for this client) that have stored credentials — portal status. */
-export async function listCustomCredentialTools(clientId: string): Promise<Set<string>> {
+/**
+ * Tools (for this client) that have stored credentials, keyed by tool name,
+ * with the outcome of the agent's last login — powers the Tools page status.
+ */
+export async function listCustomCredentialTools(
+  clientId: string
+): Promise<Map<string, { lastUseStatus: string | null; lastUseError: string | null }>> {
   const rows = await prisma.credential.findMany({
     where: { clientId, secretsEncrypted: { not: null } },
-    select: { toolName: true },
+    select: { toolName: true, lastUseStatus: true, lastUseError: true },
   });
-  return new Set(rows.map((r) => r.toolName));
+  const map = new Map<string, { lastUseStatus: string | null; lastUseError: string | null }>();
+  for (const r of rows) map.set(r.toolName, { lastUseStatus: r.lastUseStatus, lastUseError: r.lastUseError });
+  return map;
 }
 
 /** Remove a client's stored credentials for a custom tool (portal delete). */
@@ -73,12 +80,17 @@ export async function deleteCustomCredentials(clientId: string, toolName: string
  * Resolve `{{cred:ToolName/field}}` placeholders in a browser-task goal to the
  * client's stored values. Mirrors the op:// substitution so the agent can log
  * into custom sites without the plaintext ever entering Claude's context.
- * Returns the substituted string; unknown refs are left intact (visible).
+ * Returns the substituted string + the tool names whose creds were used (so the
+ * caller can record whether the login then succeeded or failed).
  */
-export async function substituteCustomCredentials(clientId: string, goal: string): Promise<string> {
+export async function substituteCustomCredentials(
+  clientId: string,
+  goal: string
+): Promise<{ text: string; toolsUsed: string[] }> {
   const refs = [...goal.matchAll(/\{\{\s*cred:([^/}]+)\/([^}]+?)\s*\}\}/g)];
-  if (refs.length === 0) return goal;
+  if (refs.length === 0) return { text: goal, toolsUsed: [] };
   const cache = new Map<string, Record<string, string> | null>();
+  const used = new Set<string>();
   let out = goal;
   for (const m of refs) {
     const toolName = m[1].trim();
@@ -86,7 +98,32 @@ export async function substituteCustomCredentials(clientId: string, goal: string
     if (!cache.has(toolName)) cache.set(toolName, await resolveCustomCredentials(clientId, toolName));
     const fields = cache.get(toolName);
     const value = fields?.[field] ?? fields?.[field.toLowerCase()];
-    if (value != null) out = out.split(m[0]).join(value);
+    if (value != null) {
+      out = out.split(m[0]).join(value);
+      used.add(toolName);
+    }
   }
-  return out;
+  return { text: out, toolsUsed: [...used] };
+}
+
+/**
+ * Record the outcome of a browser login that used a tool's stored credentials,
+ * so the Tools page can flag "last sign-in failed — check your login".
+ */
+export async function recordCredentialUse(
+  clientId: string,
+  toolName: string,
+  ok: boolean,
+  error?: string
+): Promise<void> {
+  await prisma.credential
+    .updateMany({
+      where: { clientId, toolName },
+      data: {
+        lastUsedAt: new Date(),
+        lastUseStatus: ok ? "ok" : "failed",
+        lastUseError: ok ? null : (error ?? "Sign-in did not complete").slice(0, 500),
+      },
+    })
+    .catch(() => {});
 }
