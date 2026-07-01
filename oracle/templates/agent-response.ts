@@ -35,25 +35,59 @@ interface AgentResponseOptions {
   proactiveInsights?: string[];
 }
 
+const BRAND = "#00b3b3";
+
+// Inline markdown: **bold** and [text](url). Links get the brand teal.
+function inlineMd(s: string): string {
+  return s
+    .replace(/\*\*([^*]+)\*\*/g, '<strong style="font-weight:600;color:#18181b;">$1</strong>')
+    .replace(
+      /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g,
+      `<a href="$2" style="color:${BRAND};text-decoration:none;border-bottom:1px solid ${BRAND};">$1</a>`
+    );
+}
+
+// Render the agent's markdown body into clean, email-safe HTML: headings,
+// bold, bullet + numbered lists, dividers, and paragraphs. Agents write
+// markdown freely — this makes it render beautifully in every client.
+function renderMarkdown(md: string): string {
+  const out: string[] = [];
+  let list: "ul" | "ol" | null = null;
+  const closeList = () => {
+    if (list) { out.push(`</${list}>`); list = null; }
+  };
+  for (const raw of md.split("\n")) {
+    const line = raw.trimEnd();
+    if (!line.trim()) { closeList(); continue; }
+    let m: RegExpMatchArray | null;
+    if ((m = line.match(/^###\s+(.*)/))) {
+      closeList();
+      out.push(`<p style="margin:18px 0 6px;font-size:14px;font-weight:600;color:#18181b;">${inlineMd(m[1])}</p>`);
+    } else if ((m = line.match(/^##\s+(.*)/))) {
+      closeList();
+      out.push(`<p style="margin:22px 0 8px;font-size:16px;font-weight:600;color:#18181b;">${inlineMd(m[1])}</p>`);
+    } else if (/^(---|___|\*\*\*)\s*$/.test(line)) {
+      closeList();
+      out.push(`<div style="border-top:1px solid #e4e4e7;margin:18px 0;"></div>`);
+    } else if ((m = line.match(/^[-•]\s+(.*)/))) {
+      if (list !== "ul") { closeList(); out.push(`<ul style="margin:0 0 14px;padding-left:20px;">`); list = "ul"; }
+      out.push(`<li style="margin:0 0 6px;">${inlineMd(m[1])}</li>`);
+    } else if ((m = line.match(/^\d+\.\s+(.*)/))) {
+      if (list !== "ol") { closeList(); out.push(`<ol style="margin:0 0 14px;padding-left:22px;">`); list = "ol"; }
+      out.push(`<li style="margin:0 0 6px;">${inlineMd(m[1])}</li>`);
+    } else {
+      closeList();
+      out.push(`<p style="margin:0 0 14px;">${inlineMd(line)}</p>`);
+    }
+  }
+  closeList();
+  return out.join("");
+}
+
 export function buildAgentResponseEmail(options: AgentResponseOptions): string {
   const { agentName, agentId, agentRole, clientBusinessName, responseBody, toolsUsed, stats, tableHeaders, tableRows, sourceLinks, recommendations, proactiveInsights } = options;
 
-  const bodyHtml = responseBody
-    .split("\n")
-    .filter(Boolean)
-    .map((line) => {
-      if (line.startsWith("- ") || line.startsWith("• ")) {
-        return `<li style="margin: 0 0 6px 0;">${line.slice(2)}</li>`;
-      }
-      return `<p style="margin: 0 0 14px 0;">${line}</p>`;
-    })
-    .join("");
-
-  // Wrap list items in <ul> tags
-  const wrappedHtml = bodyHtml.replace(
-    /(<li[^>]*>.*?<\/li>\s*)+/g,
-    (match) => `<ul style="margin: 0 0 14px 0; padding-left: 20px;">${match}</ul>`
-  );
+  const wrappedHtml = renderMarkdown(responseBody);
 
   const actionsHtml = toolsUsed.length > 0
     ? `
@@ -200,8 +234,18 @@ export function buildAgentResponseEmail(options: AgentResponseOptions): string {
 
           <!-- Signature -->
           <tr>
-            <td style="padding: 8px 40px 32px 40px; color: #9ca3af; font-size: 13px;">
-              <p style="margin: 0;">— ${agentName}, ${agentRole} at Ambitt</p>
+            <td style="padding: 8px 40px 32px 40px;">
+              <table role="presentation">
+                <tr>
+                  <td style="vertical-align: middle; padding-right: 10px;">
+                    <img src="${AGENT_AVATAR_URL}" width="34" height="34" alt="${agentName}" style="display: block; width: 34px; height: 34px; border-radius: 50%;" />
+                  </td>
+                  <td style="vertical-align: middle;">
+                    <p style="margin: 0; font-size: 14px; font-weight: 600; color: #1a1a1a;">${agentName}</p>
+                    <p style="margin: 1px 0 0 0; font-size: 12px; color: #9ca3af;">${agentRole} · <span style="color: ${BRAND};">Ambitt Agents</span></p>
+                  </td>
+                </tr>
+              </table>
             </td>
           </tr>
 
