@@ -4773,8 +4773,9 @@ app.get("/agents/:id/documents", async (req: Request, res: Response) => {
 // ---------------------------------------------------------------------------
 app.get("/agents/:id/example-emails", async (req: Request, res: Response) => {
   try {
+    const id = param(req, "id");
     const agent = await prisma.agent.findUnique({
-      where: { id: req.params.id },
+      where: { id },
       select: {
         id: true,
         name: true,
