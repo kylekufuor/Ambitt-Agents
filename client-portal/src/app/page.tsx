@@ -5,13 +5,13 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { PortalShell } from "@/components/portal-shell";
 import { ManageBillingButton } from "./billing-button";
-import {
-  getTierConfig,
-  currentBillingCycleMonth,
-  type PricingTier,
-} from "@/lib/pricing-constants";
+import { getTierConfig, type PricingTier } from "@/lib/pricing-constants";
 
 export const dynamic = "force-dynamic";
+
+// Client-facing usage markup: the dollar figure we show clients is the real
+// API/token cost times this. Display only — does not change billing.
+const USAGE_MARKUP = 15;
 
 /**
  * Portal home — the workforce view, built for NON-TECHNICAL clients.
@@ -112,29 +112,21 @@ export default async function PortalPage() {
     .reduce((sum, a) => sum + a.monthlyRetainerCents, 0);
 
   const usedThisCycle = activeAgents.reduce((s, a) => s + a.interactionCount, 0);
-  const limitThisCycle = activeAgents.reduce(
-    (s, a) => s + (a.interactionLimit > 0 ? a.interactionLimit : 0),
-    0
-  );
-  const overageThisCycle = activeAgents.reduce((s, a) => s + a.overageCount, 0);
-  const cyclePct =
-    limitThisCycle > 0
-      ? Math.min(100, Math.round((usedThisCycle / limitThisCycle) * 100))
-      : 0;
-  const cycleNearLimit = cyclePct >= 90 && cyclePct < 100;
-  const cycleOver = limitThisCycle > 0 && usedThisCycle >= limitThisCycle;
 
-  const cycleMonth = currentBillingCycleMonth();
-  const overageEvents = await prisma.overageEvent.findMany({
-    where: { clientId: client.id, billingCycleMonth: cycleMonth },
-    select: { unitCostCents: true },
+  // Usage in $$, over a rolling 30-day window. We take the real API/token cost
+  // (the authoritative figure logged per run) and mark it up for the client.
+  // DISPLAY ONLY — the retainer is what they actually pay; this just puts a
+  // dollar value on the work the agent did. A rolling window keeps the number
+  // live (a calendar month resets to $0 on the 1st, which reads as broken).
+  const windowStart = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const usageAgg = await prisma.apiUsage.aggregate({
+    where: {
+      agentId: { in: client.agents.map((a) => a.id) },
+      createdAt: { gte: windowStart },
+    },
+    _sum: { costInCents: true },
   });
-  const overageCostCents = overageEvents.reduce((s, e) => s + e.unitCostCents, 0);
-
-  const nextReset = activeAgents
-    .map((a) => a.interactionResetAt)
-    .filter((d): d is Date => !!d)
-    .sort((a, b) => a.getTime() - b.getTime())[0];
+  const usageCents = (usageAgg._sum.costInCents ?? 0) * USAGE_MARKUP;
 
   const distinctTiers = Array.from(new Set(activeAgents.map((a) => a.pricingTier)));
   const tierLabel =
@@ -267,58 +259,34 @@ export default async function PortalPage() {
         {/* This-month summary */}
         <section className="mb-12 reveal" style={{ ["--i" as never]: 3 }}>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            {/* Tasks completed */}
+            {/* Usage this month ($) */}
             <div className="card lg:col-span-2 p-6 relative overflow-hidden">
               <div className="flex items-start justify-between gap-6 mb-2">
                 <div>
-                  <p className="eyebrow mb-2">This month</p>
+                  <p className="eyebrow mb-2">Last 30 days</p>
                   <h2 className="font-display text-[22px] text-[color:var(--text)] leading-tight">
-                    {oneAgent
-                      ? `Tasks ${activeAgents[0].name} completed`
-                      : "Tasks completed across your team"}
+                    {oneAgent ? `${activeAgents[0].name}'s usage` : "Your team's usage"}
                   </h2>
                 </div>
                 <div className="text-right shrink-0">
                   <div className="font-display text-[28px] text-[color:var(--text)] leading-none">
-                    {usedThisCycle.toLocaleString()}
+                    {formatCents(usageCents)}
                   </div>
                   <div className="text-[12px] text-[color:var(--text-3)] mt-1">
-                    of {limitThisCycle > 0 ? `${limitThisCycle.toLocaleString()} included` : "unlimited"}
+                    {usedThisCycle > 0
+                      ? `${usedThisCycle.toLocaleString()} task${usedThisCycle === 1 ? "" : "s"}`
+                      : "getting started"}
                   </div>
                 </div>
               </div>
 
               <p className="text-[12.5px] text-[color:var(--text-4)] mb-4">
-                Each email sent, lead sourced, or follow-up counts as one task.
+                The value of the work {oneAgent ? activeAgents[0].name : "your team"} has done
+                for you lately — outreach, leads sourced, research, and follow-ups.
               </p>
 
-              {limitThisCycle > 0 && (
-                <div className="bar-track">
-                  <div
-                    className={`bar-fill ${
-                      cycleOver ? "danger" : cycleNearLimit ? "warn" : ""
-                    }`}
-                    style={{ width: `${Math.max(2, cyclePct)}%` }}
-                  />
-                </div>
-              )}
-
-              <div className="flex flex-wrap items-center gap-x-6 gap-y-2 mt-4 text-[13px] text-[color:var(--text-3)]">
-                {overageThisCycle > 0 ? (
-                  <span className="text-[color:var(--amber)]">
-                    {overageThisCycle.toLocaleString()} past your plan · {formatCents(overageCostCents)} extra
-                  </span>
-                ) : limitThisCycle > 0 ? (
-                  <span>Comfortably within your plan.</span>
-                ) : null}
-                {nextReset && (
-                  <span className="ml-auto">
-                    Resets {nextReset.toLocaleDateString(undefined, {
-                      month: "short",
-                      day: "numeric",
-                    })}
-                  </span>
-                )}
+              <div className="flex flex-wrap items-center gap-x-6 gap-y-2 mt-2 text-[13px] text-[color:var(--text-3)]">
+                <span>Included in your plan — no extra charge.</span>
               </div>
             </div>
 
