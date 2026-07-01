@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { verifyAgentOwnership, oracleUrl } from "@/lib/agent-auth";
+import { publicOrigin } from "@/lib/public-url";
 
 // Initiate an OAuth connection for a Composio tool (Gmail, Google Drive, …).
 // The client clicks "Connect" on the Tools page; we ask Oracle for a Composio
@@ -25,7 +26,10 @@ export async function POST(
 
   // Bring the client back to this exact Tools page after Google consent, with
   // a marker so the page can re-fetch + confirm the connection landed.
-  const origin = new URL(req.url).origin;
+  // MUST use the public origin (not new URL(req.url).origin, which is the
+  // container's internal localhost behind Railway's proxy) — otherwise Composio
+  // redirects the client to their own machine after consent.
+  const origin = publicOrigin(req);
   const redirectUrl = `${origin}/agents/${id}/tools?connected=${encodeURIComponent(appName)}`;
 
   const res = await fetch(`${oracleUrl()}/composio/connect`, {
