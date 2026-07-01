@@ -7,6 +7,8 @@ import { PortalShell } from "@/components/portal-shell";
 import { getSendStats } from "@/lib/agent-activity";
 import { PauseToggle } from "./pause-toggle";
 import { AgentSettings } from "./agent-settings";
+import { ReachAgent } from "./reach-agent";
+import { ExampleEmails, type ExampleEmail } from "./example-emails";
 import { DocumentUpload } from "./document-upload";
 import { ChangeRequest } from "./change-request";
 
@@ -48,6 +50,8 @@ export default async function AgentDetailPage(
     select: {
       id: true,
       name: true,
+      email: true,
+      exampleEmails: true,
       clientDescription: true,
       status: true,
       schedule: true,
@@ -78,6 +82,12 @@ export default async function AgentDetailPage(
   // NEVER expose the raw system prompt — friendly description only.
   const description =
     agent.clientDescription ?? "Works on your behalf and keeps you in the loop.";
+
+  // Cached example emails (server-rendered instantly). Null → the client
+  // component lazy-generates them on first load. Array shape validated by Oracle.
+  const initialExamples = Array.isArray(agent.exampleEmails)
+    ? (agent.exampleEmails as unknown as ExampleEmail[])
+    : null;
 
   return (
     <PortalShell
@@ -120,8 +130,21 @@ export default async function AgentDetailPage(
           </div>
         </header>
 
-        {/* Settings */}
+        {/* Reach the agent — its inbox address */}
         <section className="mt-8 reveal" style={{ ["--i" as never]: 1 }}>
+          <ReachAgent agentName={agent.name} agentEmail={agent.email} />
+        </section>
+
+        {/* Things you can ask the agent — example emails (self-hides if none) */}
+        <ExampleEmails
+          agentId={agent.id}
+          agentName={agent.name}
+          agentEmail={agent.email}
+          initial={initialExamples}
+        />
+
+        {/* Settings */}
+        <section className="mt-10 reveal" style={{ ["--i" as never]: 3 }}>
           <div className="flex items-baseline justify-between mb-4">
             <h2 className="font-display text-[22px] text-[color:var(--text)]">Settings</h2>
             <Link
@@ -151,7 +174,7 @@ export default async function AgentDetailPage(
         </section>
 
         {/* Documents */}
-        <section className="mt-10 reveal" style={{ ["--i" as never]: 2 }}>
+        <section className="mt-10 reveal" style={{ ["--i" as never]: 4 }}>
           <h2 className="font-display text-[22px] text-[color:var(--text)] mb-1">
             Knowledge
           </h2>
@@ -165,7 +188,7 @@ export default async function AgentDetailPage(
         </section>
 
         {/* Scope-change boundary */}
-        <section className="mt-10 reveal" style={{ ["--i" as never]: 3 }}>
+        <section className="mt-10 reveal" style={{ ["--i" as never]: 5 }}>
           <ChangeRequest agentId={agent.id} agentName={agent.name} />
         </section>
 
