@@ -10,27 +10,34 @@ export default function LoginPage() {
   const [step, setStep] = useState<"email" | "code">("email");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [sending, setSending] = useState(false);
   const router = useRouter();
 
+  // Sending the code is a couple of cross-origin round-trips to Supabase (CORS
+  // preflight + the POST that emails the code), which can take 2–4s. Waiting on
+  // that made the button feel dead, so we advance to the code screen INSTANTLY
+  // and send in the background — the code lands in the inbox a moment later.
   async function handleSendCode(e: React.FormEvent) {
     e.preventDefault();
-    setLoading(true);
-    setError("");
-
-    const supabase = createClient();
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: {
-        shouldCreateUser: true,
-      },
-    });
-
-    if (error) {
-      setError(error.message);
-    } else {
-      setStep("code");
+    if (!email) {
+      setError("Enter your email first");
+      return;
     }
-    setLoading(false);
+    setError("");
+    setStep("code");
+    setSending(true);
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: { shouldCreateUser: true },
+      });
+      if (error) setError(error.message);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't send the code. Please try again.");
+    } finally {
+      setSending(false);
+    }
   }
 
   async function handleVerifyCode(e: React.FormEvent) {
@@ -92,8 +99,15 @@ export default function LoginPage() {
           <form onSubmit={handleVerifyCode} className="space-y-4">
             <div className="bg-zinc-50 border border-zinc-200 rounded-lg p-4 text-center">
               <p className="text-zinc-500 text-sm">
-                Code sent to <span className="text-zinc-900 font-medium">{email}</span>
+                {sending ? "Sending your code to " : "Code sent to "}
+                <span className="text-zinc-900 font-medium">{email}</span>
+                {sending && <span className="inline-block animate-pulse">…</span>}
               </p>
+              {sending && (
+                <p className="text-zinc-400 text-xs mt-1">
+                  It arrives in a few seconds — enter it below when it lands.
+                </p>
+              )}
             </div>
             <input
               type="text"
