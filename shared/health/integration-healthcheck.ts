@@ -85,6 +85,9 @@ async function checkSupabase(): Promise<HealthResult> {
 async function checkResend(): Promise<HealthResult> {
   return smokeCheck("Resend (email)", "RESEND_API_KEY", async (key) => {
     const res = await timedFetch("https://api.resend.com/domains", { headers: { Authorization: `Bearer ${key}` } });
+    // A sending-only Resend key 401s on /domains but still sends email fine —
+    // that's a scope limit, not an outage, so don't flag it as a failure.
+    if (res.status === 401) return { ok: true, detail: "reachable (sending-scoped key)" };
     return { ok: res.ok, detail: res.ok ? "API reachable" : `HTTP ${res.status}` };
   });
 }
