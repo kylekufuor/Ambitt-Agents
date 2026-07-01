@@ -75,7 +75,7 @@ export default async function AgentLeadsPage(
 
   return (
     <PortalShell user={{ email: user.email, name: agent.client.businessName }}>
-      <div className="max-w-[920px] mx-auto px-6 pt-10 pb-16">
+      <div className="max-w-[920px] mx-auto px-4 sm:px-6 pt-10 pb-16">
         <Link
           href={`/agents/${agent.id}`}
           className="inline-flex items-center gap-1.5 text-[13px] text-[color:var(--text-3)] hover:text-[color:var(--text)] transition mb-6"

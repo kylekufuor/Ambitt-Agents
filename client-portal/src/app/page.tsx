@@ -157,7 +157,7 @@ export default async function PortalPage() {
         name: client.contactName ?? client.preferredName ?? client.businessName,
       }}
     >
-      <div className="max-w-[1200px] mx-auto px-6 pt-10 pb-16">
+      <div className="max-w-[1200px] mx-auto px-4 sm:px-6 pt-10 pb-16">
         {/* Hero */}
         <header className="mb-8 reveal" style={{ ["--i" as never]: 0 }}>
           <p className="eyebrow mb-3">{client.businessName}</p>

@@ -93,7 +93,7 @@ export default async function AgentDetailPage(
     <PortalShell
       user={{ email: user.email, name: agent.client.businessName }}
     >
-      <div className="max-w-[920px] mx-auto px-6 pt-10 pb-16">
+      <div className="max-w-[920px] mx-auto px-4 sm:px-6 pt-10 pb-16">
         {/* Back */}
         <Link
           href="/"

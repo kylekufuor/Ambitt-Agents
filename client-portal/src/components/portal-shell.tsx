@@ -26,7 +26,7 @@ export function PortalShell({
   return (
     <div className="page-wash">
       <header className="border-b border-[color:var(--border)] bg-[color:var(--surface)]/80 backdrop-blur sticky top-0 z-30">
-        <div className="max-w-[1200px] mx-auto px-6 h-14 flex items-center gap-6">
+        <div className="max-w-[1200px] mx-auto px-4 sm:px-6 h-14 flex items-center gap-6">
           <Link href="/" className="shrink-0">
             <BrandLockup height={20} />
           </Link>
@@ -55,7 +55,7 @@ export function PortalShell({
       <main>{children}</main>
 
       <footer className="border-t border-[color:var(--border)] mt-12 py-6 bg-[color:var(--surface)]">
-        <div className="max-w-[1200px] mx-auto px-6 flex items-center justify-between text-[12px] text-[color:var(--text-3)]">
+        <div className="max-w-[1200px] mx-auto px-4 sm:px-6 flex items-center justify-between text-[12px] text-[color:var(--text-3)]">
           <span>Ambitt Agents · ambitt.agency</span>
           <a href="mailto:support@ambitt.agency" className="hover:text-[color:var(--text)] transition-colors">
             support@ambitt.agency
