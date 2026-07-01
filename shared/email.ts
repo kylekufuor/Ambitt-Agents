@@ -46,6 +46,15 @@ export async function sendEmail(
 ): Promise<EmailResult> {
   const { agentId, agentName, to, subject, html, replyToAgentId } = options;
 
+  // The agent's canonical, unique inbox address (e.g. "arthur-litsey@ambitt.agency").
+  // We send FROM this so the address the client sees in their inbox is the same
+  // one stored on the agent, shown in the portal, and matched by the inbound
+  // webhook's direct-path lookup (Oracle resolves by Agent.email). Without it,
+  // From fell back to a slug of the agent NAME ("arthur@…"), which is neither
+  // unique nor routable — a cold email to it got silently dropped. Populated by
+  // the lookup below; stays null (→ name-slug fallback) only on a DB hiccup.
+  let agentInboxAddress: string | null = null;
+
   // Dry-run intercept — if the agent is flagged dryRun, record the would-be
   // send to DryRunLog and return a synthetic success. The agent's runtime
   // behavior is identical to a live send (we return an id + sentAt), but
@@ -54,8 +63,9 @@ export async function sendEmail(
   try {
     const agent = await prisma.agent.findUnique({
       where: { id: agentId },
-      select: { dryRun: true },
+      select: { dryRun: true, email: true },
     });
+    agentInboxAddress = agent?.email ?? null;
     if (agent?.dryRun) {
       const captured = await prisma.dryRunLog.create({
         data: {
@@ -93,17 +103,19 @@ export async function sendEmail(
   }
 
   const domain = process.env.EMAIL_DOMAIN || "ambitt.agency";
-  // FROM local-part is a slug of the agent name (e.g. "Atlas" → "atlas",
-  // "Marketing Bot" → "marketing-bot"). Looks personal to the recipient
-  // and reinforces the "I'm a real teammate named X" framing. Reply-To
-  // keeps the agentId-routable form so the inbound webhook can dispatch
-  // replies back to the right agent.
+  // FROM address is the agent's canonical Agent.email — the unique, routable
+  // handle the client also sees in the portal and can cold-email. Falls back to
+  // a slug of the agent name (e.g. "Atlas" → "atlas") only if the DB lookup
+  // above failed. Reply-To keeps the agentId-routable form so the inbound
+  // webhook can dispatch replies back to the right agent even if the address
+  // is later renamed.
   const fromSlug = agentName
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")   // non-alphanum → hyphen
     .replace(/^-+|-+$/g, "")        // trim leading/trailing hyphens
     .slice(0, 32) || "agent";       // hard cap; fallback if name was all symbols
-  const from = `${agentName} <${fromSlug}@${domain}>`;
+  const fromAddress = agentInboxAddress ?? `${fromSlug}@${domain}`;
+  const from = `${agentName} <${fromAddress}>`;
   const replyTo = replyToAgentId
     ? `reply-${replyToAgentId}@${domain}`
     : `reply-${agentId}@${domain}`;
