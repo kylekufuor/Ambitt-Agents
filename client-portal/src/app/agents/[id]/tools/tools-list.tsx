@@ -139,10 +139,12 @@ function ToolItem({
   isExpanded: boolean;
   onToggle: () => void;
 }) {
+  const router = useRouter();
   const badge = statusBadge(row.status);
   const last = row.credentials?.lastAccessedAt ?? null;
   const [connecting, setConnecting] = useState(false);
   const [connectError, setConnectError] = useState<string | null>(null);
+  const [disconnecting, setDisconnecting] = useState(false);
 
   const isCustom = row.source === "custom";
   const siteHost = (() => {
@@ -186,6 +188,34 @@ function ToolItem({
     }
   }
 
+  async function handleDisconnect() {
+    const label = isCustom
+      ? `Remove ${row.name} and delete its saved login?`
+      : `Disconnect ${row.name}? ${row.name} will lose access until you reconnect it.`;
+    if (!window.confirm(label)) return;
+    setDisconnecting(true);
+    setConnectError(null);
+    try {
+      const res = await fetch(`/api/agents/${agentId}/tools/disconnect`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(isCustom ? { toolId: row.id } : { appName: row.name }),
+      });
+      if (!res.ok) {
+        const b = await res.json().catch(() => ({}));
+        setConnectError(b.error ?? "Couldn't disconnect");
+        setDisconnecting(false);
+        return;
+      }
+      router.refresh();
+    } catch (err) {
+      setConnectError(err instanceof Error ? err.message : "Couldn't disconnect");
+      setDisconnecting(false);
+    }
+  }
+
+  const canDisconnect = !!row.oauth || (isCustom && !!row.credentials?.allFilled);
+
   return (
     <li className="rounded-lg border border-zinc-200 bg-white overflow-hidden">
       <div className="flex items-center gap-3 px-4 py-3">
@@ -194,8 +224,8 @@ function ToolItem({
           <div className="flex items-center gap-2 flex-wrap">
             <p className="text-sm font-medium text-zinc-900">{row.name}</p>
             <span className={`text-xs font-medium px-2 py-0.5 rounded border ${badge.classes}`}>{badge.label}</span>
-            {row.credentials && (
-              <span className="text-[10px] text-zinc-500 px-1.5 py-0.5 rounded bg-zinc-100">🔒 Secured with 1Password</span>
+            {row.credentials?.allFilled && (
+              <span className="text-[10px] text-zinc-500 px-1.5 py-0.5 rounded bg-zinc-100">🔒 Encrypted</span>
             )}
           </div>
           <p className="text-xs text-zinc-500 mt-0.5">
@@ -234,7 +264,23 @@ function ToolItem({
               onClick={onToggle}
               className="text-xs font-medium text-zinc-700 hover:text-zinc-900 border border-zinc-200 rounded-md px-3 py-1.5 hover:bg-zinc-50"
             >
-              {row.credentials.allFilled ? "Update" : "Add credentials"}
+              {row.credentials.allFilled ? "Update" : isCustom ? "Enter login" : "Add credentials"}
+            </button>
+          )}
+          {canDisconnect && (
+            <button
+              type="button"
+              onClick={handleDisconnect}
+              disabled={disconnecting}
+              title={isCustom ? "Remove this tool" : "Disconnect"}
+              aria-label={isCustom ? `Remove ${row.name}` : `Disconnect ${row.name}`}
+              className="text-zinc-400 hover:text-red-600 hover:bg-red-50 rounded-md w-7 h-7 flex items-center justify-center disabled:opacity-50 transition-colors"
+            >
+              {disconnecting ? (
+                <span className="text-[10px]">…</span>
+              ) : (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12" /></svg>
+              )}
             </button>
           )}
         </div>
@@ -245,6 +291,7 @@ function ToolItem({
           itemId={row.credentials.itemId}
           fields={row.credentials.fields}
           onDone={onToggle}
+          customToolName={isCustom ? row.name : undefined}
         />
       )}
     </li>
@@ -302,12 +349,15 @@ function PersonalInfoItem({
 }
 
 function CredentialForm({
-  agentId, itemId, fields, onDone,
+  agentId, itemId, fields, onDone, customToolName,
 }: {
   agentId: string;
   itemId: string;
   fields: FieldShape[];
   onDone: () => void;
+  // When set, this is a non-Composio browser-login tool (e.g. CoStar) — save to
+  // the DB-backed encrypted store instead of 1Password.
+  customToolName?: string;
 }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -332,11 +382,17 @@ function CredentialForm({
         setSaving(false);
         return;
       }
-      const res = await fetch(`/api/agents/${agentId}/tools/credentials/${itemId}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fieldValues }),
-      });
+      const res = customToolName
+        ? await fetch(`/api/agents/${agentId}/tools/custom-credentials`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ toolName: customToolName, fields: fieldValues }),
+          })
+        : await fetch(`/api/agents/${agentId}/tools/credentials/${itemId}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ fieldValues }),
+          });
       const body = await res.json().catch(() => ({ error: "Save failed" }));
       if (!res.ok) {
         setError(body.error ?? "Save failed");
