@@ -11,6 +11,8 @@ import {
   generateFeedbackBody,
 } from "./onboarding-content.js";
 import logger from "../shared/logger.js";
+import { sendKyleWhatsApp } from "../shared/whatsapp.js";
+import { runIntegrationHealthcheck, formatHealthReport } from "../shared/health/integration-healthcheck.js";
 
 // ---------------------------------------------------------------------------
 // Agent Scheduler — manages cron jobs for all active agents
@@ -196,6 +198,7 @@ export async function initScheduler(): Promise<void> {
   startPRDRetryCron();
   startBuildPollCron();
   startImprovementCrons();
+  startHealthcheckCron();
 
   logger.info("Scheduler initialized", {
     activeAgents: agents.length,
@@ -553,6 +556,45 @@ export function startDigestCron(): void {
     }
   });
   logger.info("Digest cron started", { schedule: "0 * * * *" });
+}
+
+// ---------------------------------------------------------------------------
+// Third-party integration health check — the guardrail against silent breaking
+// changes from vendors (the Composio v1/v2 retirement broke tool connections
+// before we noticed). Smoke-tests every vendor API AND flags SDK version drift,
+// then WhatsApps the operator with anything not green. See
+// shared/health/integration-healthcheck.ts.
+// ---------------------------------------------------------------------------
+let healthcheckCronTask: ScheduledTask | null = null;
+
+async function runHealthcheck(alertOnWarnings: boolean): Promise<void> {
+  try {
+    const results = await runIntegrationHealthcheck();
+    const { message } = formatHealthReport(results);
+    const fails = results.filter((r) => r.severity === "fail").length;
+    const warns = results.filter((r) => r.severity === "warn").length;
+    // On boot we only ping for real failures (avoid drift-warning spam on every
+    // deploy); the weekly run includes drift warnings as a digest.
+    const shouldAlert = fails > 0 || (alertOnWarnings && warns > 0);
+    if (shouldAlert) {
+      await sendKyleWhatsApp(message).catch((e) =>
+        logger.warn("Healthcheck alert send failed", { error: String(e) })
+      );
+    }
+    logger.info("Integration healthcheck ran", { fails, warns, alerted: shouldAlert });
+  } catch (error) {
+    logger.error("Integration healthcheck threw", { error });
+  }
+}
+
+export function startHealthcheckCron(): void {
+  if (healthcheckCronTask) return;
+  // Mondays 08:00 — weekly digest (includes version-drift warnings).
+  healthcheckCronTask = cron.schedule("0 8 * * 1", () => runHealthcheck(true));
+  // Also once ~40s after boot so a fresh deploy surfaces a BROKEN integration
+  // immediately (failures only, not drift warnings).
+  setTimeout(() => runHealthcheck(false), 40000);
+  logger.info("Integration healthcheck cron started", { schedule: "0 8 * * 1" });
 }
 
 // ---------------------------------------------------------------------------

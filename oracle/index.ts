@@ -317,6 +317,22 @@ app.get("/health", (_req: Request, res: Response) => {
   res.json({ status: "ok", service: "oracle", timestamp: new Date().toISOString() });
 });
 
+// On-demand integration health check — smoke-tests every vendor API + flags SDK
+// version drift. Runs weekly on a cron too (see scheduler.ts); this lets an
+// operator pull it any time. Returns 200 with results even when unhealthy.
+app.get("/health/integrations", async (_req: Request, res: Response) => {
+  try {
+    const { runIntegrationHealthcheck, formatHealthReport } = await import(
+      "../shared/health/integration-healthcheck.js"
+    );
+    const results = await runIntegrationHealthcheck();
+    const { hasProblems, message } = formatHealthReport(results);
+    res.json({ hasProblems, summary: message, results });
+  } catch (error) {
+    res.status(500).json({ error: error instanceof Error ? error.message : String(error) });
+  }
+});
+
 // Composio app catalog — public-ish (no auth), backed by in-memory cache so
 // the onboarding form can pull it cheaply on every page load. Composio
 // catalog rarely changes; 12-hour TTL is safe.
@@ -4870,6 +4886,12 @@ app.get("/agents/:id/tools", async (req: Request, res: Response) => {
     const usedComposioKeys = new Set<string>();
     for (const conn of connectedAccounts) {
       const key = normalize(conn.appName);
+      // Only surface live connections, and only ONE card per app — reconnecting
+      // creates multiple connection rows (Casey had 3 Gmail + expired ones), and
+      // we don't want the client to see "Gmail" listed several times.
+      if (conn.status !== "ACTIVE") continue;
+      if (usedComposioKeys.has(key)) continue;
+      usedComposioKeys.add(key);
       const app = composioAppByName.get(key);
       tools.push({
         id: `composio:${conn.id}`,
@@ -4881,7 +4903,6 @@ app.get("/agents/:id/tools", async (req: Request, res: Response) => {
         oauth: { connectionId: conn.id, connectedAt: null },
         credentials: null,
       });
-      usedComposioKeys.add(key);
     }
 
     // Walk 1P items. If the title matches a Composio app, either merge into
