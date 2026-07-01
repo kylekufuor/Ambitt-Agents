@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase-server";
 import prisma from "@/lib/db";
 import { oracleUrl } from "@/lib/agent-auth";
+import { signChatToken } from "@/lib/chat-token";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { PortalShell } from "@/components/portal-shell";
@@ -83,6 +84,17 @@ export default async function PortalPage() {
     (a) => a.status === "active" || a.status === "paused"
   );
   const primaryAgent = activeAgents[0] ?? null;
+
+  // Chat access — mint a signed chat token for this client+agent so the Chat
+  // tile links straight into the live conversation (same runtime as email,
+  // replies come back instantly). Guarded on CHAT_TOKEN_SECRET: if it's not
+  // set on this service yet, the tile stays "Soon" instead of crashing the
+  // page — so this is safe to ship before the env var lands. The Oracle chat
+  // endpoints verify the token with the SAME secret.
+  const chatToken =
+    primaryAgent && process.env.CHAT_TOKEN_SECRET
+      ? signChatToken(client.id, primaryAgent.id)
+      : null;
 
   // Setup state — does the primary agent still need tools connected? This
   // drives the guided banner. Best-effort: a failed Oracle call just hides
@@ -248,10 +260,11 @@ export default async function PortalPage() {
                 desc={`Set ${primaryAgent.name}'s pace`}
               />
               <NavCard
+                href={chatToken ? `/chat/${primaryAgent.id}?t=${chatToken}` : undefined}
                 icon={<ChatIcon />}
                 label="Chat"
                 desc={`Message ${primaryAgent.name}`}
-                soon
+                soon={!chatToken}
               />
             </div>
           </section>
