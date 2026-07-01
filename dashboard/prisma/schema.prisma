@@ -361,6 +361,9 @@ model Credential {
   apiKey       String?   @db.Text
   refreshToken String?   @db.Text
   expiresAt    DateTime?
+  // Encrypted JSON of custom-tool field values (username/password/etc) for
+  // clients without a 1Password vault. AES-256-GCM via shared/encryption.ts.
+  secretsEncrypted String? @db.Text
 
   connectedAt DateTime  @default(now())
   lastUsedAt  DateTime?

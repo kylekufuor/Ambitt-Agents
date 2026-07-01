@@ -36,6 +36,9 @@ export interface AgentContext {
   clientPreferredChannel: string;
   clientMemory: Record<string, unknown>;
   tools: MCPToolInfo[];
+  // Non-Composio tools the client logs into via the browser (e.g. CoStar). Each
+  // carries whether the client has stored credentials for it.
+  customBrowseTools: Array<{ name: string; siteUrl: string | null; fieldTitles: string[]; hasCredentials: boolean }>;
   recentMessages: Array<{ role: string; content: string; createdAt: Date }>;
 }
 
@@ -75,6 +78,25 @@ export async function loadAgentContext(agentId: string): Promise<AgentContext> {
     }
   }
 
+  // Custom browse tools (non-Composio) + whether the client has stored creds.
+  const customToolDefs = Array.isArray(agent.customTools)
+    ? (agent.customTools as Array<{ name?: string; source?: string; siteUrl?: string; fields?: Array<{ title: string }> }>)
+    : [];
+  const browseTools = customToolDefs.filter((t) => t?.name && (t.source === "custom_browse" || !!t.siteUrl));
+  const credRows = browseTools.length
+    ? await prisma.credential.findMany({
+        where: { clientId: agent.clientId, secretsEncrypted: { not: null } },
+        select: { toolName: true },
+      })
+    : [];
+  const credSet = new Set(credRows.map((r) => r.toolName.toLowerCase()));
+  const customBrowseTools = browseTools.map((t) => ({
+    name: t.name as string,
+    siteUrl: t.siteUrl ?? null,
+    fieldTitles: (t.fields ?? []).map((f) => f.title),
+    hasCredentials: credSet.has((t.name as string).toLowerCase()),
+  }));
+
   // Load recent conversation history (last 20 messages for context window)
   const recentMessages = await prisma.conversationMessage.findMany({
     where: { agentId, archivedAt: null },
@@ -104,6 +126,7 @@ export async function loadAgentContext(agentId: string): Promise<AgentContext> {
     clientPreferredChannel: agent.client.preferredChannel,
     clientMemory,
     tools: [], // populated externally by tool-bridge
+    customBrowseTools,
     recentMessages: recentMessages.reverse(),
   };
 }
@@ -153,6 +176,9 @@ export function assembleSystemPrompt(ctx: AgentContext): string {
 
   // 5e. Browser tool guidance — when web_search isn't enough.
   sections.push(BROWSER_RULES);
+
+  const customBrowse = buildCustomBrowseToolsSection(ctx);
+  if (customBrowse) sections.push(customBrowse);
 
   // 5f. Credential / tool-access hierarchy — OAuth first, 1Password as fallback.
   sections.push(CREDENTIAL_RULES);
@@ -435,6 +461,31 @@ Use this when the work LITERALLY requires being logged in as the user in a brows
 
 **Always justify your choice.** When you call \`request_credential\`, your \`reason\` field should briefly explain why OAuth wasn't enough — e.g. "LinkedIn's API doesn't support Easy Apply, so I need to log in as you in a browser to actually submit applications." That keeps the trust contract honest with the client.
 `;
+
+/**
+ * Tells the agent about the client's non-Composio tools (CoStar, etc.) and how
+ * to log into them using stored credentials via the {{cred:Tool/field}}
+ * placeholder — the DB-backed equivalent of the op:// flow. Only rendered when
+ * the agent actually has custom browse tools configured.
+ */
+function buildCustomBrowseToolsSection(ctx: AgentContext): string | null {
+  const tools = ctx.customBrowseTools;
+  if (!tools || tools.length === 0) return null;
+  const lines = tools.map((t) => {
+    const where = t.siteUrl ? ` at ${t.siteUrl}` : "";
+    if (t.hasCredentials) {
+      const refs = t.fieldTitles.map((f) => `{{cred:${t.name}/${f}}}`).join(" and ");
+      return `- **${t.name}**${where} — credentials are STORED. Log in via the browse tool, referencing ${refs} in your goal text (the real values are injected just before the browser runs; you never see them). Example goal: "Go to ${t.siteUrl ?? "the site"}, log in with ${t.fieldTitles.includes("username") ? "username {{cred:" + t.name + "/username}} and password {{cred:" + t.name + "/password}}" : refs}, then …".`;
+    }
+    return `- **${t.name}**${where} — NOT yet set up. The client hasn't entered credentials. Don't attempt to log in; if the work needs ${t.name}, tell the client to add their ${t.name} login on their portal Tools page.`;
+  });
+  return `## Your client's own tools (browser login)
+These are tools the client uses directly (no API/OAuth) — you operate them by logging in as the client in a real browser via the \`browse\` tool.
+
+${lines.join("\n")}
+
+Credential placeholders (\`{{cred:Tool/field}}\`) work exactly like the 1Password \`{{secret:op://…}}\` ones: resolved at browse time, never shown to you, never logged. Respect the same login etiquette (human pace, stop at 2FA and call \`request_2fa_code\`).`;
+}
 
 const BROWSER_RULES = `## When to Use the Browser
 

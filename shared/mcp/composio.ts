@@ -195,6 +195,32 @@ export async function isAppConnected(clientId: string, appName: string): Promise
   );
 }
 
+/**
+ * Delete ALL of a client's connections for one app (v3). Used by the portal's
+ * disconnect button — reconnecting leaves stale/duplicate connection rows, so
+ * "disconnect Gmail" clears every Gmail connection. Returns the count removed.
+ */
+export async function disconnectApp(clientId: string, appName: string): Promise<number> {
+  const items = await listConnectedAccountsV3(clientId);
+  const normalize = (s: string) => (s ?? "").toLowerCase().replace(/[\s_-]/g, "");
+  const targets = items.filter((c: any) => normalize(c.toolkit?.slug ?? "") === normalize(appName));
+  let removed = 0;
+  for (const c of targets) {
+    try {
+      const res = await fetch(`${COMPOSIO_API}/connected_accounts/${c.id}`, {
+        method: "DELETE",
+        headers: { "x-api-key": composioKey() },
+      });
+      if (res.ok) removed++;
+      else logger.warn("disconnectApp delete non-OK", { id: c.id, status: res.status });
+    } catch (error) {
+      logger.warn("disconnectApp delete threw", { id: c.id, error: error instanceof Error ? error.message : String(error) });
+    }
+  }
+  logger.info("disconnectApp complete", { clientId, appName, removed, found: targets.length });
+  return removed;
+}
+
 // ---------------------------------------------------------------------------
 // Tool discovery and execution
 // ---------------------------------------------------------------------------

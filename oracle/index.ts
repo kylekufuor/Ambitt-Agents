@@ -4828,7 +4828,7 @@ app.get("/agents/:id/tools", async (req: Request, res: Response) => {
     const clientId = agent.clientId;
     const hasVault = !!agent.client?.onepasswordVaultId;
 
-    const [connectedAccounts, composioApps, vaultItems, audits] = await Promise.all([
+    const [connectedAccounts, composioApps, vaultItems, audits, dbCredTools] = await Promise.all([
       (async () => {
         try {
           const { getConnectedAccounts } = await import("../shared/mcp/composio.js");
@@ -4861,6 +4861,15 @@ app.get("/agents/:id/tools", async (req: Request, res: Response) => {
         orderBy: { accessedAt: "desc" },
         select: { itemTitle: true, accessedAt: true },
       }),
+      (async () => {
+        try {
+          const { listCustomCredentialTools } = await import("../shared/secrets/db-credentials.js");
+          return await listCustomCredentialTools(clientId);
+        } catch (err) {
+          logger.warn("Tools endpoint: DB custom-credential listing failed", { err: (err as Error).message });
+          return new Set<string>();
+        }
+      })(),
     ]);
 
     // last-accessed lookup, keyed by item title (case-insensitive)
@@ -5007,36 +5016,18 @@ app.get("/agents/:id/tools", async (req: Request, res: Response) => {
         }
       })();
       const logoUrl = host ? `https://www.google.com/s2/favicons?sz=64&domain=${host}` : null;
-      const declaredFields = (ct.fields ?? []).map((f) => ({ ...f, filled: false }));
 
-      // Is there already a 1P item for this tool?
-      const existingItem = vaultItems.find((it) => normalize(it.title) === key);
-      let credentials: ToolsListItem["credentials"] = null;
-      if (existingItem) {
-        const allFilled = existingItem.fields.length > 0 && existingItem.fields.every((f) => f.filled);
-        credentials = {
-          itemId: existingItem.id,
-          fields: existingItem.fields,
-          allFilled,
-          lastAccessedAt: lastAccessByTitle.get(existingItem.title.toLowerCase()) ?? null,
-        };
-      } else if (hasVault && declaredFields.length > 0) {
-        // Lazily provision the empty item so the form has something to write to.
-        try {
-          const { createCredentialItem } = await import("../shared/secrets/onepassword.js");
-          const created = await createCredentialItem(
-            clientId,
-            ct.name,
-            (ct.fields ?? []).map((f) => ({ title: f.title, fieldType: f.fieldType as "Text" | "Concealed" | "Email" | "Url" | "Phone" | "Totp" }))
-          );
-          credentials = { itemId: created.itemId, fields: declaredFields, allFilled: false, lastAccessedAt: null };
-        } catch (err) {
-          logger.warn("Tools endpoint: custom-tool 1P item provisioning failed", {
-            tool: ct.name,
-            err: (err as Error).message,
-          });
-        }
-      }
+      // DB-backed credentials (works for every client — no 1Password vault
+      // needed). If we've stored values for this tool, it's connected and all
+      // declared fields count as filled (we store them together).
+      const hasDbCreds = dbCredTools.has(ct.name);
+      const declaredFields = (ct.fields ?? []).map((f) => ({ ...f, filled: hasDbCreds }));
+      const credentials: ToolsListItem["credentials"] = {
+        itemId: `db:${key}`,
+        fields: declaredFields,
+        allFilled: hasDbCreds,
+        lastAccessedAt: lastAccessByTitle.get(ct.name.toLowerCase()) ?? null,
+      };
 
       tools.push({
         id: `custom:${key}`,
@@ -5044,12 +5035,12 @@ app.get("/agents/:id/tools", async (req: Request, res: Response) => {
         logoUrl,
         category: "Custom",
         authMethods: ["credentials"],
-        status: credentials?.allFilled ? "connected" : "needs_setup",
+        status: hasDbCreds ? "connected" : "needs_setup",
         oauth: null,
         credentials,
         source: "custom",
         siteUrl: ct.siteUrl ?? null,
-        vaultPending: !hasVault,
+        vaultPending: false,
       });
     }
 
@@ -5058,6 +5049,91 @@ app.get("/agents/:id/tools", async (req: Request, res: Response) => {
     const message = error instanceof Error ? error.message : String(error);
     logger.error("Tools endpoint failed", { error: message });
     res.status(500).json({ error: "Tools list failed" });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// POST /agents/:id/tools/custom-credentials — save DB-backed custom-tool creds
+// ---------------------------------------------------------------------------
+// For non-Composio tools (CoStar/Crexi/The Analyst Pro): the client types the
+// username/password on the portal; we validate against the agent's declared
+// custom-tool fields and store them encrypted on the Credential row (no
+// 1Password vault needed). Arthur resolves them at browse time.
+app.post("/agents/:id/tools/custom-credentials", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { toolName, fields } = req.body ?? {};
+    if (!toolName || typeof toolName !== "string" || !fields || typeof fields !== "object") {
+      res.status(400).json({ error: "toolName and fields are required" });
+      return;
+    }
+    const agent = await prisma.agent.findUnique({ where: { id: String(id) }, select: { clientId: true, customTools: true } });
+    if (!agent) {
+      res.status(404).json({ error: "Agent not found" });
+      return;
+    }
+    const declared = Array.isArray(agent.customTools) ? (agent.customTools as Array<{ name?: string; fields?: Array<{ title: string }> }>) : [];
+    const match = declared.find((t) => t?.name && t.name.toLowerCase() === toolName.toLowerCase());
+    if (!match?.name) {
+      res.status(400).json({ error: `Unknown custom tool: ${toolName}` });
+      return;
+    }
+    const allowed = new Set((match.fields ?? []).map((f) => String(f.title)));
+    const clean: Record<string, string> = {};
+    for (const [k, v] of Object.entries(fields)) {
+      if (allowed.has(k) && typeof v === "string" && v.trim()) clean[k] = v;
+    }
+    if (Object.keys(clean).length === 0) {
+      res.status(400).json({ error: "No credential values provided" });
+      return;
+    }
+    const { saveCustomCredentials } = await import("../shared/secrets/db-credentials.js");
+    await saveCustomCredentials(agent.clientId, match.name, clean);
+    res.json({ ok: true, connected: true });
+  } catch (error) {
+    logger.error("Save custom credentials failed", { error: error instanceof Error ? error.message : String(error) });
+    res.status(500).json({ error: "Failed to save credentials" });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// POST /agents/:id/tools/disconnect — remove a tool connection (portal X button)
+// ---------------------------------------------------------------------------
+// custom: delete the stored credentials. composio/oauth: delete ALL of the
+// client's connections for that app (clears duplicates too).
+app.post("/agents/:id/tools/disconnect", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { toolId, appName } = req.body ?? {};
+    const agent = await prisma.agent.findUnique({ where: { id: String(id) }, select: { clientId: true, customTools: true } });
+    if (!agent) {
+      res.status(404).json({ error: "Agent not found" });
+      return;
+    }
+    const clientId = agent.clientId;
+
+    if (typeof toolId === "string" && toolId.startsWith("custom:")) {
+      const key = toolId.slice("custom:".length);
+      const declared = Array.isArray(agent.customTools) ? (agent.customTools as Array<{ name?: string }>) : [];
+      const match = declared.find((t) => t?.name && t.name.toLowerCase().replace(/[\s_-]/g, "") === key);
+      const { deleteCustomCredentials } = await import("../shared/secrets/db-credentials.js");
+      await deleteCustomCredentials(clientId, match?.name ?? key);
+      res.json({ ok: true });
+      return;
+    }
+
+    // OAuth (Composio) — need the app slug.
+    const app = typeof appName === "string" && appName ? appName : "";
+    if (!app) {
+      res.status(400).json({ error: "appName required to disconnect an OAuth tool" });
+      return;
+    }
+    const { disconnectApp } = await import("../shared/mcp/composio.js");
+    const removed = await disconnectApp(clientId, app);
+    res.json({ ok: true, removed });
+  } catch (error) {
+    logger.error("Disconnect tool failed", { error: error instanceof Error ? error.message : String(error) });
+    res.status(500).json({ error: "Failed to disconnect tool" });
   }
 });
 

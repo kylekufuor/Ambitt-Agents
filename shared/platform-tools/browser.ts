@@ -3,6 +3,7 @@ import Browserbase from "@browserbasehq/sdk";
 import prisma from "../db.js";
 import logger from "../logger.js";
 import { resolveSecrets } from "../secrets/onepassword.js";
+import { substituteCustomCredentials } from "../secrets/db-credentials.js";
 
 // ---------------------------------------------------------------------------
 // browse — Stagehand-on-Browserbase browser agent (single-tool shape)
@@ -158,6 +159,9 @@ export async function runBrowserTask(input: RunBrowserTaskInput): Promise<RunBro
     const sub = await substituteSecrets(clientId, goal);
     resolvedGoal = sub.substituted;
     resolvedRefCount = sub.resolvedCount;
+    // Also resolve {{cred:Tool/field}} placeholders from DB-stored custom-tool
+    // credentials (CoStar/Crexi/etc — for clients without a 1Password vault).
+    resolvedGoal = await substituteCustomCredentials(clientId, resolvedGoal);
     if (resolvedRefCount > 0) {
       logger.info("Browser task: secret placeholders resolved", {
         agentId, clientId, sessionRowId: row.id, count: resolvedRefCount,
