@@ -77,7 +77,10 @@ export async function initiateOAuthConnection(
 
   const callbackUrl = redirectUrl ?? `${process.env.ORACLE_URL ?? "http://localhost:3000"}/composio/callback`;
 
-  const conn = await client.connectedAccounts.initiate(
+  // `initiate()` for Composio-managed OAuth is being retired (returns 400 for
+  // all orgs from 2026-07-03); `link()` is the replacement and returns the same
+  // { redirectUrl, id } shape.
+  const conn = await client.connectedAccounts.link(
     clientId,
     authConfig.id,
     { callbackUrl, allowMultiple: true } as any
@@ -133,49 +136,63 @@ export async function initiateApiKeyConnection(
 // Connection management
 // ---------------------------------------------------------------------------
 
+// Composio retired the v1/v2 REST APIs ("This endpoint is no longer available.
+// Please upgrade to v3 APIs."). Everything below talks to v3 directly. v3
+// scopes connections + execution to `user_id` (formerly `entityId`); we pass
+// the client's id as that user_id everywhere, matching the connect flow.
+const COMPOSIO_API = "https://backend.composio.dev/api/v3";
+
+function composioKey(): string {
+  const apiKey = process.env.COMPOSIO_API_KEY;
+  if (!apiKey) throw new Error("COMPOSIO_API_KEY is not set");
+  return apiKey;
+}
+
+/** v3 connected accounts for one client (user_id). Empty on any error. */
+async function listConnectedAccountsV3(clientId: string): Promise<any[]> {
+  try {
+    const res = await fetch(
+      `${COMPOSIO_API}/connected_accounts?user_ids=${encodeURIComponent(clientId)}`,
+      { headers: { "x-api-key": composioKey() } }
+    );
+    if (!res.ok) {
+      logger.warn("Composio v3 connected_accounts failed", { clientId, status: res.status });
+      return [];
+    }
+    const data = await res.json();
+    return Array.isArray(data?.items) ? data.items : [];
+  } catch (error) {
+    logger.warn("Composio v3 connected_accounts threw", {
+      clientId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return [];
+  }
+}
+
 /**
- * Get all connected accounts for a client.
+ * Get all connected accounts for a client (v3).
  */
 export async function getConnectedAccounts(clientId: string): Promise<
   Array<{ id: string; appName: string; status: string }>
 > {
-  const apiKey = process.env.COMPOSIO_API_KEY;
-  if (!apiKey) throw new Error("COMPOSIO_API_KEY is not set");
-
-  // Use raw API — SDK doesn't populate appName
-  const res = await fetch(`https://backend.composio.dev/api/v1/connectedAccounts?showActiveOnly=true`, {
-    headers: { "x-api-key": apiKey },
-  });
-  if (!res.ok) return [];
-  const data = await res.json();
-  const items = data.items ?? [];
-
+  const items = await listConnectedAccountsV3(clientId);
   return items.map((conn: any) => ({
     id: conn.id ?? "",
-    appName: conn.appUniqueId ?? conn.appName ?? "",
-    status: conn.status ?? "ACTIVE",
+    appName: conn.toolkit?.slug ?? "",
+    status: conn.status ?? "",
   }));
 }
 
 /**
- * Check if a client has an active connection for a specific app.
+ * Check if a client has an ACTIVE connection for a specific app (v3).
  */
 export async function isAppConnected(clientId: string, appName: string): Promise<boolean> {
-  const apiKey = process.env.COMPOSIO_API_KEY;
-  if (!apiKey) return false;
-
-  const res = await fetch(`https://backend.composio.dev/api/v1/connectedAccounts?showActiveOnly=true`, {
-    headers: { "x-api-key": apiKey },
-  });
-  if (!res.ok) return false;
-  const data = await res.json();
-  const items = data.items ?? [];
-
-  const normalize = (s: string) => s.toLowerCase().replace(/[\s_-]/g, "");
-  return items.some((conn: any) => {
-    const connApp = normalize(conn.appUniqueId ?? conn.appName ?? "");
-    return connApp === normalize(appName) && conn.status === "ACTIVE";
-  });
+  const items = await listConnectedAccountsV3(clientId);
+  const normalize = (s: string) => (s ?? "").toLowerCase().replace(/[\s_-]/g, "");
+  return items.some(
+    (conn: any) => normalize(conn.toolkit?.slug ?? "") === normalize(appName) && conn.status === "ACTIVE"
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -191,18 +208,25 @@ export async function getTools(
   const apiKey = process.env.COMPOSIO_API_KEY;
   if (!apiKey) throw new Error("COMPOSIO_API_KEY is not set");
 
-  const params = appName ? `?apps=${appName}` : "";
-  const res = await fetch(`https://backend.composio.dev/api/v2/actions${params}`, {
+  // v3 tools list. Filter param is `toolkit_slug` (singular); default page is
+  // 20 tools so we raise the limit to capture a whole toolkit.
+  const params = appName ? `?toolkit_slug=${encodeURIComponent(appName)}&limit=200` : "?limit=200";
+  const res = await fetch(`${COMPOSIO_API}/tools${params}`, {
     headers: { "x-api-key": apiKey },
   });
-  if (!res.ok) return [];
+  if (!res.ok) {
+    logger.warn("Composio v3 tools list failed", { appName, status: res.status });
+    return [];
+  }
   const data = await res.json();
-  const actions = Array.isArray(data) ? data : (data.items ?? []);
+  const actions = Array.isArray(data?.items) ? data.items : [];
 
   return actions.map((action: any) => ({
-    name: action.name ?? "",
-    description: action.description ?? "",
-    appName: action.appName ?? appName ?? "",
+    // The executable identifier is the slug (e.g. GMAIL_SEND_EMAIL), not the
+    // human name — callers pass this straight to executeTool.
+    name: action.slug ?? action.name ?? "",
+    description: action.description ?? action.name ?? "",
+    appName: action.toolkit?.slug ?? appName ?? "",
   }));
 }
 
@@ -214,27 +238,40 @@ export async function executeTool(
   actionName: string,
   params: Record<string, unknown>
 ): Promise<{ success: boolean; data: unknown; error?: string }> {
-  const apiKey = process.env.COMPOSIO_API_KEY;
-  if (!apiKey) throw new Error("COMPOSIO_API_KEY is not set");
+  const run = () =>
+    fetch(`${COMPOSIO_API}/tools/execute/${encodeURIComponent(actionName)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-api-key": composioKey() },
+      // v3 scopes execution to user_id (== clientId, matching the connect call).
+      body: JSON.stringify({ user_id: clientId, arguments: params }),
+    });
+
+  // A freshly-connected account can report ACTIVE while Composio's execution
+  // gateway is still syncing the token (~30-60s), failing the first call with
+  // an "authenticate"/"connection error". Retry once after a short wait.
+  const looksLikeAuthGap = (d: any, ok: boolean) =>
+    (!ok || d?.successful === false) &&
+    /authenticate|connection error|not connected|no connected/i.test(JSON.stringify(d?.error ?? ""));
 
   try {
-    const res = await fetch("https://backend.composio.dev/api/v2/actions/execute", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-api-key": apiKey },
-      body: JSON.stringify({
-        actionName,
-        input: params,
-        entityId: clientId,
-      }),
-    });
-    const data = await res.json();
+    let res = await run();
+    let data = await res.json().catch(() => ({}) as any);
 
-    if (!res.ok) {
-      return { success: false, data: null, error: data.error?.message ?? JSON.stringify(data.error) };
+    if (looksLikeAuthGap(data, res.ok)) {
+      await new Promise((r) => setTimeout(r, 8000));
+      res = await run();
+      data = await res.json().catch(() => ({}) as any);
+    }
+
+    if (!res.ok || data?.successful === false) {
+      const err =
+        typeof data?.error === "string" ? data.error : JSON.stringify(data?.error ?? `HTTP ${res.status}`);
+      return { success: false, data: data?.data ?? null, error: err };
     }
 
     logger.info("Composio tool executed", { clientId, actionName, success: true });
-    return { success: true, data };
+    // v3 wraps the tool output under `data`; hand callers the useful payload.
+    return { success: true, data: data?.data ?? data };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     logger.error("Composio tool execution failed", { clientId, actionName, error: message });
