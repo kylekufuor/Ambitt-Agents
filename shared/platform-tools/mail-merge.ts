@@ -1,6 +1,6 @@
 import prisma from "../db.js";
 import logger from "../logger.js";
-import { executeTool } from "../mcp/composio.js";
+import { executeTool, resolveGmailAccountId } from "../mcp/composio.js";
 
 // ---------------------------------------------------------------------------
 // send_mail_merge — personalized bulk outreach through the client's Gmail
@@ -32,6 +32,10 @@ export interface MailMergeInput {
   subjectTemplate: string;
   bodyTemplate: string;
   rows: MailMergeRow[];
+  // Optional: which connected Gmail inbox to send FROM (a client can have more
+  // than one, e.g. a dedicated prospect-outreach address). If unset/unmatched,
+  // Composio uses the client's default connection.
+  fromEmail?: string;
 }
 
 /** Fill {{placeholders}} from a row. Unknown placeholders are left intact so
@@ -48,7 +52,7 @@ function fill(tpl: string, row: MailMergeRow): string {
 }
 
 export async function sendMailMerge(input: MailMergeInput): Promise<{ message: string; isError: boolean }> {
-  const { agentId, clientId, subjectTemplate, bodyTemplate, rows } = input;
+  const { agentId, clientId, subjectTemplate, bodyTemplate, rows, fromEmail } = input;
   if (!Array.isArray(rows) || rows.length === 0) {
     return { message: "send_mail_merge: no recipient rows provided.", isError: true };
   }
@@ -108,17 +112,29 @@ export async function sendMailMerge(input: MailMergeInput): Promise<{ message: s
     };
   }
 
+  // Resolve which Gmail inbox to send from (if the client named one).
+  let fromConnectionId: string | undefined;
+  if (fromEmail && fromEmail.trim()) {
+    fromConnectionId = (await resolveGmailAccountId(clientId, fromEmail)) ?? undefined;
+    if (!fromConnectionId) {
+      return {
+        message: `No connected Gmail matches "${fromEmail}". Ask the client to connect that inbox on their Tools page (Add another Gmail), or send from the default account.`,
+        isError: true,
+      };
+    }
+  }
+
   // Live send, one at a time with a human-like gap.
   let sent = 0;
   let failed = 0;
   for (const p of prepared) {
     try {
-      const res = await executeTool(clientId, "GMAIL_SEND_EMAIL", {
-        recipient_email: p.to,
-        subject: p.subject,
-        body: p.body,
-        is_html: false,
-      });
+      const res = await executeTool(
+        clientId,
+        "GMAIL_SEND_EMAIL",
+        { recipient_email: p.to, subject: p.subject, body: p.body, is_html: false },
+        fromConnectionId
+      );
       if (res.success) {
         sent++;
         await prisma.emailSend

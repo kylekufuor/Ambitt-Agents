@@ -28,6 +28,8 @@ interface ToolRow {
   source?: "composio" | "custom";
   siteUrl?: string | null;
   vaultPending?: boolean;
+  accountEmail?: string | null; // which inbox (Gmail can have several)
+  appSlug?: string | null; // for "Add another account"
 }
 
 interface PersonalInfoRow {
@@ -157,14 +159,16 @@ function ToolItem({
   // there; Google consent, then Composio redirects back to this page.
   const canConnectOAuth = row.authMethods.includes("oauth") && !row.oauth;
 
-  async function handleConnect() {
+  async function handleConnect(force = false) {
     setConnecting(true);
     setConnectError(null);
     try {
       const res = await fetch(`/api/agents/${agentId}/tools/connect`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ appName: row.name }),
+        // force=true → "Add another account" (connect a second inbox even
+        // though one is already linked).
+        body: JSON.stringify({ appName: row.appSlug ?? row.name, force }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -199,7 +203,11 @@ function ToolItem({
       const res = await fetch(`/api/agents/${agentId}/tools/disconnect`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(isCustom ? { toolId: row.id } : { appName: row.name }),
+        // custom or a specific account (Gmail) → remove just this connection;
+        // a plain single-account OAuth tool → remove the whole app.
+        body: JSON.stringify(
+          isCustom || row.accountEmail ? { toolId: row.id } : { appName: row.appSlug ?? row.name }
+        ),
       });
       if (!res.ok) {
         const b = await res.json().catch(() => ({}));
@@ -229,7 +237,9 @@ function ToolItem({
             )}
           </div>
           <p className="text-xs text-zinc-500 mt-0.5">
-            {isCustom ? (
+            {row.accountEmail ? (
+              <span className="text-zinc-700 font-medium">{row.accountEmail}</span>
+            ) : isCustom ? (
               <>Sign-in{siteHost ? <> · {siteHost}</> : null}</>
             ) : (
               <>
@@ -251,11 +261,22 @@ function ToolItem({
           {canConnectOAuth && (
             <button
               type="button"
-              onClick={handleConnect}
+              onClick={() => handleConnect(false)}
               disabled={connecting}
               className="text-xs font-medium text-white bg-zinc-900 hover:bg-zinc-800 rounded-md px-3 py-1.5 disabled:opacity-50"
             >
               {connecting ? "Connecting…" : "Connect"}
+            </button>
+          )}
+          {row.appSlug === "gmail" && row.status === "connected" && (
+            <button
+              type="button"
+              onClick={() => handleConnect(true)}
+              disabled={connecting}
+              title="Connect another Gmail inbox"
+              className="text-xs font-medium text-[color:var(--brand,#00b3b3)] hover:underline rounded-md px-2 py-1.5 disabled:opacity-50"
+            >
+              {connecting ? "…" : "+ Add another"}
             </button>
           )}
           {row.credentials && (

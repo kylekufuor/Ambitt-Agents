@@ -396,6 +396,11 @@ const BUILTIN_CLAUDE_TOOLS: Anthropic.Messages.Tool[] = [
             "One object per recipient. Each object MUST include an 'email' field plus a value for every {{placeholder}} used in the templates. Example: [{ \"email\": \"a@x.com\", \"first_name\": \"Dana\", \"property_name\": \"Oak Plaza\", \"street\": \"5th Ave\" }, ...]. This is exactly the merge file YAMM would use.",
           items: { type: "object" as const },
         },
+        from_email: {
+          type: "string",
+          description:
+            "Optional. The client's Gmail address to send FROM, when they have more than one inbox connected (e.g. a dedicated prospect-outreach address separate from the one they use to talk to you). Must exactly match a connected Gmail. Omit to use their default inbox. Follow the client's stated preference for which inbox to use for which recipients.",
+        },
       },
       required: ["subject_template", "body_template", "rows"],
     },
@@ -881,10 +886,11 @@ async function executeBuiltinTool(
     }
 
     if (toolName === "send_mail_merge") {
-      const { subject_template, body_template, rows } = args as {
+      const { subject_template, body_template, rows, from_email } = args as {
         subject_template?: string;
         body_template?: string;
         rows?: MailMergeRow[];
+        from_email?: string;
       };
       if (!subject_template || !body_template) {
         return {
@@ -898,6 +904,7 @@ async function executeBuiltinTool(
         subjectTemplate: subject_template,
         bodyTemplate: body_template,
         rows: Array.isArray(rows) ? rows : [],
+        fromEmail: typeof from_email === "string" ? from_email : undefined,
       });
       return { content: result.message, isError: result.isError };
     }

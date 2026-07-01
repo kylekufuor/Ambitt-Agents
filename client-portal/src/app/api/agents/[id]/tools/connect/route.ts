@@ -20,6 +20,7 @@ export async function POST(
 
   const body = await req.json().catch(() => null);
   const appName = body?.appName;
+  const force = !!body?.force; // "Add another account" — connect a second inbox
   if (!appName || typeof appName !== "string") {
     return NextResponse.json({ error: "appName required" }, { status: 400 });
   }
@@ -35,7 +36,7 @@ export async function POST(
   const res = await fetch(`${oracleUrl()}/composio/connect`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ clientId: auth.clientId, appName, redirectUrl }),
+    body: JSON.stringify({ clientId: auth.clientId, appName, redirectUrl, force }),
   }).catch(() => null);
 
   if (!res) return NextResponse.json({ error: "Could not reach Oracle" }, { status: 502 });

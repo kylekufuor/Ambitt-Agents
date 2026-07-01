@@ -62,13 +62,17 @@ async function getAuthConfigId(appName: string): Promise<{ id: string; authSchem
 export async function initiateOAuthConnection(
   clientId: string,
   appName: string,
-  redirectUrl?: string
+  redirectUrl?: string,
+  force?: boolean
 ): Promise<{ redirectUrl: string; connectionId: string; alreadyConnected?: boolean }> {
-  // Check if already connected
-  const alreadyConnected = await isAppConnected(clientId, appName);
-  if (alreadyConnected) {
-    logger.info("App already connected", { clientId, appName });
-    return { redirectUrl: "", connectionId: "", alreadyConnected: true };
+  // Check if already connected — unless force=true ("Add another account", so
+  // the client can connect a second inbox even though one is already linked).
+  if (!force) {
+    const alreadyConnected = await isAppConnected(clientId, appName);
+    if (alreadyConnected) {
+      logger.info("App already connected", { clientId, appName });
+      return { redirectUrl: "", connectionId: "", alreadyConnected: true };
+    }
   }
 
   const client = getClient();
@@ -221,6 +225,68 @@ export async function disconnectApp(clientId: string, appName: string): Promise<
   return removed;
 }
 
+/** Delete ONE connection by id (per-account disconnect for multi-account apps). */
+export async function disconnectConnection(connectionId: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${COMPOSIO_API}/connected_accounts/${connectionId}`, {
+      method: "DELETE",
+      headers: { "x-api-key": composioKey() },
+    });
+    return res.ok;
+  } catch (error) {
+    logger.warn("disconnectConnection threw", { connectionId, error: error instanceof Error ? error.message : String(error) });
+    return false;
+  }
+}
+
+// Connection-id → account email. Resolving requires a live profile call, so we
+// cache it (emails don't change). 1h TTL.
+const gmailEmailCache = new Map<string, { email: string; at: number }>();
+const GMAIL_EMAIL_TTL = 60 * 60 * 1000;
+
+/** The Gmail address behind a connection (cached). Null if it can't be read. */
+export async function resolveGmailConnectionEmail(clientId: string, connectionId: string): Promise<string | null> {
+  const cached = gmailEmailCache.get(connectionId);
+  if (cached && Date.now() - cached.at < GMAIL_EMAIL_TTL) return cached.email;
+  try {
+    const res = await fetch(`${COMPOSIO_API}/tools/execute/GMAIL_GET_PROFILE`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-api-key": composioKey() },
+      body: JSON.stringify({ user_id: clientId, connected_account_id: connectionId, arguments: {} }),
+    });
+    const data = (await res.json().catch(() => ({}))) as { data?: { response_data?: { emailAddress?: string } } };
+    const email = data?.data?.response_data?.emailAddress ?? null;
+    if (email) gmailEmailCache.set(connectionId, { email, at: Date.now() });
+    return email;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * A client's distinct connected Gmail accounts (deduped by email — collapses
+ * duplicate connections of the same inbox, keeps genuinely different inboxes).
+ */
+export async function getGmailAccounts(clientId: string): Promise<Array<{ connectionId: string; email: string }>> {
+  const items = await listConnectedAccountsV3(clientId);
+  const gmails = items.filter((c: any) => c.toolkit?.slug === "gmail" && c.status === "ACTIVE");
+  const byEmail = new Map<string, { connectionId: string; email: string }>();
+  await Promise.all(
+    gmails.map(async (c: any) => {
+      const email = await resolveGmailConnectionEmail(clientId, c.id);
+      if (email && !byEmail.has(email.toLowerCase())) byEmail.set(email.toLowerCase(), { connectionId: c.id, email });
+    })
+  );
+  return [...byEmail.values()];
+}
+
+/** Connection id for the client's Gmail account matching `fromEmail`, else null. */
+export async function resolveGmailAccountId(clientId: string, fromEmail: string): Promise<string | null> {
+  const target = fromEmail.trim().toLowerCase();
+  const accounts = await getGmailAccounts(clientId);
+  return accounts.find((a) => a.email.toLowerCase() === target)?.connectionId ?? null;
+}
+
 // ---------------------------------------------------------------------------
 // Tool discovery and execution
 // ---------------------------------------------------------------------------
@@ -262,14 +328,21 @@ export async function getTools(
 export async function executeTool(
   clientId: string,
   actionName: string,
-  params: Record<string, unknown>
+  params: Record<string, unknown>,
+  connectedAccountId?: string
 ): Promise<{ success: boolean; data: unknown; error?: string }> {
   const run = () =>
     fetch(`${COMPOSIO_API}/tools/execute/${encodeURIComponent(actionName)}`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-api-key": composioKey() },
       // v3 scopes execution to user_id (== clientId, matching the connect call).
-      body: JSON.stringify({ user_id: clientId, arguments: params }),
+      // connected_account_id targets a SPECIFIC connection when a client has
+      // multiple accounts for one app (e.g. two Gmail inboxes).
+      body: JSON.stringify({
+        user_id: clientId,
+        arguments: params,
+        ...(connectedAccountId ? { connected_account_id: connectedAccountId } : {}),
+      }),
     });
 
   // A freshly-connected account can report ACTIVE while Composio's execution

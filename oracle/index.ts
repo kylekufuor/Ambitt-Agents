@@ -4762,6 +4762,75 @@ app.get("/agents/:id/documents", async (req: Request, res: Response) => {
 });
 
 // ---------------------------------------------------------------------------
+// GET /agents/:id/example-emails — "Things you can ask {agent}" for the portal
+// ---------------------------------------------------------------------------
+// Cache-first: returns Agent.exampleEmails if already generated. Otherwise
+// generates a few example emails grounded in the agent's purpose + tools,
+// caches them on the agent, and returns them. Best-effort — a generation
+// failure returns an empty list (200) so the portal just hides the section
+// rather than erroring. Generation is the ONLY write, and only happens once
+// per agent (cache-first), so this GET is cheap to hammer.
+// ---------------------------------------------------------------------------
+app.get("/agents/:id/example-emails", async (req: Request, res: Response) => {
+  try {
+    const agent = await prisma.agent.findUnique({
+      where: { id: req.params.id },
+      select: {
+        id: true,
+        name: true,
+        clientDescription: true,
+        purpose: true,
+        tools: true,
+        customTools: true,
+        exampleEmails: true,
+        client: { select: { preferredName: true, contactName: true } },
+      },
+    });
+    if (!agent) {
+      res.status(404).json({ error: "Agent not found" });
+      return;
+    }
+
+    // Cache hit — already generated.
+    if (Array.isArray(agent.exampleEmails)) {
+      res.json({ examples: agent.exampleEmails, cached: true });
+      return;
+    }
+
+    const { generateExampleEmails } = await import("./example-emails.js");
+    let examples;
+    try {
+      examples = await generateExampleEmails({
+        name: agent.name,
+        clientDescription: agent.clientDescription,
+        purpose: agent.purpose,
+        tools: agent.tools,
+        customTools: agent.customTools,
+        clientPreferredName: agent.client.preferredName ?? agent.client.contactName,
+      });
+    } catch (genErr) {
+      logger.warn("Example-emails generation failed — returning empty", {
+        agentId: agent.id,
+        error: genErr instanceof Error ? genErr.message : String(genErr),
+      });
+      res.json({ examples: [], cached: false });
+      return;
+    }
+
+    await prisma.agent.update({
+      where: { id: agent.id },
+      data: { exampleEmails: examples, exampleEmailsGeneratedAt: new Date() },
+    });
+
+    logger.info("Example emails generated", { agentId: agent.id, count: examples.length });
+    res.json({ examples, cached: false });
+  } catch (error) {
+    logger.error("Example-emails endpoint failed", { error });
+    res.status(500).json({ error: "Failed to load example emails" });
+  }
+});
+
+// ---------------------------------------------------------------------------
 // GET /agents/:id/tools — derived view for the portal Tools page
 // ---------------------------------------------------------------------------
 // Merges four signal sources into a unified list:
@@ -4798,6 +4867,11 @@ interface ToolsListItem {
   source?: "composio" | "custom";
   siteUrl?: string | null;
   vaultPending?: boolean;
+  // The connected account's address (e.g. which Gmail inbox) — shown so a
+  // client with multiple accounts of the same app can tell them apart.
+  accountEmail?: string | null;
+  // App slug for "Add another account" (re-run the connect flow for this app).
+  appSlug?: string | null;
 }
 
 interface PersonalInfoItem {
@@ -4828,7 +4902,7 @@ app.get("/agents/:id/tools", async (req: Request, res: Response) => {
     const clientId = agent.clientId;
     const hasVault = !!agent.client?.onepasswordVaultId;
 
-    const [connectedAccounts, composioApps, vaultItems, audits, dbCredTools] = await Promise.all([
+    const [connectedAccounts, composioApps, vaultItems, audits, dbCredTools, gmailAccounts] = await Promise.all([
       (async () => {
         try {
           const { getConnectedAccounts } = await import("../shared/mcp/composio.js");
@@ -4870,6 +4944,15 @@ app.get("/agents/:id/tools", async (req: Request, res: Response) => {
           return new Set<string>();
         }
       })(),
+      (async () => {
+        try {
+          const { getGmailAccounts } = await import("../shared/mcp/composio.js");
+          return await getGmailAccounts(clientId);
+        } catch (err) {
+          logger.warn("Tools endpoint: Gmail account resolution failed", { err: (err as Error).message });
+          return [] as Array<{ connectionId: string; email: string }>;
+        }
+      })(),
     ]);
 
     // last-accessed lookup, keyed by item title (case-insensitive)
@@ -4899,6 +4982,9 @@ app.get("/agents/:id/tools", async (req: Request, res: Response) => {
       // creates multiple connection rows (Casey had 3 Gmail + expired ones), and
       // we don't want the client to see "Gmail" listed several times.
       if (conn.status !== "ACTIVE") continue;
+      // Gmail is handled per-ACCOUNT below (a client can connect more than one
+      // inbox), so skip it in the by-app pass.
+      if (key === "gmail") continue;
       if (usedComposioKeys.has(key)) continue;
       usedComposioKeys.add(key);
       const app = composioAppByName.get(key);
@@ -4911,7 +4997,30 @@ app.get("/agents/:id/tools", async (req: Request, res: Response) => {
         status: "connected",
         oauth: { connectionId: conn.id, connectedAt: null },
         credentials: null,
+        appSlug: conn.appName,
       });
+    }
+
+    // Gmail — one card per DISTINCT connected inbox (deduped by email). Lets a
+    // client run e.g. a signup inbox + a dedicated prospect-outreach inbox and
+    // tell the agent which to send from.
+    if (gmailAccounts.length > 0) {
+      usedComposioKeys.add("gmail");
+      const gmailApp = composioAppByName.get("gmail");
+      for (const acct of gmailAccounts) {
+        tools.push({
+          id: `composio:${acct.connectionId}`,
+          name: "Gmail",
+          logoUrl: gmailApp?.logo ?? "https://logos.composio.dev/api/gmail",
+          category: "email",
+          authMethods: ["oauth"],
+          status: "connected",
+          oauth: { connectionId: acct.connectionId, connectedAt: null },
+          credentials: null,
+          appSlug: "gmail",
+          accountEmail: acct.email,
+        });
+      }
     }
 
     // Walk 1P items. If the title matches a Composio app, either merge into
@@ -5122,7 +5231,17 @@ app.post("/agents/:id/tools/disconnect", async (req: Request, res: Response) => 
       return;
     }
 
-    // OAuth (Composio) — need the app slug.
+    // A specific Composio connection (per-account disconnect, e.g. one of two
+    // Gmail inboxes): toolId === "composio:<connectionId>".
+    if (typeof toolId === "string" && toolId.startsWith("composio:")) {
+      const connectionId = toolId.slice("composio:".length);
+      const { disconnectConnection } = await import("../shared/mcp/composio.js");
+      const ok = await disconnectConnection(connectionId);
+      res.json({ ok });
+      return;
+    }
+
+    // Whole app (all connections for that app) — need the app slug.
     const app = typeof appName === "string" && appName ? appName : "";
     if (!app) {
       res.status(400).json({ error: "appName required to disconnect an OAuth tool" });
@@ -5309,14 +5428,14 @@ app.post("/tools/test", async (req: Request, res: Response) => {
 // Initiate OAuth connection for a client to a specific app
 app.post("/composio/connect", async (req: Request, res: Response) => {
   try {
-    const { clientId, appName, redirectUrl } = req.body;
+    const { clientId, appName, redirectUrl, force } = req.body;
     if (!clientId || !appName) {
       res.status(400).json({ error: "Missing clientId or appName" });
       return;
     }
 
     const { initiateOAuthConnection } = await import("../shared/mcp/composio.js");
-    const result = await initiateOAuthConnection(clientId, appName, redirectUrl);
+    const result = await initiateOAuthConnection(clientId, appName, redirectUrl, !!force);
     res.json(result);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
