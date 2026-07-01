@@ -158,9 +158,15 @@ async function checkVersionDrift(): Promise<HealthResult[]> {
       if (inst === latest) return { name: `drift: ${pkg}`, severity: "ok", detail: `${inst} (latest)` };
       const majorBehind = major(latest) - major(inst);
       const minorBehind = minor(latest) - minor(inst);
-      // A major jump or several minors behind is the deprecation-risk zone.
-      const severity: Severity = majorBehind >= 1 || minorBehind >= 3 ? "fail" : "warn";
-      return { name: `drift: ${pkg}`, severity, detail: `installed ${inst} → npm latest ${latest}` };
+      // Drift is advisory (a heads-up), never "broken right now" — so it's a
+      // warning that surfaces in the weekly digest, not an immediate page. A
+      // major jump is the deprecation-risk zone, so we call it out in the text.
+      const behind = majorBehind >= 1 ? ` (${majorBehind} major behind — deprecation risk)` : "";
+      return {
+        name: `drift: ${pkg}`,
+        severity: "warn",
+        detail: `installed ${inst} → npm latest ${latest}${behind}`,
+      };
     })
   );
   return out.filter((r): r is HealthResult => r !== null);
