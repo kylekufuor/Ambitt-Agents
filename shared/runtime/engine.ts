@@ -1085,6 +1085,12 @@ export async function runAgent(input: RuntimeInput): Promise<RuntimeOutput> {
   // Non-billable runs skip the counter bump and overage branch entirely —
   // treated as free system work that still logs API cost for internal accounting.
 
+  // Mark the agent as "working now" for the portal status badge. Cleared at
+  // the end of the run below. Best-effort (never block the run on it); the
+  // portal also treats a stale runningSince as idle, so an error path that
+  // skips the clear can't leave the badge stuck on "working".
+  await prisma.agent.update({ where: { id: agentId }, data: { runningSince: new Date() } }).catch(() => {});
+
   // Step 1: Load agent context
   const ctx = await loadAgentContext(agentId);
 
@@ -1366,6 +1372,12 @@ export async function runAgent(input: RuntimeInput): Promise<RuntimeOutput> {
   const totalOutputTokens = Object.values(usageByModel).reduce((s, u) => s + u.outputTokens, 0);
   const totalCacheCreationTokens = Object.values(usageByModel).reduce((s, u) => s + u.cacheCreationTokens, 0);
   const totalCacheReadTokens = Object.values(usageByModel).reduce((s, u) => s + u.cacheReadTokens, 0);
+
+  // Run finished — clear the "working now" flag and stamp last-worked. Covers
+  // every trigger (schedule, inbound email, manual). Best-effort.
+  await prisma.agent
+    .update({ where: { id: agentId }, data: { runningSince: null, lastRunAt: new Date() } })
+    .catch(() => {});
 
   logger.info("Agent runtime complete", {
     agentId,

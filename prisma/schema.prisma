@@ -125,6 +125,7 @@ model Agent {
   status           String    @default("pending_approval")
   approvedAt       DateTime?
   lastRunAt        DateTime?
+  runningSince     DateTime? // set when a run starts, cleared when it ends — drives the portal "working now" badge
   nextScheduledRun DateTime?
 
   // Dry-run mode — when true, side-effect callsites (sendEmail, sendWhatsApp,

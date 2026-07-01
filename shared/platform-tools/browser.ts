@@ -234,6 +234,12 @@ export async function runBrowserTask(input: RunBrowserTaskInput): Promise<RunBro
       ? `Start by navigating to ${startingUrl}. Then: ${resolvedGoal}`
       : resolvedGoal;
 
+    // Human-like pause before acting. Automated browsing that hammers a site
+    // page-after-page is exactly what trips behavioural bot-detection (and can
+    // get the client's account flagged). A short randomized delay before each
+    // browse action keeps the cadence human. Cheap insurance on every run.
+    await new Promise((r) => setTimeout(r, 1500 + Math.floor(Math.random() * 2500)));
+
     // Note: Stagehand v3's `signal` option is experimental and requires
     // disableAPI=true + experimental=true on the constructor. Easier to
     // enforce the timeout ourselves with Promise.race; Browserbase auto-

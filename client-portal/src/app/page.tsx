@@ -48,6 +48,7 @@ export default async function PortalPage() {
           overageCount: true,
           interactionResetAt: true,
           lastRunAt: true,
+          runningSince: true,
           totalTasksCompleted: true,
         },
         orderBy: { createdAt: "desc" },
@@ -434,10 +435,12 @@ type AgentCardProps = {
     purpose: string;
     clientDescription: string | null;
     status: string;
+    schedule: string;
     pricingTier: string;
     interactionCount: number;
     interactionLimit: number;
     lastRunAt: Date | null;
+    runningSince: Date | null;
     totalTasksCompleted: number;
   };
 };
@@ -451,6 +454,12 @@ function AgentCard({ agent }: AgentCardProps) {
   const nearLimit = limit > 0 && pct >= 90 && !overLimit;
 
   const status = STATUS_PRESENTATION[agent.status] ?? STATUS_PRESENTATION.default;
+
+  // "Working now" only if a run started recently — a stale runningSince (from
+  // an error path that skipped the clear) is treated as idle, so the badge
+  // can never get stuck on "working".
+  const isWorking =
+    !!agent.runningSince && Date.now() - new Date(agent.runningSince).getTime() < 15 * 60 * 1000;
 
   // NEVER show the raw system prompt (agent.purpose). Friendly description
   // only, with a safe generic fallback.
@@ -499,11 +508,20 @@ function AgentCard({ agent }: AgentCardProps) {
       <div className="flex items-center gap-3 mt-5 pt-4 border-t border-[color:var(--border)] text-[12px] text-[color:var(--text-3)]">
         <span>{tier.label}</span>
         <span className="text-[color:var(--text-4)]">·</span>
-        <span>
-          {agent.lastRunAt
-            ? `Last worked ${formatRelative(agent.lastRunAt)}`
-            : "Hasn't started yet"}
-        </span>
+        {isWorking ? (
+          <span className="inline-flex items-center gap-1.5 text-[color:var(--brand-hover)] font-medium">
+            <span className="dot dot-emerald dot-pulse" />
+            Working now
+          </span>
+        ) : agent.status === "active" ? (
+          <span>On standby · runs {friendlySchedule(agent.schedule)}</span>
+        ) : (
+          <span>
+            {agent.lastRunAt
+              ? `Last worked ${formatRelative(agent.lastRunAt)}`
+              : "Hasn't started yet"}
+          </span>
+        )}
         {agent.totalTasksCompleted > 0 && (
           <>
             <span className="text-[color:var(--text-4)]">·</span>
@@ -579,6 +597,19 @@ function formatCents(cents: number): string {
     minimumFractionDigits: dollars % 1 === 0 ? 0 : 2,
     maximumFractionDigits: 2,
   });
+}
+
+// Turn the agent's cron string into a plain-English cadence for the "on
+// standby · runs X" line. Matches the presets offered on the Configure page.
+function friendlySchedule(cron: string): string {
+  const map: Record<string, string> = {
+    "0 8 * * 1": "Mondays",
+    "0 8 * * 1,4": "Mondays & Thursdays",
+    "0 8 * * 1-5": "weekdays",
+    "0 8 * * *": "daily",
+    manual: "only when you ask",
+  };
+  return map[cron?.trim()] ?? "on schedule";
 }
 
 function formatRelative(d: Date): string {
