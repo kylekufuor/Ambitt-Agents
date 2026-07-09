@@ -157,15 +157,17 @@ async function runTask(task) {
     for (let step = 0; step < MAX_STEPS; step++) {
       await sleep(1300); // let the page settle after the last action
 
-      // Screenshot via the debugger but with fromSurface:false, so it captures
-      // the page's own renderer rather than the OS compositing surface (which
-      // other extensions' overlays poison, causing the "chrome-extension:// URL
-      // of different extension" error). Keeps per-site scoping — no <all_urls>.
-      // Page metrics come from scripting (not the debugger).
+      // Screenshot via Chrome's own captureVisibleTab (needs the <all_urls>
+      // grant), NOT the debugger — the debugger's Page.captureScreenshot throws
+      // "chrome-extension:// URL of different extension" on browsers loaded with
+      // page-injecting extensions. captureVisibleTab has no such issue. Our tab
+      // must be the active one for it to grab the right page. Metrics via
+      // scripting; the debugger is used only for the input actions below.
+      await chrome.tabs.update(tab.id, { active: true });
       let shotData = "", cssW = 1280, cssH = 800, url = startUrl;
       try {
-        const shot = await dbg(target, "Page.captureScreenshot", { format: "png", fromSurface: false, captureBeyondViewport: false });
-        shotData = shot.data || "";
+        const dataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, { format: "png" });
+        shotData = (dataUrl || "").split(",")[1] || "";
       } catch (capErr) {
         history.push({ action: "capture", note: "ERROR: " + String(capErr && capErr.message ? capErr.message : capErr).slice(0, 130) });
       }

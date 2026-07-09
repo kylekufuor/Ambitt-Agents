@@ -111,7 +111,9 @@ $("allowBtn").addEventListener("click", async () => {
   // task needs. No await may precede this, or the gesture is voided.
   let granted;
   try {
-    granted = await chrome.permissions.request({ origins: neededOrigins(task.startingUrl) });
+    // Broad host access is required for Chrome's captureVisibleTab (the reliable
+    // screenshot path). Every run is still gated by this Allow prompt.
+    granted = await chrome.permissions.request({ origins: ["<all_urls>"] });
   } catch (e) {
     $("allowErr").textContent = "Chrome blocked the permission request. Reopen this and click Allow.";
     $("allowErr").classList.remove("hide");
