@@ -149,20 +149,31 @@ async function runTask(task) {
     for (let step = 0; step < MAX_STEPS; step++) {
       await sleep(1300); // let the page settle after the last action
 
-      const shot = await dbg(target, "Page.captureScreenshot", { format: "png" });
-      const meta = await dbg(target, "Runtime.evaluate", {
-        expression: "JSON.stringify({w:innerWidth,h:innerHeight,u:location.href})",
-        returnByValue: true,
-      });
-      let cssW = 1280, cssH = 800, url = startUrl;
-      try { const m = JSON.parse(meta.result.value); cssW = m.w; cssH = m.h; url = m.u; } catch (_) {}
+      // Screenshot + page metrics via the tabs/scripting APIs, NOT the debugger.
+      // Page.captureScreenshot throws "chrome-extension:// URL of different
+      // extension" on browsers with other page-injecting extensions installed;
+      // captureVisibleTab has no such issue. Ensure our tab is the active one so
+      // captureVisibleTab grabs it.
+      await chrome.tabs.update(tab.id, { active: true });
+      let shotData = "", cssW = 1280, cssH = 800, url = startUrl;
+      try {
+        const dataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, { format: "png" });
+        shotData = (dataUrl || "").split(",")[1] || "";
+      } catch (capErr) {
+        history.push({ action: "capture", note: "ERROR: " + String(capErr && capErr.message ? capErr.message : capErr).slice(0, 120) });
+      }
+      try {
+        const [mi] = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: () => ({ w: innerWidth, h: innerHeight, u: location.href }) });
+        if (mi && mi.result) { cssW = mi.result.w; cssH = mi.result.h; url = mi.result.u; }
+      } catch (_) {}
       lastUrl = url;
       lastStep = step;
-      const { w: imgW, h: imgH } = pngSize(shot.data);
+      if (!shotData) throw new Error("Could not capture the page.");
+      const { w: imgW, h: imgH } = pngSize(shotData);
 
       const { ok, body } = await api(`/extension/tasks/${task.id}/step`, {
         method: "POST",
-        body: JSON.stringify({ screenshotBase64: shot.data, imgW, imgH, url, history, stepIndex: step }),
+        body: JSON.stringify({ screenshotBase64: shotData, imgW, imgH, url, history, stepIndex: step }),
       });
       if (!ok || !body || !body.action) throw new Error("Brain did not return an action.");
       const a = body.action;
