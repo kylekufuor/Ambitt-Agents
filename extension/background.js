@@ -56,8 +56,17 @@ async function poll() {
   const { ok, body } = await api("/extension/poll");
   if (!ok) return;
   if (body && body.task) {
-    await chrome.storage.local.set({ pendingTask: body.task });
-    await setBadge(true);
+    if (body.task.status === "approved") {
+      // The client already clicked Allow (recorded server-side by the popup).
+      // Run it now. Set runningTask first so a concurrent poll can't double-run.
+      await chrome.storage.local.set({ runningTask: body.task });
+      await chrome.storage.local.remove("pendingTask");
+      await setBadge(false);
+      runTask(body.task); // fire and forget
+    } else {
+      await chrome.storage.local.set({ pendingTask: body.task });
+      await setBadge(true);
+    }
   } else {
     await chrome.storage.local.remove("pendingTask");
     await setBadge(false);
@@ -142,7 +151,8 @@ async function runTask(task) {
   let lastStep = 0;
 
   try {
-    await api(`/extension/tasks/${task.id}/allow`, { method: "POST", body: JSON.stringify({ allowed: true }) });
+    // The task is already "approved" server-side (the popup recorded it); go
+    // straight to driving.
     await chrome.debugger.attach(target, "1.3");
     attached = true;
     history.push({ action: "attached debugger" });
@@ -258,12 +268,6 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   (async () => {
     if (msg.type === "poll-now") {
       await poll();
-      sendResponse({ ok: true });
-    } else if (msg.type === "allow" && msg.task) {
-      runTask(msg.task); // fire and forget; popup can close
-      sendResponse({ ok: true });
-    } else if (msg.type === "deny" && msg.task) {
-      await denyTask(msg.task);
       sendResponse({ ok: true });
     } else {
       sendResponse({ ok: false });

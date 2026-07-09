@@ -5456,6 +5456,7 @@ app.get("/extension/poll", async (req: Request, res: Response) => {
     res.json({
       task: {
         id: task.id,
+        status: task.status,
         kind: task.kind,
         goal: task.goal,
         startingUrl: task.startingUrl,

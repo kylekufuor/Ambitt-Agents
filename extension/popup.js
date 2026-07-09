@@ -18,6 +18,16 @@ function deviceLabel() {
   return `Chrome on ${os}`;
 }
 
+// Server call carrying the stored device token — the popup records the client's
+// allow/deny decision straight on the server, so it can't get lost.
+async function deviceApi(path, opts = {}) {
+  const { deviceToken } = await chrome.storage.local.get("deviceToken");
+  return fetch(`${ORACLE_URL}${path}`, {
+    ...opts,
+    headers: { "Content-Type": "application/json", "X-Device-Token": deviceToken || "", ...(opts.headers || {}) },
+  });
+}
+
 // The exact site(s) this task needs, so Chrome grants only those. Includes the
 // starting site plus its known redirect targets (CoStar's product.costar.com
 // hands off to secure.costargroup.com, so we need both to read the page).
@@ -107,15 +117,32 @@ $("allowBtn").addEventListener("click", async () => {
   const task = currentTask;
   if (!task) return render();
   $("allowErr").classList.add("hide");
-  // Host access is granted at install (<all_urls>), so no Chrome permission
-  // prompt here — this Allow click IS the per-run gate.
-  await chrome.runtime.sendMessage({ type: "allow", task });
+  // Record approval on the server (source of truth). The background worker's
+  // next poll sees the task is approved and runs it — no fragile message.
+  try {
+    const res = await deviceApi(`/extension/tasks/${task.id}/allow`, { method: "POST", body: JSON.stringify({ allowed: true }) });
+    if (!res.ok) {
+      const b = await res.json().catch(() => ({}));
+      throw new Error(b.error || "Could not start this run. Try again.");
+    }
+  } catch (e) {
+    $("allowErr").textContent = String(e.message || e);
+    $("allowErr").classList.remove("hide");
+    return;
+  }
+  currentTask = null;
+  await chrome.storage.local.remove("pendingTask");
+  chrome.runtime.sendMessage({ type: "poll-now" }); // nudge the worker to run it now
   await render();
 });
 
 $("denyBtn").addEventListener("click", async () => {
-  const { pendingTask } = await chrome.storage.local.get("pendingTask");
-  if (pendingTask) await chrome.runtime.sendMessage({ type: "deny", task: pendingTask });
+  const task = currentTask;
+  if (task) {
+    try { await deviceApi(`/extension/tasks/${task.id}/allow`, { method: "POST", body: JSON.stringify({ allowed: false }) }); } catch (_) {}
+  }
+  currentTask = null;
+  await chrome.storage.local.remove("pendingTask");
   await render();
 });
 

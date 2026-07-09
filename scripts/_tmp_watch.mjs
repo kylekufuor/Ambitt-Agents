@@ -1,6 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 const p = new PrismaClient();
-const id = "cmrdwqyab000113h3syv0su5z";
+const id = "cmrdwuk9j00013yuj8rmrsw9z";
 let last = "";
 for (let i = 0; i < 90; i++) {
   const t = await p.localTask.findUnique({ where: { id } });
