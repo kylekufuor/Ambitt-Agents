@@ -5514,6 +5514,53 @@ app.post("/extension/tasks/:taskId/result", async (req: Request, res: Response) 
   }
 });
 
+// Extension step loop: the extension posts the current screenshot; the platform
+// (Claude vision) returns the single next action to perform. The brain stays
+// here; the extension is just eyes + hands.
+app.post("/extension/tasks/:taskId/step", async (req: Request, res: Response) => {
+  const device = await authExtensionDevice(req, res);
+  if (!device) return;
+  try {
+    const taskId = param(req, "taskId");
+    const { screenshotBase64, imgW, imgH, url, history, stepIndex } = req.body ?? {};
+    if (!screenshotBase64 || typeof screenshotBase64 !== "string") {
+      res.status(400).json({ error: "screenshotBase64 required" });
+      return;
+    }
+    const task = await prisma.localTask.findFirst({ where: { id: taskId, deviceId: device.id } });
+    if (!task) {
+      res.status(404).json({ error: "Task not found for this device" });
+      return;
+    }
+    if (task.status !== "approved" && task.status !== "running") {
+      res.status(409).json({ error: `Task is ${task.status}` });
+      return;
+    }
+    if (task.status === "approved") {
+      await prisma.localTask.update({ where: { id: taskId }, data: { status: "running" } });
+    }
+    const step = typeof stepIndex === "number" ? stepIndex : 0;
+    if (step > 32) {
+      res.json({ action: { action: "fail", reason: "Step limit reached." } });
+      return;
+    }
+    const { decideBrowserAction } = await import("../shared/runtime/browser-brain.js");
+    const action = await decideBrowserAction({
+      goal: task.goal,
+      screenshotBase64,
+      imgW: Number(imgW) || 1280,
+      imgH: Number(imgH) || 800,
+      url: typeof url === "string" ? url : "",
+      history: Array.isArray(history) ? history.slice(-40) : [],
+      stepIndex: step,
+    });
+    res.json({ action });
+  } catch (error) {
+    logger.error("extension step failed", { error: error instanceof Error ? error.message : String(error) });
+    res.status(500).json({ error: "Step failed" });
+  }
+});
+
 // Run agent manually — triggers the universal runtime engine
 app.post("/agents/:id/run", async (req: Request, res: Response) => {
   try {

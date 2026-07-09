@@ -73,57 +73,122 @@ function waitForTabComplete(tabId, timeoutMs = 45000) {
   });
 }
 
-// PHASE 1 executor — open the tool in the user's real (logged-in) session and
-// report what's visible. This proves pairing → queue → allow → drive → result
-// without the brain. Phase 2 replaces the capture with the platform-driven
-// action loop.
+// --- chrome.debugger (CDP) driver ---
+function dbg(target, method, params) {
+  return new Promise((resolve, reject) => {
+    chrome.debugger.sendCommand(target, method, params || {}, (result) => {
+      const err = chrome.runtime.lastError;
+      if (err) reject(new Error(err.message));
+      else resolve(result);
+    });
+  });
+}
+
+// Read a PNG's pixel dimensions from its IHDR (width/height sit at bytes 16-23,
+// big-endian) so we can map the model's image-space coords to CSS pixels.
+function pngSize(b64) {
+  try {
+    const bin = atob(b64.slice(0, 64));
+    const at = (i) => bin.charCodeAt(i);
+    const w = (at(16) << 24) | (at(17) << 16) | (at(18) << 8) | at(19);
+    const h = (at(20) << 24) | (at(21) << 16) | (at(22) << 8) | at(23);
+    return { w: w || 1280, h: h || 800 };
+  } catch {
+    return { w: 1280, h: 800 };
+  }
+}
+
+const KEY_MAP = {
+  Enter: { key: "Enter", code: "Enter", windowsVirtualKeyCode: 13 },
+  Tab: { key: "Tab", code: "Tab", windowsVirtualKeyCode: 9 },
+  Escape: { key: "Escape", code: "Escape", windowsVirtualKeyCode: 27 },
+  Backspace: { key: "Backspace", code: "Backspace", windowsVirtualKeyCode: 8 },
+};
+async function pressKey(target, name) {
+  const k = KEY_MAP[name] || { key: name, code: name, windowsVirtualKeyCode: 0 };
+  await dbg(target, "Input.dispatchKeyEvent", { type: "keyDown", ...k });
+  await dbg(target, "Input.dispatchKeyEvent", { type: "keyUp", ...k });
+}
+
+const MAX_STEPS = 32;
+
+// PHASE 2 executor — drive the client's own tab under the platform's step-by-
+// step direction. Each step: screenshot up to the brain, next action back,
+// execute it via CDP. The brain stays on the platform.
 async function runTask(task) {
   await chrome.storage.local.set({ runningTask: task });
   await chrome.storage.local.remove("pendingTask");
   await setBadge(false);
+
+  const startUrl = task.startingUrl || "about:blank";
+  const tab = await chrome.tabs.create({ url: startUrl, active: true });
+  const target = { tabId: tab.id };
+  let attached = false;
+  let outcome = { ok: false, text: "No result." };
+
   try {
-    await api(`/extension/tasks/${task.id}/allow`, {
-      method: "POST",
-      body: JSON.stringify({ allowed: true }),
-    });
-
-    const url = task.startingUrl || "https://product.costar.com";
-    const tab = await chrome.tabs.create({ url, active: true });
+    await api(`/extension/tasks/${task.id}/allow`, { method: "POST", body: JSON.stringify({ allowed: true }) });
     await waitForTabComplete(tab.id);
-    await sleep(2500); // let client-rendered content settle
+    await chrome.debugger.attach(target, "1.3");
+    attached = true;
 
-    let captured = { title: "", url, text: "" };
-    try {
-      const [inj] = await chrome.scripting.executeScript({
-        target: { tabId: tab.id },
-        func: () => ({
-          title: document.title,
-          url: location.href,
-          text: (document.body && document.body.innerText ? document.body.innerText : "").slice(0, 6000),
-        }),
+    const history = [];
+    for (let step = 0; step < MAX_STEPS; step++) {
+      await sleep(1300); // let the page settle after the last action
+
+      const shot = await dbg(target, "Page.captureScreenshot", { format: "png" });
+      const meta = await dbg(target, "Runtime.evaluate", {
+        expression: "JSON.stringify({w:innerWidth,h:innerHeight,u:location.href})",
+        returnByValue: true,
       });
-      if (inj && inj.result) captured = inj.result;
-    } catch (e) {
-      captured.text = "(could not read the page: " + String(e).slice(0, 120) + ")";
+      let cssW = 1280, cssH = 800, url = startUrl;
+      try { const m = JSON.parse(meta.result.value); cssW = m.w; cssH = m.h; url = m.u; } catch (_) {}
+      const { w: imgW, h: imgH } = pngSize(shot.data);
+
+      const { ok, body } = await api(`/extension/tasks/${task.id}/step`, {
+        method: "POST",
+        body: JSON.stringify({ screenshotBase64: shot.data, imgW, imgH, url, history, stepIndex: step }),
+      });
+      if (!ok || !body || !body.action) throw new Error("Brain did not return an action.");
+      const a = body.action;
+      const toCssX = (x) => Math.round((x || 0) * cssW / imgW);
+      const toCssY = (y) => Math.round((y || 0) * cssH / imgH);
+
+      if (a.action === "done") { outcome = { ok: true, text: a.result || "Done." }; break; }
+      if (a.action === "fail") { outcome = { ok: false, text: a.reason || "The agent could not finish." }; break; }
+
+      if (a.action === "click") {
+        const x = toCssX(a.x), y = toCssY(a.y);
+        await dbg(target, "Input.dispatchMouseEvent", { type: "mouseMoved", x, y });
+        await dbg(target, "Input.dispatchMouseEvent", { type: "mousePressed", x, y, button: "left", clickCount: 1 });
+        await dbg(target, "Input.dispatchMouseEvent", { type: "mouseReleased", x, y, button: "left", clickCount: 1 });
+        history.push({ action: `click (${a.x},${a.y})`, note: a.reason });
+      } else if (a.action === "type") {
+        await dbg(target, "Input.insertText", { text: a.text || "" });
+        history.push({ action: `type "${String(a.text || "").slice(0, 40)}"` });
+      } else if (a.action === "key") {
+        await pressKey(target, a.key || "Enter");
+        history.push({ action: `key ${a.key || "Enter"}` });
+      } else if (a.action === "scroll") {
+        await dbg(target, "Runtime.evaluate", { expression: `window.scrollBy(0, ${Number(a.dy) || 600})` });
+        history.push({ action: `scroll ${Number(a.dy) || 600}` });
+      } else if (a.action === "navigate" && a.url) {
+        await dbg(target, "Page.navigate", { url: a.url });
+        await waitForTabComplete(tab.id);
+        history.push({ action: `navigate ${a.url}` });
+      } else {
+        history.push({ action: `unknown (${a.action})` });
+      }
     }
-
-    const summary =
-      `Opened ${captured.url} (title: "${captured.title}"). ` +
-      `Captured ${captured.text.length} chars of visible text.\n\n` +
-      captured.text.slice(0, 2000);
-
-    await api(`/extension/tasks/${task.id}/result`, {
-      method: "POST",
-      body: JSON.stringify({ status: "succeeded", result: summary }),
-    });
-    await chrome.storage.local.set({ lastResult: { at: Date.now(), ok: true, summary: summary.slice(0, 400) } });
   } catch (e) {
+    outcome = { ok: false, text: String(e && e.message ? e.message : e).slice(0, 300) };
+  } finally {
+    if (attached) { try { await chrome.debugger.detach(target); } catch (_) {} }
     await api(`/extension/tasks/${task.id}/result`, {
       method: "POST",
-      body: JSON.stringify({ status: "failed", error: String(e).slice(0, 300) }),
+      body: JSON.stringify(outcome.ok ? { status: "succeeded", result: outcome.text } : { status: "failed", error: outcome.text }),
     });
-    await chrome.storage.local.set({ lastResult: { at: Date.now(), ok: false, summary: String(e).slice(0, 200) } });
-  } finally {
+    await chrome.storage.local.set({ lastResult: { at: Date.now(), ok: outcome.ok, summary: outcome.text.slice(0, 400) } });
     await chrome.storage.local.remove("runningTask");
   }
 }
