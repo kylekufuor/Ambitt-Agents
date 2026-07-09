@@ -7,6 +7,11 @@ function show(view) {
   for (const v of views) $(v).classList.toggle("hide", v !== view);
 }
 
+// Cached so the Allow click can call chrome.permissions.request() FIRST, with
+// no await before it — Chrome requires that call to happen synchronously inside
+// the user gesture, and any await ahead of it silently voids the gesture.
+let currentTask = null;
+
 function deviceLabel() {
   const ua = navigator.userAgent;
   const os = /Mac/.test(ua) ? "macOS" : /Windows/.test(ua) ? "Windows" : /Linux/.test(ua) ? "Linux" : "browser";
@@ -47,11 +52,13 @@ async function render() {
   $("agentPill").textContent = agentName;
 
   if (s.pendingTask) {
+    currentTask = s.pendingTask;
     $("allowAgent").textContent = `${s.pendingTask.agentName || agentName} would like to work in your browser`;
     $("allowText").textContent = s.pendingTask.allowPromptText || s.pendingTask.goal || "Run a task on your behalf.";
     show("allowView");
     return;
   }
+  currentTask = null;
   if (s.runningTask) {
     $("runTitle").textContent = `${s.runningTask.agentName || agentName} is working…`;
     show("runningView");
@@ -97,20 +104,26 @@ $("connectBtn").addEventListener("click", async () => {
 
 // --- Allow / Deny ---
 $("allowBtn").addEventListener("click", async () => {
-  const { pendingTask } = await chrome.storage.local.get("pendingTask");
-  if (!pendingTask) return render();
+  const task = currentTask;
+  if (!task) return render();
   $("allowErr").classList.add("hide");
+  // FIRST thing in the gesture: ask Chrome for access to just the site(s) this
+  // task needs. No await may precede this, or the gesture is voided.
+  let granted;
   try {
-    // Ask Chrome for access to just the site(s) this task needs, scoped and
-    // enforced by the browser. Must run inside the click (a user gesture).
-    const granted = await chrome.permissions.request({ origins: neededOrigins(pendingTask.startingUrl) });
-    if (!granted) throw new Error("Access is needed to run this. You can allow it and try again.");
-    await chrome.runtime.sendMessage({ type: "allow", task: pendingTask });
-    await render();
+    granted = await chrome.permissions.request({ origins: neededOrigins(task.startingUrl) });
   } catch (e) {
-    $("allowErr").textContent = String(e.message || e);
+    $("allowErr").textContent = "Chrome blocked the permission request. Reopen this and click Allow.";
     $("allowErr").classList.remove("hide");
+    return;
   }
+  if (!granted) {
+    $("allowErr").textContent = "Access is needed to run this. Click Allow again and approve the Chrome prompt.";
+    $("allowErr").classList.remove("hide");
+    return;
+  }
+  await chrome.runtime.sendMessage({ type: "allow", task });
+  await render();
 });
 
 $("denyBtn").addEventListener("click", async () => {
