@@ -82,14 +82,15 @@ async function doLogin(page, snap, taskId, tool) {
 
   let pwEl = snap.elements.find((e) => e.type === "password");
   if (!pwEl) {
-    const next = snap.elements.find((e) => /next|continue|sign in|log in/i.test(e.name));
+    const next = snap.elements.find((e) => /next|continue|sign ?in|log ?in|login/i.test(e.name));
     if (next) { await click(next.ref); await sleep(2000); }
     snap = await snapshot(page);
     pwEl = snap.elements.find((e) => e.type === "password");
   }
   if (pwEl && password) await fill(pwEl.ref, password);
 
-  const submit = snap.elements.find((e) => /sign in|log in|submit|continue|next/i.test(e.name));
+  const submit = snap.elements.find((e) => (e.tag === "button" || e.type === "submit") && /sign ?in|log ?in|login|submit|continue|next/i.test(e.name))
+    || snap.elements.find((e) => /sign ?in|log ?in|login|submit|continue|next/i.test(e.name));
   if (submit) await click(submit.ref);
   else { try { await page.keyboard.press("Enter"); } catch (e) {} }
   await page.waitForLoadState("domcontentloaded").catch(() => {});
@@ -221,7 +222,7 @@ async function queueMode() {
     const startUrl = task.startingUrl || "about:blank";
     if (startUrl !== "about:blank") { await page.goto(startUrl, { waitUntil: "domcontentloaded" }).catch(() => {}); await sleep(1500); }
 
-    const { outcome, history } = await runA11yLoop(page, task.goal, { taskId: task.id, tool: "CoStar" });
+    const { outcome, history } = await runA11yLoop(page, task.goal, { taskId: task.id, tool: process.env.RH_LOGIN_TOOL || "CoStar" });
     await api(`/extension/tasks/${task.id}/result`, {
       method: "POST",
       body: outcome.ok ? { status: "succeeded", result: outcome.text, transcript: history } : { status: "failed", error: outcome.text, transcript: history },
