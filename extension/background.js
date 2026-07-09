@@ -137,9 +137,12 @@ async function runTask(task) {
     await api(`/extension/tasks/${task.id}/allow`, { method: "POST", body: JSON.stringify({ allowed: true }) });
     await chrome.debugger.attach(target, "1.3");
     attached = true;
+    history.push({ action: "attached debugger" });
     await dbg(target, "Page.enable");
+    history.push({ action: "Page.enable" });
     if (startUrl && startUrl !== "about:blank") {
       await dbg(target, "Page.navigate", { url: startUrl });
+      history.push({ action: `Page.navigate ${startUrl}` });
     }
     await sleep(2800); // initial page load
 
