@@ -62,6 +62,8 @@ model Client {
   credentialAccesses     CredentialAccess[]
   prospectsConvertedFrom Prospect[]
   leads                  Lead[]
+  clientDevices          ClientDevice[]
+  localTasks             LocalTask[]
 
   @@index([stripeCustomerId])
   @@index([billingStatus])
@@ -189,6 +191,7 @@ model Agent {
   builds                 Build[]
   improvements           AgentImprovement[]
   leads                  Lead[]
+  localTasks             LocalTask[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -994,4 +997,85 @@ model Lead {
   @@index([clientId])
   @@index([agentId, status])
   @@index([agentId, createdAt])
+}
+
+// ClientDevice — a paired local worker (v1: the "Ambitt Agents" Chrome
+// extension) bound to a client. The device authenticates every request with an
+// HMAC device token that encodes this row's id (see shared/device-token.ts);
+// revocation is the status/revokedAt check done per request. A device belongs
+// to the CLIENT and serves every one of that client's agents. This is the
+// on-device execution surface that lets an agent work inside the client's own
+// logged-in browser session (no credentials stored, no bot-detected cloud
+// browser) — see LocalTask.
+model ClientDevice {
+  id       String @id @default(cuid())
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  status   String  @default("pending") // "pending" | "active" | "revoked"
+  label    String? // set by the extension on pair, e.g. "Chrome on macOS"
+  platform String? @default("chrome-extension")
+
+  // Pairing handshake: the portal (Supabase-authed) mints a short code; the
+  // extension exchanges it for a device token within the expiry window.
+  pairingCode      String?   @unique
+  pairingExpiresAt DateTime?
+
+  lastSeenAt DateTime? // updated on every poll — powers "online" detection
+  createdAt  DateTime  @default(now())
+  pairedAt   DateTime?
+  revokedAt  DateTime?
+
+  localTasks LocalTask[]
+
+  @@index([clientId, status])
+  @@index([pairingCode])
+}
+
+// LocalTask — a browse job the platform dispatches to a client's paired device
+// to run inside the client's own logged-in browser. The device polls for
+// pending tasks, shows the client an allow prompt, drives the tab under the
+// platform's step-by-step direction (brain stays on the platform), and posts
+// the result back. Credentials NEVER ride in the goal — the device reuses the
+// session the client is already signed into.
+model LocalTask {
+  id       String @id @default(cuid())
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  agentId  String
+  agent    Agent  @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  deviceId String?
+  device   ClientDevice? @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+
+  kind String @default("browse") // "browse" for now
+
+  goal            String  @db.Text
+  startingUrl     String?
+  allowPromptText String? @db.Text // shown to the client in the per-run allow prompt
+
+  // "pending"   — enqueued, not yet claimed by a device
+  // "claimed"   — a device picked it up and is showing the allow prompt
+  // "approved"  — client clicked Allow; the device is driving the tab
+  // "denied"    — client clicked Not now
+  // "succeeded" — finished; result populated
+  // "failed"    — errored
+  // "cancelled" — cancelled by the platform (timed out / superseded)
+  status String @default("pending")
+
+  result     String? @db.Text // final extracted data / summary the agent consumes
+  transcript Json? // step-by-step action log for debugging
+  error      String? @db.Text
+
+  createdAt  DateTime  @default(now())
+  claimedAt  DateTime?
+  approvedAt DateTime?
+  startedAt  DateTime?
+  endedAt    DateTime?
+  expiresAt  DateTime? // hard deadline; the poller cancels anything past this
+
+  @@index([clientId, status])
+  @@index([deviceId, status])
+  @@index([agentId, createdAt])
+  @@index([status, createdAt])
 }

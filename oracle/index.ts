@@ -17,15 +17,17 @@ const app = express();
 // CORS — allow dashboard to call Oracle APIs
 app.use((req: Request, res: Response, next: () => void) => {
   const origin = req.headers.origin;
-  // Allow Railway dashboard domains and localhost
+  // Allow Railway dashboard domains, localhost, and the Ambitt Agents Chrome
+  // extension (origin is chrome-extension://<id>) so it can poll for local tasks.
   if (origin && (
     origin.includes("railway.app") ||
     origin.includes("ambitt.agency") ||
-    origin.includes("localhost")
+    origin.includes("localhost") ||
+    origin.startsWith("chrome-extension://")
   )) {
     res.setHeader("Access-Control-Allow-Origin", origin);
     res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Device-Token");
   }
   if (req.method === "OPTIONS") {
     res.status(204).end();
@@ -5355,6 +5357,160 @@ app.post("/agents/:id/tools/credentials/:itemId", async (req: Request, res: Resp
     const message = error instanceof Error ? error.message : String(error);
     logger.error("Credential save failed", { error: message, agentId: param(req, "id"), itemId: param(req, "itemId") });
     res.status(500).json({ error: "Credential save failed" });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Extension (local worker) endpoints — the "Ambitt Agents" Chrome extension
+// pairs to a client, polls for LocalTasks, and posts results. The extension
+// drives the client's OWN logged-in browser, so no credentials ever transit
+// here (unlike the credential endpoints above). See shared/local-tasks.ts.
+// ---------------------------------------------------------------------------
+
+// Device-token auth: reads X-Device-Token (or Authorization: Bearer) and
+// resolves the active ClientDevice, or ends the response 401 and returns null.
+async function authExtensionDevice(req: Request, res: Response) {
+  const header = (req.headers["x-device-token"] as string) || "";
+  const bearer = (req.headers.authorization || "").replace(/^Bearer\s+/i, "");
+  const token = header || bearer;
+  if (!token) {
+    res.status(401).json({ error: "Missing device token" });
+    return null;
+  }
+  try {
+    const { verifyDeviceToken } = await import("../shared/device-token.js");
+    const { loadActiveDevice } = await import("../shared/local-tasks.js");
+    const { deviceId } = verifyDeviceToken(token);
+    const device = await loadActiveDevice(deviceId);
+    if (!device) {
+      res.status(401).json({ error: "Device not paired or revoked" });
+      return null;
+    }
+    return device;
+  } catch {
+    res.status(401).json({ error: "Invalid device token" });
+    return null;
+  }
+}
+
+// Portal (Supabase-authed proxy, scoped to the agent's client) mints a pairing
+// code the client types into the extension.
+app.post("/agents/:id/extension/pairing-code", async (req: Request, res: Response) => {
+  try {
+    const agentId = param(req, "id");
+    const agent = await prisma.agent.findUnique({ where: { id: agentId }, select: { clientId: true } });
+    if (!agent) {
+      res.status(404).json({ error: "Agent not found" });
+      return;
+    }
+    const { generatePairingCode, PAIRING_TTL_MS } = await import("../shared/local-tasks.js");
+    const { code, expiresAt } = await generatePairingCode(agent.clientId);
+    res.json({ code, expiresAt: expiresAt.toISOString(), expiresInSec: Math.round(PAIRING_TTL_MS / 1000) });
+  } catch (error) {
+    logger.error("pairing-code failed", { error: error instanceof Error ? error.message : String(error) });
+    res.status(500).json({ error: "Could not create pairing code" });
+  }
+});
+
+// Extension exchanges a pairing code for a device token (no prior auth — this
+// IS the auth handshake). Returns the client's agent(s) so the extension can
+// wear the agent's face ("Arthur is connected").
+app.post("/extension/pair", async (req: Request, res: Response) => {
+  try {
+    const { code, label, platform } = req.body ?? {};
+    if (!code || typeof code !== "string") {
+      res.status(400).json({ error: "code required" });
+      return;
+    }
+    const { pairDevice } = await import("../shared/local-tasks.js");
+    const paired = await pairDevice(code, { label, platform });
+    if (!paired) {
+      res.status(400).json({ error: "Invalid or expired code" });
+      return;
+    }
+    const agents = await prisma.agent.findMany({
+      where: { clientId: paired.clientId, status: { in: ["active", "building", "pending_approval"] } },
+      select: { id: true, name: true, agentType: true },
+      orderBy: { createdAt: "asc" },
+    });
+    const client = await prisma.client.findUnique({ where: { id: paired.clientId }, select: { businessName: true } });
+    res.json({ deviceToken: paired.deviceToken, deviceId: paired.deviceId, businessName: client?.businessName ?? "", agents });
+  } catch (error) {
+    logger.error("extension pair failed", { error: error instanceof Error ? error.message : String(error) });
+    res.status(500).json({ error: "Pairing failed" });
+  }
+});
+
+// Extension polls for the next task (heartbeat + claim).
+app.get("/extension/poll", async (req: Request, res: Response) => {
+  const device = await authExtensionDevice(req, res);
+  if (!device) return;
+  try {
+    const { claimNextTask } = await import("../shared/local-tasks.js");
+    const task = await claimNextTask(device.id, device.clientId);
+    if (!task) {
+      res.json({ task: null });
+      return;
+    }
+    const agent = await prisma.agent.findUnique({ where: { id: task.agentId }, select: { name: true, agentType: true } });
+    res.json({
+      task: {
+        id: task.id,
+        kind: task.kind,
+        goal: task.goal,
+        startingUrl: task.startingUrl,
+        allowPromptText: task.allowPromptText,
+        agentName: agent?.name ?? "Your agent",
+        agentRole: agent?.agentType ?? "",
+      },
+    });
+  } catch (error) {
+    logger.error("extension poll failed", { error: error instanceof Error ? error.message : String(error) });
+    res.status(500).json({ error: "Poll failed" });
+  }
+});
+
+// Extension reports the client's allow/deny decision on a claimed task.
+app.post("/extension/tasks/:taskId/allow", async (req: Request, res: Response) => {
+  const device = await authExtensionDevice(req, res);
+  if (!device) return;
+  try {
+    const taskId = param(req, "taskId");
+    const allowed = req.body?.allowed === true;
+    const { recordAllowDecision } = await import("../shared/local-tasks.js");
+    const ok = await recordAllowDecision(taskId, device.id, allowed);
+    if (!ok) {
+      res.status(409).json({ error: "Task not in a claimable state" });
+      return;
+    }
+    res.json({ ok: true, status: allowed ? "approved" : "denied" });
+  } catch (error) {
+    logger.error("extension allow failed", { error: error instanceof Error ? error.message : String(error) });
+    res.status(500).json({ error: "Allow failed" });
+  }
+});
+
+// Extension posts the final outcome of a task it was driving.
+app.post("/extension/tasks/:taskId/result", async (req: Request, res: Response) => {
+  const device = await authExtensionDevice(req, res);
+  if (!device) return;
+  try {
+    const taskId = param(req, "taskId");
+    const { status, result, error: taskError, transcript } = req.body ?? {};
+    if (status !== "succeeded" && status !== "failed") {
+      res.status(400).json({ error: "status must be 'succeeded' or 'failed'" });
+      return;
+    }
+    const { completeTask } = await import("../shared/local-tasks.js");
+    const ok = await completeTask(taskId, device.id, { status, result, error: taskError, transcript });
+    if (!ok) {
+      res.status(409).json({ error: "Task not in a completable state" });
+      return;
+    }
+    res.json({ ok: true });
+  } catch (error) {
+    logger.error("extension result failed", { error: error instanceof Error ? error.message : String(error) });
+    res.status(500).json({ error: "Result failed" });
   }
 });
 
