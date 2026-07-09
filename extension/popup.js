@@ -107,23 +107,8 @@ $("allowBtn").addEventListener("click", async () => {
   const task = currentTask;
   if (!task) return render();
   $("allowErr").classList.add("hide");
-  // FIRST thing in the gesture: ask Chrome for access to just the site(s) this
-  // task needs. No await may precede this, or the gesture is voided.
-  let granted;
-  try {
-    // Broad host access is required for Chrome's captureVisibleTab (the reliable
-    // screenshot path). Every run is still gated by this Allow prompt.
-    granted = await chrome.permissions.request({ origins: ["<all_urls>"] });
-  } catch (e) {
-    $("allowErr").textContent = "Chrome blocked the permission request. Reopen this and click Allow.";
-    $("allowErr").classList.remove("hide");
-    return;
-  }
-  if (!granted) {
-    $("allowErr").textContent = "Access is needed to run this. Click Allow again and approve the Chrome prompt.";
-    $("allowErr").classList.remove("hide");
-    return;
-  }
+  // Host access is granted at install (<all_urls>), so no Chrome permission
+  // prompt here — this Allow click IS the per-run gate.
   await chrome.runtime.sendMessage({ type: "allow", task });
   await render();
 });

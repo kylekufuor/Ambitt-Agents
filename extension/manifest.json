@@ -4,8 +4,7 @@
   "version": "0.1.0",
   "description": "Lets your Ambitt agent do work inside your own logged-in browser, with your permission each time. No passwords stored.",
   "permissions": ["storage", "alarms", "tabs", "scripting", "debugger"],
-  "host_permissions": ["https://oracle-production-c0ff.up.railway.app/*"],
-  "optional_host_permissions": ["<all_urls>"],
+  "host_permissions": ["<all_urls>"],
   "background": { "service_worker": "background.js" },
   "action": {
     "default_title": "Ambitt Agents",
