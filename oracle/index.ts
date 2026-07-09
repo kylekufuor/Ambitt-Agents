@@ -229,6 +229,14 @@ function param(req: Request, key: string): string {
   return Array.isArray(val) ? val[0] : val;
 }
 
+// Remote Hands MFA relay — short-lived in-memory state (the code arrives within
+// ~a minute). pending2fa: a client's worker is waiting for a CoStar code;
+// codes2fa: the code the client replied with. Keyed by clientId. Not durable by
+// design (if Oracle restarts mid-MFA the worker just re-requests).
+const pending2fa = new Map<string, { taskId: string; at: number }>();
+const codes2fa = new Map<string, { code: string; at: number }>();
+const MFA_TTL_MS = 5 * 60 * 1000;
+
 // Extracts the bare email from a "Name <email@x.com>" header, or returns the
 // trimmed lowercase address if no angle brackets. Returns null if the header
 // can't be parsed.
@@ -1602,6 +1610,27 @@ app.post("/webhooks/email-inbound", async (req: Request, res: Response) => {
       }
       res.json({ status: "ignored", reason: auth.reason });
       return;
+    }
+
+    // Remote Hands MFA relay: if this client's worker is waiting for a CoStar
+    // verification code, capture it from this reply and stop (don't run the
+    // agent). Guarded by pending2fa, so a normal reply never reaches this.
+    {
+      const agentRow = await prisma.agent.findUnique({ where: { id: agentId }, select: { clientId: true } });
+      const mfaClientId = agentRow?.clientId;
+      const pending = mfaClientId ? pending2fa.get(mfaClientId) : undefined;
+      if (mfaClientId && pending && Date.now() - pending.at < MFA_TTL_MS) {
+        const rawText = typeof emailData.text === "string" ? emailData.text : "";
+        const top = rawText.split(/^\s*>|-{3,}\s*Original|On .* wrote:/m)[0].slice(0, 400);
+        const codeMatch = top.match(/\b(\d{4,8})\b/);
+        if (codeMatch) {
+          codes2fa.set(mfaClientId, { code: codeMatch[1], at: Date.now() });
+          pending2fa.delete(mfaClientId);
+          logger.info("Remote Hands 2FA code captured from reply", { clientId: mfaClientId, agentId });
+          res.json({ status: "2fa_captured" });
+          return;
+        }
+      }
     }
 
     // DOCS subject — route attachments to agent memory instead of runtime
@@ -5559,6 +5588,77 @@ app.post("/extension/tasks/:taskId/step", async (req: Request, res: Response) =>
   } catch (error) {
     logger.error("extension step failed", { error: error instanceof Error ? error.message : String(error) });
     res.status(500).json({ error: "Step failed" });
+  }
+});
+
+// Remote Hands: worker resolves the client's stored credentials for a tool at
+// login time. Returned to the worker (on the client's OWN machine) over TLS,
+// never logged. The values never go to the model — the worker types them
+// directly into the login form.
+app.post("/extension/tasks/:taskId/resolve-cred", async (req: Request, res: Response) => {
+  const device = await authExtensionDevice(req, res);
+  if (!device) return;
+  try {
+    const tool = String(req.body?.tool || "").trim();
+    if (!tool) { res.status(400).json({ error: "tool required" }); return; }
+    const { resolveCustomCredentials, recordCredentialUse } = await import("../shared/secrets/db-credentials.js");
+    const fields = await resolveCustomCredentials(device.clientId, tool);
+    if (!fields) { res.status(404).json({ error: `No stored credentials for ${tool}` }); return; }
+    void recordCredentialUse(device.clientId, tool, true).catch(() => {});
+    res.json({ fields });
+  } catch (error) {
+    logger.error("resolve-cred failed", { error: error instanceof Error ? error.message : String(error) });
+    res.status(500).json({ error: "resolve failed" });
+  }
+});
+
+// Remote Hands: worker hit an MFA screen — email the client to reply with the
+// code. Casey's reply is captured by the guarded branch in /webhooks/email-inbound.
+app.post("/extension/tasks/:taskId/need-2fa", async (req: Request, res: Response) => {
+  const device = await authExtensionDevice(req, res);
+  if (!device) return;
+  try {
+    const taskId = param(req, "taskId");
+    const service = String(req.body?.service || "your tool").trim() || "your tool";
+    const agent = await prisma.agent.findFirst({
+      where: { clientId: device.clientId, status: "active" },
+      select: { id: true, name: true, agentType: true, client: { select: { email: true } } },
+      orderBy: { createdAt: "asc" },
+    });
+    const clientEmail = agent?.client?.email;
+    if (!agent || !clientEmail) { res.status(400).json({ error: "no client email on file" }); return; }
+    pending2fa.set(device.clientId, { taskId, at: Date.now() });
+    codes2fa.delete(device.clientId);
+    const { sendEmail } = await import("../shared/email.js");
+    await sendEmail({
+      agentId: agent.id,
+      agentName: agent.name,
+      to: clientEmail,
+      subject: `${agent.name} — verification code for ${service}`,
+      html: `<div style="font-family:-apple-system,sans-serif;max-width:540px;margin:0 auto;padding:24px;font-size:15px;color:#26332f;line-height:1.6;">
+        <p>${service} just sent you a one-time verification code so I can finish logging in on your behalf.</p>
+        <p><strong>Reply to this email with the code</strong> (just the digits) and I'll continue right away.</p>
+        <p style="color:#9aa8a4;font-size:13px;">The code is used once and never stored. ${agent.name}, your agent at Ambitt</p>
+      </div>`,
+      replyToAgentId: agent.id,
+    });
+    res.json({ ok: true });
+  } catch (error) {
+    logger.error("need-2fa failed", { error: error instanceof Error ? error.message : String(error) });
+    res.status(500).json({ error: "need-2fa failed" });
+  }
+});
+
+// Remote Hands: worker polls for the code the client replied with (consumed on read).
+app.get("/extension/tasks/:taskId/2fa-code", async (req: Request, res: Response) => {
+  const device = await authExtensionDevice(req, res);
+  if (!device) return;
+  const entry = codes2fa.get(device.clientId);
+  if (entry && Date.now() - entry.at < MFA_TTL_MS) {
+    codes2fa.delete(device.clientId);
+    res.json({ code: entry.code });
+  } else {
+    res.json({ code: null });
   }
 });
 
