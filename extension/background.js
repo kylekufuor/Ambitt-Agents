@@ -48,12 +48,20 @@ async function setBadge(on) {
 // running), and stash it for the popup.
 async function poll() {
   if (!(await getToken())) return;
-  const { pendingTask, runningTask } = await chrome.storage.local.get(["pendingTask", "runningTask"]);
-  if (pendingTask || runningTask) return;
+  const { runningTask } = await chrome.storage.local.get(["runningTask"]);
+  if (runningTask) return; // busy driving a task — don't grab new work
+  // Always ask the server; it's the source of truth. The poll re-surfaces a
+  // task we already claimed or claims the next pending one. Reconcile local
+  // state so a stale pendingTask (from a cancelled task) can't poison the queue.
   const { ok, body } = await api("/extension/poll");
-  if (!ok || !body || !body.task) return;
-  await chrome.storage.local.set({ pendingTask: body.task });
-  await setBadge(true);
+  if (!ok) return;
+  if (body && body.task) {
+    await chrome.storage.local.set({ pendingTask: body.task });
+    await setBadge(true);
+  } else {
+    await chrome.storage.local.remove("pendingTask");
+    await setBadge(false);
+  }
 }
 
 function waitForTabComplete(tabId, timeoutMs = 45000) {
