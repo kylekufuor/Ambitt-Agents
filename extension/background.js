@@ -149,18 +149,17 @@ async function runTask(task) {
     for (let step = 0; step < MAX_STEPS; step++) {
       await sleep(1300); // let the page settle after the last action
 
-      // Screenshot + page metrics via the tabs/scripting APIs, NOT the debugger.
-      // Page.captureScreenshot throws "chrome-extension:// URL of different
-      // extension" on browsers with other page-injecting extensions installed;
-      // captureVisibleTab has no such issue. Ensure our tab is the active one so
-      // captureVisibleTab grabs it.
-      await chrome.tabs.update(tab.id, { active: true });
+      // Screenshot via the debugger but with fromSurface:false, so it captures
+      // the page's own renderer rather than the OS compositing surface (which
+      // other extensions' overlays poison, causing the "chrome-extension:// URL
+      // of different extension" error). Keeps per-site scoping — no <all_urls>.
+      // Page metrics come from scripting (not the debugger).
       let shotData = "", cssW = 1280, cssH = 800, url = startUrl;
       try {
-        const dataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, { format: "png" });
-        shotData = (dataUrl || "").split(",")[1] || "";
+        const shot = await dbg(target, "Page.captureScreenshot", { format: "png", fromSurface: false, captureBeyondViewport: false });
+        shotData = shot.data || "";
       } catch (capErr) {
-        history.push({ action: "capture", note: "ERROR: " + String(capErr && capErr.message ? capErr.message : capErr).slice(0, 120) });
+        history.push({ action: "capture", note: "ERROR: " + String(capErr && capErr.message ? capErr.message : capErr).slice(0, 130) });
       }
       try {
         const [mi] = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: () => ({ w: innerWidth, h: innerHeight, u: location.href }) });
