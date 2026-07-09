@@ -136,7 +136,14 @@ async function runA11yLoop(page, goal, { taskId, tool } = {}) {
     if (step === 0) console.log(`(distilled ${snap.elements.length} interactive elements)`);
 
     // Deterministic auth prechecks (login + MFA), before handing to the brain.
-    if (!handledAuth && looksLikeMfa(snap)) { await doMfa(page, snap, taskId, tool || "your tool"); history.push({ action: "mfa" }); continue; }
+    if (!handledAuth && looksLikeMfa(snap)) {
+      if (process.env.RH_MFA_MODE === "observe") {
+        const codeEl = snap.elements.find((e) => e.tag === "input" && /code|otp|token|verif/i.test(e.name)) || snap.elements.find((e) => e.tag === "input" && ["text", "tel", "number", ""].includes(e.type));
+        outcome = { ok: true, text: `Reached the MFA/verification screen at ${snap.url}. Code field: ${codeEl ? `"${codeEl.name}" (${codeEl.type})` : "not found"}. Page says: ${snap.text.slice(0, 400)}` };
+        break;
+      }
+      await doMfa(page, snap, taskId, tool || "your tool"); history.push({ action: "mfa" }); continue;
+    }
     if (!handledAuth && looksLikeLogin(snap)) { handledAuth = await doLogin(page, snap, taskId, tool || "CoStar"); history.push({ action: "login" }); continue; }
 
     const action = await decideA11yAction({ goal, url: snap.url, title: snap.title, elements: snap.elements, text: snap.text, history, stepIndex: step });
@@ -184,7 +191,17 @@ async function launchChrome() {
     channel: "chrome",
     headless: false,
     viewport: null,
-    args: ["--no-first-run", "--no-default-browser-check"],
+    // Suppress Chrome-native popups the agent can't see (they only exist in
+    // browser chrome, not the page DOM): the leaked-password / breach modal,
+    // the crash "restore pages" bubble, autofill chatter. And drop the
+    // "controlled by automation" flag so we look less like a bot to CoStar.
+    args: [
+      "--no-first-run",
+      "--no-default-browser-check",
+      "--hide-crash-restore-bubble",
+      "--disable-features=PasswordLeakDetection,AutofillServerCommunication,PasswordManagerOnboarding",
+    ],
+    ignoreDefaultArgs: ["--enable-automation"],
   });
   const page = ctx.pages()[0] || (await ctx.newPage());
   return { ctx, page };
