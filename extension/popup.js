@@ -13,6 +13,24 @@ function deviceLabel() {
   return `Chrome on ${os}`;
 }
 
+// The exact site(s) this task needs, so Chrome grants only those. Includes the
+// starting site plus its known redirect targets (CoStar's product.costar.com
+// hands off to secure.costargroup.com, so we need both to read the page).
+function neededOrigins(url) {
+  try {
+    const u = new URL(url);
+    const set = new Set([`${u.protocol}//${u.hostname}/*`]);
+    if (/costar/i.test(u.hostname)) {
+      set.add("https://*.costar.com/*");
+      set.add("https://*.costargroup.com/*");
+    }
+    if (/crexi/i.test(u.hostname)) set.add("https://*.crexi.com/*");
+    return [...set];
+  } catch {
+    return ["https://*/*"];
+  }
+}
+
 async function render() {
   const s = await chrome.storage.local.get(["deviceToken", "agents", "businessName", "pendingTask", "runningTask", "lastResult"]);
   const agentName = s.agents && s.agents[0] ? s.agents[0].name : "Your agent";
@@ -83,9 +101,9 @@ $("allowBtn").addEventListener("click", async () => {
   if (!pendingTask) return render();
   $("allowErr").classList.add("hide");
   try {
-    // Ask Chrome for access to the tool sites, scoped and enforced by the
-    // browser. This must run inside the click (a user gesture).
-    const granted = await chrome.permissions.request({ origins: TOOL_ORIGINS });
+    // Ask Chrome for access to just the site(s) this task needs, scoped and
+    // enforced by the browser. Must run inside the click (a user gesture).
+    const granted = await chrome.permissions.request({ origins: neededOrigins(pendingTask.startingUrl) });
     if (!granted) throw new Error("Access is needed to run this. You can allow it and try again.");
     await chrome.runtime.sendMessage({ type: "allow", task: pendingTask });
     await render();
