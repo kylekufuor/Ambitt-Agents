@@ -157,6 +157,16 @@ export async function claimNextTask(deviceId: string, clientId: string) {
     data: { status: "cancelled", endedAt: new Date(), error: "Timed out waiting for the device." },
   });
 
+  // Re-surface a task this device already claimed but hasn't reported a decision
+  // on. Covers the MV3 race where the service worker claims a task server-side,
+  // then Chrome kills it before it stores the task locally — the popup would
+  // otherwise show nothing and the task would be stuck forever. Idempotent poll.
+  const alreadyClaimed = await prisma.localTask.findFirst({
+    where: { clientId, deviceId, status: "claimed" },
+    orderBy: { claimedAt: "asc" },
+  });
+  if (alreadyClaimed) return alreadyClaimed;
+
   for (let attempt = 0; attempt < 3; attempt++) {
     const next = await prisma.localTask.findFirst({
       where: { clientId, status: "pending" },
