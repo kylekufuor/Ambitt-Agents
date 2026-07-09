@@ -121,7 +121,11 @@ async function runTask(task) {
   await setBadge(false);
 
   const startUrl = task.startingUrl || "about:blank";
-  const tab = await chrome.tabs.create({ url: startUrl, active: true });
+  // Open at about:blank first: a fresh tab created straight at an http URL can
+  // momentarily resolve to another extension's new-tab page, and chrome.debugger
+  // refuses to attach to a different extension's chrome-extension:// URL. Blank
+  // is un-hijackable; we then drive to the real URL through CDP.
+  const tab = await chrome.tabs.create({ url: "about:blank", active: true });
   const target = { tabId: tab.id };
   let attached = false;
   let outcome = { ok: false, text: "No result." };
@@ -131,9 +135,13 @@ async function runTask(task) {
 
   try {
     await api(`/extension/tasks/${task.id}/allow`, { method: "POST", body: JSON.stringify({ allowed: true }) });
-    await waitForTabComplete(tab.id);
     await chrome.debugger.attach(target, "1.3");
     attached = true;
+    await dbg(target, "Page.enable");
+    if (startUrl && startUrl !== "about:blank") {
+      await dbg(target, "Page.navigate", { url: startUrl });
+    }
+    await sleep(2800); // initial page load
 
     for (let step = 0; step < MAX_STEPS; step++) {
       await sleep(1300); // let the page settle after the last action
