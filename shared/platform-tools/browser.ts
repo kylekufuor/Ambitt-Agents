@@ -224,11 +224,14 @@ export async function runBrowserTask(input: RunBrowserTaskInput): Promise<RunBro
     browserbaseSessionId = resumeSessionId ?? stagehand.browserbaseSessionID;
 
     const agent = stagehand.agent({
-      // "provider/model-id" format. Sonnet 4-5 is the Stagehand-tested model
-      // for agent mode (2026-04-27). 4-6 consistently produced
-      // AI_NoObjectGeneratedError in probe. Revisit when Stagehand confirms
-      // 4-6 support.
-      model: "anthropic/claude-sonnet-4-5-20250929",
+      // "provider/model-id" via the Browserbase model gateway (ZDR-enabled).
+      // Was pinned to claude-sonnet-4-5-20250929 until 2026-07-08, when the
+      // gateway started rejecting that id ("Model … is not supported by the
+      // Browserbase model gateway") — THE cause of Casey's CoStar login
+      // failing. 4-6 is now gateway-listed for agent/CUA mode and is our
+      // platform standard. (The old "4-6 → AI_NoObjectGeneratedError" note was
+      // a 2026-04-27 probe; Stagehand/gateway have since added 4-6 support.)
+      model: "anthropic/claude-sonnet-4-6",
     });
 
     // Fold startingUrl into the agent instruction rather than calling
