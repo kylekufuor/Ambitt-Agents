@@ -125,6 +125,9 @@ async function runTask(task) {
   const target = { tabId: tab.id };
   let attached = false;
   let outcome = { ok: false, text: "No result." };
+  const history = [];
+  let lastUrl = startUrl;
+  let lastStep = 0;
 
   try {
     await api(`/extension/tasks/${task.id}/allow`, { method: "POST", body: JSON.stringify({ allowed: true }) });
@@ -132,7 +135,6 @@ async function runTask(task) {
     await chrome.debugger.attach(target, "1.3");
     attached = true;
 
-    const history = [];
     for (let step = 0; step < MAX_STEPS; step++) {
       await sleep(1300); // let the page settle after the last action
 
@@ -143,6 +145,8 @@ async function runTask(task) {
       });
       let cssW = 1280, cssH = 800, url = startUrl;
       try { const m = JSON.parse(meta.result.value); cssW = m.w; cssH = m.h; url = m.u; } catch (_) {}
+      lastUrl = url;
+      lastStep = step;
       const { w: imgW, h: imgH } = pngSize(shot.data);
 
       const { ok, body } = await api(`/extension/tasks/${task.id}/step`, {
@@ -157,36 +161,48 @@ async function runTask(task) {
       if (a.action === "done") { outcome = { ok: true, text: a.result || "Done." }; break; }
       if (a.action === "fail") { outcome = { ok: false, text: a.reason || "The agent could not finish." }; break; }
 
-      if (a.action === "click") {
-        const x = toCssX(a.x), y = toCssY(a.y);
-        await dbg(target, "Input.dispatchMouseEvent", { type: "mouseMoved", x, y });
-        await dbg(target, "Input.dispatchMouseEvent", { type: "mousePressed", x, y, button: "left", clickCount: 1 });
-        await dbg(target, "Input.dispatchMouseEvent", { type: "mouseReleased", x, y, button: "left", clickCount: 1 });
-        history.push({ action: `click (${a.x},${a.y})`, note: a.reason });
-      } else if (a.action === "type") {
-        await dbg(target, "Input.insertText", { text: a.text || "" });
-        history.push({ action: `type "${String(a.text || "").slice(0, 40)}"` });
-      } else if (a.action === "key") {
-        await pressKey(target, a.key || "Enter");
-        history.push({ action: `key ${a.key || "Enter"}` });
-      } else if (a.action === "scroll") {
-        await dbg(target, "Runtime.evaluate", { expression: `window.scrollBy(0, ${Number(a.dy) || 600})` });
-        history.push({ action: `scroll ${Number(a.dy) || 600}` });
-      } else if (a.action === "navigate" && a.url) {
-        await dbg(target, "Page.navigate", { url: a.url });
-        await waitForTabComplete(tab.id);
-        history.push({ action: `navigate ${a.url}` });
-      } else {
-        history.push({ action: `unknown (${a.action})` });
+      // A single action erroring (e.g. a CDP quirk from another extension's
+      // injected frame) is recorded and the loop continues — the brain sees the
+      // unchanged page next step and adapts, rather than the whole task dying.
+      try {
+        if (a.action === "click") {
+          const x = toCssX(a.x), y = toCssY(a.y);
+          await dbg(target, "Input.dispatchMouseEvent", { type: "mouseMoved", x, y });
+          await dbg(target, "Input.dispatchMouseEvent", { type: "mousePressed", x, y, button: "left", clickCount: 1 });
+          await dbg(target, "Input.dispatchMouseEvent", { type: "mouseReleased", x, y, button: "left", clickCount: 1 });
+          history.push({ action: `click (${a.x},${a.y})`, note: a.reason });
+        } else if (a.action === "type") {
+          await dbg(target, "Input.insertText", { text: a.text || "" });
+          history.push({ action: `type "${String(a.text || "").slice(0, 40)}"` });
+        } else if (a.action === "key") {
+          await pressKey(target, a.key || "Enter");
+          history.push({ action: `key ${a.key || "Enter"}` });
+        } else if (a.action === "scroll") {
+          await dbg(target, "Runtime.evaluate", { expression: `window.scrollBy(0, ${Number(a.dy) || 600})` });
+          history.push({ action: `scroll ${Number(a.dy) || 600}` });
+        } else if (a.action === "navigate" && a.url) {
+          await dbg(target, "Page.navigate", { url: a.url });
+          await waitForTabComplete(tab.id);
+          history.push({ action: `navigate ${a.url}` });
+        } else {
+          history.push({ action: `unknown (${a.action})` });
+        }
+      } catch (actErr) {
+        history.push({ action: a.action, note: "ERROR: " + String(actErr && actErr.message ? actErr.message : actErr).slice(0, 140) });
       }
     }
   } catch (e) {
-    outcome = { ok: false, text: String(e && e.message ? e.message : e).slice(0, 300) };
+    const msg = String(e && e.message ? e.message : e);
+    outcome = { ok: false, text: `Failed at step ${lastStep} on ${lastUrl}: ${msg}`.slice(0, 400) };
   } finally {
     if (attached) { try { await chrome.debugger.detach(target); } catch (_) {} }
     await api(`/extension/tasks/${task.id}/result`, {
       method: "POST",
-      body: JSON.stringify(outcome.ok ? { status: "succeeded", result: outcome.text } : { status: "failed", error: outcome.text }),
+      body: JSON.stringify(
+        outcome.ok
+          ? { status: "succeeded", result: outcome.text, transcript: history }
+          : { status: "failed", error: outcome.text, transcript: history }
+      ),
     });
     await chrome.storage.local.set({ lastResult: { at: Date.now(), ok: outcome.ok, summary: outcome.text.slice(0, 400) } });
     await chrome.storage.local.remove("runningTask");
