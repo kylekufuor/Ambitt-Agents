@@ -1,0 +1,96 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<style>
+  :root { --teal: #00b3b3; --teal-dark: #0f7a74; --ink: #12211e; --muted: #7c8b87; --soft: #eaf7f4; --line: #e5eae8; }
+  * { box-sizing: border-box; }
+  body { width: 340px; margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: var(--ink); background: #fff; -webkit-font-smoothing: antialiased; }
+  .top { display: flex; align-items: center; gap: 10px; padding: 16px 16px 12px; border-bottom: 1px solid var(--line); }
+  .top .name { font-size: 14.5px; font-weight: 700; }
+  .top .sub { font-size: 12px; color: var(--muted); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: #cbd5d2; margin-left: auto; }
+  .dot.on { background: var(--teal); box-shadow: 0 0 0 3px rgba(0,179,179,.18); }
+  .body { padding: 16px; }
+  h2 { font-size: 14px; margin: 0 0 6px; }
+  p { font-size: 13px; line-height: 1.55; color: #33413d; margin: 0 0 12px; }
+  .muted { color: var(--muted); }
+  input { width: 100%; padding: 11px 12px; font-size: 16px; letter-spacing: 3px; text-align: center; text-transform: uppercase; border: 1px solid var(--line); border-radius: 10px; outline: none; font-family: inherit; }
+  input:focus { border-color: var(--teal); box-shadow: 0 0 0 3px rgba(0,179,179,.15); }
+  button { width: 100%; border: 0; border-radius: 10px; padding: 12px; font-size: 14px; font-weight: 700; cursor: pointer; font-family: inherit; }
+  .primary { background: var(--teal); color: #fff; }
+  .primary:disabled { opacity: .45; cursor: default; }
+  .ghost { background: #f2f5f4; color: #33413d; }
+  .row { display: flex; gap: 8px; }
+  .row button { width: 50%; }
+  .card { background: var(--soft); border: 1px solid #d3efe9; border-radius: 12px; padding: 14px; margin-bottom: 12px; }
+  .card .q { font-size: 13.5px; font-weight: 600; color: var(--teal-dark); margin-bottom: 4px; }
+  .card .g { font-size: 12.5px; color: #33413d; line-height: 1.5; }
+  .err { color: #b42318; font-size: 12.5px; margin-top: 8px; }
+  .foot { font-size: 11px; color: var(--muted); text-align: center; padding: 0 16px 14px; line-height: 1.5; }
+  .hide { display: none; }
+  .pill { display: inline-block; font-size: 11px; font-weight: 600; color: var(--teal-dark); background: var(--soft); border-radius: 999px; padding: 3px 9px; }
+</style>
+</head>
+<body>
+  <div class="top">
+    <svg width="34" height="34" viewBox="0 0 48 48" aria-hidden="true">
+      <circle cx="24" cy="24" r="24" fill="#00b3b3"/>
+      <rect x="13" y="14" width="22" height="18.5" rx="6.5" fill="#fff"/>
+      <circle cx="19.5" cy="23.2" r="2.5" fill="#0f7a74"/>
+      <circle cx="28.5" cy="23.2" r="2.5" fill="#0f7a74"/>
+      <rect x="19.2" y="28.2" width="9.6" height="2.1" rx="1.05" fill="#9fe1cb"/>
+    </svg>
+    <div>
+      <div class="name" id="topName">Ambitt Agents</div>
+      <div class="sub" id="topSub">Your agent, in your browser</div>
+    </div>
+    <span class="dot" id="dot"></span>
+  </div>
+
+  <!-- Not paired -->
+  <div class="body hide" id="pairView">
+    <h2>Connect your agent</h2>
+    <p class="muted">Open your Ambitt portal, go to your agent's page, and copy the connect code. Paste it here.</p>
+    <input id="code" maxlength="8" placeholder="XXXXXXXX" autocomplete="off" />
+    <div style="height:10px"></div>
+    <button class="primary" id="connectBtn" disabled>Connect</button>
+    <div class="err hide" id="pairErr"></div>
+  </div>
+
+  <!-- Paired, waiting -->
+  <div class="body hide" id="idleView">
+    <p><span class="pill" id="agentPill">Arthur</span> is connected and standing by.</p>
+    <p class="muted">When your agent needs to do something in your browser, it'll ask here first. Nothing happens without your OK.</p>
+    <div class="card hide" id="lastCard">
+      <div class="q">Last run</div>
+      <div class="g" id="lastText"></div>
+    </div>
+    <button class="ghost" id="unpairBtn">Disconnect this browser</button>
+  </div>
+
+  <!-- Paired, running -->
+  <div class="body hide" id="runningView">
+    <h2 id="runTitle">Working…</h2>
+    <p class="muted">Your agent is doing the work in a tab now. You can watch, or leave it running.</p>
+  </div>
+
+  <!-- Allow prompt -->
+  <div class="body hide" id="allowView">
+    <div class="card">
+      <div class="q" id="allowAgent">Arthur wants to do something</div>
+      <div class="g" id="allowText"></div>
+    </div>
+    <div class="row">
+      <button class="ghost" id="denyBtn">Not now</button>
+      <button class="primary" id="allowBtn">Allow</button>
+    </div>
+    <div class="err hide" id="allowErr"></div>
+  </div>
+
+  <div class="foot">No passwords stored. Uses the sites you're already signed into. You approve every run.</div>
+
+  <script src="config.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>
