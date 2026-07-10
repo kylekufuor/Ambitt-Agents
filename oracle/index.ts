@@ -235,7 +235,7 @@ function param(req: Request, key: string): string {
 // design (if Oracle restarts mid-MFA the worker just re-requests).
 const pending2fa = new Map<string, { taskId: string; at: number }>();
 const codes2fa = new Map<string, { code: string; at: number }>();
-const MFA_TTL_MS = 5 * 60 * 1000;
+const MFA_TTL_MS = 15 * 60 * 1000; // hold the 2FA request/code 15 min — email inbound (Gmail → Resend) can lag several minutes, and a person on a call needs room
 
 // Extracts the bare email from a "Name <email@x.com>" header, or returns the
 // trimmed lowercase address if no angle brackets. Returns null if the header
@@ -1531,6 +1531,16 @@ app.post("/webhooks/whatsapp", async (req: Request, res: Response) => {
 // from the recipient address (reply-{agentId}@ambitt.agency), then fetch
 // the full email content + attachments via Resend API.
 app.post("/webhooks/email-inbound", async (req: Request, res: Response) => {
+  const t0 = Date.now();
+  const ilog: Record<string, unknown> = { disposition: "received" };
+  // Auto-capture the final disposition from whatever {status} we respond with,
+  // so we don't have to touch every return point. The finally below writes one
+  // InboundEmailLog row per webhook — always, even on early drops or errors.
+  const _resJson = res.json.bind(res);
+  res.json = ((body: any) => {
+    if (body && typeof body.status === "string") ilog.disposition = body.status;
+    return _resJson(body);
+  }) as typeof res.json;
   try {
     const event = req.body;
 
@@ -1542,6 +1552,8 @@ app.post("/webhooks/email-inbound", async (req: Request, res: Response) => {
 
     const emailId = event.data?.email_id;
     const toAddresses: string[] = event.data?.to ?? [];
+    ilog.emailId = emailId ?? null;
+    ilog.toAddr = Array.isArray(toAddresses) && toAddresses.length ? toAddresses.join(",") : null;
 
     if (!emailId) {
       res.status(400).json({ error: "Missing email_id in webhook payload" });
@@ -1582,6 +1594,8 @@ app.post("/webhooks/email-inbound", async (req: Request, res: Response) => {
       res.json({ status: "ignored", reason: "No matching agent for recipient" });
       return;
     }
+    ilog.agentId = agentId;
+    ilog.routingPath = routingPath;
 
     // Resend's email.received webhook ships the FULL inbound email content
     // in event.data — text, html, attachments, headers, the lot. The earlier
@@ -1591,6 +1605,8 @@ app.post("/webhooks/email-inbound", async (req: Request, res: Response) => {
     const emailData = (event.data ?? {}) as Record<string, unknown>;
     const from = (typeof emailData.from === "string" ? emailData.from : "") || "";
     const subject = ((typeof emailData.subject === "string" ? emailData.subject : "") || "").toUpperCase().trim();
+    ilog.fromAddr = from || null;
+    ilog.subject = typeof emailData.subject === "string" ? emailData.subject : null;
 
     // Sender authorization. Only the agent's owner client (or, for platform
     // agents like Atlas, an active Prospect) can drive an agent run. Anyone
@@ -1598,6 +1614,7 @@ app.post("/webhooks/email-inbound", async (req: Request, res: Response) => {
     const auth = await checkInboundAuth(agentId, from, routingPath);
     if (!auth.ok) {
       logger.warn("Inbound email rejected — unauthorized sender", { agentId, from, reason: auth.reason });
+      ilog.authResult = "rejected:" + auth.reason;
       // Soft auto-response for cold rejections on platform agents (Atlas-style).
       // Tells the sender "you reached Atlas but can't email it cold — here's the
       // right way in." Skipped for client agents (no marco-mcquizzy@ leakage)
@@ -1611,6 +1628,7 @@ app.post("/webhooks/email-inbound", async (req: Request, res: Response) => {
       res.json({ status: "ignored", reason: auth.reason });
       return;
     }
+    ilog.authResult = "ok";
 
     // Resend's email.received webhook is METADATA-ONLY — it carries from/to/
     // subject/email_id but NOT the body. Fetch the real text/html from the
@@ -1632,6 +1650,7 @@ app.post("/webhooks/email-inbound", async (req: Request, res: Response) => {
           if (Array.isArray(full.attachments) && (!Array.isArray(emailData.attachments) || (emailData.attachments as unknown[]).length === 0)) {
             emailData.attachments = full.attachments;
           }
+          ilog.bodyFetched = "ok";
           logger.info("Fetched inbound email body via Received Emails API", {
             emailId,
             hasText: typeof full.text === "string" && (full.text as string).length > 0,
@@ -1984,7 +2003,31 @@ app.post("/webhooks/email-inbound", async (req: Request, res: Response) => {
     });
   } catch (error) {
     logger.error("Email inbound webhook failed", { error });
+    ilog.disposition = "error";
+    ilog.errorMsg = error instanceof Error ? error.message : String(error);
     res.status(500).json({ error: "Inbound processing failed" });
+  } finally {
+    // One row per webhook, always — captures every drop-off point + latency.
+    try {
+      await prisma.inboundEmailLog.create({
+        data: {
+          emailId: (ilog.emailId as string | null) ?? null,
+          fromAddr: (ilog.fromAddr as string | null) ?? null,
+          toAddr: (ilog.toAddr as string | null) ?? null,
+          subject: (ilog.subject as string | null) ?? null,
+          agentId: (ilog.agentId as string | null) ?? null,
+          clientId: (ilog.clientId as string | null) ?? null,
+          routingPath: (ilog.routingPath as string | null) ?? null,
+          authResult: (ilog.authResult as string | null) ?? null,
+          bodyFetched: (ilog.bodyFetched as string | null) ?? null,
+          disposition: (ilog.disposition as string) || "received",
+          errorMsg: (ilog.errorMsg as string | null) ?? null,
+          ms: Date.now() - t0,
+        },
+      });
+    } catch (logErr) {
+      logger.warn("InboundEmailLog write failed", { error: logErr instanceof Error ? logErr.message : String(logErr) });
+    }
   }
 });
 
