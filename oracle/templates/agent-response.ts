@@ -178,7 +178,11 @@ export function buildAgentResponseEmail(options: AgentResponseOptions): string {
     <tr><td style="padding:40px 16px;">
       <table role="presentation" style="max-width:560px;margin:0 auto;background-color:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 1px 2px rgba(20,32,31,0.06);">
 
-        <tr><td style="padding:32px 40px 8px 40px;color:${BODY};font-size:15px;line-height:1.7;">
+        <tr><td style="padding:28px 40px 0 40px;">
+          <img src="${AGENT_AVATAR_URL}" width="44" height="44" alt="${agentName}" style="display:block;width:44px;height:44px;border-radius:50%;" />
+        </td></tr>
+
+        <tr><td style="padding:18px 40px 8px 40px;color:${BODY};font-size:15px;line-height:1.7;">
           ${bodyHtml}
         </td></tr>
 
