@@ -235,6 +235,12 @@ function param(req: Request, key: string): string {
 // design (if Oracle restarts mid-MFA the worker just re-requests).
 const pending2fa = new Map<string, { taskId: string; at: number }>();
 const codes2fa = new Map<string, { code: string; at: number }>();
+// WhatsApp path: an inbound WhatsApp reply arrives keyed by the sender's phone,
+// so we keep a reverse index (last-10-digits → clientId) to match it back to the
+// client with a pending 2FA request. WhatsApp inbound lands in seconds vs email's
+// minutes, so it's the preferred MFA-relay channel.
+const pending2faByPhone = new Map<string, { clientId: string; at: number }>();
+const phoneKey = (s: string) => (s || "").replace(/\D/g, "").slice(-10);
 const MFA_TTL_MS = 15 * 60 * 1000; // hold the 2FA request/code 15 min — email inbound (Gmail → Resend) can lag several minutes, and a person on a call needs room
 
 // Extracts the bare email from a "Name <email@x.com>" header, or returns the
@@ -1497,6 +1503,24 @@ app.post("/webhooks/whatsapp", async (req: Request, res: Response) => {
   try {
     const body = req.body.Body?.trim() ?? "";
     const from = req.body.From ?? "";
+
+    // MFA relay capture — a client (not the operator) replying with their
+    // verification code. Checked BEFORE the operator-only guard so any client
+    // with a pending 2FA request can answer. Matched by phone, guarded by the
+    // pending map + TTL, so a random inbound message never reaches here.
+    {
+      const pend = pending2faByPhone.get(phoneKey(from));
+      if (pend && Date.now() - pend.at < MFA_TTL_MS) {
+        const m = body.match(/\b(\d{4,8})\b/);
+        if (m) {
+          codes2fa.set(pend.clientId, { code: m[1], at: Date.now() });
+          pending2faByPhone.delete(phoneKey(from));
+          logger.info("2FA code captured via WhatsApp", { clientId: pend.clientId });
+          res.type("text/xml").send("<Response><Message>Got it — entering your code now. Thanks!</Message></Response>");
+          return;
+        }
+      }
+    }
 
     const kyleNumber = process.env.KYLE_WHATSAPP_NUMBER;
     if (!from.includes(kyleNumber ?? "NONE")) {
@@ -5704,27 +5728,52 @@ app.post("/extension/tasks/:taskId/need-2fa", async (req: Request, res: Response
     const service = String(req.body?.service || "your tool").trim() || "your tool";
     const agent = await prisma.agent.findFirst({
       where: { clientId: device.clientId, status: "active" },
-      select: { id: true, name: true, agentType: true, client: { select: { email: true } } },
+      select: { id: true, name: true, agentType: true, client: { select: { email: true, whatsappNumber: true } } },
       orderBy: { createdAt: "asc" },
     });
     const clientEmail = agent?.client?.email;
-    if (!agent || !clientEmail) { res.status(400).json({ error: "no client email on file" }); return; }
+    const clientWhatsApp = agent?.client?.whatsappNumber;
+    if (!agent || (!clientEmail && !clientWhatsApp)) { res.status(400).json({ error: "no client email or WhatsApp on file" }); return; }
     pending2fa.set(device.clientId, { taskId, at: Date.now() });
     codes2fa.delete(device.clientId);
-    const { sendEmail } = await import("../shared/email.js");
-    await sendEmail({
-      agentId: agent.id,
-      agentName: agent.name,
-      to: clientEmail,
-      subject: `${agent.name} — verification code for ${service}`,
-      html: `<div style="font-family:-apple-system,sans-serif;max-width:540px;margin:0 auto;padding:24px;font-size:15px;color:#26332f;line-height:1.6;">
+
+    // Prefer WhatsApp — the client's reply reaches us in seconds (push), vs
+    // several minutes for email (Gmail → Resend). Fall back to email if there's
+    // no WhatsApp number on file or the send fails. Both reply paths (the
+    // /webhooks/whatsapp branch and the email-inbound branch) feed codes2fa.
+    let channel = "none";
+    if (clientWhatsApp) {
+      try {
+        const { sendWhatsApp } = await import("../shared/whatsapp.js");
+        await sendWhatsApp({
+          to: clientWhatsApp,
+          message: `${agent.name} here — ${service} just sent you a one-time verification code so I can finish signing in on your behalf. Reply with just the code (the digits) and I'll continue right away.`,
+        });
+        pending2faByPhone.set(phoneKey(clientWhatsApp), { clientId: device.clientId, at: Date.now() });
+        channel = "whatsapp";
+      } catch (waErr) {
+        logger.warn("need-2fa: WhatsApp send failed, will try email", { error: waErr instanceof Error ? waErr.message : String(waErr) });
+      }
+    }
+    if (channel !== "whatsapp" && clientEmail) {
+      const { sendEmail } = await import("../shared/email.js");
+      await sendEmail({
+        agentId: agent.id,
+        agentName: agent.name,
+        to: clientEmail,
+        subject: `${agent.name} — verification code for ${service}`,
+        html: `<div style="font-family:-apple-system,sans-serif;max-width:540px;margin:0 auto;padding:24px;font-size:15px;color:#26332f;line-height:1.6;">
         <p>${service} just sent you a one-time verification code so I can finish logging in on your behalf.</p>
         <p><strong>Reply to this email with the code</strong> (just the digits) and I'll continue right away.</p>
         <p style="color:#9aa8a4;font-size:13px;">The code is used once and never stored. ${agent.name}, your agent at Ambitt</p>
       </div>`,
-      replyToAgentId: agent.id,
-    });
-    res.json({ ok: true });
+        replyToAgentId: agent.id,
+      });
+      channel = "email";
+    }
+    if (channel === "none") { res.status(500).json({ error: "could not reach the client on any channel" }); return; }
+    logger.info("2FA request sent", { clientId: device.clientId, channel, service });
+    res.json({ ok: true, channel });
   } catch (error) {
     logger.error("need-2fa failed", { error: error instanceof Error ? error.message : String(error) });
     res.status(500).json({ error: "need-2fa failed" });

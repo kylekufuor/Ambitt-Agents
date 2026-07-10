@@ -107,8 +107,9 @@ async function doMfa(page, snap, taskId, service) {
     snap.elements.find((e) => e.tag === "input" && /code|otp|token|verif/i.test(e.name)) ||
     snap.elements.find((e) => e.tag === "input" && ["text", "tel", "number", ""].includes(e.type));
   if (!codeEl) { console.log("  MFA: no code field found."); return false; }
-  console.log(`  MFA: emailing ${service} code request to the client…`);
-  await api(`/extension/tasks/${taskId}/need-2fa`, { method: "POST", body: { service } });
+  const need = await api(`/extension/tasks/${taskId}/need-2fa`, { method: "POST", body: { service } });
+  const chan = need && need.body && need.body.channel ? need.body.channel : "email";
+  console.log(`  MFA: asked the client for the ${service} code via ${chan}…`);
   let code = null;
   // Wait up to ~10 min — a person juggling a phone call needs real time to get
   // the text, switch to email, and reply from the right account.
