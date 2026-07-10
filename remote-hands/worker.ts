@@ -124,6 +124,17 @@ async function doMfa(page, snap, taskId, service) {
     fresh.elements.find((e) => e.tag === "input" && /code|otp|token|verif/i.test(e.name)) ||
     fresh.elements.find((e) => e.tag === "input" && ["text", "tel", "number", ""].includes(e.type)) ||
     codeEl;
+  // Tick "remember/trust this device" if CoStar offers it, so future runs skip
+  // MFA entirely — exactly like a human's browser stays trusted. With the
+  // persistent Chrome profile, Arthur then logs in once and stays logged in;
+  // no repeat codes to the client on every run.
+  const remember =
+    fresh.elements.find((e) => e.tag === "input" && e.type === "checkbox" && /remember|trust|don.?t ask|keep me|stay signed/i.test(e.name)) ||
+    fresh.elements.find((e) => /remember this device|trust this device|don.?t ask again|keep me signed in|remember me/i.test(e.name));
+  if (remember) {
+    try { await page.locator(`[data-rh="${remember.ref}"]`).first().check({ timeout: 4000 }); console.log("  MFA: ticked 'remember this device'."); }
+    catch (e) { try { await page.locator(`[data-rh="${remember.ref}"]`).first().click({ timeout: 4000 }); } catch (e2) {} }
+  }
   try { const l = page.locator(`[data-rh="${codeEl2.ref}"]`).first(); await l.click({ timeout: 6000 }); await l.fill(code); }
   catch (e) { try { await page.getByRole("textbox").first().fill(code); } catch (e2) {} }
   const submit = fresh.elements.find((e) => /verify|submit|continue|sign in|confirm/i.test(e.name));
