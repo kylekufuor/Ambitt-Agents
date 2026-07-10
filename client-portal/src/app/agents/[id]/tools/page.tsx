@@ -3,6 +3,7 @@ import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import prisma from "@/lib/db";
 import { ToolsList } from "./tools-list";
+import { WhatsAppCard } from "./whatsapp-card";
 
 export const dynamic = "force-dynamic";
 
@@ -67,6 +68,20 @@ export default async function AgentToolsPage(
     data.tools.filter((t) => t.status === "needs_setup" || t.status === "partial").length +
     data.personalInfo.filter((p) => !p.allFilled).length;
 
+  // WhatsApp MFA-relay setup state (native — the platform's own Twilio channel).
+  let waState = {
+    connected: false,
+    whatsappNumber: null as string | null,
+    sandboxNumber: "+14155238886",
+    sandboxJoinCode: null as string | null,
+  };
+  try {
+    const waRes = await fetch(`${oracleUrl()}/agents/${id}/whatsapp`, { cache: "no-store" });
+    if (waRes.ok) waState = { ...waState, ...(await waRes.json()) };
+  } catch {
+    // non-fatal — the card renders with defaults
+  }
+
   return (
     <main className="max-w-3xl mx-auto px-4 py-10">
       <nav className="mb-6 text-xs text-zinc-500">
@@ -94,6 +109,8 @@ export default async function AgentToolsPage(
           Couldn&apos;t load tools: {fetchError}. Try refreshing.
         </div>
       )}
+
+      <WhatsAppCard agentId={id} agentName={agent.name} initial={waState} />
 
       <ToolsList agentId={id} agentName={agent.name} initialData={data} />
     </main>
