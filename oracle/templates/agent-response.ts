@@ -38,15 +38,36 @@ const BADGE = "#d3efe9"; // slightly deeper teal for icon badges
 const INK = "#15201f"; // near-black heading
 const BODY = "#3f4a48"; // body text
 const MUTE = "#8a938f"; // muted gray-teal
+const SERIF = "Georgia,'Times New Roman',serif"; // premium display face for headings
+const MONO = "'SF Mono',ui-monospace,Menlo,Consolas,monospace"; // tool-name / code chips
 
-// Inline markdown: **bold** and [text](url).
+// Inline markdown: `code`, **bold**, and [text](url).
 function inlineMd(s: string): string {
   return s
+    .replace(
+      /`([^`]+)`/g,
+      `<code style="font-family:${MONO};font-size:12.5px;background:${CARD};color:${BRAND_DARK};padding:2px 7px;border-radius:6px;white-space:nowrap;">$1</code>`
+    )
     .replace(/\*\*([^*]+)\*\*/g, `<strong style="font-weight:600;color:${INK};">$1</strong>`)
     .replace(
       /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g,
       `<a href="$2" style="color:${BRAND_DARK};text-decoration:none;border-bottom:1px solid ${BADGE};">$1</a>`
     );
+}
+
+// An h2 (`##`) heading. If the text starts with an emoji, render it as a
+// soft-teal icon badge + serif title (the "sectioned" look); otherwise a clean
+// serif title. Agents opt into the badge by prefixing a heading emoji — no
+// auto-guessing, so a plain heading never gets a random emoji stuck on it.
+function h2Heading(text: string): string {
+  const em = text.match(/^(\p{Extended_Pictographic}[️‍\p{Extended_Pictographic}]*)\s+(.*)/u);
+  if (em) {
+    return `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:22px 0 6px;"><tr>
+      <td style="width:34px;vertical-align:middle;padding-right:12px;"><div style="width:34px;height:34px;background:${BADGE};border-radius:10px;text-align:center;"><span style="font-size:17px;line-height:34px;">${em[1]}</span></div></td>
+      <td style="vertical-align:middle;"><p style="margin:0;font-family:${SERIF};font-size:16px;font-weight:600;color:${INK};letter-spacing:0.2px;">${inlineMd(em[2])}</p></td>
+    </tr></table>`;
+  }
+  return `<p style="margin:24px 0 8px;font-family:${SERIF};font-size:16px;font-weight:600;color:${INK};letter-spacing:0.2px;">${inlineMd(text)}</p>`;
 }
 
 // Render the agent's markdown body into clean, email-safe HTML.
@@ -62,10 +83,10 @@ function renderMarkdown(md: string): string {
     let m: RegExpMatchArray | null;
     if ((m = line.match(/^###\s+(.*)/))) {
       closeList();
-      out.push(`<p style="margin:20px 0 6px;font-size:14px;font-weight:600;color:${INK};">${inlineMd(m[1])}</p>`);
+      out.push(`<p style="margin:20px 0 6px;font-family:${SERIF};font-size:14px;font-weight:600;color:${INK};letter-spacing:0.2px;">${inlineMd(m[1])}</p>`);
     } else if ((m = line.match(/^##\s+(.*)/))) {
       closeList();
-      out.push(`<p style="margin:24px 0 8px;font-size:16px;font-weight:600;color:${INK};">${inlineMd(m[1])}</p>`);
+      out.push(h2Heading(m[1]));
     } else if (/^(---|___|\*\*\*)\s*$/.test(line)) {
       closeList();
       out.push(`<div style="border-top:1px solid #e7ecec;margin:20px 0;"></div>`);
@@ -174,9 +195,9 @@ export function buildAgentResponseEmail(options: AgentResponseOptions): string {
 <html>
 <head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /></head>
 <body style="margin:0;padding:0;background-color:#f4f6f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;">
-  <table role="presentation" style="width:100%;border-collapse:collapse;">
-    <tr><td style="padding:40px 16px;">
-      <table role="presentation" style="max-width:560px;margin:0 auto;background-color:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 1px 2px rgba(20,32,31,0.06);">
+  <table role="presentation" width="100%" style="width:100%;border-collapse:collapse;background-color:#f4f6f5;">
+    <tr><td align="center" style="padding:40px 16px;">
+      <table role="presentation" width="560" align="center" style="width:560px;max-width:560px;margin:0 auto;background-color:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 1px 2px rgba(20,32,31,0.06);">
 
         <tr><td style="padding:28px 40px 0 40px;">
           <img src="${AGENT_AVATAR_URL}" width="44" height="44" alt="${agentName}" style="display:block;width:44px;height:44px;border-radius:50%;" />
@@ -213,7 +234,7 @@ export function buildAgentResponseEmail(options: AgentResponseOptions): string {
 
       </table>
 
-      <table role="presentation" style="max-width:560px;margin:16px auto 0 auto;">
+      <table role="presentation" width="560" align="center" style="width:560px;max-width:560px;margin:16px auto 0 auto;">
         <tr><td style="text-align:center;color:${MUTE};font-size:11px;line-height:1.8;padding-bottom:6px;">${navFooterLinks(agentName, agentId)}</td></tr>
         <tr><td style="text-align:center;color:#b9c1be;font-size:11px;"><p style="margin:0;">Powered by <a href="https://ambitt.agency" style="color:${MUTE};text-decoration:none;">Ambitt Agents</a></p></td></tr>
       </table>
