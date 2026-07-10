@@ -7,6 +7,7 @@ import Link from "next/link";
 import { PortalShell } from "@/components/portal-shell";
 import { ManageBillingButton } from "./billing-button";
 import { getTierConfig, type PricingTier } from "@/lib/pricing-constants";
+import { signOut } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -75,6 +76,14 @@ export default async function PortalPage() {
             </a>
             .
           </p>
+          <form action={signOut} className="mt-6">
+            <button
+              type="submit"
+              className="inline-block rounded-[10px] bg-[color:var(--brand)] text-white text-[13.5px] font-medium px-5 py-2.5 hover:bg-[color:var(--brand-hover)] transition"
+            >
+              Sign in with a different email
+            </button>
+          </form>
         </div>
       </div>
     );
