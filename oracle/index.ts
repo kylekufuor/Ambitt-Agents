@@ -1612,6 +1612,45 @@ app.post("/webhooks/email-inbound", async (req: Request, res: Response) => {
       return;
     }
 
+    // Resend's email.received webhook is METADATA-ONLY — it carries from/to/
+    // subject/email_id but NOT the body. Fetch the real text/html from the
+    // Received Emails API so the 2FA relay and the agent runtime can read the
+    // message. Needs a read-capable key (RESEND_INBOUND_KEY, falling back to
+    // RESEND_API_KEY if that key has read scope). Runs only when the webhook
+    // didn't already include a body (synthetic/test payloads do) and we have an
+    // email_id. Degrades safely to subject-only if the fetch fails.
+    if (emailId && !(typeof emailData.text === "string" && (emailData.text as string).trim().length > 0)) {
+      try {
+        const inboundKey = process.env.RESEND_INBOUND_KEY || process.env.RESEND_API_KEY || "";
+        const fetched = await fetch(`https://api.resend.com/emails/receiving/${emailId}`, {
+          headers: { Authorization: `Bearer ${inboundKey}` },
+        });
+        if (fetched.ok) {
+          const full = (await fetched.json()) as Record<string, unknown>;
+          if (typeof full.text === "string") emailData.text = full.text;
+          if (typeof full.html === "string") emailData.html = full.html;
+          if (Array.isArray(full.attachments) && (!Array.isArray(emailData.attachments) || (emailData.attachments as unknown[]).length === 0)) {
+            emailData.attachments = full.attachments;
+          }
+          logger.info("Fetched inbound email body via Received Emails API", {
+            emailId,
+            hasText: typeof full.text === "string" && (full.text as string).length > 0,
+            hasHtml: typeof full.html === "string" && (full.html as string).length > 0,
+          });
+        } else {
+          const errBody = await fetched.text().catch(() => "");
+          logger.warn("Received Emails API fetch failed — agent will see subject only", {
+            emailId,
+            status: fetched.status,
+            hint: fetched.status === 401 ? "RESEND_INBOUND_KEY needs a full-access (read) key" : undefined,
+            body: errBody.slice(0, 200),
+          });
+        }
+      } catch (err) {
+        logger.warn("Received Emails API fetch threw", { emailId, error: err instanceof Error ? err.message : String(err) });
+      }
+    }
+
     // Remote Hands MFA relay: if this client's worker is waiting for a CoStar
     // verification code, capture it from this reply and stop (don't run the
     // agent). Guarded by pending2fa, so a normal reply never reaches this.
