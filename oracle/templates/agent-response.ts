@@ -178,19 +178,7 @@ export function buildAgentResponseEmail(options: AgentResponseOptions): string {
     <tr><td style="padding:40px 16px;">
       <table role="presentation" style="max-width:560px;margin:0 auto;background-color:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 1px 2px rgba(20,32,31,0.06);">
 
-        <tr><td style="padding:30px 40px 6px 40px;">
-          <table role="presentation"><tr>
-            <td style="width:44px;vertical-align:middle;">
-              <img src="${AGENT_AVATAR_URL}" width="42" height="42" alt="${agentName}" style="display:block;width:42px;height:42px;border-radius:50%;" />
-            </td>
-            <td style="padding-left:12px;vertical-align:middle;">
-              <p style="margin:0;font-size:15px;font-weight:600;color:${INK};">${agentName} <span style="color:${MUTE};font-weight:400;">&ndash; Ambitt Agents</span></p>
-              <p style="margin:2px 0 0;font-size:12px;color:${MUTE};">${agentRole} &middot; ${clientBusinessName}</p>
-            </td>
-          </tr></table>
-        </td></tr>
-
-        <tr><td style="padding:22px 40px 8px 40px;color:${BODY};font-size:15px;line-height:1.7;">
+        <tr><td style="padding:32px 40px 8px 40px;color:${BODY};font-size:15px;line-height:1.7;">
           ${bodyHtml}
         </td></tr>
 

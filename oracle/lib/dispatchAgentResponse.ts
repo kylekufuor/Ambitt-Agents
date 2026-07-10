@@ -69,7 +69,10 @@ export async function dispatchAgentResponse(input: DispatchInput): Promise<
     const responseHtml = buildAgentResponseEmail({
       agentName: agent.name,
       agentId,
-      agentRole: agent.purpose,
+      // A short, human role for the signature — NOT the full internal operating
+      // brief (agent.purpose contains directives like "NEVER price autonomously"
+      // that must never reach a client). First clause, capped.
+      agentRole: (agent.purpose || "").split(/[.\n]/)[0].slice(0, 60).trim() || "Ambitt Agents",
       clientBusinessName: agent.client.businessName,
       responseBody,
       toolsUsed: runtimeOutput.toolsUsed,
