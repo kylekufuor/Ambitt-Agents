@@ -5313,6 +5313,62 @@ app.get("/agents/:id/tools", async (req: Request, res: Response) => {
 // ---------------------------------------------------------------------------
 // POST /agents/:id/tools/custom-credentials — save DB-backed custom-tool creds
 // ---------------------------------------------------------------------------
+// Client WhatsApp for the MFA relay (and future notifications). This is the
+// platform's OWN Twilio channel — NOT a Composio connection. The client just
+// tells us their number + consents, so their agent can text them a verification
+// request and receive the reply in seconds (vs email's minutes). Stored on
+// Client.whatsappNumber; the /webhooks/whatsapp handler captures the reply.
+app.get("/agents/:id/whatsapp", async (req: Request, res: Response) => {
+  try {
+    const agentId = param(req, "id");
+    const agent = await prisma.agent.findUnique({
+      where: { id: agentId },
+      select: { name: true, client: { select: { whatsappNumber: true } } },
+    });
+    if (!agent) { res.status(404).json({ error: "Agent not found" }); return; }
+    const number = agent.client?.whatsappNumber ?? null;
+    res.json({
+      connected: !!number,
+      whatsappNumber: number,
+      agentName: agent.name,
+      // Sandbox opt-in helper for the portal until a Meta-verified production
+      // sender is live: the client texts "join <code>" to this number once.
+      sandboxNumber: process.env.TWILIO_WHATSAPP_NUMBER || "+14155238886",
+      sandboxJoinCode: process.env.TWILIO_WHATSAPP_SANDBOX_CODE || null,
+    });
+  } catch (error) {
+    logger.error("get whatsapp failed", { error: error instanceof Error ? error.message : String(error) });
+    res.status(500).json({ error: "Failed to load WhatsApp settings" });
+  }
+});
+
+app.post("/agents/:id/whatsapp", async (req: Request, res: Response) => {
+  try {
+    const agentId = param(req, "id");
+    const rawNumber = String(req.body?.whatsappNumber ?? "").trim();
+    const consent = req.body?.consent === true;
+    const agent = await prisma.agent.findUnique({ where: { id: agentId }, select: { clientId: true } });
+    if (!agent) { res.status(404).json({ error: "Agent not found" }); return; }
+
+    let number: string | null = null;
+    if (rawNumber) {
+      if (!consent) { res.status(400).json({ error: "Please tick the consent box to enable WhatsApp." }); return; }
+      const digits = rawNumber.replace(/[^\d]/g, "");
+      if (digits.length === 10) number = "+1" + digits;            // US, no country code
+      else if (digits.length === 11 && digits.startsWith("1")) number = "+" + digits;
+      else if (digits.length >= 11) number = "+" + digits;         // international
+      else { res.status(400).json({ error: "That doesn't look like a valid phone number." }); return; }
+    }
+    await prisma.client.update({ where: { id: agent.clientId }, data: { whatsappNumber: number } });
+    logger.info("client WhatsApp updated", { clientId: agent.clientId, connected: !!number });
+    res.json({ ok: true, connected: !!number, whatsappNumber: number });
+  } catch (error) {
+    logger.error("save whatsapp failed", { error: error instanceof Error ? error.message : String(error) });
+    res.status(500).json({ error: "Failed to save WhatsApp number" });
+  }
+});
+
+// ---------------------------------------------------------------------------
 // For non-Composio tools (CoStar/Crexi/The Analyst Pro): the client types the
 // username/password on the portal; we validate against the agent's declared
 // custom-tool fields and store them encrypted on the Credential row (no
