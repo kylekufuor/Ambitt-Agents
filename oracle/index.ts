@@ -7,6 +7,7 @@ import { runImprovementCycle } from "./improve.js";
 // import { routeTask } from "./router.js"; // TODO: re-enable when scheduled tasks are built
 import { handleStripeWebhook } from "./billing.js";
 import { onboardClient } from "./onboard.js";
+import { classifyAutomatedInbound } from "./lib/inbound-classify.js";
 import prisma from "../shared/db.js";
 import logger from "../shared/logger.js";
 import { parseCommunicationSettings } from "../shared/communication-settings.js";
@@ -1684,6 +1685,10 @@ app.post("/webhooks/email-inbound", async (req: Request, res: Response) => {
           if (Array.isArray(full.attachments) && (!Array.isArray(emailData.attachments) || (emailData.attachments as unknown[]).length === 0)) {
             emailData.attachments = full.attachments;
           }
+          // Carry headers through so the machine-email guard can read
+          // Auto-Submitted / Precedence / Return-Path even on metadata-only
+          // webhook payloads.
+          if (full.headers && !emailData.headers) emailData.headers = full.headers;
           ilog.bodyFetched = "ok";
           logger.info("Fetched inbound email body via Received Emails API", {
             emailId,
@@ -1722,6 +1727,29 @@ app.post("/webhooks/email-inbound", async (req: Request, res: Response) => {
           res.json({ status: "2fa_captured" });
           return;
         }
+      }
+    }
+
+    // Machine-email guard (Pillar 3): automated / no-reply / bounce / auto-reply
+    // mail is logged but NEVER spawns a run. Runs AFTER the MFA-code capture
+    // (so a relayed code still routes) and BEFORE any DOCS/DISMISS/runtime path.
+    // Human mail from an authorized sender continues normally.
+    {
+      const machine = classifyAutomatedInbound(
+        from,
+        typeof emailData.subject === "string" ? emailData.subject : "",
+        emailData
+      );
+      if (machine.automated) {
+        ilog.disposition = "dropped_automated:" + machine.reason;
+        logger.warn("Inbound email dropped — machine-generated, not a task trigger", {
+          agentId,
+          from,
+          subject: typeof emailData.subject === "string" ? emailData.subject : null,
+          reason: machine.reason,
+        });
+        res.json({ status: "ignored_automated", reason: machine.reason });
+        return;
       }
     }
 
