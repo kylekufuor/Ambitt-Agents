@@ -110,10 +110,13 @@ async function doMfa(page, snap, taskId, service) {
   console.log(`  MFA: emailing ${service} code request to the client…`);
   await api(`/extension/tasks/${taskId}/need-2fa`, { method: "POST", body: { service } });
   let code = null;
-  for (let i = 0; i < 60; i++) {
+  // Wait up to ~10 min — a person juggling a phone call needs real time to get
+  // the text, switch to email, and reply from the right account.
+  for (let i = 0; i < 200; i++) {
     await sleep(3000);
     const { body } = await api(`/extension/tasks/${taskId}/2fa-code`);
     if (body && body.code) { code = body.code; break; }
+    if (i > 0 && i % 20 === 0) console.log(`  MFA: still waiting for the code… (${Math.round((i * 3) / 60)} min)`);
   }
   if (!code) { console.log("  MFA: no code received (timed out waiting for the reply)."); return false; }
   console.log("  MFA: got the code, entering it…");
