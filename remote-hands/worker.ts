@@ -2,6 +2,7 @@
 import { chromium } from "playwright";
 import path from "path";
 import os from "os";
+import fs from "fs";
 import { decideA11yAction } from "../shared/runtime/browser-brain-a11y.js";
 
 // ---------------------------------------------------------------------------
@@ -116,12 +117,21 @@ async function doMfa(page, snap, taskId, service) {
   }
   if (!code) { console.log("  MFA: no code received (timed out waiting for the reply)."); return false; }
   console.log("  MFA: got the code, entering it…");
-  try { const l = page.locator(`[data-rh="${codeEl.ref}"]`).first(); await l.click({ timeout: 6000 }); await l.fill(code); } catch (e) {}
-  const submit = snap.elements.find((e) => /verify|submit|continue|sign in|confirm/i.test(e.name));
+  // Re-snapshot: the wait for the reply can be minutes, during which CoStar may
+  // re-render the code screen (resend countdown), invalidating the earlier refs.
+  const fresh = await snapshot(page);
+  const codeEl2 =
+    fresh.elements.find((e) => e.tag === "input" && /code|otp|token|verif/i.test(e.name)) ||
+    fresh.elements.find((e) => e.tag === "input" && ["text", "tel", "number", ""].includes(e.type)) ||
+    codeEl;
+  try { const l = page.locator(`[data-rh="${codeEl2.ref}"]`).first(); await l.click({ timeout: 6000 }); await l.fill(code); }
+  catch (e) { try { await page.getByRole("textbox").first().fill(code); } catch (e2) {} }
+  const submit = fresh.elements.find((e) => /verify|submit|continue|sign in|confirm/i.test(e.name));
   if (submit) { try { await page.locator(`[data-rh="${submit.ref}"]`).first().click({ timeout: 6000 }); } catch (e) {} }
   else { try { await page.keyboard.press("Enter"); } catch (e) {} }
   await page.waitForLoadState("domcontentloaded").catch(() => {});
   await sleep(2500);
+  console.log("  MFA: code submitted.");
   return true;
 }
 
@@ -129,6 +139,7 @@ async function runA11yLoop(page, goal, { taskId, tool } = {}) {
   const history = [];
   let outcome = { ok: false, text: "No result." };
   let handledAuth = false;
+  let handledMfa = false;
 
   for (let step = 0; step < MAX_STEPS; step++) {
     await sleep(800);
@@ -136,12 +147,13 @@ async function runA11yLoop(page, goal, { taskId, tool } = {}) {
     if (step === 0) console.log(`(distilled ${snap.elements.length} interactive elements)`);
 
     // Deterministic auth prechecks (login + MFA), before handing to the brain.
-    if (!handledAuth && looksLikeMfa(snap)) {
+    if (!handledMfa && looksLikeMfa(snap)) {
       if (process.env.RH_MFA_MODE === "observe") {
         const codeEl = snap.elements.find((e) => e.tag === "input" && /code|otp|token|verif/i.test(e.name)) || snap.elements.find((e) => e.tag === "input" && ["text", "tel", "number", ""].includes(e.type));
         outcome = { ok: true, text: `Reached the MFA/verification screen at ${snap.url}. Code field: ${codeEl ? `"${codeEl.name}" (${codeEl.type})` : "not found"}. Page says: ${snap.text.slice(0, 400)}` };
         break;
       }
+      handledMfa = true;
       await doMfa(page, snap, taskId, tool || "your tool"); history.push({ action: "mfa" }); continue;
     }
     if (!handledAuth && looksLikeLogin(snap)) { handledAuth = await doLogin(page, snap, taskId, tool || "CoStar"); history.push({ action: "login" }); continue; }
@@ -186,6 +198,8 @@ async function runA11yLoop(page, goal, { taskId, tool } = {}) {
 
 async function launchChrome() {
   const profileDir = path.join(os.homedir(), ".ambitt-remote-hands", "profile");
+  // Clear a stale singleton lock from a previous unclean exit, or Chrome hangs.
+  try { for (const f of ["SingletonLock", "SingletonCookie", "SingletonSocket"]) fs.rmSync(path.join(profileDir, f), { force: true }); } catch (e) {}
   console.log(`Launching real Chrome (persistent profile: ${profileDir}) …`);
   const ctx = await chromium.launchPersistentContext(profileDir, {
     channel: "chrome",
@@ -223,12 +237,15 @@ async function queueMode() {
   if (!DEVICE_TOKEN) { console.error("Set AMBITT_DEVICE_TOKEN to run in queue mode."); process.exit(1); }
   console.log(`Remote Hands worker online. Polling ${ORACLE_URL} …`);
   const { page } = await launchChrome();
+  console.log("Chrome ready. Entering poll loop.");
+  let tick = 0;
   for (;;) {
     let task = null;
     try {
-      const { ok, body } = await api("/extension/poll");
+      const { ok, status, body } = await api("/extension/poll");
       task = ok && body.task ? body.task : null;
-    } catch (e) {}
+      if (++tick % 6 === 1) console.log(`poll #${tick}: http ${status} ${ok ? (task ? "-> task " + task.id : "-> no task") : "ERR " + JSON.stringify(body).slice(0, 120)}`);
+    } catch (e) { console.log(`poll #${tick} threw: ${String(e && e.message ? e.message : e).slice(0, 120)}`); }
     if (!task) { await sleep(5000); continue; }
 
     console.log(`\n▶ Task ${task.id}: ${task.goal}`);
