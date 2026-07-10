@@ -151,6 +151,7 @@ export const MCP_SERVERS: Record<string, MCPServerDefinition> = {
     credentialField: "oauthToken",
     docsUrl: "https://api.slack.com/docs/mcp",
     officialServer: true,
+    channelType: "chat",
   },
 
   // === SUPPORT ===
@@ -185,6 +186,7 @@ export const MCP_SERVERS: Record<string, MCPServerDefinition> = {
     envKey: "INTERCOM_API_TOKEN",
     docsUrl: "https://github.com/Peliqan-io/mcp-server-peliqan",
     officialServer: false,
+    channelType: "chat",
   },
 
   // === FINANCE ===
@@ -479,6 +481,7 @@ export const MCP_SERVERS: Record<string, MCPServerDefinition> = {
     credentialField: "apiKey",
     docsUrl: "https://docs.sendgrid.com",
     officialServer: false,
+    channelType: "email",
   },
 
   // === SUPPORT (additional) ===

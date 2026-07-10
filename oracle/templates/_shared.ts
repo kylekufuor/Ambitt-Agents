@@ -4,6 +4,8 @@
 // Every template composes from these. Keeps the design system in one place.
 // ---------------------------------------------------------------------------
 
+import { portalLink } from "../../shared/portal-links.js";
+
 export interface BaseEmailProps {
   agentName: string;
   clientName: string;
@@ -209,12 +211,10 @@ export function navFooterLinks(agentName: string, agentId: string): string {
   const agentShort = agentName.length > 16 ? `${agentName.slice(0, 14)}…` : agentName;
   const links = [
     { label: `Chat with ${agentShort}`, href: `https://chat.ambitt.agency/${agentId}` },
-    { label: `Manage ${agentShort}`, href: `https://clients.ambitt.agency/agents/${agentId}` },
-    { label: "Billing", href: "https://clients.ambitt.agency/billing" },
-    {
-      label: "Request a tool",
-      href: `mailto:support@ambitt.agency?subject=${encodeURIComponent("Tool request")}`,
-    },
+    { label: `Manage ${agentShort}`, href: portalLink(agentId, "overview") },
+    { label: "Tools", href: portalLink(agentId, "tools") },
+    { label: "Communication", href: portalLink(agentId, "communication") },
+    { label: "Billing", href: portalLink(agentId, "billing") },
     {
       label: "Pause agent",
       href: `mailto:reply-${agentId}@ambitt.agency?subject=${encodeURIComponent("PAUSE")}`,

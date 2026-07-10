@@ -9,6 +9,7 @@ import { handleStripeWebhook } from "./billing.js";
 import { onboardClient } from "./onboard.js";
 import prisma from "../shared/db.js";
 import logger from "../shared/logger.js";
+import { parseCommunicationSettings } from "../shared/communication-settings.js";
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } }); // 20MB max
 
@@ -282,7 +283,7 @@ async function checkInboundAuth(
   fromHeader: string,
   routingPath: "reply" | "direct"
 ): Promise<
-  | { ok: true; senderType: "client" | "prospect" | "platform_operator"; prospectId?: string }
+  | { ok: true; senderType: "client" | "prospect" | "platform_operator" | "allowed_sender"; prospectId?: string }
   | { ok: false; reason: string }
 > {
   const senderEmail = parseEmailFromHeader(fromHeader);
@@ -290,7 +291,7 @@ async function checkInboundAuth(
 
   const agent = await prisma.agent.findUnique({
     where: { id: agentId },
-    select: { acceptFromProspects: true, client: { select: { email: true } } },
+    select: { acceptFromProspects: true, communicationSettings: true, client: { select: { email: true } } },
   });
   if (!agent) return { ok: false, reason: "Agent not found" };
 
@@ -305,6 +306,15 @@ async function checkInboundAuth(
   // Owning client — allowed on every agent regardless of path.
   if (senderEmail === agent.client.email.toLowerCase()) {
     return { ok: true, senderType: "client" };
+  }
+
+  // Communication Settings inbound allowlist — extra people the client has
+  // explicitly authorized to email the agent (e.g. teammates). Treated like the
+  // client for the run: they get a normal agent reply. Empty by default, so this
+  // changes nothing until the client adds a sender in the portal.
+  const comms = parseCommunicationSettings(agent.communicationSettings);
+  if (comms.inbound.allowedSenders.includes(senderEmail)) {
+    return { ok: true, senderType: "allowed_sender" };
   }
 
   // Prospect — ONLY on the reply path. A prospect cold-emailing the agent's
@@ -5369,6 +5379,88 @@ app.post("/agents/:id/whatsapp", async (req: Request, res: Response) => {
 });
 
 // ---------------------------------------------------------------------------
+// Communication Settings — the agent's per-role channel routing + outbound
+// content policy. GET returns the saved settings PLUS the concrete options the
+// portal renders (which channels the client can actually pick). PUT validates
+// against the shared Zod shape and saves. Null field = today's default behavior.
+app.get("/agents/:id/communication-settings", async (req: Request, res: Response) => {
+  try {
+    const agentId = param(req, "id");
+    const agent = await prisma.agent.findUnique({
+      where: { id: agentId },
+      select: {
+        name: true,
+        communicationSettings: true,
+        clientId: true,
+        client: { select: { email: true, whatsappNumber: true } },
+      },
+    });
+    if (!agent) { res.status(404).json({ error: "Agent not found" }); return; }
+
+    const settings = parseCommunicationSettings(agent.communicationSettings);
+
+    // Connected Gmail inboxes the client can send FROM (the outbound identity).
+    let gmailAccounts: Array<{ connectionId: string; email: string }> = [];
+    try {
+      const { getGmailAccounts } = await import("../shared/mcp/composio.js");
+      gmailAccounts = await getGmailAccounts(agent.clientId);
+    } catch (err) {
+      logger.warn("communication-settings: gmail account lookup failed", { agentId, err: err instanceof Error ? err.message : String(err) });
+    }
+
+    res.json({
+      settings,
+      options: {
+        // Inbound: the owner is always allowed; allowedSenders are extras.
+        ownerEmail: agent.client?.email ?? null,
+        // MFA relay channels available today (platform natives). A 'connected'
+        // chat relay isn't wired to send+capture yet, so it's not offered.
+        mfaChannels: [
+          { kind: "platform_whatsapp", label: "WhatsApp", available: !!agent.client?.whatsappNumber, address: agent.client?.whatsappNumber ?? null },
+          { kind: "platform_email", label: "Email", available: !!agent.client?.email, address: agent.client?.email ?? null },
+        ],
+        // Outbound identity: platform email (default) + any connected Gmail.
+        outboundAccounts: [
+          { kind: "platform_email", label: "Ambitt email (default)", address: null, connectionId: null, slug: null },
+          ...gmailAccounts.map((a) => ({ kind: "connected", label: a.email, address: a.email, connectionId: a.connectionId, slug: "gmail" })),
+        ],
+      },
+    });
+  } catch (error) {
+    logger.error("get communication-settings failed", { error: error instanceof Error ? error.message : String(error) });
+    res.status(500).json({ error: "Failed to load communication settings" });
+  }
+});
+
+app.put("/agents/:id/communication-settings", async (req: Request, res: Response) => {
+  try {
+    const agentId = param(req, "id");
+    const agent = await prisma.agent.findUnique({ where: { id: agentId }, select: { id: true } });
+    if (!agent) { res.status(404).json({ error: "Agent not found" }); return; }
+
+    // Validate + normalize through the shared shape. Anything malformed is
+    // rejected rather than silently coerced, so the client sees a real error.
+    const { CommunicationSettings, normalizeSettings } = await import("../shared/communication-settings.js");
+    const parsed = CommunicationSettings.safeParse(req.body?.settings ?? req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: "Invalid settings", details: parsed.error.issues.slice(0, 5) });
+      return;
+    }
+    const settings = normalizeSettings(parsed.data);
+
+    await prisma.agent.update({
+      where: { id: agentId },
+      data: { communicationSettings: settings as object },
+    });
+    logger.info("communication-settings saved", { agentId });
+    res.json({ ok: true, settings });
+  } catch (error) {
+    logger.error("save communication-settings failed", { error: error instanceof Error ? error.message : String(error) });
+    res.status(500).json({ error: "Failed to save communication settings" });
+  }
+});
+
+// ---------------------------------------------------------------------------
 // For non-Composio tools (CoStar/Crexi/The Analyst Pro): the client types the
 // username/password on the portal; we validate against the agent's declared
 // custom-tool fields and store them encrypted on the Credential row (no
@@ -5784,7 +5876,7 @@ app.post("/extension/tasks/:taskId/need-2fa", async (req: Request, res: Response
     const service = String(req.body?.service || "your tool").trim() || "your tool";
     const agent = await prisma.agent.findFirst({
       where: { clientId: device.clientId, status: "active" },
-      select: { id: true, name: true, agentType: true, client: { select: { email: true, whatsappNumber: true } } },
+      select: { id: true, name: true, agentType: true, communicationSettings: true, client: { select: { email: true, whatsappNumber: true } } },
       orderBy: { createdAt: "asc" },
     });
     const clientEmail = agent?.client?.email;
@@ -5793,39 +5885,51 @@ app.post("/extension/tasks/:taskId/need-2fa", async (req: Request, res: Response
     pending2fa.set(device.clientId, { taskId, at: Date.now() });
     codes2fa.delete(device.clientId);
 
-    // Prefer WhatsApp — the client's reply reaches us in seconds (push), vs
-    // several minutes for email (Gmail → Resend). Fall back to email if there's
-    // no WhatsApp number on file or the send fails. Both reply paths (the
-    // /webhooks/whatsapp branch and the email-inbound branch) feed codes2fa.
+    // Which channel reaches the human for the code. Default order is WhatsApp
+    // first — the reply lands in seconds (push) vs several minutes for email
+    // (Gmail → Resend) — then email as fallback. The client can flip this in
+    // Communication Settings (mfaRelay). A 'connected' relay target (e.g. Slack)
+    // isn't wired to send+capture yet, so it falls back to the platform default.
+    // Both reply paths (/webhooks/whatsapp + email-inbound) feed codes2fa.
+    const comms = parseCommunicationSettings(agent.communicationSettings);
+    const prefersEmail = comms.mfaRelay?.kind === "platform_email";
+    const order: ("whatsapp" | "email")[] = prefersEmail ? ["email", "whatsapp"] : ["whatsapp", "email"];
+
     let channel = "none";
-    if (clientWhatsApp) {
-      try {
-        const { sendWhatsApp } = await import("../shared/whatsapp.js");
-        await sendWhatsApp({
-          to: clientWhatsApp,
-          message: `${agent.name} here — ${service} just sent you a one-time verification code so I can finish signing in on your behalf. Reply with just the code (the digits) and I'll continue right away.`,
-        });
-        pending2faByPhone.set(phoneKey(clientWhatsApp), { clientId: device.clientId, at: Date.now() });
-        channel = "whatsapp";
-      } catch (waErr) {
-        logger.warn("need-2fa: WhatsApp send failed, will try email", { error: waErr instanceof Error ? waErr.message : String(waErr) });
-      }
-    }
-    if (channel !== "whatsapp" && clientEmail) {
-      const { sendEmail } = await import("../shared/email.js");
-      await sendEmail({
-        agentId: agent.id,
-        agentName: agent.name,
-        to: clientEmail,
-        subject: `${agent.name} — verification code for ${service}`,
-        html: `<div style="font-family:-apple-system,sans-serif;max-width:540px;margin:0 auto;padding:24px;font-size:15px;color:#26332f;line-height:1.6;">
+    for (const ch of order) {
+      if (channel !== "none") break;
+      if (ch === "whatsapp" && clientWhatsApp) {
+        try {
+          const { sendWhatsApp } = await import("../shared/whatsapp.js");
+          await sendWhatsApp({
+            to: clientWhatsApp,
+            message: `${agent.name} here — ${service} just sent you a one-time verification code so I can finish signing in on your behalf. Reply with just the code (the digits) and I'll continue right away.`,
+          });
+          pending2faByPhone.set(phoneKey(clientWhatsApp), { clientId: device.clientId, at: Date.now() });
+          channel = "whatsapp";
+        } catch (waErr) {
+          logger.warn("need-2fa: WhatsApp send failed, trying next channel", { error: waErr instanceof Error ? waErr.message : String(waErr) });
+        }
+      } else if (ch === "email" && clientEmail) {
+        try {
+          const { sendEmail } = await import("../shared/email.js");
+          await sendEmail({
+            agentId: agent.id,
+            agentName: agent.name,
+            to: clientEmail,
+            subject: `${agent.name} — verification code for ${service}`,
+            html: `<div style="font-family:-apple-system,sans-serif;max-width:540px;margin:0 auto;padding:24px;font-size:15px;color:#26332f;line-height:1.6;">
         <p>${service} just sent you a one-time verification code so I can finish logging in on your behalf.</p>
         <p><strong>Reply to this email with the code</strong> (just the digits) and I'll continue right away.</p>
         <p style="color:#9aa8a4;font-size:13px;">The code is used once and never stored. ${agent.name}, your agent at Ambitt</p>
       </div>`,
-        replyToAgentId: agent.id,
-      });
-      channel = "email";
+            replyToAgentId: agent.id,
+          });
+          channel = "email";
+        } catch (emailErr) {
+          logger.warn("need-2fa: email send failed, trying next channel", { error: emailErr instanceof Error ? emailErr.message : String(emailErr) });
+        }
+      }
     }
     if (channel === "none") { res.status(500).json({ error: "could not reach the client on any channel" }); return; }
     logger.info("2FA request sent", { clientId: device.clientId, channel, service });

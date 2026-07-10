@@ -7,6 +7,7 @@ import { PortalShell } from "@/components/portal-shell";
 import { getSendStats } from "@/lib/agent-activity";
 import { PauseToggle } from "./pause-toggle";
 import { AgentSettings } from "./agent-settings";
+import { CommunicationSettings } from "./communication-settings";
 import { ReachAgent } from "./reach-agent";
 import { ExampleEmails, type ExampleEmail } from "./example-emails";
 import { DocumentUpload } from "./document-upload";
@@ -173,8 +174,18 @@ export default async function AgentDetailPage(
           />
         </section>
 
+        {/* Communication — channels & outbound content policy */}
+        <section id="communication" className="mt-10 reveal scroll-mt-20" style={{ ["--i" as never]: 4 }}>
+          <h2 className="font-display text-[22px] text-[color:var(--text)] mb-1">Communication</h2>
+          <p className="text-[13px] text-[color:var(--text-3)] mb-4 max-w-[560px]">
+            Who can reach {agent.name}, how it reaches you for codes, and which inbox it
+            sends from — plus the signature and footer on every email.
+          </p>
+          <CommunicationSettings agentId={agent.id} agentName={agent.name} />
+        </section>
+
         {/* Documents */}
-        <section className="mt-10 reveal" style={{ ["--i" as never]: 4 }}>
+        <section className="mt-10 reveal" style={{ ["--i" as never]: 5 }}>
           <h2 className="font-display text-[22px] text-[color:var(--text)] mb-1">
             Knowledge
           </h2>
@@ -188,7 +199,7 @@ export default async function AgentDetailPage(
         </section>
 
         {/* Scope-change boundary */}
-        <section className="mt-10 reveal" style={{ ["--i" as never]: 5 }}>
+        <section className="mt-10 reveal" style={{ ["--i" as never]: 6 }}>
           <ChangeRequest agentId={agent.id} agentName={agent.name} />
         </section>
 

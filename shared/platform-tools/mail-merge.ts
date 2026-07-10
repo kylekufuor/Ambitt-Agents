@@ -1,6 +1,7 @@
 import prisma from "../db.js";
 import logger from "../logger.js";
 import { executeTool, resolveGmailAccountId } from "../mcp/composio.js";
+import { parseCommunicationSettings } from "../communication-settings.js";
 
 // ---------------------------------------------------------------------------
 // send_mail_merge — personalized bulk outreach through the client's Gmail
@@ -59,10 +60,17 @@ export async function sendMailMerge(input: MailMergeInput): Promise<{ message: s
 
   const agent = await prisma.agent.findUnique({
     where: { id: agentId },
-    select: { dryRun: true, maxEmailsPerDay: true },
+    select: { dryRun: true, maxEmailsPerDay: true, communicationSettings: true },
   });
   const dryRun = !!agent?.dryRun;
   const cap = agent?.maxEmailsPerDay ?? null;
+
+  // Outbound content policy from Communication Settings: signature + required
+  // footer appended to every message, and auto-BCC (e.g. a CRM dropbox) on each
+  // send. All optional — unset means today's behavior.
+  const comms = parseCommunicationSettings(agent?.communicationSettings);
+  const bodySuffix = [comms.signature, comms.footer].filter(Boolean).join("\n\n");
+  const bcc = comms.bccAddresses.length > 0 ? comms.bccAddresses : undefined;
 
   // Enforce the daily cap: only send up to (cap - already-sent-today).
   let toProcess = rows;
@@ -83,7 +91,14 @@ export async function sendMailMerge(input: MailMergeInput): Promise<{ message: s
   }
 
   const prepared = toProcess
-    .map((r) => ({ to: (r.email ?? "").trim(), subject: fill(subjectTemplate, r), body: fill(bodyTemplate, r) }))
+    .map((r) => {
+      const body = fill(bodyTemplate, r);
+      return {
+        to: (r.email ?? "").trim(),
+        subject: fill(subjectTemplate, r),
+        body: bodySuffix ? `${body}\n\n${bodySuffix}` : body,
+      };
+    })
     .filter((p) => p.to && /.+@.+\..+/.test(p.to));
 
   const carried = rows.length - prepared.length;
@@ -112,13 +127,24 @@ export async function sendMailMerge(input: MailMergeInput): Promise<{ message: s
     };
   }
 
-  // Resolve which Gmail inbox to send from (if the client named one).
+  // Resolve which Gmail inbox to send from. Priority:
+  //   1. fromEmail the agent explicitly passed (per-batch override)
+  //   2. the client's configured outbound identity (Communication Settings) —
+  //      the persisted "send to my clients from this inbox" choice
+  //   3. Composio's default connection (fromConnectionId stays undefined)
   let fromConnectionId: string | undefined;
-  if (fromEmail && fromEmail.trim()) {
-    fromConnectionId = (await resolveGmailAccountId(clientId, fromEmail)) ?? undefined;
+  let requestedFrom = fromEmail?.trim() || undefined;
+  if (!requestedFrom) {
+    if (comms.outbound?.kind === "connected") {
+      if (comms.outbound.address) requestedFrom = comms.outbound.address;
+      else if (comms.outbound.connectionId) fromConnectionId = comms.outbound.connectionId;
+    }
+  }
+  if (requestedFrom) {
+    fromConnectionId = (await resolveGmailAccountId(clientId, requestedFrom)) ?? undefined;
     if (!fromConnectionId) {
       return {
-        message: `No connected Gmail matches "${fromEmail}". Ask the client to connect that inbox on their Tools page (Add another Gmail), or send from the default account.`,
+        message: `No connected Gmail matches "${requestedFrom}". Ask the client to connect that inbox on their Tools page (Add another Gmail), or send from the default account.`,
         isError: true,
       };
     }
@@ -132,7 +158,7 @@ export async function sendMailMerge(input: MailMergeInput): Promise<{ message: s
       const res = await executeTool(
         clientId,
         "GMAIL_SEND_EMAIL",
-        { recipient_email: p.to, subject: p.subject, body: p.body, is_html: false },
+        { recipient_email: p.to, subject: p.subject, body: p.body, is_html: false, ...(bcc ? { bcc } : {}) },
         fromConnectionId
       );
       if (res.success) {

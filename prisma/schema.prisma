@@ -122,6 +122,18 @@ model Agent {
   exampleEmails            Json?
   exampleEmailsGeneratedAt DateTime?
 
+  // Per-agent Communication Settings — a routing-preference layer that does NOT
+  // store channel credentials, only which channel plays each role. Roles:
+  //   inbound.allowedSenders — extra emails allowed to reach the agent + get a
+  //     reply (extends the owner-client check in checkInboundAuth)
+  //   mfaRelay  — how the agent asks the human for a verification code
+  //   outbound  — which identity the agent sends client-facing comms from
+  // Null (or a null role) = today's default behavior. Shape + safe parser live
+  // in shared/communication-settings.ts (Zod). Channels are drawn from platform
+  // natives (Client.whatsappNumber / Client.email) + channelType-tagged connected
+  // tools (shared/mcp/channel-types.ts).
+  communicationSettings Json?
+
   primaryModel   String @default("claude-sonnet-4-6")
   analyticsModel String @default("gemini")
   creativeModel  String @default("gpt-4o")

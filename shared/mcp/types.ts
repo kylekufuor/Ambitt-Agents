@@ -11,6 +11,14 @@ export type MCPAuthMethod = "bearer" | "api_key_header" | "oauth" | "env" | "con
 /** Tool category for grouping in UI */
 export type MCPToolCategory = "crm" | "payments" | "analytics" | "database" | "project_management" | "communication" | "support" | "finance" | "commerce" | "marketing" | "seo" | "advertising" | "email_marketing" | "product_analytics";
 
+/**
+ * Communication channel type — tags a tool as a channel the agent can send/receive
+ * personal messages through. Drives which connected tools surface in an agent's
+ * Communication Settings (inbound / MFA relay / outbound roles). `chat`/`sms` are
+ * real-time and preferred for the MFA-relay role over `email`.
+ */
+export type MCPChannelType = "email" | "chat" | "sms";
+
 /** Defines how to connect to an MCP server */
 export interface MCPServerDefinition {
   id: string;
@@ -39,6 +47,10 @@ export interface MCPServerDefinition {
   docsUrl?: string;
   officialServer: boolean;        // maintained by the tool vendor
   readOnly?: boolean;             // server only supports read operations
+
+  // Communication routing — set only on tools usable as a personal comms channel.
+  // Surfaces the tool in an agent's Communication Settings roles. See channel-types.ts.
+  channelType?: MCPChannelType;
 }
 
 /** Result from calling an MCP tool */

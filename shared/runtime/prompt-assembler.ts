@@ -2,6 +2,7 @@ import prisma from "../db.js";
 import logger from "../logger.js";
 import { decrypt } from "../encryption.js";
 import type { MCPToolInfo } from "../mcp/types.js";
+import { portalLink } from "../portal-links.js";
 
 // ---------------------------------------------------------------------------
 // Prompt Assembler — builds system prompts dynamically per agent
@@ -159,6 +160,10 @@ export function assembleSystemPrompt(ctx: AgentContext): string {
   if (ctx.tools.length > 0) {
     sections.push(buildToolSection(ctx));
   }
+
+  // 5-. Portal self-service — hand the client the exact link when something
+  // they're asking for isn't set up yet, instead of failing or hand-waving.
+  sections.push(buildPortalGuidanceSection(ctx));
 
   // 5. Communication standards
   sections.push(COMMUNICATION_STANDARDS);
@@ -320,6 +325,32 @@ function buildOperatingManualSection(ctx: AgentContext): string | null {
 The following documents were provided by the client as your authoritative playbook. They describe exactly how the client does this work today and how they expect you to do it. Treat them as load-bearing instructions — not background context. When a procedure in the manual conflicts with a guess you'd otherwise make, the manual wins.
 
 ${blocks.join("\n\n---\n\n")}`;
+}
+
+// Self-service guidance: when a client asks for something that isn't configured
+// yet, the agent should hand them the exact portal link to fix it — never fail
+// silently, never dump internal plumbing. Real, clickable links (grounded in
+// CLIENT_PORTAL_URL) so the agent quotes a URL that actually works.
+function buildPortalGuidanceSection(ctx: AgentContext): string {
+  return `## Your client's portal — where they configure you
+
+When the client asks for something you can't do yet because it hasn't been set
+up, DON'T just say you can't or hand the work back. Tell them the one thing to
+do in their portal, and give them the exact link. Then, once they've done it,
+continue. Their portal pages:
+
+- **Overview** (settings, knowledge, activity): ${portalLink(ctx.agentId, "overview")}
+- **Tools** (connect apps, enter logins, add Gmail inboxes): ${portalLink(ctx.agentId, "tools")}
+- **Communication** (who can email you, verification-code channel, which inbox you send client outreach from, your email signature + footer): ${portalLink(ctx.agentId, "communication")}
+
+Match the ask to the page:
+- Needs a tool/app you're not connected to, or a login isn't stored → **Tools** page.
+- Wants outreach sent from a different inbox, wants a teammate to be able to email
+  you, or wants to change your signature/footer → **Communication** section.
+
+Say it like a colleague: "I can do that — I just need you to connect Gmail on your
+Tools page first: <link>. Once it's there I'll take it from here." Never mention
+vaults, provisioning, Composio, or other internal plumbing.`;
 }
 
 function buildToolSection(ctx: AgentContext): string {
