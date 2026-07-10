@@ -2,50 +2,52 @@
 
 /* ============================================================================
    Ambitt Agents — design tokens.
-   Reference: brand identity. Warm-minimal SaaS — Fraunces display + Geist body,
-   teal accent on warm white, no gradients, restrained motion. Editorial-feel.
+   Reference: HubSpot product UI. One geometric sans (Lexend), semibold
+   headings, cool slate-gray neutrals on a light blue-gray canvas, tight
+   functional cards with subtle borders, minimal motion. Teal accent (aligns
+   with HubSpot's own teal secondary).
    ============================================================================ */
 
 :root {
-  /* Brand */
-  --brand: #00b3b3;
-  --brand-hover: #099;
-  --brand-bright: #00d4d4;
-  --brand-tint: rgba(0, 179, 179, 0.08);
-  --brand-tint-strong: rgba(0, 179, 179, 0.14);
-  --brand-shadow: 0 1px 2px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 179, 179, 0.28);
+  /* Brand — teal (HubSpot's palette includes a near-identical teal) */
+  --brand: #00a4bd;
+  --brand-hover: #0091a8;
+  --brand-bright: #00b3b3;
+  --brand-tint: rgba(0, 164, 189, 0.08);
+  --brand-tint-strong: rgba(0, 164, 189, 0.14);
+  --brand-shadow: 0 1px 2px rgba(45, 62, 80, 0.08);
 
-  /* Warm neutrals */
-  --bg: #fafaf8;
+  /* Cool slate neutrals (HubSpot) */
+  --bg: #f5f8fa;
   --surface: #ffffff;
-  --surface-2: #f5f5f3;
-  --text: #171717;
-  --text-2: #404040;
-  --text-3: #737373;
-  --text-4: #a3a3a3;
-  --border: #ececec;
-  --border-strong: #d4d4d4;
+  --surface-2: #eaf0f6;
+  --text: #33475b;          /* HubSpot slate — headings + body */
+  --text-2: #516f90;
+  --text-3: #7c98b6;
+  --text-4: #a4b8ce;
+  --border: #dfe3eb;
+  --border-strong: #cbd6e2;
 
   /* Status */
-  --emerald: #10b981;
-  --emerald-tint: rgba(16, 185, 129, 0.1);
-  --amber: #f59e0b;
-  --amber-tint: rgba(245, 158, 11, 0.1);
-  --red: #dc2626;
-  --red-tint: rgba(220, 38, 38, 0.08);
-  --blue: #3b82f6;
-  --blue-tint: rgba(59, 130, 246, 0.08);
+  --emerald: #00bda5;       /* HubSpot aqua-green */
+  --emerald-tint: rgba(0, 189, 165, 0.1);
+  --amber: #f5a623;
+  --amber-tint: rgba(245, 166, 35, 0.12);
+  --red: #f2545b;           /* HubSpot red */
+  --red-tint: rgba(242, 84, 91, 0.1);
+  --blue: #425b76;
+  --blue-tint: rgba(66, 91, 118, 0.09);
 
-  /* Typography */
-  --font-display: var(--font-fraunces), Georgia, "Times New Roman", serif;
-  --font-body: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, sans-serif;
+  /* Typography — Lexend throughout */
+  --font-display: var(--font-lexend), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-body: var(--font-lexend), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-mono: var(--font-geist-mono), "SF Mono", Menlo, monospace;
 
-  /* Layout */
-  --radius-sm: 6px;
-  --radius: 9px;
-  --radius-lg: 14px;
-  --radius-xl: 16px;
+  /* Layout — tighter, squarer (HubSpot) */
+  --radius-sm: 3px;
+  --radius: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 10px;
 }
 
 @theme inline {
@@ -89,31 +91,31 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family: var(--font-body);
-  font-feature-settings: "ss01" on, "cv11" on;
 }
 
-/* Display headers use Fraunces with subtle variable-font axes for warmth.
-   SOFT pushes the corners gentle; WONK off keeps the rounded forms sober. */
+/* Display headers — Lexend semibold, the HubSpot product-heading look. No serif,
+   no editorial flourish: functional, confident, slightly tightened. */
 .font-display {
   font-family: var(--font-display);
-  font-variation-settings: "SOFT" 50, "WONK" 0;
-  letter-spacing: -0.022em;
-}
-
-/* Tiny uppercase section labels — used throughout the portal */
-.eyebrow {
-  font-size: 10.5px;
   font-weight: 600;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--brand-hover);
+  letter-spacing: -0.011em;
 }
 
-/* Bordered card with consistent radius */
+/* Tiny uppercase section labels — HubSpot uses muted slate, not accent, here */
+.eyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+/* Bordered card with consistent radius + subtle HubSpot lift */
 .card {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
+  box-shadow: 0 1px 2px rgba(45, 62, 80, 0.06);
 }
 
 /* Subtle hover lift on interactive cards */
@@ -387,27 +389,14 @@ select {
 .bar-fill.warn   { background: var(--amber); }
 .bar-fill.danger { background: var(--red); }
 
-/* Page-level chrome: warm-paper surface with a faint vertical gradient that
-   gives the portal an editorial feel without screaming. */
+/* Page-level chrome: flat HubSpot blue-gray canvas. No gradient, no paper. */
 .page-wash {
-  background: linear-gradient(180deg, #fafaf8 0%, #f7f7f5 100%);
+  background: var(--bg);
   min-height: 100vh;
 }
 
-/* Reveal stagger — apply to a parent and use --i: <n> on each child for
-   subtle on-load cascade. Honors prefers-reduced-motion. */
-@media (prefers-reduced-motion: no-preference) {
-  .reveal > * {
-    opacity: 0;
-    animation: rise 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-    animation-delay: calc(var(--i, 0) * 60ms);
-  }
-}
-
-@keyframes rise {
-  from { opacity: 0; transform: translateY(8px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
+/* Reveal — retired for the HubSpot look (minimal motion, no load-in fade).
+   Kept as a no-op class so existing `reveal`/`--i` markup renders solid. */
 
 /* Accent stripe — decorative left-edge on cards. Differentiates active vs.
    pending vs. paused agents at a glance. */

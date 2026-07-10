@@ -92,7 +92,15 @@ export default async function PortalPage() {
   const activeAgents = client.agents.filter(
     (a) => a.status === "active" || a.status === "paused"
   );
-  const primaryAgent = activeAgents[0] ?? null;
+  // The agent the home's setup banner + nav tiles point at. Prefer a live
+  // (active/paused) agent, but fall back to one that's still building so the
+  // client can connect tools and configure it DURING setup — otherwise a
+  // building-only account is a dead-end with nowhere to go.
+  const primaryAgent =
+    activeAgents[0] ??
+    client.agents.find((a) => a.status === "pending_approval" || a.status === "building") ??
+    null;
+  const primaryIsLive = !!primaryAgent && (primaryAgent.status === "active" || primaryAgent.status === "paused");
 
   // Chat access — mint a signed chat token for this client+agent so the Chat
   // tile links straight into the live conversation (same runtime as email,
@@ -178,21 +186,23 @@ export default async function PortalPage() {
         name: client.contactName ?? client.preferredName ?? client.businessName,
       }}
     >
-      <div className="max-w-[1200px] mx-auto px-4 sm:px-6 pt-10 pb-16">
+      <div className="max-w-[1080px] px-6 lg:px-10 pt-9 pb-16">
         {/* Hero */}
         <header className="mb-8 reveal" style={{ ["--i" as never]: 0 }}>
           <p className="eyebrow mb-3">{client.businessName}</p>
-          <h1 className="font-display text-[40px] md:text-[44px] leading-[1.05] text-[color:var(--text)]">
+          <h1 className="font-display text-[28px] md:text-[30px] leading-[1.15] text-[color:var(--text)]">
             Good to see you, {greetName}.
           </h1>
           <p className="text-[15px] text-[color:var(--text-3)] mt-3 max-w-[640px]">
-            {activeAgents.length === 0
+            {!primaryAgent
               ? "Your workforce is being set up. We'll email you the moment your first agent is live."
               : needsSetup
-                ? `${agentLabel} is ready — there's just one quick step to get going.`
-                : oneAgent
-                  ? `${activeAgents[0].name} is on the clock. Here's how this month is going.`
-                  : `Your ${activeAgents.length}-person team is on the clock.`}
+                ? `${primaryAgent.name} needs a couple of things from you to get started — it only takes a minute.`
+                : !primaryIsLive
+                  ? `${primaryAgent.name} is being set up. You can connect tools and configure it now — it'll start once it's live.`
+                  : oneAgent
+                    ? `${activeAgents[0].name} is on the clock. Here's how this month is going.`
+                    : `Your ${activeAgents.length}-person team is on the clock.`}
           </p>
         </header>
 

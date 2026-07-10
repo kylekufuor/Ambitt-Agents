@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Fraunces } from "next/font/google";
+import { Geist_Mono, Lexend } from "next/font/google";
 import "./globals.css";
 
-// Body — Geist Sans. Characterful neutral grotesque, ships with Vercel's
-// design system. Chosen over Inter for distinctiveness; the brand identity
-// document points to "distinctive display + refined body" pairing.
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+// Lexend — HubSpot's brand typeface. Clean geometric-humanist sans used for
+// BOTH display and body: one family, semibold headings, functional feel. This
+// is the core of the HubSpot-style product look (no serif display).
+const lexend = Lexend({
+  variable: "--font-lexend",
   subsets: ["latin"],
   display: "swap",
 });
@@ -14,16 +14,6 @@ const geistSans = Geist({
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
-  display: "swap",
-});
-
-// Display — Fraunces. Variable serif from Google Fonts with optical-size,
-// SOFT, and WONK axes. Gives the warm-minimal Ambitt aesthetic real
-// editorial character. Used on hero headers + section titles.
-const fraunces = Fraunces({
-  variable: "--font-fraunces",
-  subsets: ["latin"],
-  axes: ["SOFT", "WONK", "opsz"],
   display: "swap",
 });
 
@@ -45,7 +35,7 @@ export default function RootLayout({
       // silences the resulting top-level mismatch without hiding real bugs
       // deeper in the tree (React only suppresses one level).
       suppressHydrationWarning
-      className={`${geistSans.variable} ${geistMono.variable} ${fraunces.variable} h-full`}
+      className={`${lexend.variable} ${geistMono.variable} h-full`}
     >
       <body className="min-h-full">{children}</body>
     </html>

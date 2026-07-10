@@ -1,78 +1,64 @@
 import Link from "next/link";
+import prisma from "@/lib/db";
 import { BrandLockup } from "./brand-mark";
 import { AccountMenu } from "./account-menu";
+import { Sidebar } from "./sidebar";
 
 /**
  * PortalShell — the wrapping chrome for every authenticated client surface.
- * Renders the top bar (brand lockup left, agent name center if provided,
- * account menu right) and a page-wash background underneath.
+ * HubSpot-style: a persistent left sidebar (global nav + the client's agents
+ * and their sub-pages) with the page content to its right. On small screens the
+ * sidebar is hidden and a slim top bar takes over.
  *
- * Server component (no useState) — interactive bits (the account dropdown)
- * are isolated to <AccountMenu />.
+ * Async server component: fetches the client's agents for the sidebar nav.
+ * Interactive bits (sidebar active states, account dropdown) are isolated to
+ * their own client components.
  */
-export function PortalShell({
+export async function PortalShell({
   user,
-  agentName,
-  agentRole,
-  agentStatus,
   children,
 }: {
   user: { email: string; name?: string | null };
+  // Legacy per-agent props are still accepted by callers but no longer render a
+  // top-bar chip — the sidebar now carries agent context.
   agentName?: string;
   agentRole?: string;
   agentStatus?: "active" | "paused" | "pending_approval" | "killed";
   children: React.ReactNode;
 }) {
+  const client = await prisma.client.findUnique({
+    where: { email: user.email },
+    select: { agents: { select: { id: true, name: true, status: true }, orderBy: { createdAt: "asc" } } },
+  });
+  const agents = client?.agents ?? [];
+  const displayName = user.name ?? user.email.split("@")[0];
+
   return (
-    <div className="page-wash">
-      <header className="border-b border-[color:var(--border)] bg-[color:var(--surface)]/80 backdrop-blur sticky top-0 z-30">
-        <div className="max-w-[1200px] mx-auto px-4 sm:px-6 h-14 flex items-center gap-6">
-          <Link href="/" className="shrink-0">
-            <BrandLockup height={20} />
-          </Link>
+    <div className="min-h-screen flex bg-[color:var(--bg)]">
+      <Sidebar agents={agents} email={user.email} displayName={displayName} />
 
-          {agentName && (
-            <div className="hidden md:flex items-center gap-2 min-w-0">
-              <div className="w-px h-5 bg-[color:var(--border)]" />
-              <div className="flex items-center gap-2 min-w-0">
-                <AgentStatusDot status={agentStatus ?? "active"} />
-                <div className="min-w-0">
-                  <div className="text-[14px] font-medium text-[color:var(--text)] truncate">{agentName}</div>
-                  {agentRole && (
-                    <div className="text-[11px] text-[color:var(--text-3)] truncate leading-tight">{agentRole}</div>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div className="ml-auto flex items-center gap-2">
-            <AccountMenu email={user.email} displayName={user.name ?? user.email.split("@")[0]} />
+      <div className="flex-1 min-w-0 flex flex-col">
+        {/* Mobile top bar — sidebar is hidden under lg */}
+        <header className="lg:hidden border-b border-[color:var(--border)] bg-[color:var(--surface)] sticky top-0 z-30">
+          <div className="px-4 h-14 flex items-center justify-between">
+            <Link href="/">
+              <BrandLockup height={19} />
+            </Link>
+            <AccountMenu email={user.email} displayName={displayName} />
           </div>
-        </div>
-      </header>
+        </header>
 
-      <main>{children}</main>
+        <main className="flex-1 min-w-0">{children}</main>
 
-      <footer className="border-t border-[color:var(--border)] mt-12 py-6 bg-[color:var(--surface)]">
-        <div className="max-w-[1200px] mx-auto px-4 sm:px-6 flex items-center justify-between text-[12px] text-[color:var(--text-3)]">
-          <span>Ambitt Agents · ambitt.agency</span>
-          <a href="mailto:support@ambitt.agency" className="hover:text-[color:var(--text)] transition-colors">
-            support@ambitt.agency
-          </a>
-        </div>
-      </footer>
+        <footer className="border-t border-[color:var(--border)] py-5 bg-[color:var(--surface)]">
+          <div className="max-w-[1000px] mx-auto px-6 flex items-center justify-between text-[12px] text-[color:var(--text-3)]">
+            <span>Ambitt Agents · ambitt.agency</span>
+            <a href="mailto:support@ambitt.agency" className="hover:text-[color:var(--text)] transition-colors">
+              support@ambitt.agency
+            </a>
+          </div>
+        </footer>
+      </div>
     </div>
   );
-}
-
-function AgentStatusDot({ status }: { status: "active" | "paused" | "pending_approval" | "killed" }) {
-  const map = {
-    active: { cls: "dot-emerald dot-pulse", title: "Active" },
-    paused: { cls: "dot-muted", title: "Paused" },
-    pending_approval: { cls: "dot-blue dot-pulse", title: "Building" },
-    killed: { cls: "dot-red", title: "Killed" },
-  } as const;
-  const { cls, title } = map[status];
-  return <span className={`dot ${cls}`} title={title} />;
 }
