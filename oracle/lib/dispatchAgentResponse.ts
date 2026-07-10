@@ -2,6 +2,8 @@ import prisma from "../../shared/db.js";
 import { sendEmail, type EmailAttachment } from "../../shared/email.js";
 import { buildAgentResponseEmail } from "../templates/agent-response.js";
 import logger from "../../shared/logger.js";
+import { checkOutboundSeatbelts, type SeatbeltTrip } from "../../shared/seatbelts.js";
+import { haltAgent } from "./pause-control.js";
 
 // ---------------------------------------------------------------------------
 // dispatchAgentResponse — single entry point for all agent-response email
@@ -39,7 +41,9 @@ export interface DispatchInput {
 }
 
 export async function dispatchAgentResponse(input: DispatchInput): Promise<
-  { mode: "immediate"; emailId?: string } | { mode: "queued"; scheduledEmailId: string }
+  | { mode: "immediate"; emailId?: string }
+  | { mode: "queued"; scheduledEmailId: string }
+  | { mode: "blocked_seatbelt"; tripped?: SeatbeltTrip; reason?: string }
 > {
   const { agentId, runtimeOutput, isReply, recipientEmail } = input;
 
@@ -80,13 +84,39 @@ export async function dispatchAgentResponse(input: DispatchInput): Promise<
     });
 
     const to = recipientEmail ?? agent.client.email;
+    const subject = isReply
+      ? `Re: ${agent.name} — ${agent.client.businessName}`
+      : `${agent.name} — ${agent.client.businessName}`;
+
+    // Outbound seatbelt (control-plane Pillar 4). If this agent is looping —
+    // too many sends in a short window, or the same message repeated to the
+    // same recipient — block the send, system-pause the agent (operator-only
+    // resume), and alert the operator. Defense-in-depth behind the inbound
+    // machine-email guard: catches a runaway even if the trigger wasn't email.
+    const verdict = await checkOutboundSeatbelts(prisma, { agentId, recipient: to, subject, bodyText: responseBody });
+    if (!verdict.allowed) {
+      await haltAgent(prisma, { agentId, by: "system", reason: `seatbelt:${verdict.tripped} — ${verdict.reason ?? ""}`.slice(0, 300) });
+      logger.warn("Outbound seatbelt tripped — send blocked, agent system-paused", { agentId, to, tripped: verdict.tripped, reason: verdict.reason });
+      try {
+        const { sendWhatsApp } = await import("../../shared/whatsapp.js");
+        const kyle = process.env.KYLE_WHATSAPP_NUMBER;
+        if (kyle) {
+          await sendWhatsApp({
+            to: kyle,
+            message: `🚨 Seatbelt tripped for ${agent.name} (${agentId}): ${verdict.tripped}. ${verdict.reason ?? ""}\nAgent auto-paused (system). Resume from the dashboard when it's safe.`,
+          });
+        }
+      } catch (e) {
+        logger.warn("Seatbelt operator alert (WhatsApp) failed", { agentId, err: e instanceof Error ? e.message : String(e) });
+      }
+      return { mode: "blocked_seatbelt", tripped: verdict.tripped, reason: verdict.reason };
+    }
+
     await sendEmail({
       agentId,
       agentName: agent.name,
       to,
-      subject: isReply
-        ? `Re: ${agent.name} — ${agent.client.businessName}`
-        : `${agent.name} — ${agent.client.businessName}`,
+      subject,
       html: responseHtml,
       replyToAgentId: agentId,
       attachments: runtimeOutput.attachments.length > 0 ? runtimeOutput.attachments : undefined,

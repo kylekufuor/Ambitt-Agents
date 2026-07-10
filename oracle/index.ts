@@ -8,6 +8,8 @@ import { runImprovementCycle } from "./improve.js";
 import { handleStripeWebhook } from "./billing.js";
 import { onboardClient } from "./onboard.js";
 import { classifyAutomatedInbound } from "./lib/inbound-classify.js";
+import { classifyControlIntent, isHaltIntent } from "./lib/intent-classify.js";
+import { haltAgent, resumeAgent } from "./lib/pause-control.js";
 import prisma from "../shared/db.js";
 import logger from "../shared/logger.js";
 import { parseCommunicationSettings } from "../shared/communication-settings.js";
@@ -542,10 +544,8 @@ app.post("/agents/:id/pause", async (req: Request, res: Response) => {
     const id = param(req, "id");
     const { unregisterAgent } = await import("./scheduler.js");
     unregisterAgent(id);
-    await prisma.agent.update({
-      where: { id },
-      data: { status: "paused" },
-    });
+    const reason = typeof req.body?.reason === "string" ? req.body.reason : "Paused by operator";
+    await haltAgent(prisma, { agentId: id, by: "operator", reason });
     // Cancel pending onboarding checkpoints — pause means "stop the flow."
     try {
       const { cancelOnboardingCheckpoints } = await import("./scaffold.js");
@@ -574,23 +574,20 @@ app.post("/agents/:id/resume", async (req: Request, res: Response) => {
       return;
     }
 
-    if (agent.status !== "paused") {
-      res.status(400).json({ error: `Cannot resume — agent status is '${agent.status}'` });
+    // Operator resume — authoritative over client/operator/system pauses.
+    const r = await resumeAgent(prisma, { agentId: id, requester: "operator" });
+    if (!r.ok) {
+      res.status(400).json({ error: r.message });
       return;
     }
 
-    await prisma.agent.update({
-      where: { id },
-      data: { status: "active" },
-    });
-
-    if (agent.schedule && agent.schedule !== "manual") {
+    if (r.status === "active" && agent.schedule && agent.schedule !== "manual") {
       const { registerAgent } = await import("./scheduler.js");
       registerAgent(id, agent.schedule);
     }
 
-    logger.info("Agent resumed", { agentId: id });
-    res.json({ status: "active" });
+    logger.info("Agent resumed", { agentId: id, noop: r.noop ?? false });
+    res.json({ status: r.status });
   } catch (error) {
     logger.error("Agent resume failed", { error, agentId: param(req, "id") });
     res.status(500).json({ error: "Resume failed" });
@@ -1655,10 +1652,19 @@ app.post("/webhooks/email-inbound", async (req: Request, res: Response) => {
       // right way in." Skipped for client agents (no marco-mcquizzy@ leakage)
       // and for reply-path rejections (rare; sender clearly already has context).
       // Fire-and-forget so the 200 ignored response goes out immediately.
-      if (routingPath === "direct") {
+      // Never auto-respond to an automated sender (no-reply / bounce / vendor
+      // notification) — that's a robot-to-robot echo waiting to happen.
+      const rejectedMachine = classifyAutomatedInbound(
+        from,
+        typeof emailData.subject === "string" ? emailData.subject : "",
+        emailData
+      );
+      if (routingPath === "direct" && !rejectedMachine.automated) {
         void sendColdEmailAutoResponse(agentId, from, subject).catch((err) =>
           logger.warn("Cold-rejection auto-response failed", { agentId, from, err })
         );
+      } else if (rejectedMachine.automated) {
+        ilog.authResult = "rejected:" + auth.reason + "|automated:" + rejectedMachine.reason;
       }
       res.json({ status: "ignored", reason: auth.reason });
       return;
@@ -1942,6 +1948,80 @@ app.post("/webhooks/email-inbound", async (req: Request, res: Response) => {
     const subjectPlain = (typeof emailData.subject === "string" ? emailData.subject : "").trim();
     if (!messageContent && subjectPlain.length > 0) {
       messageContent = `(No body — subject only: "${subjectPlain}")`;
+    }
+
+    // Control-intent (Pillars 1/2/5): read the message like a person would —
+    // "pause", "hold off", "you can resume" — and act, instead of running the
+    // agent. Runs BEFORE the active-status check so a paused agent can still be
+    // resumed by a plain-language reply. Only the top (non-quoted) portion is
+    // classified so an old quoted "stop" doesn't misfire.
+    {
+      const topForIntent = messageContent.split(/^\s*>|-{3,}\s*Original|On .* wrote:/m)[0].slice(0, 1000);
+      let ci: Awaited<ReturnType<typeof classifyControlIntent>>;
+      try {
+        ci = await classifyControlIntent(topForIntent);
+      } catch (err) {
+        // Never let intent classification take down inbound processing — a
+        // classifier hiccup must degrade to "treat as a normal message", not 500.
+        logger.warn("Control-intent classify threw — proceeding as normal", { agentId, err: err instanceof Error ? err.message : String(err) });
+        ci = { intent: "normal", confidence: 0, source: "fallback" };
+      }
+      const requester: "operator" | "client" = auth.senderType === "platform_operator" ? "operator" : "client";
+      const isControl = ci.intent === "resume" || isHaltIntent(ci);
+      if (isControl) {
+        const ctrlAgent = await prisma.agent.findUnique({
+          where: { id: agentId },
+          select: { name: true, client: { select: { email: true } } },
+        });
+        const agentName = ctrlAgent?.name ?? "Your agent";
+        const to = parseEmailFromHeader(from) ?? ctrlAgent?.client?.email ?? from;
+
+        let confirmMsg: string;
+        let disposition: string;
+        if (ci.intent === "resume") {
+          const r = await resumeAgent(prisma, { agentId, requester });
+          disposition = "control:resume:" + (r.ok ? "ok" : "denied");
+          confirmMsg = r.ok
+            ? (r.noop
+                ? `I wasn't paused, so there's nothing to resume — I'm on it. Reply any time.`
+                : `You're back up — I'm resuming now and I'll pick up where we left off.`)
+            : `I can't lift this one myself — it was paused by our team and needs us to resume it. I've flagged it so someone takes a look.`;
+        } else {
+          const r = await haltAgent(prisma, { agentId, by: requester, reason: `client asked to ${ci.intent} (${ci.source})`.slice(0, 200) });
+          disposition = "control:halt:" + ci.intent + (r.noop ? ":noop" : "");
+          confirmMsg = ci.intent === "ambiguous"
+            ? `Just to be safe, I've paused — it read like you might want me to hold off. Reply "resume" whenever you want me going again, or tell me what to change.`
+            : `Got it — I've paused. I won't send anything or do any work until you tell me to pick back up. Just reply "resume" whenever you're ready.`;
+        }
+        ilog.disposition = disposition;
+
+        try {
+          const { sendEmail: sendControl } = await import("../shared/email.js");
+          await sendControl({
+            agentId,
+            agentName,
+            to,
+            subject: `${agentName} — ${ci.intent === "resume" ? "resumed" : "paused"}`,
+            html: `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;max-width:520px;margin:0 auto;padding:8px 4px;color:#3f4a48;font-size:15px;line-height:1.6;">
+              <p style="margin:0 0 14px;">${confirmMsg}</p>
+              <p style="margin:0;font-size:13px;color:#8a938f;">— ${agentName} · <span style="color:#0f7a74;">Ambitt Agents</span></p>
+            </div>`,
+            replyToAgentId: agentId,
+            emailType: "control_ack",
+          });
+        } catch (sendErr) {
+          logger.warn("Control-intent confirmation send failed", { agentId, err: sendErr instanceof Error ? sendErr.message : String(sendErr) });
+        }
+        logger.info("Inbound handled as control intent", { agentId, intent: ci.intent, source: ci.source, requester });
+        res.json({ status: "control", intent: ci.intent });
+        return;
+      }
+      if (ci.intent === "throttle") {
+        // Not a full stop — let the agent respond conversationally, but record
+        // the cadence signal for observability / future auto-throttle.
+        ilog.disposition = "control:throttle:passthrough";
+        logger.info("Throttle intent — passing through to the agent", { agentId, matched: ci.matched });
+      }
     }
 
     // Parse attachments if present
