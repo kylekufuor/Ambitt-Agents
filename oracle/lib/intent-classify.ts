@@ -131,8 +131,10 @@ function parseModelJson(raw: string): { intent: ControlIntent; confidence: numbe
 /**
  * Classify the control intent of a client message BEFORE running the agent.
  *
- * 1. Deterministic keyword fast-path (no model call), case-insensitive, ordered
- *    resume → throttle → halt so "you can start again" resolves to resume.
+ * 1. Deterministic keyword fast-path (no model call), case-insensitive. One
+ *    matched control category → that intent; two+ conflicting categories →
+ *    ambiguous (fail-safe halt), so an incidental "start again" can't flip a
+ *    clear "pause".
  * 2. Otherwise ask the model (opts.callModel, or the default Claude-haiku caller)
  *    for compact JSON {intent, confidence}.
  * 3. On model failure / unparseable output → { intent:"normal", source:"fallback" }.
@@ -143,17 +145,28 @@ export async function classifyControlIntent(
 ): Promise<IntentResult> {
   const text = message ?? "";
 
-  // 1. Keyword fast-path — first match wins.
+  // 1. Keyword fast-path. Collect every control category the message hits.
+  //    - Exactly one category  → that intent (the common case).
+  //    - More than one category → genuinely conflicting ("pause for now, I'll
+  //      tell you when to start again") → ambiguous, which the fail-safe policy
+  //      (isHaltIntent) treats as halt: pause + confirm. This prevents an
+  //      incidental "start again" from flipping a clear "pause" to resume.
+  const matchedIntents = new Set<ControlIntent>();
+  let firstMatch: { intent: ControlIntent; matched: string; index: number } | null = null;
   for (const rule of KEYWORD_RULES) {
     const m = text.match(rule.pattern);
-    if (m) {
-      return {
-        intent: rule.intent,
-        confidence: 1,
-        matched: m[0],
-        source: "keyword",
-      };
+    if (!m) continue;
+    matchedIntents.add(rule.intent);
+    const idx = m.index ?? Number.MAX_SAFE_INTEGER;
+    if (firstMatch === null || idx < firstMatch.index) {
+      firstMatch = { intent: rule.intent, matched: m[0], index: idx };
     }
+  }
+  if (matchedIntents.size === 1 && firstMatch) {
+    return { intent: firstMatch.intent, confidence: 1, matched: firstMatch.matched, source: "keyword" };
+  }
+  if (matchedIntents.size > 1) {
+    return { intent: "ambiguous", confidence: 0.5, matched: firstMatch?.matched, source: "keyword" };
   }
 
   // 2. Model path.

@@ -66,6 +66,16 @@ async function main(): Promise<void> {
       `got intent=${r.intent} source=${r.source}`
     );
   }
+  {
+    // Conflicting control keywords (halt + resume) -> ambiguous -> fail-safe halt.
+    // Regression for the live-test miss where "start again" flipped a clear pause.
+    const r = await classifyControlIntent("can you pause for now? I'll tell you when to start again");
+    check(
+      "'pause ... start again' -> ambiguous (keyword), isHaltIntent true",
+      r.intent === "ambiguous" && r.source === "keyword" && isHaltIntent(r) === true,
+      `got intent=${r.intent} source=${r.source} isHalt=${isHaltIntent(r)}`
+    );
+  }
 
   // --- Model path (stubbed) ---
   {
