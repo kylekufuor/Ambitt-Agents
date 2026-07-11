@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { BrandLockup } from "./brand-mark";
+import { HomeIcon } from "./icons";
 import { signOut } from "@/app/actions";
 
 type Agent = { id: string; name: string; status: string };
@@ -51,7 +52,7 @@ export function Sidebar({
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto px-3 py-4">
-        <NavItem href="/" label="Home" active={pathname === "/"} icon={<HomeIcon />} />
+        <NavItem href="/" label="Home" active={pathname === "/"} icon={<HomeIcon size={18} />} />
 
         <p className="eyebrow px-3 mt-5 mb-1.5">Your agents</p>
         {agents.length === 0 ? (
@@ -154,11 +155,3 @@ function SubItem({ href, label, active = false }: { href: string; label: string;
   );
 }
 
-function HomeIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M3 10.5 12 3l9 7.5" />
-      <path d="M5 9.5V20a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9.5" />
-    </svg>
-  );
-}

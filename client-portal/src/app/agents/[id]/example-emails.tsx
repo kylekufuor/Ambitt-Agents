@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { SparkIcon } from "@/components/icons";
 
 /**
  * "Things you can ask {agent}" — a short list of ready-to-send example emails,
@@ -73,11 +74,16 @@ export function ExampleEmails({
 
   return (
     <section className="mt-10 reveal" style={{ ["--i" as never]: 2 }}>
-      <h2 className="font-display text-[22px] text-[color:var(--text)] mb-1">
-        Things you can ask {agentName}
-      </h2>
+      <div className="flex items-center gap-2.5 mb-1">
+        <span className="chip-icon chip-violet">
+          <SparkIcon size={20} />
+        </span>
+        <h2 className="font-display text-[22px] text-[color:var(--text)]">
+          Things you can ask {agentName}
+        </h2>
+      </div>
       <p className="text-[13px] text-[color:var(--text-3)] mb-4 max-w-[560px]">
-        Real emails you could send {agentName} right now — copy one, or hit send to
+        Real emails you could send {agentName}{" "}right now — copy one, or hit send to
         open it in your mail app. Just examples; ask however you like.
       </p>
 

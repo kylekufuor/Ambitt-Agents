@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { PortalShell } from "@/components/portal-shell";
 import { getSendStats, sendStatusPresentation } from "@/lib/agent-activity";
+import { MailIcon } from "@/components/icons";
 
 export const dynamic = "force-dynamic";
 
@@ -58,16 +59,16 @@ export default async function AgentActivityPage(
           <p className="eyebrow mb-2">{agent.name}</p>
           <h1 className="font-display text-[34px] leading-none text-[color:var(--text)]">Activity</h1>
           <p className="text-[14px] text-[color:var(--text-3)] mt-2.5 max-w-[560px]">
-            Every email {agent.name} sends on your behalf — who it went to, when, and
+            Every email {agent.name}{" "}sends on your behalf — who it went to, when, and
             whether it landed.
           </p>
         </header>
 
         {/* Summary */}
         <section className="grid grid-cols-3 gap-3 mb-8 reveal" style={{ ["--i" as never]: 1 }}>
-          <StatCard label="Sent today" value={stats.today} />
-          <StatCard label="This week" value={stats.week} />
-          <StatCard label="Last 30 days" value={stats.month} />
+          <StatCard label="Sent today" value={stats.today} accent="var(--brand-hover)" />
+          <StatCard label="This week" value={stats.week} accent="#4f46e5" />
+          <StatCard label="Last 30 days" value={stats.month} accent="#00887a" />
         </section>
 
         {/* Cap context */}
@@ -102,21 +103,32 @@ export default async function AgentActivityPage(
           <h2 className="font-display text-[20px] text-[color:var(--text)] mb-4">Recent emails</h2>
 
           {stats.recent.length === 0 ? (
-            <div className="card p-10 text-center">
-              <p className="font-display text-[18px] text-[color:var(--text)] mb-1.5">
-                Nothing sent yet
+            <div className="card p-12 text-center">
+              <span
+                className="chip-icon chip-teal mx-auto mb-4"
+                style={{ width: 52, height: 52, borderRadius: 16 }}
+              >
+                <MailIcon size={26} />
+              </span>
+              <p className="font-display text-[19px] text-[color:var(--text)] mb-1.5">
+                No emails sent — yet
               </p>
-              <p className="text-[13.5px] text-[color:var(--text-3)] max-w-sm mx-auto">
-                Once {agent.name} starts reaching out, every email shows up here with its
-                delivery status.
+              <p className="text-[13.5px] text-[color:var(--text-3)] max-w-sm mx-auto leading-relaxed">
+                The moment {agent.name}{" "}sends its first note on your behalf, it&apos;ll
+                land right here — who it went to, when, and whether it arrived. We&apos;ll
+                take it from there.
               </p>
             </div>
           ) : (
-            <div className="card divide-y divide-[color:var(--border)]">
+            <div className="card overflow-hidden divide-y divide-[color:var(--border)]">
               {stats.recent.map((s) => {
                 const status = sendStatusPresentation(s.status);
                 return (
-                  <div key={s.id} className="flex items-center gap-4 px-5 py-3.5">
+                  <div
+                    key={s.id}
+                    className="flex items-center gap-4 px-5 py-3.5 transition-colors hover:bg-[color:var(--surface-2)]"
+                  >
+                    <span className={`dot ${status.pill.replace("pill-", "dot-")} shrink-0`} />
                     <div className="min-w-0 flex-1">
                       <p className="text-[14px] text-[color:var(--text)] truncate">
                         {s.subject || "(no subject)"}
@@ -142,10 +154,21 @@ export default async function AgentActivityPage(
   );
 }
 
-function StatCard({ label, value }: { label: string; value: number }) {
+function StatCard({
+  label,
+  value,
+  accent,
+}: {
+  label: string;
+  value: number;
+  accent: string;
+}) {
   return (
-    <div className="card p-4 text-center">
-      <div className="font-display text-[28px] text-[color:var(--text)] leading-none">
+    <div className="card card-hover p-4 text-center">
+      <div
+        className="font-display text-[28px] leading-none"
+        style={{ color: value > 0 ? accent : "var(--text-4)" }}
+      >
         {value.toLocaleString()}
       </div>
       <p className="text-[11.5px] uppercase tracking-[0.07em] text-[color:var(--text-4)] mt-2">

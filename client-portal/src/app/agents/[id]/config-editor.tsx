@@ -92,114 +92,89 @@ export function ConfigEditor({
   }
 
   const showCadence = frequency !== "immediate";
+  const isError = result?.startsWith("Error") ?? false;
 
   return (
     <div className="space-y-6">
       {/* Autonomy */}
-      <div>
-        <p className="text-sm font-medium text-zinc-900 mb-2">Autonomy</p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <Section label="Autonomy">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
           {AUTONOMY_OPTIONS.map((opt) => (
-            <button
+            <Opt
               key={opt.value}
-              onClick={() => update({ autonomyLevel: opt.value })}
+              selected={autonomyLevel === opt.value}
               disabled={saving}
-              className={`text-left px-4 py-3 rounded-lg border transition ${
-                autonomyLevel === opt.value
-                  ? "border-emerald-500 bg-emerald-50 ring-1 ring-emerald-500/20"
-                  : "border-zinc-200 hover:border-zinc-400"
-              } disabled:opacity-50`}
-            >
-              <p className={`text-sm font-medium ${autonomyLevel === opt.value ? "text-emerald-700" : "text-zinc-900"}`}>
-                {opt.label}
-              </p>
-              <p className="text-xs text-zinc-500 mt-0.5">{opt.description}</p>
-            </button>
+              onClick={() => update({ autonomyLevel: opt.value })}
+              label={opt.label}
+              desc={opt.description}
+            />
           ))}
         </div>
-      </div>
+      </Section>
 
       {/* Tone */}
-      <div>
-        <p className="text-sm font-medium text-zinc-900 mb-2">Tone</p>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <Section label="Tone">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
           {TONE_OPTIONS.map((opt) => (
-            <button
+            <Opt
               key={opt.value}
-              onClick={() => update({ tone: opt.value })}
+              selected={tone === opt.value}
               disabled={saving}
-              className={`text-left px-4 py-3 rounded-lg border transition ${
-                tone === opt.value
-                  ? "border-emerald-500 bg-emerald-50 ring-1 ring-emerald-500/20"
-                  : "border-zinc-200 hover:border-zinc-400"
-              } disabled:opacity-50`}
-            >
-              <p className={`text-sm font-medium ${tone === opt.value ? "text-emerald-700" : "text-zinc-900"}`}>
-                {opt.label}
-              </p>
-              <p className="text-xs text-zinc-500 mt-0.5">{opt.description}</p>
-            </button>
+              onClick={() => update({ tone: opt.value })}
+              label={opt.label}
+              desc={opt.description}
+            />
           ))}
         </div>
-      </div>
+      </Section>
 
       {/* Email frequency */}
-      <div>
-        <p className="text-sm font-medium text-zinc-900 mb-2">Email frequency</p>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <Section label="Email frequency">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
           {FREQUENCY_OPTIONS.map((opt) => (
-            <button
+            <Opt
               key={opt.value}
-              onClick={() => update({ emailFrequency: opt.value })}
+              selected={frequency === opt.value}
               disabled={saving}
-              className={`text-left px-4 py-3 rounded-lg border transition ${
-                frequency === opt.value
-                  ? "border-emerald-500 bg-emerald-50 ring-1 ring-emerald-500/20"
-                  : "border-zinc-200 hover:border-zinc-400"
-              } disabled:opacity-50`}
-            >
-              <p className={`text-sm font-medium ${frequency === opt.value ? "text-emerald-700" : "text-zinc-900"}`}>
-                {opt.label}
-              </p>
-              <p className="text-xs text-zinc-500 mt-0.5">{opt.description}</p>
-            </button>
+              onClick={() => update({ emailFrequency: opt.value })}
+              label={opt.label}
+              desc={opt.description}
+            />
           ))}
         </div>
-      </div>
+      </Section>
 
       {/* Digest cadence — only shown when frequency is a digest */}
       {showCadence && (
-        <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 space-y-4">
-          <p className="text-sm font-medium text-zinc-900">
+        <div className="rounded-[12px] bg-[color:var(--surface-2)] px-4 py-3.5 space-y-4">
+          <p className="text-[13px] text-[color:var(--text-2)]">
             Digest sent at{" "}
-            <span className="text-emerald-700">{formatHour(digestHour)}</span>
+            <span className="text-[color:var(--brand-hover)] font-medium">{formatHour(digestHour)}</span>
             {frequency === "weekly_digest" && (
               <>
                 {" "}on{" "}
-                <span className="text-emerald-700">
+                <span className="text-[color:var(--brand-hover)] font-medium">
                   {DAY_OPTIONS.find((d) => d.value === digestDayOfWeek)?.label ?? "—"}
                 </span>
               </>
             )}
             {agentTimezone && (
-              <span className="text-zinc-500 font-normal"> ({agentTimezone})</span>
+              <span className="text-[color:var(--text-4)]"> · {agentTimezone}</span>
             )}
           </p>
 
           {/* Hour picker */}
           <div>
-            <p className="text-xs text-zinc-500 mb-1.5">Hour</p>
+            <p className="text-[11px] uppercase tracking-[0.08em] text-[color:var(--text-4)] mb-1.5">Hour</p>
             <div className="grid grid-cols-6 sm:grid-cols-12 gap-1.5">
               {Array.from({ length: 24 }).map((_, h) => (
                 <button
                   key={h}
                   onClick={() => update({ digestHour: h })}
                   disabled={saving}
-                  className={`text-xs px-1.5 py-1.5 rounded border transition ${
-                    digestHour === h
-                      ? "border-emerald-500 bg-emerald-50 text-emerald-700 ring-1 ring-emerald-500/20"
-                      : "border-zinc-200 bg-white text-zinc-700 hover:border-zinc-400"
-                  } disabled:opacity-50`}
+                  className={`text-[11px] px-1 py-1.5 rounded-[8px] border transition disabled:opacity-50 ${
+                    digestHour === h ? "chip-selected" : "chip"
+                  }`}
                   title={formatHour(h)}
                 >
                   {formatHour(h)}
@@ -211,18 +186,16 @@ export function ConfigEditor({
           {/* Day picker — only for weekly */}
           {frequency === "weekly_digest" && (
             <div>
-              <p className="text-xs text-zinc-500 mb-1.5">Day of week</p>
+              <p className="text-[11px] uppercase tracking-[0.08em] text-[color:var(--text-4)] mb-1.5">Day of week</p>
               <div className="grid grid-cols-7 gap-1.5">
                 {DAY_OPTIONS.map((d) => (
                   <button
                     key={d.value}
                     onClick={() => update({ digestDayOfWeek: d.value })}
                     disabled={saving}
-                    className={`text-xs px-2 py-1.5 rounded border transition ${
-                      digestDayOfWeek === d.value
-                        ? "border-emerald-500 bg-emerald-50 text-emerald-700 ring-1 ring-emerald-500/20"
-                        : "border-zinc-200 bg-white text-zinc-700 hover:border-zinc-400"
-                    } disabled:opacity-50`}
+                    className={`text-[11px] px-1 py-1.5 rounded-[8px] border transition disabled:opacity-50 ${
+                      digestDayOfWeek === d.value ? "chip-selected" : "chip"
+                    }`}
                   >
                     {d.label}
                   </button>
@@ -234,10 +207,62 @@ export function ConfigEditor({
       )}
 
       {result && (
-        <p className={`text-sm ${result.startsWith("Error") ? "text-red-600" : "text-emerald-600"}`}>
-          {result}
-        </p>
+        <span
+          className={`inline-flex items-center gap-1.5 text-[11.5px] font-medium px-2.5 py-1 rounded-full ${
+            isError
+              ? "bg-[color:var(--red-tint)] text-[color:var(--red)]"
+              : "bg-[color:var(--brand-tint)] text-[color:var(--brand-hover)]"
+          }`}
+        >
+          {isError ? result : "✓ Saved"}
+        </span>
       )}
     </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Presentational primitives                                                 */
+/* -------------------------------------------------------------------------- */
+
+function Section({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-[color:var(--text-2)] mb-2.5">
+        {label}
+      </p>
+      {children}
+    </div>
+  );
+}
+
+function Opt({
+  selected,
+  disabled,
+  onClick,
+  label,
+  desc,
+}: {
+  selected: boolean;
+  disabled: boolean;
+  onClick: () => void;
+  label: string;
+  desc: string;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className={`text-left rounded-[12px] border px-3.5 py-3 transition duration-150 disabled:opacity-50 ${
+        selected
+          ? "opt-selected -translate-y-px shadow-[0_6px_16px_-8px_rgba(0,164,189,0.5)]"
+          : "opt hover:-translate-y-px"
+      }`}
+    >
+      <p className={`text-[13.5px] font-medium ${selected ? "text-[color:var(--brand-hover)]" : "text-[color:var(--text)]"}`}>
+        {label}
+      </p>
+      <p className="text-[12px] text-[color:var(--text-3)] mt-0.5 leading-snug">{desc}</p>
+    </button>
   );
 }

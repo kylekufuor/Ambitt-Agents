@@ -12,6 +12,7 @@ import { ReachAgent } from "./reach-agent";
 import { ExampleEmails, type ExampleEmail } from "./example-emails";
 import { DocumentUpload } from "./document-upload";
 import { ChangeRequest } from "./change-request";
+import { ConfigureIcon, CommunicationIcon, KnowledgeIcon } from "@/components/icons";
 
 export const dynamic = "force-dynamic";
 
@@ -146,11 +147,16 @@ export default async function AgentDetailPage(
 
         {/* Settings */}
         <section id="settings" className="mt-10 reveal scroll-mt-20" style={{ ["--i" as never]: 3 }}>
-          <div className="flex items-baseline justify-between mb-4">
-            <h2 className="font-display text-[22px] text-[color:var(--text)]">Settings</h2>
+          <div className="flex items-center justify-between gap-4 mb-4">
+            <div className="flex items-center gap-2.5">
+              <span className="chip-icon chip-amber">
+                <ConfigureIcon size={20} />
+              </span>
+              <h2 className="font-display text-[22px] text-[color:var(--text)]">Settings</h2>
+            </div>
             <Link
               href={`/agents/${agent.id}/activity`}
-              className="text-[12.5px] text-[color:var(--brand-hover)] hover:underline"
+              className="text-[12.5px] text-[color:var(--brand-hover)] hover:underline shrink-0"
             >
               View activity →
             </Link>
@@ -176,7 +182,12 @@ export default async function AgentDetailPage(
 
         {/* Communication — channels & outbound content policy */}
         <section id="communication" className="mt-10 reveal scroll-mt-20" style={{ ["--i" as never]: 4 }}>
-          <h2 className="font-display text-[22px] text-[color:var(--text)] mb-1">Communication</h2>
+          <div className="flex items-center gap-2.5 mb-1">
+            <span className="chip-icon chip-indigo">
+              <CommunicationIcon size={20} />
+            </span>
+            <h2 className="font-display text-[22px] text-[color:var(--text)]">Communication</h2>
+          </div>
           <p className="text-[13px] text-[color:var(--text-3)] mb-4 max-w-[560px]">
             Who can reach {agent.name}, how it reaches you for codes, and which inbox it
             sends from — plus the signature and footer on every email.
@@ -186,9 +197,12 @@ export default async function AgentDetailPage(
 
         {/* Documents */}
         <section className="mt-10 reveal" style={{ ["--i" as never]: 5 }}>
-          <h2 className="font-display text-[22px] text-[color:var(--text)] mb-1">
-            Knowledge
-          </h2>
+          <div className="flex items-center gap-2.5 mb-1">
+            <span className="chip-icon chip-emerald">
+              <KnowledgeIcon size={20} />
+            </span>
+            <h2 className="font-display text-[22px] text-[color:var(--text)]">Knowledge</h2>
+          </div>
           <p className="text-[13px] text-[color:var(--text-3)] mb-4 max-w-[560px]">
             Give {agent.name}{" "}context to work from — SOPs, brand guides, price
             sheets, target criteria. Anything you&apos;d hand a new hire.

@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { SparkIcon } from "@/components/icons";
 
 /**
  * "Request a bigger change" — the scope boundary made friendly.
@@ -60,15 +61,20 @@ export function ChangeRequest({ agentId, agentName }: { agentId: string; agentNa
       }}
     >
       <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-        <div className="flex-1">
-          <h3 className="text-[15px] font-medium text-[color:var(--text)]">
-            Need something bigger?
-          </h3>
-          <p className="text-[13px] text-[color:var(--text-3)] mt-0.5 max-w-[560px]">
-            The settings above are yours to change anytime, free. For a new tool, a new
-            kind of work, or a change to how {agentName}{" "}operates, tell us — we&apos;ll
-            scope it and let you know if it affects your plan before anything changes.
-          </p>
+        <div className="flex items-start gap-3.5 flex-1 min-w-0">
+          <span className="chip-icon chip-teal shrink-0" style={{ width: 38, height: 38 }}>
+            <SparkIcon size={21} />
+          </span>
+          <div className="min-w-0">
+            <h3 className="text-[15px] font-medium text-[color:var(--text)]">
+              Need something bigger?
+            </h3>
+            <p className="text-[13px] text-[color:var(--text-3)] mt-0.5 max-w-[560px]">
+              The settings above are yours to change anytime, free. For a new tool, a new
+              kind of work, or a change to how {agentName}{" "}operates, tell us — we&apos;ll
+              scope it and let you know if it affects your plan before anything changes.
+            </p>
+          </div>
         </div>
         {!open && (
           <button onClick={() => setOpen(true)} className="btn-primary shrink-0 self-start sm:self-center whitespace-nowrap">
@@ -78,29 +84,25 @@ export function ChangeRequest({ agentId, agentName }: { agentId: string; agentNa
       </div>
 
       {open && (
-        <div className="mt-5 pt-5 border-t border-[color:var(--border)] space-y-3">
+        <div className="mt-5 pt-5 border-t border-[color:var(--border)] space-y-4">
           <div>
-            <label className="text-[12px] uppercase tracking-[0.08em] text-[color:var(--text-4)]">
-              What do you need?
-            </label>
+            <label className="field-label">What do you need?</label>
             <input
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g. Connect Arthur to my CRM"
-              className="mt-1.5 w-full h-10 px-3.5 rounded-[10px] bg-[color:var(--surface)] border border-[color:var(--border)] text-[14px] text-[color:var(--text)] placeholder:text-[color:var(--text-4)] focus:outline-none focus:border-[color:var(--brand)]"
+              className="field"
             />
           </div>
           <div>
-            <label className="text-[12px] uppercase tracking-[0.08em] text-[color:var(--text-4)]">
-              A little more detail
-            </label>
+            <label className="field-label">A little more detail</label>
             <textarea
               value={detail}
               onChange={(e) => setDetail(e.target.value)}
               rows={3}
               placeholder="What should change, and what are you trying to achieve?"
-              className="mt-1.5 w-full px-3.5 py-2.5 rounded-[10px] bg-[color:var(--surface)] border border-[color:var(--border)] text-[14px] text-[color:var(--text)] placeholder:text-[color:var(--text-4)] resize-y focus:outline-none focus:border-[color:var(--brand)]"
+              className="field resize-y"
             />
           </div>
           <div className="flex items-center gap-3">
@@ -118,9 +120,16 @@ export function ChangeRequest({ agentId, agentName }: { agentId: string; agentNa
       )}
 
       {result && (
-        <p className={`text-[13px] mt-3 ${result.err ? "text-[color:var(--red)]" : "text-[color:var(--brand-hover)]"}`}>
+        <span
+          className={`inline-flex items-center gap-1.5 text-[12px] font-medium px-2.5 py-1 rounded-full mt-3 ${
+            result.err
+              ? "bg-[color:var(--red-tint)] text-[color:var(--red)]"
+              : "bg-[color:var(--brand-tint)] text-[color:var(--brand-hover)]"
+          }`}
+        >
+          {!result.err && "✓ "}
           {result.msg}
-        </p>
+        </span>
       )}
     </div>
   );

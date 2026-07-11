@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase-browser";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { BrandLockup } from "@/components/brand-mark";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -62,79 +63,108 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white flex items-center justify-center px-4">
-      <div className="w-full max-w-sm">
-        <div className="mb-8 text-center">
-          <h1 className="text-2xl font-bold text-zinc-900">Ambitt</h1>
-          <p className="text-zinc-500 text-sm mt-1">Client portal</p>
+    <div className="page-wash min-h-screen flex flex-col items-center justify-center px-4 relative overflow-hidden">
+      {/* soft brand glow behind the card — atmosphere, not glassmorphism */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-[62%] w-[520px] h-[520px] rounded-full opacity-70"
+        style={{ background: "radial-gradient(circle, rgba(0,164,189,0.10), transparent 62%)" }}
+      />
+
+      <div className="relative w-full max-w-[400px]">
+        <div className="flex justify-center mb-7">
+          <BrandLockup height={26} />
         </div>
 
-        {step === "email" ? (
-          <form onSubmit={handleSendCode} className="space-y-4">
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@yourbusiness.com"
-              required
-              className="w-full border border-zinc-300 rounded-lg px-4 py-3 text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:border-zinc-500 transition"
-            />
-            {error && <p className="text-red-500 text-sm">{error}</p>}
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-zinc-900 text-white font-medium rounded-lg px-4 py-3 hover:bg-zinc-800 transition disabled:opacity-50"
-            >
-              {loading ? "Sending..." : "Send Login Code"}
-            </button>
-            <button
-              type="button"
-              onClick={() => { if (email) setStep("code"); else setError("Enter your email first"); }}
-              className="w-full text-zinc-500 text-sm hover:text-zinc-700 transition"
-            >
-              I already have a code
-            </button>
-          </form>
-        ) : (
-          <form onSubmit={handleVerifyCode} className="space-y-4">
-            <div className="bg-zinc-50 border border-zinc-200 rounded-lg p-4 text-center">
-              <p className="text-zinc-500 text-sm">
-                {sending ? "Sending your code to " : "Code sent to "}
-                <span className="text-zinc-900 font-medium">{email}</span>
-                {sending && <span className="inline-block animate-pulse">…</span>}
-              </p>
-              {sending && (
-                <p className="text-zinc-400 text-xs mt-1">
-                  It arrives in a few seconds — enter it below when it lands.
+        <div className="card p-7 sm:p-8">
+          {step === "email" ? (
+            <form onSubmit={handleSendCode} className="space-y-5">
+              <div>
+                <h1 className="font-display text-[20px] text-[color:var(--text)] leading-tight">
+                  Sign in to your workspace
+                </h1>
+                <p className="text-[13.5px] text-[color:var(--text-3)] mt-1.5">
+                  Enter your email and we&apos;ll send you a 6-digit code.
                 </p>
-              )}
-            </div>
-            <input
-              type="text"
-              value={token}
-              onChange={(e) => setToken(e.target.value)}
-              placeholder="Enter code"
-              required
-              maxLength={8}
-              className="w-full border border-zinc-300 rounded-lg px-4 py-3 text-zinc-900 text-center text-2xl tracking-[0.5em] font-mono placeholder:text-zinc-400 placeholder:text-base placeholder:tracking-normal focus:outline-none focus:border-zinc-500 transition"
-            />
-            {error && <p className="text-red-500 text-sm">{error}</p>}
-            <button
-              type="submit"
-              disabled={loading || token.length < 4}
-              className="w-full bg-zinc-900 text-white font-medium rounded-lg px-4 py-3 hover:bg-zinc-800 transition disabled:opacity-50"
-            >
-              {loading ? "Verifying..." : "Verify & Login"}
-            </button>
-            <button
-              type="button"
-              onClick={() => { setStep("email"); setToken(""); setError(""); }}
-              className="w-full text-zinc-500 text-sm hover:text-zinc-700 transition"
-            >
-              Use a different email
-            </button>
-          </form>
-        )}
+              </div>
+
+              <div>
+                <label className="field-label" htmlFor="email">Email</label>
+                <input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@yourbusiness.com"
+                  autoFocus
+                  required
+                  className="field"
+                />
+              </div>
+
+              {error && <p className="text-[13px] text-[color:var(--red)]">{error}</p>}
+
+              <button type="submit" disabled={loading} className="btn-primary w-full">
+                {loading ? "Sending…" : "Send login code"}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => { if (email) setStep("code"); else setError("Enter your email first"); }}
+                className="w-full text-[13px] text-[color:var(--text-3)] hover:text-[color:var(--text)] transition"
+              >
+                I already have a code
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={handleVerifyCode} className="space-y-5">
+              <div>
+                <h1 className="font-display text-[20px] text-[color:var(--text)] leading-tight">
+                  Check your inbox
+                </h1>
+                <p className="text-[13.5px] text-[color:var(--text-3)] mt-1.5">
+                  {sending ? "Sending your code to " : "We sent a 6-digit code to "}
+                  <span className="text-[color:var(--text)] font-medium">{email}</span>
+                  {sending && <span className="inline-block animate-pulse">…</span>}
+                </p>
+              </div>
+
+              <input
+                type="text"
+                inputMode="numeric"
+                value={token}
+                onChange={(e) => setToken(e.target.value)}
+                placeholder="000000"
+                autoFocus
+                required
+                maxLength={8}
+                className="field text-center text-[26px] tracking-[0.5em] font-mono"
+                style={{ paddingTop: 14, paddingBottom: 14 }}
+              />
+
+              {error && <p className="text-[13px] text-[color:var(--red)]">{error}</p>}
+
+              <button type="submit" disabled={loading || token.length < 4} className="btn-primary w-full">
+                {loading ? "Verifying…" : "Verify & sign in"}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => { setStep("email"); setToken(""); setError(""); }}
+                className="w-full text-[13px] text-[color:var(--text-3)] hover:text-[color:var(--text)] transition"
+              >
+                Use a different email
+              </button>
+            </form>
+          )}
+        </div>
+
+        <p className="text-center text-[12px] text-[color:var(--text-4)] mt-6">
+          Your AI workforce, run by us. Questions?{" "}
+          <a href="mailto:support@ambitt.agency" className="text-[color:var(--brand-hover)] hover:underline">
+            support@ambitt.agency
+          </a>
+        </p>
       </div>
     </div>
   );

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ShieldIcon, MailIcon } from "@/components/icons";
 
 /* -------------------------------------------------------------------------- */
 /*  Types — mirror shared/communication-settings.ts (kept loose on purpose)   */
@@ -105,15 +106,46 @@ export function CommunicationSettings({ agentId, agentName }: { agentId: string;
   if (loadError) {
     return (
       <div className="card p-5 md:p-6">
-        <p className="text-[13px] text-[color:var(--red)]">{loadError}</p>
+        <div className="flex items-start gap-3.5">
+          <span className="chip-icon chip-rose shrink-0" style={{ width: 34, height: 34, borderRadius: 10 }}>
+            <MailIcon size={19} />
+          </span>
+          <div>
+            <p className="text-[14px] font-medium text-[color:var(--text)]">
+              We couldn&apos;t load these settings
+            </p>
+            <p className="text-[13px] text-[color:var(--text-3)] mt-0.5 max-w-[460px]">
+              {loadError} Give the page a refresh — if it keeps happening, reply to any of{" "}
+              {agentName}&apos;s emails and we&apos;ll sort it out.
+            </p>
+          </div>
+        </div>
       </div>
     );
   }
 
   if (!settings || !options) {
+    // Loading — skeleton rows that match the real cards, so nothing jumps.
     return (
-      <div className="card p-5 md:p-6">
-        <p className="text-[13px] text-[color:var(--text-3)]">Loading…</p>
+      <div className="space-y-4">
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="card p-5 md:p-6">
+            <div className="flex items-start gap-3.5">
+              <span
+                className="chip-icon chip-teal shrink-0 animate-pulse"
+                style={{ width: 34, height: 34, borderRadius: 10 }}
+              />
+              <div className="flex-1 space-y-2">
+                <div className="h-3.5 w-40 rounded bg-[color:var(--surface-2)] animate-pulse" />
+                <div className="h-3 w-64 max-w-full rounded bg-[color:var(--surface-2)] animate-pulse" />
+              </div>
+            </div>
+            <div className="mt-4 h-9 rounded-[10px] bg-[color:var(--surface-2)] animate-pulse" />
+          </div>
+        ))}
+        <p className="text-[12.5px] text-[color:var(--text-3)] text-center">
+          Pulling up how {agentName}{" "}communicates…
+        </p>
       </div>
     );
   }
@@ -126,12 +158,16 @@ export function CommunicationSettings({ agentId, agentName }: { agentId: string;
     <div className="space-y-4">
       {/* Save status (shared) */}
       {flash && (
-        <div
-          className={`text-[12px] ${
-            flash.err ? "text-[color:var(--red)]" : "text-[color:var(--brand-hover)]"
-          }`}
-        >
-          {flash.err ? flash.msg : "✓ Saved"}
+        <div>
+          <span
+            className={`inline-flex items-center gap-1.5 text-[11.5px] font-medium px-2.5 py-1 rounded-full ${
+              flash.err
+                ? "bg-[color:var(--red-tint)] text-[color:var(--red)]"
+                : "bg-[color:var(--brand-tint)] text-[color:var(--brand-hover)]"
+            }`}
+          >
+            {flash.err ? flash.msg : "✓ Saved"}
+          </span>
         </div>
       )}
 
@@ -139,6 +175,8 @@ export function CommunicationSettings({ agentId, agentName }: { agentId: string;
       <SettingCard
         title={`Who can email ${agentName}`}
         hint={`You can always email ${agentName}. Add teammates here so they can too — anyone else is politely ignored.`}
+        icon={<ShieldIcon size={19} />}
+        accent="chip-emerald"
       >
         <div className="mb-3 flex flex-wrap items-center gap-1.5">
           {options.ownerEmail && (
@@ -159,7 +197,9 @@ export function CommunicationSettings({ agentId, agentName }: { agentId: string;
       {/* MFA relay */}
       <SettingCard
         title="Verification codes"
-        hint={`When ${agentName} needs a one-time code to sign in on your behalf, how should it reach you?`}
+        hint={`When ${agentName}{" "}needs a one-time code to sign in on your behalf, how should it reach you?`}
+        icon={<KeyIcon size={19} />}
+        accent="chip-amber"
       >
         <OptionGrid cols={3}>
           <Opt
@@ -191,7 +231,9 @@ export function CommunicationSettings({ agentId, agentName }: { agentId: string;
       {/* Outbound identity */}
       <SettingCard
         title="Send to your clients from"
-        hint={`Which inbox ${agentName} sends outreach from. Replies land in that inbox. Ambitt's address is the default.`}
+        hint={`Which inbox ${agentName}{" "}sends outreach from. Replies land in that inbox. Ambitt's address is the default.`}
+        icon={<MailIcon size={19} />}
+        accent="chip-teal"
       >
         <OptionGrid cols={3}>
           {options.outboundAccounts.map((acc) => {
@@ -234,7 +276,9 @@ export function CommunicationSettings({ agentId, agentName }: { agentId: string;
       {/* Signature */}
       <SettingCard
         title="Email signature"
-        hint={`Added to the bottom of emails ${agentName} sends on your behalf. Name, title, phone, a booking link.`}
+        hint={`Added to the bottom of emails ${agentName}{" "}sends on your behalf. Name, title, phone, a booking link.`}
+        icon={<PenIcon size={19} />}
+        accent="chip-indigo"
       >
         <TextArea
           value={settings.signature ?? ""}
@@ -248,6 +292,8 @@ export function CommunicationSettings({ agentId, agentName }: { agentId: string;
       <SettingCard
         title="Required footer"
         hint="Legal or compliance text added after the signature — a mailing address, an unsubscribe line, a disclaimer."
+        icon={<DocIcon size={19} />}
+        accent="chip-violet"
       >
         <TextArea
           value={settings.footer ?? ""}
@@ -261,6 +307,8 @@ export function CommunicationSettings({ agentId, agentName }: { agentId: string;
       <SettingCard
         title="Blind-copy every send"
         hint="Automatically BCC these addresses on outbound email — handy for logging to your CRM's email drop-box."
+        icon={<CopyIcon size={19} />}
+        accent="chip-rose"
       >
         <EmailList
           values={settings.bccAddresses}
@@ -403,12 +451,31 @@ function TextArea({
 /*  Presentational primitives (mirror agent-settings.tsx)                     */
 /* -------------------------------------------------------------------------- */
 
-function SettingCard({ title, hint, children }: { title: string; hint: string; children: React.ReactNode }) {
+function SettingCard({
+  title,
+  hint,
+  icon,
+  accent = "chip-teal",
+  children,
+}: {
+  title: string;
+  hint: string;
+  icon?: React.ReactNode;
+  accent?: string;
+  children: React.ReactNode;
+}) {
   return (
     <div className="card p-5 md:p-6">
-      <div className="mb-4">
-        <h3 className="text-[15px] font-medium text-[color:var(--text)]">{title}</h3>
-        <p className="text-[13px] text-[color:var(--text-3)] mt-0.5 max-w-[520px]">{hint}</p>
+      <div className="flex items-start gap-3.5 mb-4">
+        {icon && (
+          <span className={`chip-icon ${accent} shrink-0`} style={{ width: 34, height: 34, borderRadius: 10 }}>
+            {icon}
+          </span>
+        )}
+        <div className="min-w-0">
+          <h3 className="text-[15px] font-medium text-[color:var(--text)]">{title}</h3>
+          <p className="text-[13px] text-[color:var(--text-3)] mt-0.5 max-w-[520px]">{hint}</p>
+        </div>
       </div>
       {children}
     </div>
@@ -438,8 +505,10 @@ function Opt({
     <button
       onClick={onClick}
       disabled={disabled}
-      className={`text-left rounded-[12px] border px-3.5 py-3 transition disabled:opacity-50 ${
-        selected ? "opt-selected" : "opt"
+      className={`text-left rounded-[12px] border px-3.5 py-3 transition duration-150 disabled:opacity-50 ${
+        selected
+          ? "opt-selected -translate-y-px shadow-[0_6px_16px_-8px_rgba(0,164,189,0.5)]"
+          : "opt hover:-translate-y-px"
       }`}
     >
       <p
@@ -451,5 +520,63 @@ function Opt({
       </p>
       <p className="text-[12px] text-[color:var(--text-3)] mt-0.5 leading-snug">{desc}</p>
     </button>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Local duotone section icons (soft body + crisp detail + lit highlight)     */
+/* -------------------------------------------------------------------------- */
+
+function IconFrame({ size = 19, children }: { size?: number; children: React.ReactNode }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      {children}
+    </svg>
+  );
+}
+
+function KeyIcon({ size }: { size?: number }) {
+  return (
+    <IconFrame size={size}>
+      <circle cx="8.5" cy="8.5" r="4.6" fill="currentColor" opacity="0.2" />
+      <path d="M11.7 11.7 19 19M15.4 15.4l1.8-1.8M17.2 17.2l1.6-1.6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+      <circle cx="8.5" cy="8.5" r="4.6" stroke="currentColor" strokeWidth="1.8" fill="none" />
+      <circle cx="8.5" cy="8.5" r="1.4" fill="currentColor" />
+      <path d="M6 6.2a.7.7 0 0 1 .5 1.2l-.9.9a.7.7 0 1 1-1-1l.9-.9a.7.7 0 0 1 .5-.2Z" fill="#fff" opacity="0.55" />
+    </IconFrame>
+  );
+}
+
+function PenIcon({ size }: { size?: number }) {
+  return (
+    <IconFrame size={size}>
+      <path d="M14.6 5.7 18.3 9.4 9.1 18.6l-4.2.6.6-4.2 9.1-9.3Z" fill="currentColor" opacity="0.2" />
+      <path d="M14.9 4.7a1.2 1.2 0 0 1 1.7 0l2.7 2.7a1.2 1.2 0 0 1 0 1.7l-9 9a1 1 0 0 1-.55.28l-4.2.6a1 1 0 0 1-1.13-1.13l.6-4.2a1 1 0 0 1 .28-.55l9-9Zm.85 2-8.4 8.4-.32 2.25 2.25-.32 8.4-8.4-1.93-1.93Z" fill="currentColor" />
+      <path d="M6.2 13.6a.7.7 0 0 1 .5 1.2l-1 .95a.7.7 0 1 1-1-1l1-.95a.7.7 0 0 1 .5-.2Z" fill="#fff" opacity="0.55" />
+    </IconFrame>
+  );
+}
+
+function DocIcon({ size }: { size?: number }) {
+  return (
+    <IconFrame size={size}>
+      <path d="M6.5 4.5A1.5 1.5 0 0 1 8 3h5l4 4v11.5A1.5 1.5 0 0 1 15.5 20h-7A1.5 1.5 0 0 1 7 18.5" fill="currentColor" opacity="0.2" />
+      <path d="M8 2.4A2.1 2.1 0 0 0 5.9 4.5v15A2.1 2.1 0 0 0 8 21.6h8a2.1 2.1 0 0 0 2.1-2.1V7.4a1 1 0 0 0-.3-.72l-4-4a1 1 0 0 0-.72-.3H8Zm.1 1.8h5v3a1.4 1.4 0 0 0 1.4 1.4h2v11.1a.3.3 0 0 1-.3.3h-8a.3.3 0 0 1-.3-.3V4.5a.3.3 0 0 1 .3-.3Z" fill="currentColor" />
+      <rect x="8.8" y="12" width="6.4" height="1.6" rx="0.8" fill="currentColor" />
+      <rect x="8.8" y="15" width="4.4" height="1.6" rx="0.8" fill="currentColor" opacity="0.55" />
+      <path d="M8 5.1h2.8a.7.7 0 0 1 0 1.4H8a.7.7 0 0 1 0-1.4Z" fill="#fff" opacity="0.55" />
+    </IconFrame>
+  );
+}
+
+function CopyIcon({ size }: { size?: number }) {
+  return (
+    <IconFrame size={size}>
+      <rect x="8" y="8" width="11" height="11" rx="3" fill="currentColor" opacity="0.2" />
+      <rect x="8" y="8" width="11" height="11" rx="3" stroke="currentColor" strokeWidth="1.7" fill="none" />
+      <path d="M15.5 6.2A3 3 0 0 0 13 5H8a3 3 0 0 0-3 3v5a3 3 0 0 0 1.2 2.4" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" fill="none" />
+      <path d="M10 12.8h5M10 15.4h3.2" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+      <path d="M10 9.4h3a.7.7 0 0 1 0 1.4h-3a.7.7 0 0 1 0-1.4Z" fill="#fff" opacity="0.5" />
+    </IconFrame>
   );
 }

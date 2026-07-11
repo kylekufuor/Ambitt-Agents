@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { ShieldIcon, CommunicationIcon, MailIcon } from "@/components/icons";
 
 /* -------------------------------------------------------------------------- */
 /*  Friendly option sets — plain English, no cron strings, no jargon.         */
@@ -148,7 +149,9 @@ export function AgentSettings({
       {/* Work rhythm */}
       <SettingCard
         title="Work rhythm"
-        hint={`How often ${agentName} gets to work.${status === "active" ? " Changes apply right away." : ""}`}
+        hint={`How often ${agentName}{" "}gets to work.${status === "active" ? " Changes apply right away." : ""}`}
+        icon={<ClockIcon size={19} />}
+        accent="chip-teal"
         flash={flash?.key === "schedule" ? flash : null}
       >
         <OptionGrid cols={3}>
@@ -174,7 +177,9 @@ export function AgentSettings({
       {/* Approval style */}
       <SettingCard
         title="Approval style"
-        hint={`Decide how much ${agentName} runs past you before acting.`}
+        hint={`Decide how much ${agentName}{" "}runs past you before acting.`}
+        icon={<ShieldIcon size={19} />}
+        accent="chip-emerald"
         flash={flash?.key === "autonomy" ? flash : null}
       >
         <OptionGrid cols={2}>
@@ -197,13 +202,15 @@ export function AgentSettings({
       {/* Outreach volume */}
       <SettingCard
         title="Outreach volume"
-        hint={`The most new emails ${agentName} will send in a single day. Replies and follow-ups don't count toward this.`}
+        hint={`The most new emails ${agentName}{" "}will send in a single day. Replies and follow-ups don't count toward this.`}
+        icon={<CommunicationIcon size={19} />}
+        accent="chip-indigo"
         flash={flash?.key === "volume" ? flash : null}
       >
         <p className="text-[12.5px] text-[color:var(--text-3)] -mt-2 mb-3">
           {sentToday === 0
-            ? `${agentName} hasn't sent any outreach today.`
-            : `${agentName} has sent ${sentToday} ${sentToday === 1 ? "email" : "emails"} today${
+            ? `${agentName}{" "}hasn't sent any outreach today.`
+            : `${agentName}{" "}has sent ${sentToday} ${sentToday === 1 ? "email" : "emails"} today${
                 typeof volume === "number" ? ` of ${volume}` : ""
               }.`}
         </p>
@@ -227,7 +234,9 @@ export function AgentSettings({
       {/* Follow-up cadence */}
       <SettingCard
         title="Follow-ups"
-        hint={`When someone doesn't reply, how persistently should ${agentName} follow up?`}
+        hint={`When someone doesn't reply, how persistently should ${agentName}{" "}follow up?`}
+        icon={<RepeatIcon size={19} />}
+        accent="chip-amber"
         flash={flash?.key === "followup" ? flash : null}
       >
         <OptionGrid cols={4}>
@@ -250,7 +259,9 @@ export function AgentSettings({
       {/* Writing style */}
       <SettingCard
         title="Writing style"
-        hint={`How ${agentName} sounds in the emails it sends on your behalf.`}
+        hint={`How ${agentName}{" "}sounds in the emails it sends on your behalf.`}
+        icon={<PenIcon size={19} />}
+        accent="chip-violet"
         flash={flash?.key === "tone" ? flash : null}
       >
         <OptionGrid cols={3}>
@@ -273,7 +284,9 @@ export function AgentSettings({
       {/* Email updates to you */}
       <SettingCard
         title="Your updates"
-        hint={`How often ${agentName} emails you to report on its work.`}
+        hint={`How often ${agentName}{" "}emails you to report on its work.`}
+        icon={<MailIcon size={19} />}
+        accent="chip-rose"
         flash={flash?.key === "frequency" ? flash : null}
       >
         <OptionGrid cols={3}>
@@ -358,25 +371,41 @@ export function AgentSettings({
 function SettingCard({
   title,
   hint,
+  icon,
+  accent = "chip-teal",
   flash,
   children,
 }: {
   title: string;
   hint: string;
+  icon?: React.ReactNode;
+  accent?: string;
   flash: { msg: string; err: boolean } | null;
   children: React.ReactNode;
 }) {
   return (
     <div className="card p-5 md:p-6">
       <div className="flex items-start justify-between gap-4 mb-4">
-        <div>
-          <h3 className="text-[15px] font-medium text-[color:var(--text)]">{title}</h3>
-          <p className="text-[13px] text-[color:var(--text-3)] mt-0.5 max-w-[520px]">{hint}</p>
+        <div className="flex items-start gap-3.5 min-w-0">
+          {icon && (
+            <span
+              className={`chip-icon ${accent} shrink-0`}
+              style={{ width: 34, height: 34, borderRadius: 10 }}
+            >
+              {icon}
+            </span>
+          )}
+          <div className="min-w-0">
+            <h3 className="text-[15px] font-medium text-[color:var(--text)]">{title}</h3>
+            <p className="text-[13px] text-[color:var(--text-3)] mt-0.5 max-w-[520px]">{hint}</p>
+          </div>
         </div>
         {flash && (
           <span
-            className={`text-[12px] shrink-0 mt-0.5 ${
-              flash.err ? "text-[color:var(--red)]" : "text-[color:var(--brand-hover)]"
+            className={`shrink-0 mt-0.5 inline-flex items-center gap-1.5 text-[11.5px] font-medium px-2.5 py-1 rounded-full ${
+              flash.err
+                ? "bg-[color:var(--red-tint)] text-[color:var(--red)]"
+                : "bg-[color:var(--brand-tint)] text-[color:var(--brand-hover)]"
             }`}
           >
             {flash.err ? flash.msg : "✓ Saved"}
@@ -385,6 +414,63 @@ function SettingCard({
       </div>
       {children}
     </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Local duotone section icons (match components/icons.tsx: soft body +       */
+/*  crisp foreground + a lit white highlight — never flat single-stroke).      */
+/* -------------------------------------------------------------------------- */
+
+// Tiny teal check that lands on a selected option — a small considered moment.
+function CheckDot() {
+  return (
+    <svg width={14} height={14} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="shrink-0">
+      <circle cx="12" cy="12" r="10" fill="var(--brand)" opacity="0.16" />
+      <circle cx="12" cy="12" r="10" fill="var(--brand)" opacity="0.9" />
+      <path d="m8 12 2.6 2.6L16 9" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+    </svg>
+  );
+}
+
+function IconFrame({ size = 19, children }: { size?: number; children: React.ReactNode }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      {children}
+    </svg>
+  );
+}
+
+function ClockIcon({ size }: { size?: number }) {
+  return (
+    <IconFrame size={size}>
+      <circle cx="12" cy="12" r="8.6" fill="currentColor" opacity="0.2" />
+      <circle cx="12" cy="12" r="8.6" stroke="currentColor" strokeWidth="1.6" fill="none" />
+      <path d="M12 7.4V12l3.1 1.9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+      <path d="M6.6 6.4a.7.7 0 0 1 .5 1.25l-1.4 1.1a.7.7 0 0 1-.9-1.1l1.4-1.1a.7.7 0 0 1 .4-.15Z" fill="#fff" opacity="0.55" />
+    </IconFrame>
+  );
+}
+
+function RepeatIcon({ size }: { size?: number }) {
+  return (
+    <IconFrame size={size}>
+      <circle cx="12" cy="12" r="8.6" fill="currentColor" opacity="0.2" />
+      <path d="M7 11.2A5.2 5.2 0 0 1 16 8.6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" fill="none" />
+      <path d="M15.4 5.6 16.4 8.7l-3.1.7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+      <path d="M17 12.8A5.2 5.2 0 0 1 8 15.4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" fill="none" />
+      <path d="M8.6 18.4 7.6 15.3l3.1-.7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+    </IconFrame>
+  );
+}
+
+function PenIcon({ size }: { size?: number }) {
+  return (
+    <IconFrame size={size}>
+      <path d="M14.6 5.7 18.3 9.4 9.1 18.6l-4.2.6.6-4.2 9.1-9.3Z" fill="currentColor" opacity="0.2" />
+      <path d="M14.9 4.7a1.2 1.2 0 0 1 1.7 0l2.7 2.7a1.2 1.2 0 0 1 0 1.7l-9 9a1 1 0 0 1-.55.28l-4.2.6a1 1 0 0 1-1.13-1.13l.6-4.2a1 1 0 0 1 .28-.55l9-9Zm.85 2-8.4 8.4-.32 2.25 2.25-.32 8.4-8.4-1.93-1.93Z" fill="currentColor" />
+      <path d="M6.2 13.6a.7.7 0 0 1 .5 1.2l-1 .95a.7.7 0 1 1-1-1l1-.95a.7.7 0 0 1 .5-.2Z" fill="#fff" opacity="0.55" />
+    </IconFrame>
   );
 }
 
@@ -415,12 +501,15 @@ function Opt({
     <button
       onClick={onClick}
       disabled={busy}
-      className={`text-left rounded-[12px] border px-3.5 py-3 transition disabled:opacity-50 ${
-        selected ? "opt-selected" : "opt"
+      className={`text-left rounded-[12px] border px-3.5 py-3 transition duration-150 disabled:opacity-50 ${
+        selected
+          ? "opt-selected -translate-y-px shadow-[0_6px_16px_-8px_rgba(0,164,189,0.5)]"
+          : "opt hover:-translate-y-px"
       }`}
     >
-      <p className={`text-[13.5px] font-medium ${selected ? "text-[color:var(--brand-hover)]" : "text-[color:var(--text)]"}`}>
-        {label}
+      <p className="flex items-center gap-1.5 text-[13.5px] font-medium">
+        <span className={selected ? "text-[color:var(--brand-hover)]" : "text-[color:var(--text)]"}>{label}</span>
+        {selected && <CheckDot />}
       </p>
       <p className="text-[12px] text-[color:var(--text-3)] mt-0.5 leading-snug">{desc}</p>
     </button>

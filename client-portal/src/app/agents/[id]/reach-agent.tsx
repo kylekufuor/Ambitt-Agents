@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { MailIcon } from "@/components/icons";
 
 /**
  * "Reach {agent}" — the one thing a client always needs and could never find:
@@ -33,7 +34,12 @@ export function ReachAgent({
 
   return (
     <div className="card p-5 md:p-6">
-      <div className="eyebrow mb-3">Reach {agentName}</div>
+      <div className="flex items-center gap-2.5 mb-3.5">
+        <span className="chip-icon chip-teal">
+          <MailIcon size={20} />
+        </span>
+        <div className="eyebrow">Reach {agentName}</div>
+      </div>
 
       {/* The address — the hero of this card */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-3">
@@ -65,8 +71,8 @@ export function ReachAgent({
 
       {/* The two conventions worth knowing */}
       <p className="text-[13px] leading-relaxed text-[color:var(--text-3)] mt-4 max-w-[560px]">
-        Email {agentName} here any time — a question, a task, a nudge. You can also
-        just reply to any email {agentName} sends you; it all lands in the same place.
+        Email {agentName}{" "}here any time — a question, a task, a nudge. You can also
+        just reply to any email {agentName}{" "}sends you; it all lands in the same place.
         To hand over a file, put{" "}
         <span
           className="font-mono text-[12px] px-1.5 py-0.5 rounded-[5px] bg-[color:var(--surface-2)] text-[color:var(--text-2)]"
@@ -74,7 +80,7 @@ export function ReachAgent({
         >
           DOCS
         </span>{" "}
-        in the subject line and {agentName} will add it to its knowledge.
+        in the subject line and {agentName}{" "}will add it to its knowledge.
       </p>
     </div>
   );

@@ -8,6 +8,7 @@ import { PortalShell } from "@/components/portal-shell";
 import { ManageBillingButton } from "./billing-button";
 import { getTierConfig, type PricingTier } from "@/lib/pricing-constants";
 import { signOut } from "./actions";
+import { ToolsIcon, LeadsIcon, ActivityIcon, ConfigureIcon, ChatIcon } from "@/components/icons";
 
 export const dynamic = "force-dynamic";
 
@@ -219,7 +220,7 @@ export default async function PortalPage() {
             >
               <div className="flex flex-col md:flex-row md:items-center gap-5">
                 <div className="shrink-0 w-12 h-12 rounded-[14px] grid place-items-center bg-[color:var(--surface)] border border-[color:var(--border)]">
-                  <PlugIcon />
+                  <ToolsIcon size={22} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="eyebrow mb-1.5" style={{ color: "var(--brand-hover)" }}>
@@ -251,7 +252,8 @@ export default async function PortalPage() {
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
               <NavCard
                 href={`/agents/${primaryAgent.id}/tools`}
-                icon={<PlugIcon small />}
+                icon={<ToolsIcon size={20} />}
+                tint="chip-teal"
                 label="Tools"
                 desc={
                   toolsConnected > 0
@@ -262,25 +264,29 @@ export default async function PortalPage() {
               />
               <NavCard
                 href={`/agents/${primaryAgent.id}/leads`}
-                icon={<TableIcon />}
+                icon={<LeadsIcon size={20} />}
+                tint="chip-indigo"
                 label="Leads"
                 desc="The work, tracked"
               />
               <NavCard
                 href={`/agents/${primaryAgent.id}/activity`}
-                icon={<ActivityIcon />}
+                icon={<ActivityIcon size={20} />}
+                tint="chip-emerald"
                 label="Activity"
                 desc="See what's been sent"
               />
               <NavCard
                 href={`/agents/${primaryAgent.id}`}
-                icon={<SlidersIcon />}
+                icon={<ConfigureIcon size={20} />}
+                tint="chip-amber"
                 label="Configure"
                 desc={`Set ${primaryAgent.name}'s pace`}
               />
               <NavCard
                 href={chatToken ? `/chat/${primaryAgent.id}?t=${chatToken}` : undefined}
-                icon={<ChatIcon />}
+                icon={<ChatIcon size={20} />}
+                tint="chip-violet"
                 label="Chat"
                 desc={`Message ${primaryAgent.name}`}
                 soon={!chatToken}
@@ -302,7 +308,7 @@ export default async function PortalPage() {
                   </h2>
                 </div>
                 <div className="text-right shrink-0">
-                  <div className="font-display text-[28px] text-[color:var(--text)] leading-none">
+                  <div className="font-display text-[28px] text-[color:var(--brand-hover)] leading-none">
                     {formatCents(usageCents)}
                   </div>
                   <div className="text-[12px] text-[color:var(--text-3)] mt-1">
@@ -418,6 +424,7 @@ function NavCard({
   desc,
   flag,
   soon,
+  tint = "chip-teal",
 }: {
   href?: string;
   icon: React.ReactNode;
@@ -425,6 +432,7 @@ function NavCard({
   desc: string;
   flag?: string;
   soon?: boolean;
+  tint?: string;
 }) {
   const inner = (
     <div
@@ -433,9 +441,7 @@ function NavCard({
       }`}
     >
       <div className="flex items-center justify-between">
-        <span className="w-9 h-9 rounded-[10px] grid place-items-center bg-[color:var(--surface-2)] text-[color:var(--text-2)]">
-          {icon}
-        </span>
+        <span className={`chip-icon ${tint}`}>{icon}</span>
         {flag && <span className="pill pill-amber">{flag}</span>}
         {soon && <span className="pill pill-muted">Soon</span>}
       </div>
@@ -565,46 +571,6 @@ function AgentCard({ agent }: AgentCardProps) {
   );
 }
 
-/* -------------------------------------------------------------------------- */
-/*  Icons (inline, stroke — no icon dep)                                      */
-/* -------------------------------------------------------------------------- */
-
-function PlugIcon({ small }: { small?: boolean }) {
-  const s = small ? 18 : 22;
-  return (
-    <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" style={small ? undefined : { color: "var(--brand-hover)" }}>
-      <path d="M9 2v6M15 2v6M7 8h10v3a5 5 0 0 1-10 0V8ZM12 16v6" />
-    </svg>
-  );
-}
-function SlidersIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M4 6h10M18 6h2M4 12h2M10 12h10M4 18h7M15 18h5M14 4v4M6 10v4M11 16v4" />
-    </svg>
-  );
-}
-function ActivityIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
-    </svg>
-  );
-}
-function TableIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="4" width="18" height="16" rx="2" /><path d="M3 9h18M9 9v11" />
-    </svg>
-  );
-}
-function ChatIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2Z" />
-    </svg>
-  );
-}
 
 /* -------------------------------------------------------------------------- */
 /*  Helpers                                                                   */

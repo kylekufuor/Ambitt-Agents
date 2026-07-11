@@ -46,24 +46,26 @@ export function ScheduleEditor({ agentId, initial }: { agentId: string; initial:
     }
   }
 
+  const isError = result?.startsWith("Error") ?? false;
+
   return (
     <div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 mb-3.5">
         {SCHEDULE_PRESETS.map((preset) => (
           <button
             key={preset.value}
             onClick={() => updateSchedule(preset.value)}
             disabled={saving}
-            className={`text-left px-4 py-3 rounded-lg border transition ${
+            className={`text-left rounded-[12px] border px-3.5 py-3 transition duration-150 disabled:opacity-50 ${
               schedule === preset.value
-                ? "border-emerald-500 bg-emerald-50 ring-1 ring-emerald-500/20"
-                : "border-zinc-200 hover:border-zinc-400"
-            } disabled:opacity-50`}
+                ? "opt-selected -translate-y-px shadow-[0_6px_16px_-8px_rgba(0,164,189,0.5)]"
+                : "opt hover:-translate-y-px"
+            }`}
           >
-            <p className={`text-sm font-medium ${schedule === preset.value ? "text-emerald-700" : "text-zinc-900"}`}>
+            <p className={`text-[13.5px] font-medium ${schedule === preset.value ? "text-[color:var(--brand-hover)]" : "text-[color:var(--text)]"}`}>
               {preset.label}
             </p>
-            <p className="text-xs text-zinc-500 mt-0.5">{preset.description}</p>
+            <p className="text-[12px] text-[color:var(--text-3)] mt-0.5 leading-snug">{preset.description}</p>
           </button>
         ))}
       </div>
@@ -71,9 +73,9 @@ export function ScheduleEditor({ agentId, initial }: { agentId: string; initial:
       {!showCustom ? (
         <button
           onClick={() => setShowCustom(true)}
-          className="text-sm text-zinc-500 hover:text-zinc-900 transition"
+          className="text-[13px] text-[color:var(--text-3)] hover:text-[color:var(--text)] transition"
         >
-          Custom cron expression…
+          Set a custom cadence with our team…
         </button>
       ) : (
         <div className="flex items-center gap-2">
@@ -82,30 +84,36 @@ export function ScheduleEditor({ agentId, initial }: { agentId: string; initial:
             value={customCron}
             onChange={(e) => setCustomCron(e.target.value)}
             placeholder="e.g. 0 9 * * 1,3,5"
-            className="flex-1 h-9 px-3 rounded-md bg-white border border-zinc-300 text-sm font-mono text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/10 focus:border-zinc-500"
+            className="field flex-1 font-mono"
           />
           <button
             onClick={() => customCron && updateSchedule(customCron)}
             disabled={saving || !customCron}
-            className="h-9 px-4 rounded-md bg-zinc-900 text-white text-sm font-medium hover:bg-zinc-800 transition disabled:opacity-50"
+            className="btn-primary shrink-0 disabled:opacity-50"
           >
             Set
           </button>
           <button
             onClick={() => { setShowCustom(false); setCustomCron(""); }}
-            className="h-9 px-3 text-sm text-zinc-500 hover:text-zinc-900"
+            className="text-[13px] text-[color:var(--text-3)] hover:text-[color:var(--text)] transition shrink-0 px-2"
           >
             Cancel
           </button>
         </div>
       )}
 
-      <div className="flex items-center gap-3 mt-3 text-sm">
-        <span className="text-zinc-500">Current:</span>
-        <span className="font-mono text-zinc-900">{schedule}</span>
+      <div className="flex items-center gap-3 mt-3.5 text-[13px]">
+        <span className="text-[color:var(--text-3)]">Current cadence</span>
+        <span className="font-mono text-[color:var(--text-2)]">{schedule}</span>
         {result && (
-          <span className={result.startsWith("Error") ? "text-red-600" : "text-emerald-600"}>
-            {result}
+          <span
+            className={`inline-flex items-center gap-1.5 text-[11.5px] font-medium px-2.5 py-1 rounded-full ${
+              isError
+                ? "bg-[color:var(--red-tint)] text-[color:var(--red)]"
+                : "bg-[color:var(--brand-tint)] text-[color:var(--brand-hover)]"
+            }`}
+          >
+            {isError ? result : "✓ Saved"}
           </span>
         )}
       </div>

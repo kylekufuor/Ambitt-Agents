@@ -4,8 +4,23 @@ import Link from "next/link";
 import prisma from "@/lib/db";
 import { ToolsList } from "./tools-list";
 import { WhatsAppCard } from "./whatsapp-card";
+import { ToolsIcon } from "@/components/icons";
 
 export const dynamic = "force-dynamic";
+
+// Small local duotone glyph for the load-error notice — soft base + crisp mark
+// + lit highlight, matching the house icon language (not a flat stroke icon).
+function AlertGlyph({ size = 18 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M10.3 4.2 3.6 16a2 2 0 0 0 1.7 3h13.4a2 2 0 0 0 1.7-3L13.7 4.2a2 2 0 0 0-3.4 0Z" fill="currentColor" opacity="0.2" />
+      <path d="M10.3 4.2 3.6 16a2 2 0 0 0 1.7 3h13.4a2 2 0 0 0 1.7-3L13.7 4.2a2 2 0 0 0-3.4 0Z" stroke="currentColor" strokeWidth="1.6" fill="none" />
+      <path d="M12 9v4.4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <circle cx="12" cy="16.4" r="1.15" fill="currentColor" />
+      <path d="M10.8 5.6 7 12.4a.6.6 0 0 1-1-.6l3.6-6.7a.7.7 0 0 1 1.2.5Z" fill="#ffffff" opacity="0.55" />
+    </svg>
+  );
+}
 
 interface ToolsResponse {
   tools: Array<{
@@ -84,29 +99,56 @@ export default async function AgentToolsPage(
 
   return (
     <main className="max-w-3xl mx-auto px-4 py-10">
-      <nav className="mb-6 text-xs text-zinc-500">
-        <Link href="/" className="hover:underline">Home</Link>
-        <span className="mx-2">/</span>
-        <Link href={`/agents/${id}`} className="hover:underline">{agent.name}</Link>
-        <span className="mx-2">/</span>
-        <span className="text-zinc-700">Tools</span>
+      <nav className="mb-6 flex items-center gap-2 text-[12.5px] text-[color:var(--text-3)]">
+        <Link href="/" className="hover:text-[color:var(--text)] transition-colors">Home</Link>
+        <span className="text-[color:var(--text-4)]">/</span>
+        <Link href={`/agents/${id}`} className="hover:text-[color:var(--text)] transition-colors">{agent.name}</Link>
+        <span className="text-[color:var(--text-4)]">/</span>
+        <span className="text-[color:var(--text-2)] font-medium">Tools</span>
       </nav>
 
-      <header className="mb-7">
-        <h1 className="text-2xl font-semibold text-zinc-900 mb-1">Tools &amp; credentials</h1>
-        <p className="text-sm text-zinc-600 leading-relaxed">
-          The tools {agent.name} uses on your behalf, with secure credential storage in 1Password.
-        </p>
-        <div className="flex items-center gap-3 mt-3 text-xs text-zinc-500">
-          <span><span className="text-emerald-600 font-medium">{connectedCount}</span> connected</span>
-          <span>·</span>
-          <span><span className="text-amber-600 font-medium">{needsSetupCount}</span> needs setup</span>
+      <header className="mb-8">
+        <div className="flex items-start gap-4">
+          <span className="chip-icon chip-teal shrink-0 mt-0.5">
+            <ToolsIcon size={20} />
+          </span>
+          <div className="min-w-0">
+            <p className="eyebrow mb-2">Tools &amp; access</p>
+            <h1 className="font-display text-[26px] leading-tight text-[color:var(--text)]">
+              What {agent.name}{" "}works with
+            </h1>
+            <p className="text-[14.5px] text-[color:var(--text-3)] leading-relaxed mt-2 max-w-[560px]">
+              These are the accounts {agent.name}{" "}uses on your behalf. Your passwords are
+              held in an encrypted vault — we never see or store the values ourselves.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 mt-5">
+          <span className="inline-flex items-center gap-2 text-[13px] text-[color:var(--text-2)]">
+            <span className="dot dot-emerald" />
+            <span className="font-semibold text-[color:var(--text)]">{connectedCount}</span>
+            connected
+          </span>
+          <span className="inline-flex items-center gap-2 text-[13px] text-[color:var(--text-2)]">
+            <span className={`dot ${needsSetupCount > 0 ? "dot-amber" : "dot-muted"}`} />
+            <span className="font-semibold text-[color:var(--text)]">{needsSetupCount}</span>
+            {needsSetupCount === 1 ? "still needs you" : "still need you"}
+          </span>
         </div>
       </header>
 
       {fetchError && (
-        <div className="mb-6 p-3 rounded-lg border border-red-200 bg-red-50 text-sm text-red-800">
-          Couldn&apos;t load tools: {fetchError}. Try refreshing.
+        <div className="card mb-6 p-4 flex items-start gap-3" style={{ background: "var(--red-tint)" }}>
+          <span className="text-[color:var(--red)] shrink-0 mt-0.5"><AlertGlyph /></span>
+          <div className="text-[13.5px] leading-relaxed">
+            <p className="font-semibold text-[color:var(--text)]">We couldn&apos;t load your tools just now</p>
+            <p className="text-[color:var(--text-2)] mt-0.5">
+              This is on our side, not yours — give the page a refresh and it should come right
+              back. If it keeps happening, reply to any agent email and we&apos;ll jump on it.
+            </p>
+            <p className="text-[12px] text-[color:var(--text-3)] mt-1.5 font-mono">{fetchError}</p>
+          </div>
         </div>
       )}
 

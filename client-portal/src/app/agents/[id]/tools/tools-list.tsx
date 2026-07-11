@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { ToolsIcon, ShieldIcon } from "@/components/icons";
 
 interface FieldShape {
   title: string;
@@ -48,10 +49,10 @@ interface ToolsListProps {
   initialData: { tools: ToolRow[]; personalInfo: PersonalInfoRow[] };
 }
 
-function statusBadge(status: ToolRow["status"]): { label: string; classes: string } {
-  if (status === "connected") return { label: "Connected", classes: "bg-emerald-50 text-emerald-700 border-emerald-200" };
-  if (status === "partial") return { label: "Partial", classes: "bg-blue-50 text-blue-700 border-blue-200" };
-  return { label: "Needs setup", classes: "bg-amber-50 text-amber-700 border-amber-200" };
+function statusBadge(status: ToolRow["status"]): { label: string; pill: string; dot: string } {
+  if (status === "connected") return { label: "Connected", pill: "pill-emerald", dot: "dot-emerald" };
+  if (status === "partial") return { label: "Almost there", pill: "pill-blue", dot: "dot-blue" };
+  return { label: "Needs setup", pill: "pill-amber", dot: "dot-amber" };
 }
 
 function timeAgo(iso: string | null): string | null {
@@ -76,13 +77,17 @@ function Avatar({ name, logoUrl }: { name: string; logoUrl: string | null }) {
       <img
         src={logoUrl}
         alt=""
-        className="w-9 h-9 rounded-lg border border-zinc-200 object-contain bg-white"
+        className="w-9 h-9 rounded-[9px] object-contain bg-[color:var(--surface)]"
+        style={{ boxShadow: "inset 0 0 0 1px rgba(45,62,80,0.08), 0 1px 2px rgba(45,62,80,0.08)" }}
         onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
       />
     );
   }
   return (
-    <div className="w-9 h-9 rounded-lg bg-zinc-100 border border-zinc-200 flex items-center justify-center text-sm font-semibold text-zinc-700">
+    <div
+      className="w-9 h-9 rounded-[9px] bg-[color:var(--surface-2)] flex items-center justify-center text-sm font-semibold text-[color:var(--text-2)]"
+      style={{ boxShadow: "inset 0 0 0 1px rgba(45,62,80,0.06)" }}
+    >
       {initial}
     </div>
   );
@@ -93,15 +98,24 @@ export function ToolsList({ agentId, agentName, initialData }: ToolsListProps) {
   const [expanded, setExpanded] = useState<string | null>(null);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-9">
       <section>
-        <h2 className="text-xs uppercase tracking-wider text-zinc-500 font-medium mb-3">Tools</h2>
+        <h2 className="eyebrow mb-3">Tools</h2>
         {data.tools.length === 0 ? (
-          <div className="rounded-lg border border-zinc-200 p-5 text-sm text-zinc-600 bg-zinc-50">
-            No tools yet. {agentName} will email you when it needs access to something.
+          <div className="card p-8 text-center">
+            <span className="chip-icon chip-teal mx-auto mb-4">
+              <ToolsIcon size={20} />
+            </span>
+            <p className="font-display text-[17px] text-[color:var(--text)]">
+              Nothing to connect yet
+            </p>
+            <p className="text-[13.5px] text-[color:var(--text-3)] mt-1.5 max-w-sm mx-auto leading-relaxed">
+              When {agentName}{" "}needs access to one of your accounts, it&apos;ll ask you here
+              and send you a heads-up by email. Nothing for you to do right now.
+            </p>
           </div>
         ) : (
-          <ul className="space-y-2">
+          <ul className="space-y-2.5">
             {data.tools.map((t) => (
               <ToolItem
                 key={t.id}
@@ -117,8 +131,8 @@ export function ToolsList({ agentId, agentName, initialData }: ToolsListProps) {
 
       {data.personalInfo.length > 0 && (
         <section>
-          <h2 className="text-xs uppercase tracking-wider text-zinc-500 font-medium mb-3">Personal info</h2>
-          <ul className="space-y-2">
+          <h2 className="eyebrow mb-3">Personal info</h2>
+          <ul className="space-y-2.5">
             {data.personalInfo.map((p) => (
               <PersonalInfoItem
                 key={p.itemId}
@@ -227,48 +241,56 @@ function ToolItem({
   const canDisconnect = !!row.oauth || (isCustom && !!row.credentials?.allFilled);
 
   return (
-    <li className="rounded-lg border border-zinc-200 bg-white overflow-hidden">
-      <div className="flex items-center gap-3 px-4 py-3">
+    <li className="card overflow-hidden">
+      <div className="flex items-center gap-3 px-4 py-3.5">
         <Avatar name={row.name} logoUrl={row.logoUrl} />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <p className="text-sm font-medium text-zinc-900">{row.name}</p>
+            <p className="text-[14px] font-semibold text-[color:var(--text)]">{row.name}</p>
             {row.loginStatus === "failed" ? (
-              <span className="text-xs font-medium px-2 py-0.5 rounded border bg-red-50 text-red-700 border-red-200">
+              <span className="pill pill-red">
+                <span className="dot dot-red" />
                 Sign-in failed
               </span>
             ) : (
-              <span className={`text-xs font-medium px-2 py-0.5 rounded border ${badge.classes}`}>{badge.label}</span>
+              <span className={`pill ${badge.pill}`}>
+                <span className={`dot ${badge.dot}`} />
+                {badge.label}
+              </span>
             )}
             {row.credentials?.allFilled && row.loginStatus !== "failed" && (
-              <span className="text-[10px] text-zinc-500 px-1.5 py-0.5 rounded bg-zinc-100">🔒 Encrypted</span>
+              <span className="inline-flex items-center gap-1 text-[11px] font-medium text-[color:var(--text-3)]">
+                <span className="text-[color:var(--emerald)]"><ShieldIcon size={13} /></span>
+                Encrypted
+              </span>
             )}
           </div>
-          <p className="text-xs text-zinc-500 mt-0.5">
+          <p className="text-[12.5px] text-[color:var(--text-3)] mt-1">
             {row.accountEmail ? (
-              <span className="text-zinc-700 font-medium">{row.accountEmail}</span>
+              <span className="text-[color:var(--text-2)] font-medium">{row.accountEmail}</span>
             ) : isCustom ? (
               <>Sign-in{siteHost ? <> · {siteHost}</> : null}</>
             ) : (
               <>
-                {row.authMethods.includes("oauth") && row.authMethods.includes("credentials") && <>OAuth + credentials</>}
-                {row.authMethods.includes("oauth") && !row.authMethods.includes("credentials") && <>OAuth</>}
-                {!row.authMethods.includes("oauth") && row.authMethods.includes("credentials") && <>Credentials</>}
+                {row.authMethods.includes("oauth") && row.authMethods.includes("credentials") && <>Sign-in + saved login</>}
+                {row.authMethods.includes("oauth") && !row.authMethods.includes("credentials") && <>One-click sign-in</>}
+                {!row.authMethods.includes("oauth") && row.authMethods.includes("credentials") && <>Saved login</>}
               </>
             )}
-            {last && <> · Last accessed {timeAgo(last)}</>}
+            {last && <> · Last used {timeAgo(last)}</>}
           </p>
           {isCustom && row.vaultPending && (
-            <p className="text-xs text-amber-700 mt-1">
-              Your secure credential vault is being set up — you&apos;ll be able to add this login here shortly.
+            <p className="text-[12.5px] text-[color:var(--amber)] mt-1.5 leading-relaxed">
+              We&apos;re still setting up your secure vault — you&apos;ll be able to add this login here in a moment.
             </p>
           )}
           {row.loginStatus === "failed" && (
-            <p className="text-xs text-red-600 mt-1">
-              Couldn&apos;t sign in to {row.name} with the saved login. Update the username/password below and we&apos;ll try again on the next run.
+            <p className="text-[12.5px] text-[color:var(--red)] mt-1.5 leading-relaxed">
+              That saved login didn&apos;t work for {row.name}. Pop in a fresh username and password
+              below and we&apos;ll try again on the next run.
             </p>
           )}
-          {connectError && <p className="text-xs text-red-600 mt-1">{connectError}</p>}
+          {connectError && <p className="text-[12.5px] text-[color:var(--red)] mt-1.5">{connectError}</p>}
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {canConnectOAuth && (
@@ -276,7 +298,7 @@ function ToolItem({
               type="button"
               onClick={() => handleConnect(false)}
               disabled={connecting}
-              className="text-xs font-medium text-white bg-zinc-900 hover:bg-zinc-800 rounded-md px-3 py-1.5 disabled:opacity-50"
+              className="btn-primary text-[13px] px-3.5 py-1.5"
             >
               {connecting ? "Connecting…" : "Connect"}
             </button>
@@ -287,7 +309,7 @@ function ToolItem({
               onClick={() => handleConnect(true)}
               disabled={connecting}
               title="Connect another Gmail inbox"
-              className="text-xs font-medium text-[color:var(--brand,#00b3b3)] hover:underline rounded-md px-2 py-1.5 disabled:opacity-50"
+              className="text-[13px] font-medium text-[color:var(--brand-hover)] hover:underline rounded-md px-2 py-1.5 disabled:opacity-50"
             >
               {connecting ? "…" : "+ Add another"}
             </button>
@@ -296,7 +318,7 @@ function ToolItem({
             <button
               type="button"
               onClick={onToggle}
-              className="text-xs font-medium text-zinc-700 hover:text-zinc-900 border border-zinc-200 rounded-md px-3 py-1.5 hover:bg-zinc-50"
+              className="btn-secondary text-[13px] px-3.5 py-1.5"
             >
               {row.credentials.allFilled ? "Update" : isCustom ? "Enter login" : "Add credentials"}
             </button>
@@ -308,7 +330,8 @@ function ToolItem({
               disabled={disconnecting}
               title={isCustom ? "Remove this tool" : "Disconnect"}
               aria-label={isCustom ? `Remove ${row.name}` : `Disconnect ${row.name}`}
-              className="text-zinc-400 hover:text-red-600 hover:bg-red-50 rounded-md w-7 h-7 flex items-center justify-center disabled:opacity-50 transition-colors"
+              className="text-[color:var(--text-4)] hover:text-[color:var(--red)] rounded-md w-7 h-7 flex items-center justify-center disabled:opacity-50 transition-colors"
+              style={{ transitionProperty: "color, background-color" }}
             >
               {disconnecting ? (
                 <span className="text-[10px]">…</span>
@@ -342,30 +365,30 @@ function PersonalInfoItem({
 }) {
   const last = row.lastAccessedAt;
   return (
-    <li className="rounded-lg border border-zinc-200 bg-white overflow-hidden">
-      <div className="flex items-center gap-3 px-4 py-3">
+    <li className="card overflow-hidden">
+      <div className="flex items-center gap-3 px-4 py-3.5">
         <Avatar name={row.title} logoUrl={null} />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <p className="text-sm font-medium text-zinc-900">{row.title}</p>
-            <span className={`text-xs font-medium px-2 py-0.5 rounded border ${
-              row.allFilled
-                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                : "bg-amber-50 text-amber-700 border-amber-200"
-            }`}>
+            <p className="text-[14px] font-semibold text-[color:var(--text)]">{row.title}</p>
+            <span className={`pill ${row.allFilled ? "pill-emerald" : "pill-amber"}`}>
+              <span className={`dot ${row.allFilled ? "dot-emerald" : "dot-amber"}`} />
               {row.allFilled ? "Saved" : "Needs setup"}
             </span>
-            <span className="text-[10px] text-zinc-500 px-1.5 py-0.5 rounded bg-zinc-100">🔒 Secured with 1Password</span>
+            <span className="inline-flex items-center gap-1 text-[11px] font-medium text-[color:var(--text-3)]">
+              <span className="text-[color:var(--emerald)]"><ShieldIcon size={13} /></span>
+              Kept in your vault
+            </span>
           </div>
-          <p className="text-xs text-zinc-500 mt-0.5">
+          <p className="text-[12.5px] text-[color:var(--text-3)] mt-1">
             {row.fields.map((f) => f.title).join(" · ")}
-            {last && <> · Last accessed {timeAgo(last)}</>}
+            {last && <> · Last used {timeAgo(last)}</>}
           </p>
         </div>
         <button
           type="button"
           onClick={onToggle}
-          className="text-xs font-medium text-zinc-700 hover:text-zinc-900 border border-zinc-200 rounded-md px-3 py-1.5 hover:bg-zinc-50"
+          className="btn-secondary text-[13px] px-3.5 py-1.5"
         >
           {row.allFilled ? "Update" : "Fill in"}
         </button>
@@ -446,12 +469,16 @@ function CredentialForm({
   const isConcealed = (t: string) => t === "Concealed" || t === "Totp";
 
   return (
-    <form onSubmit={onSubmit} className="border-t border-zinc-200 bg-zinc-50 px-4 py-4 space-y-3">
+    <form
+      onSubmit={onSubmit}
+      className="px-4 py-4 space-y-3.5"
+      style={{ background: "var(--surface-2)", borderTop: "1px solid var(--border)" }}
+    >
       {fields.map((f) => (
         <div key={f.title}>
-          <label className="block text-xs font-medium text-zinc-600 mb-1">
+          <label className="field-label">
             {f.title}
-            {f.filled && <span className="ml-2 text-emerald-600 text-[10px] font-normal">(already saved — leave empty to keep)</span>}
+            {f.filled && <span className="ml-2 text-[color:var(--emerald)] text-[11px] font-normal">already saved — leave empty to keep</span>}
           </label>
           <div className="relative">
             <input
@@ -466,14 +493,14 @@ function CredentialForm({
               value={values[f.title] ?? ""}
               onChange={(e) => setValues({ ...values, [f.title]: e.target.value })}
               disabled={saving}
-              className="w-full px-3 py-2 text-sm border border-zinc-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 bg-white"
+              className="field pr-14"
               placeholder={f.filled ? "•••••••• (saved — leave empty to keep)" : `Enter ${f.title}`}
             />
             {isConcealed(f.fieldType) && (
               <button
                 type="button"
                 onClick={() => setShowByField({ ...showByField, [f.title]: !showByField[f.title] })}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-zinc-500 hover:text-zinc-700"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[12px] font-medium text-[color:var(--text-3)] hover:text-[color:var(--text)]"
                 tabIndex={-1}
               >
                 {showByField[f.title] ? "Hide" : "Show"}
@@ -487,22 +514,26 @@ function CredentialForm({
         <button
           type="submit"
           disabled={saving}
-          className="text-sm font-medium px-4 py-2 rounded-md bg-zinc-900 text-white hover:bg-zinc-800 disabled:opacity-50"
+          className="btn-primary text-[13.5px] px-4 py-2"
         >
-          {saving ? "Saving..." : "Save"}
+          {saving ? "Saving…" : "Save login"}
         </button>
         <button
           type="button"
           onClick={onDone}
           disabled={saving}
-          className="text-sm font-medium px-4 py-2 rounded-md border border-zinc-300 text-zinc-700 hover:bg-zinc-100 disabled:opacity-50"
+          className="btn-secondary text-[13.5px] px-4 py-2"
         >
           Cancel
         </button>
-        <span className="ml-auto text-[10px] text-zinc-500">🔒 Stored in 1Password — Ambitt doesn&apos;t keep your values</span>
       </div>
 
-      {error && <p className="text-xs text-red-600">{error}</p>}
+      <p className="flex items-center gap-1.5 text-[11.5px] text-[color:var(--text-3)] leading-relaxed">
+        <span className="text-[color:var(--emerald)] shrink-0"><ShieldIcon size={14} /></span>
+        Encrypted in your own vault the moment you save — we never see or keep the values.
+      </p>
+
+      {error && <p className="text-[12.5px] text-[color:var(--red)]">{error}</p>}
     </form>
   );
 }

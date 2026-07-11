@@ -3,6 +3,7 @@ import prisma from "@/lib/db";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { PortalShell } from "@/components/portal-shell";
+import { LeadsIcon } from "@/components/icons";
 
 export const dynamic = "force-dynamic";
 
@@ -88,8 +89,8 @@ export default async function AgentLeadsPage(
             <p className="eyebrow mb-2">{agent.name}</p>
             <h1 className="font-display text-[34px] leading-none text-[color:var(--text)]">Leads</h1>
             <p className="text-[14px] text-[color:var(--text-3)] mt-2.5 max-w-[560px]">
-              Everything {agent.name} has sourced and worked for you. Updated automatically
-              as {agent.name} finds and follows up on opportunities.
+              Everything {agent.name}{" "}has sourced and worked for you. Updated automatically
+              as {agent.name}{" "}finds and follows up on opportunities.
             </p>
           </div>
           {leads.length > 0 && (
@@ -118,12 +119,19 @@ export default async function AgentLeadsPage(
         <section className="reveal" style={{ ["--i" as never]: 2 }}>
           {leads.length === 0 ? (
             <div className="card p-12 text-center">
+              <span
+                className="chip-icon chip-indigo mx-auto mb-4"
+                style={{ width: 52, height: 52, borderRadius: 16 }}
+              >
+                <LeadsIcon size={26} />
+              </span>
               <p className="font-display text-[20px] text-[color:var(--text)] mb-1.5">
-                No leads yet
+                No leads on the board yet
               </p>
-              <p className="text-[13.5px] text-[color:var(--text-3)] max-w-md mx-auto">
-                As soon as {agent.name} starts sourcing, every opportunity — with its owner,
-                deal details, and status — shows up here.
+              <p className="text-[13.5px] text-[color:var(--text-3)] max-w-md mx-auto leading-relaxed">
+                The board&apos;s clear for now. The moment {agent.name}{" "}sources its first
+                opportunity, it lands here — the contact, the deal details, and where it
+                stands — and we keep it current as things move.
               </p>
             </div>
           ) : (
@@ -136,7 +144,7 @@ export default async function AgentLeadsPage(
         </section>
 
         <p className="text-center text-[12px] text-[color:var(--text-4)] mt-10">
-          Want these flowing into a Google Sheet automatically? Just reply to {agent.name} and
+          Want these flowing into a Google Sheet automatically? Just reply to {agent.name}{" "}and
           ask.
         </p>
       </div>
@@ -159,8 +167,21 @@ type LeadRow = {
   createdAt: Date;
 };
 
+// Status → left accent-stripe tone (echoes the status pill so a lead's stage
+// reads at a glance down the rail, not just from the badge).
+const STRIPE: Record<string, string> = {
+  new: "blue",
+  contacted: "warn",
+  replied: "",
+  qualified: "",
+  won: "",
+  lost: "muted",
+  archived: "muted",
+};
+
 function LeadCard({ lead }: { lead: LeadRow }) {
   const status = STATUS[lead.status] ?? { label: lead.status, pill: "pill-muted" };
+  const stripe = STRIPE[lead.status] ?? "muted";
   const value = fmtUsd(lead.valueUsd);
   const detailEntries =
     lead.details && typeof lead.details === "object" && !Array.isArray(lead.details)
@@ -168,7 +189,8 @@ function LeadCard({ lead }: { lead: LeadRow }) {
       : [];
 
   return (
-    <div className="card p-5">
+    <div className="card card-hover relative overflow-hidden p-5 pl-6">
+      <span className={`accent-stripe ${stripe}`} />
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h3 className="text-[15.5px] font-medium text-[color:var(--text)] leading-tight">
@@ -180,7 +202,7 @@ function LeadCard({ lead }: { lead: LeadRow }) {
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {value && (
-            <span className="font-display text-[16px] text-[color:var(--text)]">{value}</span>
+            <span className="font-display text-[16px] text-[color:var(--brand-hover)]">{value}</span>
           )}
           <span className={`pill ${status.pill}`}>{status.label}</span>
         </div>

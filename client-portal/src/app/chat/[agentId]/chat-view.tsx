@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { AgentAvatar } from "@/components/brand-mark";
 
 export interface ChatMessage {
   id: string;
@@ -10,9 +11,16 @@ export interface ChatMessage {
   createdAt: string | Date;
 }
 
-const BRAND = "#00b3b3";
-const BRAND_DARK = "#0f7a74";
-const AVATAR = "/brand/ambitt-agent-avatar.png";
+// Teal used for the client's own bubbles + markdown links. Aligned with the
+// portal brand tokens (var(--brand) / var(--brand-hover)); kept as literals so
+// they resolve inside the dangerouslySetInnerHTML markdown string too.
+const BRAND = "#00a4bd";
+const BRAND_HOVER = "#0091a8";
+
+// Layered elevation — the same depth language as the portal's `.card`. Agent
+// bubbles read as raised white surfaces, not gray-outlined boxes.
+const BUBBLE_SHADOW =
+  "0 0 0 1px rgba(45,62,80,0.04), 0 1px 2px rgba(45,62,80,0.06), 0 6px 16px -6px rgba(45,62,80,0.14)";
 
 function oracleUrl(): string {
   return process.env.NEXT_PUBLIC_ORACLE_URL ?? "https://oracle-production-c0ff.up.railway.app";
@@ -29,7 +37,7 @@ function inline(s: string): string {
     .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
     .replace(
       /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g,
-      `<a href="$2" target="_blank" rel="noopener noreferrer" style="color:${BRAND_DARK};text-decoration:underline;">$1</a>`
+      `<a href="$2" target="_blank" rel="noopener noreferrer" style="color:${BRAND_HOVER};text-decoration:underline;font-weight:500;">$1</a>`
     );
 }
 function renderMarkdown(md: string): string {
@@ -59,10 +67,10 @@ function renderMarkdown(md: string): string {
 }
 
 function statusPresentation(status: string): { label: string; color: string; pulse: boolean } {
-  if (status === "active") return { label: "Online", color: BRAND, pulse: true };
-  if (status === "paused") return { label: "Paused", color: "#9ca3af", pulse: false };
-  if (status === "pending_approval") return { label: "Getting set up", color: "#3b82f6", pulse: true };
-  return { label: status.replace(/_/g, " "), color: "#9ca3af", pulse: false };
+  if (status === "active") return { label: "Online", color: "var(--emerald)", pulse: true };
+  if (status === "paused") return { label: "Paused", color: "var(--text-4)", pulse: false };
+  if (status === "pending_approval") return { label: "Getting set up", color: "var(--blue)", pulse: true };
+  return { label: status.replace(/_/g, " "), color: "var(--text-4)", pulse: false };
 }
 
 export function ChatView({
@@ -84,6 +92,7 @@ export function ChatView({
   const [error, setError] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const status = statusPresentation(agentStatus);
+  const canSend = agentStatus === "active";
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -133,40 +142,69 @@ export function ChatView({
   }
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: "#f4f6f5" }}>
-      <header className="bg-white border-b border-zinc-200 sticky top-0 z-10">
+    <div className="min-h-screen flex flex-col" style={{ background: "var(--bg)" }}>
+      {/* Header — raised white bar, separated by elevation not a gray hairline */}
+      <header
+        className="sticky top-0 z-10"
+        style={{
+          background: "var(--surface)",
+          boxShadow: "0 1px 2px rgba(45,62,80,0.06), 0 4px 16px -8px rgba(45,62,80,0.14)",
+        }}
+      >
         <div className="max-w-3xl mx-auto px-4 sm:px-6 py-3 flex items-center gap-3">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={AVATAR} alt={agentName} width={38} height={38} className="rounded-full" style={{ width: 38, height: 38 }} />
+          <AgentAvatar size={40} />
           <div className="flex-1 min-w-0">
-            <h1 className="text-[15px] font-semibold text-zinc-900 leading-tight">{agentName} <span className="font-normal text-zinc-400">· Ambitt Agents</span></h1>
+            <h1 className="font-display text-[15px] text-[color:var(--text)] leading-tight truncate">
+              {agentName}
+              <span className="font-normal text-[color:var(--text-4)]"> · Ambitt Agents</span>
+            </h1>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="inline-block w-2 h-2 rounded-full" style={{ background: status.color, boxShadow: status.pulse ? `0 0 0 3px ${status.color}22` : "none" }} />
-              <span className="text-[12px] text-zinc-500">{status.label}</span>
+              <span
+                className={`dot ${status.pulse ? "dot-pulse" : ""}`}
+                style={{
+                  background: status.color,
+                  boxShadow: status.pulse ? `0 0 0 3px color-mix(in srgb, ${status.color} 22%, transparent)` : "none",
+                }}
+              />
+              <span className="text-[12px] text-[color:var(--text-3)]">{status.label}</span>
             </div>
           </div>
-          <a href="https://portal.ambitt.agency/" className="text-[13px] text-zinc-500 hover:text-zinc-900 transition-colors">Portal</a>
+          <a
+            href="https://portal.ambitt.agency/"
+            className="text-[13px] font-medium text-[color:var(--text-3)] hover:text-[color:var(--brand-hover)] transition-colors"
+          >
+            Portal
+          </a>
         </div>
       </header>
 
       <main className="flex-1 overflow-y-auto">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 space-y-4">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8 space-y-4">
           {messages.length === 0 && (
-            <div className="text-center text-[13px] text-zinc-500 py-12">
-              Start the conversation — {agentName} reads every message and replies here.
+            <div className="flex flex-col items-center text-center py-16 px-6">
+              <AgentAvatar size={56} />
+              <h2 className="font-display text-[20px] text-[color:var(--text)] mt-5 leading-tight">
+                Say hello to {agentName}.
+              </h2>
+              <p className="text-[14px] text-[color:var(--text-3)] mt-2 max-w-sm leading-relaxed">
+                Ask a question, hand over a task, or just tell {agentName}{" "}what you need.
+                Every message is read and answered right here — same as email, only faster.
+              </p>
             </div>
           )}
           {messages.map((m) => (
             <MessageBubble key={m.id} message={m} agentName={agentName} />
           ))}
           {sending && (
-            <div className="flex items-center gap-2.5">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={AVATAR} alt="" width={28} height={28} className="rounded-full" style={{ width: 28, height: 28 }} />
-              <div className="flex items-center gap-1 px-4 py-3 rounded-2xl bg-white border border-zinc-200">
-                <span className="w-1.5 h-1.5 rounded-full bg-zinc-400 animate-bounce" style={{ animationDelay: "0ms" }} />
-                <span className="w-1.5 h-1.5 rounded-full bg-zinc-400 animate-bounce" style={{ animationDelay: "150ms" }} />
-                <span className="w-1.5 h-1.5 rounded-full bg-zinc-400 animate-bounce" style={{ animationDelay: "300ms" }} />
+            <div className="flex items-end gap-2.5">
+              <AgentAvatar size={30} />
+              <div
+                className="flex items-center gap-1 px-4 py-3.5 rounded-2xl rounded-bl-md"
+                style={{ background: "var(--surface)", boxShadow: BUBBLE_SHADOW }}
+              >
+                <span className="w-1.5 h-1.5 rounded-full animate-bounce" style={{ background: "var(--text-4)", animationDelay: "0ms" }} />
+                <span className="w-1.5 h-1.5 rounded-full animate-bounce" style={{ background: "var(--text-4)", animationDelay: "150ms" }} />
+                <span className="w-1.5 h-1.5 rounded-full animate-bounce" style={{ background: "var(--text-4)", animationDelay: "300ms" }} />
               </div>
             </div>
           )}
@@ -174,10 +212,26 @@ export function ChatView({
         </div>
       </main>
 
-      <footer className="bg-white border-t border-zinc-200">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 py-3">
-          {error && <p className="text-[13px] text-red-600 mb-2">{error}</p>}
-          <div className="flex items-end gap-2">
+      {/* Composer — raised bar with a polished field + confident teal send */}
+      <footer
+        style={{
+          background: "var(--surface)",
+          boxShadow: "0 -1px 2px rgba(45,62,80,0.05), 0 -8px 24px -12px rgba(45,62,80,0.16)",
+        }}
+      >
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 py-3.5">
+          {error && (
+            <p className="text-[13px] mb-2.5 flex items-center gap-1.5" style={{ color: "var(--red)" }}>
+              <span className="dot dot-red" />
+              {error}
+            </p>
+          )}
+          {!canSend && (
+            <p className="text-[12.5px] text-[color:var(--text-3)] mb-2.5">
+              {agentName}{" "}is {statusPresentation(agentStatus).label.toLowerCase()} right now — messaging opens back up once it&apos;s live again.
+            </p>
+          )}
+          <div className="flex items-end gap-2.5">
             <textarea
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
@@ -185,20 +239,39 @@ export function ChatView({
               rows={1}
               maxLength={8000}
               placeholder={`Message ${agentName}…`}
-              className="flex-1 px-3.5 py-2.5 rounded-xl bg-white border border-zinc-300 text-[15px] text-zinc-900 resize-none min-h-[46px] max-h-[200px] focus:outline-none focus:ring-2 focus:border-transparent"
-              style={{ "--tw-ring-color": `${BRAND}55` } as React.CSSProperties}
-              disabled={sending || agentStatus !== "active"}
+              className="flex-1 px-4 py-3 text-[15px] resize-none min-h-[48px] max-h-[200px] focus:outline-none transition-shadow"
+              style={{
+                background: canSend ? "var(--surface)" : "var(--surface-2)",
+                color: "var(--text)",
+                border: "1px solid var(--border-strong)",
+                borderRadius: "var(--radius-lg)",
+              }}
+              onFocus={(e) => {
+                e.currentTarget.style.borderColor = BRAND;
+                e.currentTarget.style.boxShadow = "0 0 0 3px var(--brand-tint-strong)";
+              }}
+              onBlur={(e) => {
+                e.currentTarget.style.borderColor = "var(--border-strong)";
+                e.currentTarget.style.boxShadow = "none";
+              }}
+              disabled={sending || !canSend}
             />
             <button
               onClick={send}
-              disabled={sending || !draft.trim() || agentStatus !== "active"}
-              className="h-[46px] px-5 rounded-xl text-white text-[14px] font-semibold transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
-              style={{ background: BRAND }}
+              disabled={sending || !draft.trim() || !canSend}
+              aria-label="Send message"
+              className="btn-primary h-[48px] px-5 shrink-0"
+              style={{ opacity: sending || !draft.trim() || !canSend ? 0.45 : 1 }}
             >
               Send
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M4 12h13M12 6l6 6-6 6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
             </button>
           </div>
-          <p className="text-[11px] text-zinc-400 mt-2">Enter to send · Shift + Enter for a new line</p>
+          <p className="text-[11px] text-[color:var(--text-4)] mt-2">
+            Enter to send · Shift + Enter for a new line
+          </p>
         </div>
       </footer>
     </div>
@@ -213,15 +286,19 @@ function MessageBubble({ message, agentName }: { message: ChatMessage; agentName
   if (isAgent) {
     return (
       <div className="flex gap-2.5">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={AVATAR} alt={agentName} width={28} height={28} className="rounded-full mt-0.5 shrink-0" style={{ width: 28, height: 28 }} />
+        <div className="mt-0.5 shrink-0">
+          <AgentAvatar size={30} />
+        </div>
         <div className="max-w-[82%]">
           <div
-            className="px-4 py-3 rounded-2xl rounded-tl-md bg-white border border-zinc-200 text-[15px] text-zinc-800 leading-relaxed break-words"
+            className="px-4 py-3 rounded-2xl rounded-tl-md text-[15px] leading-relaxed break-words"
+            style={{ background: "var(--surface)", color: "var(--text)", boxShadow: BUBBLE_SHADOW }}
             dangerouslySetInnerHTML={{ __html: renderMarkdown(message.content) }}
           />
-          <div className="flex items-center gap-2 mt-1 ml-1 text-[11px] text-zinc-400">
-            <span>{agentName}</span><span>·</span><span>{timeLabel}</span>
+          <div className="flex items-center gap-2 mt-1.5 ml-1 text-[11px] text-[color:var(--text-4)]">
+            <span className="font-medium text-[color:var(--text-3)]">{agentName}</span>
+            <span>·</span>
+            <span>{timeLabel}</span>
             {message.channel === "email" && <><span>·</span><span>via email</span></>}
           </div>
         </div>
@@ -234,12 +311,14 @@ function MessageBubble({ message, agentName }: { message: ChatMessage; agentName
       <div className="max-w-[82%]">
         <div
           className="px-4 py-3 rounded-2xl rounded-tr-md text-[15px] text-white leading-relaxed whitespace-pre-wrap break-words"
-          style={{ background: BRAND }}
+          style={{ background: BRAND, boxShadow: "0 2px 10px -2px rgba(0,164,189,0.4)" }}
         >
           {message.content}
         </div>
-        <div className="flex items-center gap-2 mt-1 mr-1 justify-end text-[11px] text-zinc-400">
-          <span>You</span><span>·</span><span>{timeLabel}</span>
+        <div className="flex items-center gap-2 mt-1.5 mr-1 justify-end text-[11px] text-[color:var(--text-4)]">
+          <span className="font-medium text-[color:var(--text-3)]">You</span>
+          <span>·</span>
+          <span>{timeLabel}</span>
         </div>
       </div>
     </div>
