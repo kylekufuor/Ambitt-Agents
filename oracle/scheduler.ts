@@ -199,6 +199,7 @@ export async function initScheduler(): Promise<void> {
   startBuildPollCron();
   startImprovementCrons();
   startHealthcheckCron();
+  startSpikeMonitorCron();
 
   logger.info("Scheduler initialized", {
     activeAgents: agents.length,
@@ -595,6 +596,25 @@ export function startHealthcheckCron(): void {
   // immediately (failures only, not drift warnings).
   setTimeout(() => runHealthcheck(false), 40000);
   logger.info("Integration healthcheck cron started", { schedule: "0 8 * * 1" });
+}
+
+// ---------------------------------------------------------------------------
+// Spike-monitor cron — every 15 min, per-agent runaway volume/cost detection.
+// Sets the dashboard badge, WhatsApps Kyle + auto-pauses on a critical spike.
+// ---------------------------------------------------------------------------
+let spikeMonitorCronTask: ScheduledTask | null = null;
+export function startSpikeMonitorCron(): void {
+  if (spikeMonitorCronTask) return;
+  spikeMonitorCronTask = cron.schedule("*/15 * * * *", async () => {
+    try {
+      const { checkSpikes } = await import("./spike-monitor.js");
+      const r = await checkSpikes();
+      if (r.spiking > 0 || r.autoPaused > 0) logger.warn("Spike monitor ran", r);
+    } catch (e) {
+      logger.error("Spike monitor threw", { error: e });
+    }
+  });
+  logger.info("Spike-monitor cron started", { schedule: "*/15 * * * *" });
 }
 
 // ---------------------------------------------------------------------------

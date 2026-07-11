@@ -158,6 +158,15 @@ model Agent {
   pausedReason String?   @db.Text
   pausedAt     DateTime?
 
+  // Runaway early-warning — set by the spike-monitor cron so the admin dashboard
+  // can light up an agent (and the operator gets a WhatsApp on critical). Null
+  // severity = not spiking. See shared/spike-detect.ts + oracle/spike-monitor.ts.
+  spikeSeverity  String? // "warn" | "critical" | null
+  spikeBadge     String? // compact label e.g. "18/1h"
+  spikeReason    String?   @db.Text
+  spikeCheckedAt DateTime? // last spike evaluation
+  spikeAlertedAt DateTime? // last operator WhatsApp for this spike (alert cooldown)
+
   // Dry-run mode — when true, side-effect callsites (sendEmail, sendWhatsApp,
   // Composio executeTool, browse actions that write) record what they WOULD
   // have done to DryRunLog instead of actually firing. Defaults true for new
