@@ -138,6 +138,12 @@ model Agent {
   runningSince     DateTime? // set when a run starts, cleared when it ends — drives the portal "working now" badge
   nextScheduledRun DateTime?
 
+  // Control-plane pause metadata (who paused + why) — mirrors root schema.
+  //   pausedBy: "client" | "operator" | "system" | null (not paused)
+  pausedBy     String?
+  pausedReason String?   @db.Text
+  pausedAt     DateTime?
+
   // Dry-run mode — when true, side-effect callsites (sendEmail, sendWhatsApp,
   // Composio executeTool, browse actions that write) record what they WOULD
   // have done to DryRunLog instead of actually firing. Defaults true for new

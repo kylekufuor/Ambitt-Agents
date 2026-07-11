@@ -539,6 +539,32 @@ app.post("/agents/:id/reject", async (req: Request, res: Response) => {
   }
 });
 
+// Fleet emergency stop — operator pauses EVERY active agent at once. The big
+// red button. Each is an operator halt (only the operator can resume), and its
+// cron is unregistered. Returns how many were paused. Literal path (2 segments)
+// so it never collides with /agents/:id/pause.
+app.post("/agents/pause-all", async (_req: Request, res: Response) => {
+  try {
+    const active = await prisma.agent.findMany({ where: { status: "active" }, select: { id: true } });
+    const { unregisterAgent } = await import("./scheduler.js");
+    let paused = 0;
+    for (const a of active) {
+      try {
+        unregisterAgent(a.id);
+        const r = await haltAgent(prisma, { agentId: a.id, by: "operator", reason: "Fleet emergency pause (operator)" });
+        if (r.ok) paused++;
+      } catch (err) {
+        logger.warn("pause-all: failed to pause one agent", { agentId: a.id, err: err instanceof Error ? err.message : String(err) });
+      }
+    }
+    logger.warn("FLEET EMERGENCY PAUSE — operator paused all active agents", { paused, total: active.length });
+    res.json({ paused, total: active.length });
+  } catch (error) {
+    logger.error("pause-all failed", { error });
+    res.status(500).json({ error: "Pause-all failed" });
+  }
+});
+
 // Pause agent
 app.post("/agents/:id/pause", async (req: Request, res: Response) => {
   try {

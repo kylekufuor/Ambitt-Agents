@@ -1,5 +1,7 @@
 import prisma from "@/lib/db";
 import Link from "next/link";
+import { FleetControls } from "./fleet-controls";
+import { FleetEmergency } from "./fleet-emergency";
 
 export const dynamic = "force-dynamic";
 
@@ -122,6 +124,7 @@ export default async function AgentsPage() {
             {agents.length} live · {pendingFromPRD.length} in pipeline
           </p>
         </div>
+        <FleetEmergency activeCount={statusCounts.active} />
       </div>
 
       {/* Status summary — live fleet only */}
@@ -303,6 +306,7 @@ export default async function AgentsPage() {
                     <th className="text-left px-5 py-3 text-muted-foreground text-[11px] font-semibold uppercase tracking-wider">Tasks</th>
                     <th className="text-left px-5 py-3 text-muted-foreground text-[11px] font-semibold uppercase tracking-wider">Budget Burn</th>
                     <th className="text-left px-5 py-3 text-muted-foreground text-[11px] font-semibold uppercase tracking-wider">Last Run</th>
+                    <th className="text-right px-5 py-3 text-muted-foreground text-[11px] font-semibold uppercase tracking-wider">Controls</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -336,9 +340,21 @@ export default async function AgentsPage() {
                           <span className="text-muted-foreground font-mono text-xs">{agent.agentType}</span>
                         </td>
                         <td className="px-5 py-3.5">
-                          <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-semibold uppercase tracking-wider ${statusColors[agent.status] ?? "bg-muted text-muted-foreground"}`}>
-                            {agent.status.replace("_", " ")}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-semibold uppercase tracking-wider ${statusColors[agent.status] ?? "bg-muted text-muted-foreground"}`}>
+                              {agent.status.replace("_", " ")}
+                            </span>
+                            {agent.runningSince && (
+                              <span className="inline-flex items-center gap-1 text-[10px] text-emerald-400" title="Running right now">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> working
+                              </span>
+                            )}
+                          </div>
+                          {agent.status === "paused" && agent.pausedBy && (
+                            <p className="text-muted-foreground/60 text-[10.5px] mt-1 max-w-[240px] truncate" title={agent.pausedReason ?? undefined}>
+                              by {agent.pausedBy}{agent.pausedReason ? ` — ${agent.pausedReason}` : ""}
+                            </p>
+                          )}
                         </td>
                         <td className="px-5 py-3.5 text-muted-foreground font-mono text-xs">{agent.schedule}</td>
                         <td className="px-5 py-3.5 text-muted-foreground tabular-nums">{agent.totalTasksCompleted}</td>
@@ -355,6 +371,9 @@ export default async function AgentsPage() {
                         </td>
                         <td className="px-5 py-3.5 text-muted-foreground text-xs tabular-nums">
                           {agent.lastRunAt ? new Date(agent.lastRunAt).toLocaleDateString() : "Never"}
+                        </td>
+                        <td className="px-5 py-3.5 text-right">
+                          <FleetControls agentId={agent.id} status={agent.status} emailFrequency={agent.emailFrequency} />
                         </td>
                       </tr>
                     );
