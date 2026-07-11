@@ -62,6 +62,13 @@ export async function setCadenceAction(formData: FormData): Promise<void> {
   revalidatePath("/agents");
 }
 
+export async function setSensitivityAction(formData: FormData): Promise<void> {
+  const id = formData.get("agentId") as string;
+  const safetySensitivity = formData.get("safetySensitivity") as string;
+  await patch(`/agents/${id}/config`, { safetySensitivity });
+  revalidatePath("/agents");
+}
+
 export async function pauseAllAction(_formData: FormData): Promise<void> {
   await post(`/agents/pause-all`);
   revalidatePath("/agents");

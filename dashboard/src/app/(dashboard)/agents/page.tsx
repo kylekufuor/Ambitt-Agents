@@ -398,7 +398,7 @@ export default async function AgentsPage() {
                           {agent.lastRunAt ? new Date(agent.lastRunAt).toLocaleDateString() : "Never"}
                         </td>
                         <td className="px-5 py-3.5 text-right">
-                          <FleetControls agentId={agent.id} status={agent.status} emailFrequency={agent.emailFrequency} />
+                          <FleetControls agentId={agent.id} status={agent.status} emailFrequency={agent.emailFrequency} safetySensitivity={agent.safetySensitivity} />
                         </td>
                       </tr>
                     );

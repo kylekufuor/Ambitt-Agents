@@ -1,5 +1,5 @@
 // Run: node_modules/.bin/tsx shared/spike-detect.test.ts
-import { assessSpike, median, SPIKE_DEFAULTS, type SpikeMetrics } from "./spike-detect.js";
+import { assessSpike, median, spikeConfigForSensitivity, SPIKE_DEFAULTS, type SpikeMetrics } from "./spike-detect.js";
 
 function base(over: Partial<SpikeMetrics> = {}): SpikeMetrics {
   return {
@@ -80,6 +80,21 @@ check("median robust to one busy day", median([2, 2, 2, 2, 2, 2, 99]) === 2);
 {
   const v = assessSpike(base({ emails1h: 20, cost24hCents: 600 }));
   check("worst signal wins → email_1h critical", v.severity === "critical" && v.metricKey === "email_1h", JSON.stringify(v));
+}
+
+// --- sensitivity scaling ---
+check("sensitivity standard → defaults", spikeConfigForSensitivity("standard") === SPIKE_DEFAULTS && spikeConfigForSensitivity(null) === SPIKE_DEFAULTS);
+check("sensitivity relaxed doubles email floors", spikeConfigForSensitivity("relaxed").email1hCrit === 30 && spikeConfigForSensitivity("relaxed").email1hWarn === 16);
+check("sensitivity strict halves email floors", spikeConfigForSensitivity("strict").email1hCrit === 8 && spikeConfigForSensitivity("strict").email1hWarn === 4);
+{
+  // 16/1h is critical at standard but only warn when the agent is Relaxed.
+  const v = assessSpike(base({ emails1h: 16, emails24h: 16 }), spikeConfigForSensitivity("relaxed"));
+  check("relaxed: 16/1h → warn (not critical)", v.severity === "warn", JSON.stringify(v));
+}
+{
+  // 9/1h is only warn at standard but critical when the agent is Strict.
+  const v = assessSpike(base({ emails1h: 9, emails24h: 9 }), spikeConfigForSensitivity("strict"));
+  check("strict: 9/1h → critical", v.severity === "critical", JSON.stringify(v));
 }
 
 console.log(`\n${pass}/${pass + fail} passed${fail ? ` — ${fail} FAILED` : " — all green"}`);

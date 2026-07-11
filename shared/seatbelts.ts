@@ -132,8 +132,18 @@ const SEATBELT_CLAMP: Record<"shortMax" | "hourlyMax" | "repetitionMax", { min: 
  * JSON), ignores non-numeric / non-finite overrides, and always returns a full
  * config object of the same shape as SEATBELT_DEFAULTS. No DB, no throw.
  */
-export function resolveSeatbeltConfig(commSettings: unknown): typeof SEATBELT_DEFAULTS {
+export function resolveSeatbeltConfig(commSettings: unknown, sensitivity?: string | null): typeof SEATBELT_DEFAULTS {
   const resolved = { ...SEATBELT_DEFAULTS };
+
+  // Operator safety sensitivity scales the volume caps first: "relaxed" doubles
+  // them (a legitimately high-volume agent trips later), "strict" halves them.
+  // repetitionMax is left alone (a repeat is always suspicious). Explicit
+  // per-agent overrides below still win over the sensitivity-scaled base.
+  const f = sensitivity === "relaxed" ? 2 : sensitivity === "strict" ? 0.5 : 1;
+  if (f !== 1) {
+    resolved.shortMax = Math.round(resolved.shortMax * f);
+    resolved.hourlyMax = Math.round(resolved.hourlyMax * f);
+  }
 
   const overrides =
     commSettings != null &&
@@ -151,6 +161,12 @@ export function resolveSeatbeltConfig(commSettings: unknown): typeof SEATBELT_DE
         resolved[key] = Math.min(max, Math.max(min, raw));
       }
     }
+  }
+
+  // Final safety clamp — keeps the sensitivity-scaled base within safe bounds too.
+  for (const key of ["shortMax", "hourlyMax", "repetitionMax"] as const) {
+    const { min, max } = SEATBELT_CLAMP[key];
+    resolved[key] = Math.min(max, Math.max(min, resolved[key]));
   }
 
   return resolved;

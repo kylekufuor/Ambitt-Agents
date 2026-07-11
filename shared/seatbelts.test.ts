@@ -282,6 +282,21 @@ async function main() {
     console.log(`FAIL  resolveSeatbeltConfig mutated SEATBELT_DEFAULTS: ${JSON.stringify(SEATBELT_DEFAULTS)}`);
   }
 
+  // --- sensitivity scaling ---
+  const chk = (name: string, cond: boolean, got?: unknown) => {
+    if (cond) pass++;
+    else { fail++; console.log(`FAIL  ${name}${got !== undefined ? ` — got ${JSON.stringify(got)}` : ""}`); }
+  };
+  const relaxed = resolveSeatbeltConfig(null, "relaxed");
+  chk("relaxed doubles caps (short 12, hourly 40)", relaxed.shortMax === 12 && relaxed.hourlyMax === 40, relaxed);
+  const strict = resolveSeatbeltConfig(null, "strict");
+  chk("strict halves caps (short 3, hourly 10)", strict.shortMax === 3 && strict.hourlyMax === 10, strict);
+  const standard = resolveSeatbeltConfig(null, "standard");
+  chk("standard = defaults", standard.shortMax === 6 && standard.hourlyMax === 20, standard);
+  const overrideWins = resolveSeatbeltConfig({ seatbelts: { shortMax: 5 } }, "relaxed");
+  chk("explicit override beats sensitivity (short 5, hourly 40)", overrideWins.shortMax === 5 && overrideWins.hourlyMax === 40, overrideWins);
+  chk("repetitionMax unchanged by sensitivity", relaxed.repetitionMax === 2 && strict.repetitionMax === 2);
+
   console.log(`\n${pass}/${pass + fail} passed${fail ? ` — ${fail} FAILED` : " — all green"}`);
   process.exitCode = fail ? 1 : 0;
 }

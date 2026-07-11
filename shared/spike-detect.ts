@@ -57,6 +57,30 @@ export const SPIKE_DEFAULTS: SpikeConfig = {
   budget24hCritPct: 0.5,
 };
 
+// Operator "safety sensitivity" → scaled thresholds. "relaxed" doubles the
+// absolute floors/ceilings (a legitimately high-volume agent trips later);
+// "strict" halves them (a should-be-quiet agent trips sooner). Multipliers +
+// the min-for-relative guard are left alone. Kept here (not a shared module) so
+// spike-detect stays dependency-free.
+export function sensitivityFactor(sensitivity: string | null | undefined): number {
+  return sensitivity === "relaxed" ? 2 : sensitivity === "strict" ? 0.5 : 1;
+}
+
+export function spikeConfigForSensitivity(sensitivity: string | null | undefined, cfg: SpikeConfig = SPIKE_DEFAULTS): SpikeConfig {
+  const f = sensitivityFactor(sensitivity);
+  if (f === 1) return cfg;
+  const s = (n: number) => Math.max(1, Math.round(n * f));
+  return {
+    ...cfg,
+    email1hWarn: s(cfg.email1hWarn),
+    email1hCrit: s(cfg.email1hCrit),
+    email24hWarn: s(cfg.email24hWarn),
+    email24hCrit: s(cfg.email24hCrit),
+    cost24hWarnCents: s(cfg.cost24hWarnCents),
+    cost24hCritCents: s(cfg.cost24hCritCents),
+  };
+}
+
 export interface SpikeMetrics {
   emails1h: number;
   emails24h: number;

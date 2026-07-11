@@ -56,6 +56,7 @@ export async function dispatchAgentResponse(input: DispatchInput): Promise<
       emailFrequency: true,
       clientId: true,
       communicationSettings: true,
+      safetySensitivity: true,
       client: { select: { email: true, businessName: true } },
     },
   });
@@ -94,7 +95,7 @@ export async function dispatchAgentResponse(input: DispatchInput): Promise<
     // same recipient — block the send, system-pause the agent (operator-only
     // resume), and alert the operator. Defense-in-depth behind the inbound
     // machine-email guard: catches a runaway even if the trigger wasn't email.
-    const seatbeltCfg = resolveSeatbeltConfig(agent.communicationSettings);
+    const seatbeltCfg = resolveSeatbeltConfig(agent.communicationSettings, agent.safetySensitivity);
     const verdict = await checkOutboundSeatbelts(prisma, { agentId, recipient: to, subject, bodyText: responseBody }, seatbeltCfg);
     if (!verdict.allowed) {
       await haltAgent(prisma, { agentId, by: "system", reason: `seatbelt:${verdict.tripped} — ${verdict.reason ?? ""}`.slice(0, 300) });

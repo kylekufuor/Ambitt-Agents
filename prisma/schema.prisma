@@ -167,6 +167,12 @@ model Agent {
   spikeCheckedAt DateTime? // last spike evaluation
   spikeAlertedAt DateTime? // last operator WhatsApp for this spike (alert cooldown)
 
+  // Operator-tuned safety sensitivity — scales BOTH the outbound seatbelt caps
+  // and the spike-monitor thresholds. "relaxed" for a legitimately high-volume
+  // agent (fewer false trips); "strict" for one that should stay quiet.
+  //   "relaxed" | "standard" (default) | "strict" | null (= standard)
+  safetySensitivity String?
+
   // Dry-run mode — when true, side-effect callsites (sendEmail, sendWhatsApp,
   // Composio executeTool, browse actions that write) record what they WOULD
   // have done to DryRunLog instead of actually firing. Defaults true for new

@@ -1247,8 +1247,16 @@ const AGENT_CONFIG_ALLOWED_AUTONOMY = new Set(["supervised", "autonomous"]);
 app.patch("/agents/:id/config", async (req: Request, res: Response) => {
   try {
     const id = param(req, "id");
-    const { tone, emailFrequency, digestHour, digestDayOfWeek, autonomyLevel, maxEmailsPerDay, followUpDays } = req.body ?? {};
-    const updates: { tone?: string; emailFrequency?: string; digestHour?: number; digestDayOfWeek?: number; autonomyLevel?: string; maxEmailsPerDay?: number | null; followUpDays?: number[] } = {};
+    const { tone, emailFrequency, digestHour, digestDayOfWeek, autonomyLevel, maxEmailsPerDay, followUpDays, safetySensitivity } = req.body ?? {};
+    const updates: { tone?: string; emailFrequency?: string; digestHour?: number; digestDayOfWeek?: number; autonomyLevel?: string; maxEmailsPerDay?: number | null; followUpDays?: number[]; safetySensitivity?: string } = {};
+
+    if (safetySensitivity !== undefined) {
+      if (typeof safetySensitivity !== "string" || !new Set(["relaxed", "standard", "strict"]).has(safetySensitivity)) {
+        res.status(400).json({ error: "Invalid safetySensitivity. Allowed: relaxed, standard, strict" });
+        return;
+      }
+      updates.safetySensitivity = safetySensitivity;
+    }
 
     if (tone !== undefined) {
       if (typeof tone !== "string" || !AGENT_CONFIG_ALLOWED_TONES.has(tone)) {

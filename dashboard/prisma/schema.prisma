@@ -152,6 +152,10 @@ model Agent {
   spikeCheckedAt DateTime?
   spikeAlertedAt DateTime?
 
+  // Operator-tuned safety sensitivity — scales seatbelt caps + spike thresholds.
+  // "relaxed" | "standard" (default) | "strict" | null (= standard)
+  safetySensitivity String?
+
   // Dry-run mode — when true, side-effect callsites (sendEmail, sendWhatsApp,
   // Composio executeTool, browse actions that write) record what they WOULD
   // have done to DryRunLog instead of actually firing. Defaults true for new

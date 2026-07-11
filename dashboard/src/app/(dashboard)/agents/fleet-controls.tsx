@@ -1,11 +1,17 @@
 "use client";
 
-import { pauseAgentAction, resumeAgentAction, killAgentAction, setCadenceAction } from "./actions";
+import { pauseAgentAction, resumeAgentAction, killAgentAction, setCadenceAction, setSensitivityAction } from "./actions";
 
 const CADENCE = [
   { value: "immediate", label: "Immediate" },
   { value: "daily_digest", label: "Daily" },
   { value: "weekly_digest", label: "Weekly" },
+];
+
+const SENSITIVITY = [
+  { value: "relaxed", label: "Relaxed" },
+  { value: "standard", label: "Standard" },
+  { value: "strict", label: "Strict" },
 ];
 
 // Per-agent operator controls, rendered in the fleet table. Reduce (cadence) is
@@ -15,10 +21,12 @@ export function FleetControls({
   agentId,
   status,
   emailFrequency,
+  safetySensitivity,
 }: {
   agentId: string;
   status: string;
   emailFrequency: string;
+  safetySensitivity: string | null;
 }) {
   const controllable = status === "active" || status === "paused" || status === "building";
 
@@ -46,6 +54,24 @@ export function FleetControls({
           {CADENCE.map((c) => (
             <option key={c.value} value={c.value}>
               {c.label}
+            </option>
+          ))}
+        </select>
+      </form>
+
+      {/* Safety sensitivity — scales the seatbelt caps + spike thresholds */}
+      <form action={setSensitivityAction} className="contents">
+        <input type="hidden" name="agentId" value={agentId} />
+        <select
+          name="safetySensitivity"
+          defaultValue={safetySensitivity ?? "standard"}
+          title="Safety sensitivity — Relaxed for a high-volume agent, Strict for one that should stay quiet"
+          onChange={(e) => e.currentTarget.form?.requestSubmit()}
+          className="text-[11px] bg-muted text-muted-foreground border border-border rounded-md pl-2 pr-1 py-1 hover:text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500/40 cursor-pointer"
+        >
+          {SENSITIVITY.map((s) => (
+            <option key={s.value} value={s.value}>
+              {s.label}
             </option>
           ))}
         </select>

@@ -15,7 +15,7 @@
 import prisma from "../shared/db.js";
 import logger from "../shared/logger.js";
 import { sendKyleWhatsApp } from "../shared/whatsapp.js";
-import { assessSpike, type SpikeMetrics } from "../shared/spike-detect.js";
+import { assessSpike, spikeConfigForSensitivity, type SpikeMetrics } from "../shared/spike-detect.js";
 import { haltAgent } from "./lib/pause-control.js";
 
 const HOUR = 60 * 60 * 1000;
@@ -54,6 +54,7 @@ export async function checkSpikes(): Promise<{ evaluated: number; spiking: numbe
       name: true,
       createdAt: true,
       budgetMonthlyCents: true,
+      safetySensitivity: true,
       spikeSeverity: true,
       spikeAlertedAt: true,
       client: { select: { businessName: true } },
@@ -89,7 +90,7 @@ export async function checkSpikes(): Promise<{ evaluated: number; spiking: numbe
         established: ageHours >= 72 && emails7d.length >= 20,
       };
 
-      const v = assessSpike(metrics);
+      const v = assessSpike(metrics, spikeConfigForSensitivity(a.safetySensitivity));
 
       if (!v.spiking) {
         // Clear a previously-set flag; otherwise leave the agent untouched.
