@@ -3,6 +3,8 @@ import { logRecommendations, type RecommendationEntry } from "./logRecommendatio
 import logger from "../../shared/logger.js";
 import prisma from "../../shared/db.js";
 import { signChatToken } from "../../shared/chat-token.js";
+import { checkOutboundSeatbelts } from "../../shared/seatbelts.js";
+import { haltAgent } from "./pause-control.js";
 
 // Template imports
 import { buildWelcomeEmail } from "../templates/welcome-email.js";
@@ -250,6 +252,39 @@ export async function sendAgentEmail(props: EmailProps): Promise<void> {
     }
   } catch (err) {
     logger.warn("Chat token injection skipped", { agentId, error: err instanceof Error ? err.message : String(err) });
+  }
+
+  // Outbound seatbelt (control-plane Pillar 4) — gate ONLY client-facing agent
+  // replies. Runtime client-facing sends (agent replies, request_2fa_code's
+  // "reply with your verification code", etc.) route through this router and
+  // call sendEmail() directly, bypassing the seatbelt enforced in
+  // dispatchAgentResponse. That is exactly the path the "spammed Casey with
+  // code requests" loop used. If this agent is looping — too many sends in a
+  // short window, or the same message repeated to the same recipient — block
+  // the send, system-pause the agent (operator-only resume), and alert the
+  // operator. System/lifecycle mail (welcome, onboarding, checkpoint, digest,
+  // alert, error, permission, milestone, credential-request, action-required,
+  // progress) is never gated — it must always send.
+  if (trigger === "agent-response") {
+    const responseBody = (props as Extract<EmailProps, { trigger: "agent-response" }>).responseBody;
+    const verdict = await checkOutboundSeatbelts(prisma, { agentId, recipient: to, subject, bodyText: responseBody });
+    if (!verdict.allowed) {
+      await haltAgent(prisma, { agentId, by: "system", reason: `seatbelt:${verdict.tripped} — ${verdict.reason ?? ""}`.slice(0, 300) });
+      logger.warn("Outbound seatbelt tripped — send blocked, agent system-paused", { agentId, to, tripped: verdict.tripped, reason: verdict.reason });
+      try {
+        const { sendWhatsApp } = await import("../../shared/whatsapp.js");
+        const kyle = process.env.KYLE_WHATSAPP_NUMBER;
+        if (kyle) {
+          await sendWhatsApp({
+            to: kyle,
+            message: `🚨 Seatbelt tripped for ${agentName} (${agentId}): ${verdict.tripped}. ${verdict.reason ?? ""}\nAgent auto-paused (system). Resume from the dashboard when it's safe.`,
+          });
+        }
+      } catch (e) {
+        logger.warn("Seatbelt operator alert (WhatsApp) failed", { agentId, err: e instanceof Error ? e.message : String(e) });
+      }
+      return;
+    }
   }
 
   // Send via Resend

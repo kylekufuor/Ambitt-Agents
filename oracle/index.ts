@@ -10,6 +10,7 @@ import { onboardClient } from "./onboard.js";
 import { classifyAutomatedInbound } from "./lib/inbound-classify.js";
 import { classifyControlIntent, isHaltIntent } from "./lib/intent-classify.js";
 import { haltAgent, resumeAgent } from "./lib/pause-control.js";
+import { nextThrottledFrequency, throttleConfirmation } from "./lib/throttle.js";
 import prisma from "../shared/db.js";
 import logger from "../shared/logger.js";
 import { parseCommunicationSettings } from "../shared/communication-settings.js";
@@ -1570,7 +1571,12 @@ app.post("/webhooks/email-inbound", async (req: Request, res: Response) => {
   // InboundEmailLog row per webhook — always, even on early drops or errors.
   const _resJson = res.json.bind(res);
   res.json = ((body: any) => {
-    if (body && typeof body.status === "string") ilog.disposition = body.status;
+    // Only fall back to the response status if a handler didn't already set a
+    // MORE specific disposition (e.g. "control:halt:ambiguous",
+    // "dropped_automated:<reason>"). Those must not be flattened to "control".
+    if (body && typeof body.status === "string" && ilog.disposition === "received") {
+      ilog.disposition = body.status;
+    }
     return _resJson(body);
   }) as typeof res.json;
   try {
@@ -2017,10 +2023,40 @@ app.post("/webhooks/email-inbound", async (req: Request, res: Response) => {
         return;
       }
       if (ci.intent === "throttle") {
-        // Not a full stop — let the agent respond conversationally, but record
-        // the cadence signal for observability / future auto-throttle.
-        ilog.disposition = "control:throttle:passthrough";
-        logger.info("Throttle intent — passing through to the agent", { agentId, matched: ci.matched });
+        // Not a full stop — the client wants LESS, not nothing. Step the email
+        // cadence one notch quieter (immediate → daily → weekly, floored),
+        // confirm, and stop here rather than running the agent.
+        const thAgent = await prisma.agent.findUnique({
+          where: { id: agentId },
+          select: { name: true, emailFrequency: true, client: { select: { email: true } } },
+        });
+        const agentName = thAgent?.name ?? "Your agent";
+        const to = parseEmailFromHeader(from) ?? thAgent?.client?.email ?? from;
+        const step = nextThrottledFrequency(thAgent?.emailFrequency ?? "immediate");
+        if (step.changed) {
+          await prisma.agent.update({ where: { id: agentId }, data: { emailFrequency: step.next } });
+        }
+        ilog.disposition = "control:throttle:" + (step.changed ? step.next : "already_min");
+        try {
+          const { sendEmail: sendControl } = await import("../shared/email.js");
+          await sendControl({
+            agentId,
+            agentName,
+            to,
+            subject: `${agentName} — cadence updated`,
+            html: `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;max-width:520px;margin:0 auto;padding:8px 4px;color:#3f4a48;font-size:15px;line-height:1.6;">
+              <p style="margin:0 0 14px;">${throttleConfirmation(agentName, step)}</p>
+              <p style="margin:0;font-size:13px;color:#8a938f;">— ${agentName} · <span style="color:#0f7a74;">Ambitt Agents</span></p>
+            </div>`,
+            replyToAgentId: agentId,
+            emailType: "control_ack",
+          });
+        } catch (sendErr) {
+          logger.warn("Throttle confirmation send failed", { agentId, err: sendErr instanceof Error ? sendErr.message : String(sendErr) });
+        }
+        logger.info("Throttle intent applied", { agentId, changed: step.changed, next: step.next });
+        res.json({ status: "control", intent: "throttle", changed: step.changed });
+        return;
       }
     }
 

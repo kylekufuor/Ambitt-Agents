@@ -61,6 +61,21 @@ export const CommunicationSettings = z.object({
   // Auto-BCC on every external send — e.g. a CRM email-dropbox address so each
   // outbound is logged where the client already works. Empty = no auto-BCC.
   bccAddresses: z.array(z.string()).default([]),
+
+  // --- Outbound seatbelt overrides (per-agent circuit-breaker tuning) ---
+  // Optional per-agent overrides for the outbound seatbelt caps. Absent = use
+  // SEATBELT_DEFAULTS. Values are bounded by a safety floor/ceiling at resolve
+  // time (see resolveSeatbeltConfig in seatbelts.ts) — a client can loosen a cap
+  // to avoid false pauses but can never disable the circuit breaker. Optional so
+  // existing settings (and DEFAULT_COMMUNICATION_SETTINGS) stay unchanged.
+  seatbelts: z
+    .object({
+      shortMax: z.number().int().positive(),
+      hourlyMax: z.number().int().positive(),
+      repetitionMax: z.number().int().positive(),
+    })
+    .partial()
+    .optional(),
 });
 export type CommunicationSettings = z.infer<typeof CommunicationSettings>;
 
@@ -103,6 +118,9 @@ export function normalizeSettings(s: CommunicationSettings): CommunicationSettin
     signature: trimOrNull(s.signature),
     footer: trimOrNull(s.footer),
     bccAddresses: dedupeEmails(s.bccAddresses),
+    // Preserve per-agent seatbelt overrides when present; absent stays absent
+    // (fully backward-compatible — old settings have no seatbelts field).
+    ...(s.seatbelts ? { seatbelts: s.seatbelts } : {}),
   };
 }
 

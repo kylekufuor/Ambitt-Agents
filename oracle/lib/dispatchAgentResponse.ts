@@ -2,7 +2,7 @@ import prisma from "../../shared/db.js";
 import { sendEmail, type EmailAttachment } from "../../shared/email.js";
 import { buildAgentResponseEmail } from "../templates/agent-response.js";
 import logger from "../../shared/logger.js";
-import { checkOutboundSeatbelts, type SeatbeltTrip } from "../../shared/seatbelts.js";
+import { checkOutboundSeatbelts, resolveSeatbeltConfig, type SeatbeltTrip } from "../../shared/seatbelts.js";
 import { haltAgent } from "./pause-control.js";
 
 // ---------------------------------------------------------------------------
@@ -55,6 +55,7 @@ export async function dispatchAgentResponse(input: DispatchInput): Promise<
       purpose: true,
       emailFrequency: true,
       clientId: true,
+      communicationSettings: true,
       client: { select: { email: true, businessName: true } },
     },
   });
@@ -93,7 +94,8 @@ export async function dispatchAgentResponse(input: DispatchInput): Promise<
     // same recipient — block the send, system-pause the agent (operator-only
     // resume), and alert the operator. Defense-in-depth behind the inbound
     // machine-email guard: catches a runaway even if the trigger wasn't email.
-    const verdict = await checkOutboundSeatbelts(prisma, { agentId, recipient: to, subject, bodyText: responseBody });
+    const seatbeltCfg = resolveSeatbeltConfig(agent.communicationSettings);
+    const verdict = await checkOutboundSeatbelts(prisma, { agentId, recipient: to, subject, bodyText: responseBody }, seatbeltCfg);
     if (!verdict.allowed) {
       await haltAgent(prisma, { agentId, by: "system", reason: `seatbelt:${verdict.tripped} — ${verdict.reason ?? ""}`.slice(0, 300) });
       logger.warn("Outbound seatbelt tripped — send blocked, agent system-paused", { agentId, to, tripped: verdict.tripped, reason: verdict.reason });

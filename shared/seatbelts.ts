@@ -8,11 +8,15 @@
 // Thresholds here are GLOBAL defaults for now; they are made per-agent
 // configurable later (pass overrides via the `cfg` argument in the meantime).
 
+// Rate caps are tuned to tolerate legitimately chatty exchanges: a client
+// firing off several quick replies must NOT system-pause the agent. The rate
+// checks are the blunt fallback; the repetition detector (same subject → same
+// recipient) is the real runaway signal, so it stays tight at 2.
 export const SEATBELT_DEFAULTS = {
   shortWindowMs: 15 * 60_000,
-  shortMax: 3,
+  shortMax: 6,
   hourlyWindowMs: 60 * 60_000,
-  hourlyMax: 10,
+  hourlyMax: 20,
   repetitionWindowMs: 30 * 60_000,
   repetitionMax: 2,
 };
@@ -107,4 +111,47 @@ export async function checkOutboundSeatbelts(
   }
 
   return { allowed: true };
+}
+
+// Safe range for each per-agent override. A client can LOOSEN a cap to reduce
+// false pauses, but never disable safety: the floor keeps the circuit breaker
+// meaningful, and repetitionMax can never be raised above 5 (the loop-catcher
+// must stay tight) nor dropped below its default of 2.
+const SEATBELT_CLAMP: Record<"shortMax" | "hourlyMax" | "repetitionMax", { min: number; max: number }> = {
+  shortMax: { min: 1, max: 20 },
+  hourlyMax: { min: 1, max: 60 },
+  repetitionMax: { min: 2, max: 5 },
+};
+
+/**
+ * Resolve the effective seatbelt config for an agent by merging optional
+ * per-agent overrides (from CommunicationSettings.seatbelts) on top of the
+ * global defaults, then clamping every tunable value into its safe range.
+ *
+ * Pure + defensive: accepts arbitrary `unknown` (e.g. raw Agent.communicationSettings
+ * JSON), ignores non-numeric / non-finite overrides, and always returns a full
+ * config object of the same shape as SEATBELT_DEFAULTS. No DB, no throw.
+ */
+export function resolveSeatbeltConfig(commSettings: unknown): typeof SEATBELT_DEFAULTS {
+  const resolved = { ...SEATBELT_DEFAULTS };
+
+  const overrides =
+    commSettings != null &&
+    typeof commSettings === "object" &&
+    typeof (commSettings as { seatbelts?: unknown }).seatbelts === "object" &&
+    (commSettings as { seatbelts?: unknown }).seatbelts != null
+      ? ((commSettings as { seatbelts: Record<string, unknown> }).seatbelts)
+      : undefined;
+
+  if (overrides) {
+    for (const key of ["shortMax", "hourlyMax", "repetitionMax"] as const) {
+      const raw = overrides[key];
+      if (typeof raw === "number" && Number.isFinite(raw)) {
+        const { min, max } = SEATBELT_CLAMP[key];
+        resolved[key] = Math.min(max, Math.max(min, raw));
+      }
+    }
+  }
+
+  return resolved;
 }

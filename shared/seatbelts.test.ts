@@ -2,6 +2,7 @@
 // Pure unit test for the outbound seatbelts circuit breaker — no server, no real DB.
 import {
   checkOutboundSeatbelts,
+  resolveSeatbeltConfig,
   SEATBELT_DEFAULTS,
   type SeatbeltDb,
   type SeatbeltTrip,
@@ -74,13 +75,16 @@ const cases: Case[] = [
     wantAllowed: true,
   },
   {
-    name: "3 recent sends (same agent) -> rate_short",
+    name: "6 recent sends (same agent) -> rate_short",
     rows: [
       ago(1, { subject: "a" }),
       ago(2, { subject: "b" }),
       ago(3, { subject: "c" }),
+      ago(4, { subject: "d" }),
+      ago(5, { subject: "e" }),
+      ago(6, { subject: "f" }),
     ],
-    args: { agentId: AGENT, recipient: RECIPIENT, subject: "d" },
+    args: { agentId: AGENT, recipient: RECIPIENT, subject: "g" },
     wantAllowed: false,
     wantTripped: "rate_short",
   },
@@ -105,22 +109,15 @@ const cases: Case[] = [
     wantAllowed: true,
   },
   {
-    name: "10 sends in the hour (spread past short window) -> rate_hourly",
-    // Keep <3 inside the 15-min window so rate_short doesn't fire first,
-    // but >=10 inside the hour.
-    rows: [
-      ago(20, { subject: "s0" }),
-      ago(22, { subject: "s1" }),
-      ago(24, { subject: "s2" }),
-      ago(26, { subject: "s3" }),
-      ago(28, { subject: "s4" }),
-      ago(30, { subject: "s5" }),
-      ago(32, { subject: "s6" }),
-      ago(34, { subject: "s7" }),
-      ago(36, { subject: "s8" }),
-      ago(38, { subject: "s9" }),
-    ],
-    args: { agentId: AGENT, recipient: RECIPIENT, subject: "s10" },
+    name: "20 sends in the hour (spread past short window) -> rate_hourly",
+    // Keep <6 inside the 15-min window so rate_short doesn't fire first,
+    // but >=20 inside the hour. All at 16-35 min ago: outside the 15-min
+    // short window, inside the 60-min hourly window, subjects distinct so
+    // repetition never trips.
+    rows: Array.from({ length: 20 }, (_, i) =>
+      ago(16 + i, { subject: `s${i}` }),
+    ),
+    args: { agentId: AGENT, recipient: RECIPIENT, subject: "s20" },
     wantAllowed: false,
     wantTripped: "rate_hourly",
   },
@@ -206,11 +203,83 @@ async function main() {
   }
 
   // Sanity: defaults object is intact (guards against accidental mutation).
-  if (SEATBELT_DEFAULTS.shortMax === 3 && SEATBELT_DEFAULTS.hourlyMax === 10) {
+  if (SEATBELT_DEFAULTS.shortMax === 6 && SEATBELT_DEFAULTS.hourlyMax === 20) {
     pass++;
   } else {
     fail++;
     console.log(`FAIL  SEATBELT_DEFAULTS mutated: ${JSON.stringify(SEATBELT_DEFAULTS)}`);
+  }
+
+  // ---------------------------------------------------------------------------
+  // resolveSeatbeltConfig — per-agent overrides merged onto defaults + clamped.
+  // ---------------------------------------------------------------------------
+  const eqConfig = (
+    got: typeof SEATBELT_DEFAULTS,
+    want: Partial<typeof SEATBELT_DEFAULTS>,
+  ): boolean => {
+    const expected = { ...SEATBELT_DEFAULTS, ...want };
+    return (Object.keys(expected) as Array<keyof typeof expected>).every(
+      (k) => got[k] === expected[k],
+    );
+  };
+
+  const resolveCases: Array<{
+    name: string;
+    input: unknown;
+    want: Partial<typeof SEATBELT_DEFAULTS>;
+  }> = [
+    { name: "null -> defaults", input: null, want: {} },
+    { name: "undefined -> defaults", input: undefined, want: {} },
+    { name: "garbage string -> defaults", input: "nope", want: {} },
+    { name: "garbage number -> defaults", input: 42, want: {} },
+    { name: "object w/o seatbelts -> defaults", input: { outbound: null }, want: {} },
+    { name: "seatbelts:null -> defaults", input: { seatbelts: null }, want: {} },
+    {
+      name: "valid overrides applied",
+      input: { seatbelts: { shortMax: 10, hourlyMax: 40, repetitionMax: 3 } },
+      want: { shortMax: 10, hourlyMax: 40, repetitionMax: 3 },
+    },
+    {
+      name: "partial override (shortMax only)",
+      input: { seatbelts: { shortMax: 8 } },
+      want: { shortMax: 8 },
+    },
+    {
+      name: "over-ceiling clamped",
+      input: { seatbelts: { shortMax: 999, hourlyMax: 999, repetitionMax: 99 } },
+      want: { shortMax: 20, hourlyMax: 60, repetitionMax: 5 },
+    },
+    {
+      name: "below-floor clamped",
+      input: { seatbelts: { shortMax: 0, hourlyMax: 0, repetitionMax: 1 } },
+      want: { shortMax: 1, hourlyMax: 1, repetitionMax: 2 },
+    },
+    {
+      name: "non-numeric / non-finite overrides ignored -> defaults",
+      input: { seatbelts: { shortMax: "10", hourlyMax: NaN, repetitionMax: Infinity } },
+      want: {},
+    },
+  ];
+
+  for (const rc of resolveCases) {
+    const got = resolveSeatbeltConfig(rc.input);
+    if (eqConfig(got, rc.want)) {
+      pass++;
+    } else {
+      fail++;
+      console.log(`FAIL  resolveSeatbeltConfig: ${rc.name}`);
+      console.log(`        got  ${JSON.stringify(got)}`);
+      console.log(`        want ${JSON.stringify({ ...SEATBELT_DEFAULTS, ...rc.want })}`);
+    }
+  }
+
+  // Purity: resolving overrides must not mutate the shared defaults object.
+  resolveSeatbeltConfig({ seatbelts: { shortMax: 999, repetitionMax: 99 } });
+  if (SEATBELT_DEFAULTS.shortMax === 6 && SEATBELT_DEFAULTS.repetitionMax === 2) {
+    pass++;
+  } else {
+    fail++;
+    console.log(`FAIL  resolveSeatbeltConfig mutated SEATBELT_DEFAULTS: ${JSON.stringify(SEATBELT_DEFAULTS)}`);
   }
 
   console.log(`\n${pass}/${pass + fail} passed${fail ? ` — ${fail} FAILED` : " — all green"}`);
