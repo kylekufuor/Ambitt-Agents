@@ -144,6 +144,14 @@ model Agent {
   pausedReason String?   @db.Text
   pausedAt     DateTime?
 
+  // Runaway early-warning (mirrors root schema) — set by the Oracle spike-monitor
+  // cron; drives the red/amber "spike" badge on the Agents table.
+  spikeSeverity  String?
+  spikeBadge     String?
+  spikeReason    String?   @db.Text
+  spikeCheckedAt DateTime?
+  spikeAlertedAt DateTime?
+
   // Dry-run mode — when true, side-effect callsites (sendEmail, sendWhatsApp,
   // Composio executeTool, browse actions that write) record what they WOULD
   // have done to DryRunLog instead of actually firing. Defaults true for new

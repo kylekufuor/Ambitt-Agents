@@ -135,6 +135,23 @@ export default async function AgentsPage() {
         <FleetDot color="bg-red-500" label="Killed" count={statusCounts.killed} />
       </div>
 
+      {/* Runaway early-warning banner — any agent flagged by the spike monitor */}
+      {agents.some((a) => a.spikeSeverity) && (() => {
+        const spiking = agents.filter((a) => a.spikeSeverity);
+        const crit = spiking.filter((a) => a.spikeSeverity === "critical").length;
+        return (
+          <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2.5 text-sm text-red-300 flex items-center gap-2">
+            <span className="text-base leading-none">&#9888;</span>
+            <span>
+              <span className="font-semibold">
+                {spiking.length} agent{spiking.length === 1 ? "" : "s"} spiking
+              </span>
+              {crit > 0 ? ` — ${crit} critical (auto-paused)` : ""}. Check the fleet below.
+            </span>
+          </div>
+        );
+      })()}
+
       {/* ─── Awaiting Approval (moved from Oracle home) ───────────────────── */}
       {pendingApprovals.length > 0 && (
         <div className="bg-amber-500/5 border border-amber-500/20 rounded-xl overflow-hidden">
@@ -347,6 +364,14 @@ export default async function AgentsPage() {
                             {agent.runningSince && (
                               <span className="inline-flex items-center gap-1 text-[10px] text-emerald-400" title="Running right now">
                                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> working
+                              </span>
+                            )}
+                            {agent.spikeSeverity && (
+                              <span
+                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wider ${agent.spikeSeverity === "critical" ? "bg-red-500/15 text-red-400 ring-1 ring-red-500/30 animate-pulse" : "bg-amber-500/15 text-amber-400 ring-1 ring-amber-500/30"}`}
+                                title={agent.spikeReason ?? undefined}
+                              >
+                                &#9888; Spike{agent.spikeBadge ? ` ${agent.spikeBadge}` : ""}
                               </span>
                             )}
                           </div>
