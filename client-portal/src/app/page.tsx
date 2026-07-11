@@ -187,11 +187,11 @@ export default async function PortalPage() {
         name: client.contactName ?? client.preferredName ?? client.businessName,
       }}
     >
-      <div className="max-w-[1080px] px-6 lg:px-10 pt-9 pb-16">
+      <div className="max-w-[1080px] px-4 sm:px-6 lg:px-10 pt-8 pb-16">
         {/* Hero */}
         <header className="mb-8 reveal" style={{ ["--i" as never]: 0 }}>
           <p className="eyebrow mb-3">{client.businessName}</p>
-          <h1 className="font-display text-[28px] md:text-[30px] leading-[1.15] text-[color:var(--text)]">
+          <h1 className="font-display text-[23px] sm:text-[28px] md:text-[30px] leading-[1.15] text-[color:var(--text)]">
             Good to see you, {greetName}.
           </h1>
           <p className="text-[15px] text-[color:var(--text-3)] mt-3 max-w-[640px]">

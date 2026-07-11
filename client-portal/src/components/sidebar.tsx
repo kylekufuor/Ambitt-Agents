@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { BrandLockup } from "./brand-mark";
@@ -17,19 +18,20 @@ const DOT: Record<string, string> = {
 };
 
 /**
- * Left navigation — the portal's primary wayfinding (HubSpot-style). Global
- * items up top, the client's agents listed with their sub-pages expanding when
- * active, account + sign-out pinned to the bottom. Client component so it can
- * highlight the active route via usePathname.
+ * SidebarBody — the shared nav content (brand + agents + account), used by both
+ * the desktop sidebar and the mobile drawer. `onNavigate` lets the mobile drawer
+ * close itself when a link is tapped.
  */
-export function Sidebar({
+function SidebarBody({
   agents,
   email,
   displayName,
+  onNavigate,
 }: {
   agents: Agent[];
   email: string;
   displayName: string;
+  onNavigate?: () => void;
 }) {
   const pathname = usePathname();
   const activeAgentId = pathname.match(/^\/agents\/([^/]+)/)?.[1] ?? null;
@@ -42,17 +44,17 @@ export function Sidebar({
       .join("") || "A";
 
   return (
-    <aside className="hidden lg:flex flex-col w-60 shrink-0 h-screen sticky top-0 bg-[color:var(--surface)] border-r border-[color:var(--border)]">
+    <>
       {/* Brand */}
       <div className="h-14 flex items-center px-5 border-b border-[color:var(--border)]">
-        <Link href="/">
+        <Link href="/" onClick={onNavigate}>
           <BrandLockup height={19} />
         </Link>
       </div>
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto px-3 py-4">
-        <NavItem href="/" label="Home" active={pathname === "/"} icon={<HomeIcon size={18} />} />
+        <NavLink href="/" label="Home" active={pathname === "/"} icon={<HomeIcon size={18} />} onNavigate={onNavigate} />
 
         <p className="eyebrow px-3 mt-5 mb-1.5">Your agents</p>
         {agents.length === 0 ? (
@@ -65,6 +67,7 @@ export function Sidebar({
               <div key={a.id} className="mb-0.5">
                 <Link
                   href={base}
+                  onClick={onNavigate}
                   className={`flex items-center gap-2.5 px-3 py-2 rounded-[var(--radius)] text-[13.5px] transition ${
                     isActive
                       ? "bg-[color:var(--brand-tint)] text-[color:var(--brand-hover)] font-medium"
@@ -76,12 +79,12 @@ export function Sidebar({
                 </Link>
                 {isActive && (
                   <div className="mt-0.5 mb-1.5 ml-[19px] pl-3 border-l border-[color:var(--border)] flex flex-col">
-                    <SubItem href={base} label="Overview" active={pathname === base} />
-                    <SubItem href={`${base}#communication`} label="Communication" />
-                    <SubItem href={`${base}/tools`} label="Tools" active={pathname === `${base}/tools`} />
-                    <SubItem href={`${base}/activity`} label="Activity" active={pathname === `${base}/activity`} />
-                    <SubItem href={`${base}/leads`} label="Leads" active={pathname === `${base}/leads`} />
-                    <SubItem href={`${base}#settings`} label="Configure" />
+                    <SubItem href={base} label="Overview" active={pathname === base} onNavigate={onNavigate} />
+                    <SubItem href={`${base}#communication`} label="Communication" onNavigate={onNavigate} />
+                    <SubItem href={`${base}/tools`} label="Tools" active={pathname === `${base}/tools`} onNavigate={onNavigate} />
+                    <SubItem href={`${base}/activity`} label="Activity" active={pathname === `${base}/activity`} onNavigate={onNavigate} />
+                    <SubItem href={`${base}/leads`} label="Leads" active={pathname === `${base}/leads`} onNavigate={onNavigate} />
+                    <SubItem href={`${base}#settings`} label="Configure" onNavigate={onNavigate} />
                   </div>
                 )}
               </div>
@@ -110,24 +113,83 @@ export function Sidebar({
           </button>
         </form>
       </div>
+    </>
+  );
+}
+
+/** Desktop sidebar — fixed, always visible from lg up. */
+export function Sidebar({ agents, email, displayName }: { agents: Agent[]; email: string; displayName: string }) {
+  return (
+    <aside className="hidden lg:flex flex-col w-60 shrink-0 h-screen sticky top-0 bg-[color:var(--surface)] border-r border-[color:var(--border)]">
+      <SidebarBody agents={agents} email={email} displayName={displayName} />
     </aside>
   );
 }
 
-function NavItem({
+/** Mobile — a hamburger that opens the same nav as a slide-in drawer. */
+export function MobileNav({ agents, email, displayName }: { agents: Agent[]; email: string; displayName: string }) {
+  const [open, setOpen] = useState(false);
+  const pathname = usePathname();
+
+  // Close on route change + lock body scroll while open + close on Esc.
+  useEffect(() => setOpen(false), [pathname]);
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    document.addEventListener("keydown", onKey);
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = "";
+    };
+  }, [open]);
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        aria-label="Open menu"
+        className="w-9 h-9 -ml-1.5 grid place-items-center rounded-[var(--radius)] text-[color:var(--text-2)] hover:bg-[color:var(--surface-2)] transition"
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+          <path d="M4 7h16M4 12h16M4 17h16" />
+        </svg>
+      </button>
+
+      {open && (
+        <div className="lg:hidden fixed inset-0 z-50">
+          <div
+            className="absolute inset-0 bg-[rgba(45,62,80,0.35)]"
+            onClick={() => setOpen(false)}
+            aria-hidden
+          />
+          <aside className="absolute inset-y-0 left-0 w-[80%] max-w-[300px] flex flex-col bg-[color:var(--surface)] shadow-[0_20px_60px_rgba(45,62,80,0.35)] animate-[drawer_0.22s_ease]">
+            <SidebarBody agents={agents} email={email} displayName={displayName} onNavigate={() => setOpen(false)} />
+          </aside>
+        </div>
+      )}
+    </>
+  );
+}
+
+function NavLink({
   href,
   label,
   active,
   icon,
+  onNavigate,
 }: {
   href: string;
   label: string;
   active: boolean;
   icon: React.ReactNode;
+  onNavigate?: () => void;
 }) {
   return (
     <Link
       href={href}
+      onClick={onNavigate}
       className={`flex items-center gap-2.5 px-3 py-2 rounded-[var(--radius)] text-[13.5px] transition ${
         active
           ? "bg-[color:var(--brand-tint)] text-[color:var(--brand-hover)] font-medium"
@@ -140,10 +202,21 @@ function NavItem({
   );
 }
 
-function SubItem({ href, label, active = false }: { href: string; label: string; active?: boolean }) {
+function SubItem({
+  href,
+  label,
+  active = false,
+  onNavigate,
+}: {
+  href: string;
+  label: string;
+  active?: boolean;
+  onNavigate?: () => void;
+}) {
   return (
     <Link
       href={href}
+      onClick={onNavigate}
       className={`px-3 py-1.5 rounded-[var(--radius)] text-[12.5px] transition ${
         active
           ? "text-[color:var(--brand-hover)] font-medium"
@@ -154,4 +227,3 @@ function SubItem({ href, label, active = false }: { href: string; label: string;
     </Link>
   );
 }
-

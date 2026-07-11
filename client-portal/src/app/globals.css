@@ -418,6 +418,12 @@ select {
   min-height: 100vh;
 }
 
+/* Mobile nav drawer slide-in */
+@keyframes drawer {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(0); }
+}
+
 /* Reveal — retired for the HubSpot look (minimal motion, no load-in fade).
    Kept as a no-op class so existing `reveal`/`--i` markup renders solid. */
 

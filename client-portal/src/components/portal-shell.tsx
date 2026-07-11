@@ -2,7 +2,7 @@ import Link from "next/link";
 import prisma from "@/lib/db";
 import { BrandLockup } from "./brand-mark";
 import { AccountMenu } from "./account-menu";
-import { Sidebar } from "./sidebar";
+import { Sidebar, MobileNav } from "./sidebar";
 
 /**
  * PortalShell — the wrapping chrome for every authenticated client surface.
@@ -38,12 +38,15 @@ export async function PortalShell({
       <Sidebar agents={agents} email={user.email} displayName={displayName} />
 
       <div className="flex-1 min-w-0 flex flex-col">
-        {/* Mobile top bar — sidebar is hidden under lg */}
+        {/* Mobile top bar — sidebar is hidden under lg; hamburger opens the drawer */}
         <header className="lg:hidden border-b border-[color:var(--border)] bg-[color:var(--surface)] sticky top-0 z-30">
-          <div className="px-4 h-14 flex items-center justify-between">
-            <Link href="/">
-              <BrandLockup height={19} />
-            </Link>
+          <div className="px-4 h-14 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <MobileNav agents={agents} email={user.email} displayName={displayName} />
+              <Link href="/" className="min-w-0">
+                <BrandLockup height={18} />
+              </Link>
+            </div>
             <AccountMenu email={user.email} displayName={displayName} />
           </div>
         </header>

@@ -95,7 +95,7 @@ export default async function AgentDetailPage(
     <PortalShell
       user={{ email: user.email, name: agent.client.businessName }}
     >
-      <div className="max-w-[960px] px-6 lg:px-10 pt-9 pb-16">
+      <div className="max-w-[960px] px-4 sm:px-6 lg:px-10 pt-8 pb-16">
         {/* Back */}
         <Link
           href="/"
@@ -108,7 +108,7 @@ export default async function AgentDetailPage(
         <header className="flex items-start justify-between gap-4 mb-3 reveal" style={{ ["--i" as never]: 0 }}>
           <div className="min-w-0">
             <div className="flex items-center gap-3">
-              <h1 className="font-display text-[26px] leading-tight text-[color:var(--text)]">
+              <h1 className="font-display text-[22px] sm:text-[26px] leading-tight text-[color:var(--text)]">
                 {agent.name}
               </h1>
               <span className={`pill ${status.pill} shrink-0`}>
