@@ -92,6 +92,28 @@ async function checkResend(): Promise<HealthResult> {
   });
 }
 
+async function checkWhatsApp(): Promise<HealthResult> {
+  const name = "Twilio (WhatsApp)";
+  const sid = process.env.TWILIO_ACCOUNT_SID;
+  const token = process.env.TWILIO_AUTH_TOKEN;
+  if (!sid || !token) {
+    return { name, severity: "warn", detail: "not configured — operator alerts fall back to email" };
+  }
+  try {
+    const auth = Buffer.from(`${sid}:${token}`).toString("base64");
+    const res = await timedFetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}.json`, { headers: { Authorization: `Basic ${auth}` } });
+    if (!res.ok) return { name, severity: "fail", detail: `credentials invalid — HTTP ${res.status}` };
+    const from = process.env.TWILIO_WHATSAPP_NUMBER;
+    const kyle = process.env.KYLE_WHATSAPP_NUMBER;
+    const missing = [!from && "TWILIO_WHATSAPP_NUMBER", !kyle && "KYLE_WHATSAPP_NUMBER"].filter(Boolean) as string[];
+    if (missing.length) return { name, severity: "warn", detail: `creds valid but ${missing.join(" + ")} not set — alerts fall back to email` };
+    const sandbox = from === "+14155238886" ? " (sandbox — freeform only within 24h of your last message; re-join every 3 days)" : "";
+    return { name, severity: "ok", detail: `creds valid, sender ${from}${sandbox}` };
+  } catch (err) {
+    return { name, severity: "fail", detail: err instanceof Error ? err.message : String(err) };
+  }
+}
+
 async function checkStripe(): Promise<HealthResult> {
   return smokeCheck("Stripe (billing)", "STRIPE_SECRET_KEY", async (key) => {
     const res = await timedFetch("https://api.stripe.com/v1/balance", { headers: { Authorization: `Bearer ${key}` } });
@@ -179,7 +201,7 @@ async function checkVersionDrift(): Promise<HealthResult[]> {
 
 export async function runIntegrationHealthcheck(): Promise<HealthResult[]> {
   const [vendors, drift] = await Promise.all([
-    Promise.all([checkComposio(), checkSupabase(), checkResend(), checkStripe(), checkAnthropic()]),
+    Promise.all([checkComposio(), checkSupabase(), checkResend(), checkWhatsApp(), checkStripe(), checkAnthropic()]),
     checkVersionDrift(),
   ]);
   const results = [...vendors, ...drift];
