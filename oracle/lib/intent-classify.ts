@@ -86,8 +86,10 @@ const MODEL_SYSTEM_PROMPT = [
   '- "halt": the client clearly wants the agent to stop/pause its work.',
   '- "resume": the client clearly wants a paused agent to start again.',
   '- "throttle": the client wants the agent to do less / less often, not stop.',
-  '- "normal": the message is CLEARLY a task, question, or request — use this only when it is clearly NOT a control instruction.',
-  '- "ambiguous": the message MIGHT be asking the agent to stop but is not clearly a task. When unsure between halt and normal, choose "ambiguous".',
+  '- "normal": THE DEFAULT. A task, question, update, greeting, check-in, or any ordinary message that does NOT ask the agent to stop, pause, or slow down. If the message contains no signal about halting/pausing/holding/quieting the agent, it is "normal" — even if it is short or open-ended.',
+  '- "ambiguous": ONLY for a message that plausibly asks the agent to stop or ease off but is not explicit — e.g. "maybe hold off for now", "not sure I need all this", "this is a bit much right now". It MUST carry a stop / pause / slow-down flavor. NEVER use "ambiguous" for a neutral message that has no such signal (that is "normal").',
+  '',
+  'Most client messages are ordinary correspondence → "normal". Reserve halt/ambiguous for genuine attempts to stop the agent.',
   "",
   "confidence is your certainty in the chosen intent, from 0 to 1.",
 ].join("\n");

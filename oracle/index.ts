@@ -1982,43 +1982,52 @@ app.post("/webhooks/email-inbound", async (req: Request, res: Response) => {
         const agentName = ctrlAgent?.name ?? "Your agent";
         const to = parseEmailFromHeader(from) ?? ctrlAgent?.client?.email ?? from;
 
-        let confirmMsg: string;
+        // A confirmation is sent ONLY when the action actually CHANGES state —
+        // pausing an active agent, or resuming a paused one. Everything else
+        // (a halt on an already-paused agent, a noop/denied resume) stays
+        // SILENT. A paused agent must never email the client on its own; the
+        // one exception is a genuine resume it just performed.
+        let confirmMsg: string | null = null;
+        let subjectWord = "paused";
         let disposition: string;
         if (ci.intent === "resume") {
           const r = await resumeAgent(prisma, { agentId, requester });
-          disposition = "control:resume:" + (r.ok ? "ok" : "denied");
-          confirmMsg = r.ok
-            ? (r.noop
-                ? `I wasn't paused, so there's nothing to resume — I'm on it. Reply any time.`
-                : `You're back up — I'm resuming now and I'll pick up where we left off.`)
-            : `I can't lift this one myself — it was paused by our team and needs us to resume it. I've flagged it so someone takes a look.`;
+          disposition = "control:resume:" + (r.ok ? (r.noop ? "noop" : "ok") : "denied");
+          subjectWord = "resumed";
+          if (r.ok && !r.noop) {
+            confirmMsg = `You're back up — I'm resuming now and I'll pick up where we left off.`;
+          }
         } else {
           const r = await haltAgent(prisma, { agentId, by: requester, reason: `client asked to ${ci.intent} (${ci.source})`.slice(0, 200) });
           disposition = "control:halt:" + ci.intent + (r.noop ? ":noop" : "");
-          confirmMsg = ci.intent === "ambiguous"
-            ? `Just to be safe, I've paused — it read like you might want me to hold off. Reply "resume" whenever you want me going again, or tell me what to change.`
-            : `Got it — I've paused. I won't send anything or do any work until you tell me to pick back up. Just reply "resume" whenever you're ready.`;
+          if (r.ok && !r.noop) {
+            confirmMsg = ci.intent === "ambiguous"
+              ? `Just to be safe, I've paused — it read like you might want me to hold off. Reply "resume" whenever you want me going again, or tell me what to change.`
+              : `Got it — I've paused. I won't send anything or do any work until you tell me to pick back up. Just reply "resume" whenever you're ready.`;
+          }
         }
         ilog.disposition = disposition;
 
-        try {
-          const { sendEmail: sendControl } = await import("../shared/email.js");
-          await sendControl({
-            agentId,
-            agentName,
-            to,
-            subject: `${agentName} — ${ci.intent === "resume" ? "resumed" : "paused"}`,
-            html: `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;max-width:520px;margin:0 auto;padding:8px 4px;color:#3f4a48;font-size:15px;line-height:1.6;">
-              <p style="margin:0 0 14px;">${confirmMsg}</p>
-              <p style="margin:0;font-size:13px;color:#8a938f;">— ${agentName} · <span style="color:#0f7a74;">Ambitt Agents</span></p>
-            </div>`,
-            replyToAgentId: agentId,
-            emailType: "control_ack",
-          });
-        } catch (sendErr) {
-          logger.warn("Control-intent confirmation send failed", { agentId, err: sendErr instanceof Error ? sendErr.message : String(sendErr) });
+        if (confirmMsg) {
+          try {
+            const { sendEmail: sendControl } = await import("../shared/email.js");
+            await sendControl({
+              agentId,
+              agentName,
+              to,
+              subject: `${agentName} — ${subjectWord}`,
+              html: `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;max-width:520px;margin:0 auto;padding:8px 4px;color:#3f4a48;font-size:15px;line-height:1.6;">
+                <p style="margin:0 0 14px;">${confirmMsg}</p>
+                <p style="margin:0;font-size:13px;color:#8a938f;">— ${agentName} · <span style="color:#0f7a74;">Ambitt Agents</span></p>
+              </div>`,
+              replyToAgentId: agentId,
+              emailType: "control_ack",
+            });
+          } catch (sendErr) {
+            logger.warn("Control-intent confirmation send failed", { agentId, err: sendErr instanceof Error ? sendErr.message : String(sendErr) });
+          }
         }
-        logger.info("Inbound handled as control intent", { agentId, intent: ci.intent, source: ci.source, requester });
+        logger.info("Inbound handled as control intent", { agentId, intent: ci.intent, source: ci.source, requester, confirmed: !!confirmMsg });
         res.json({ status: "control", intent: ci.intent });
         return;
       }
@@ -2028,8 +2037,16 @@ app.post("/webhooks/email-inbound", async (req: Request, res: Response) => {
         // confirm, and stop here rather than running the agent.
         const thAgent = await prisma.agent.findUnique({
           where: { id: agentId },
-          select: { name: true, emailFrequency: true, client: { select: { email: true } } },
+          select: { name: true, status: true, emailFrequency: true, client: { select: { email: true } } },
         });
+        // A paused agent stays silent — do not change cadence or email a
+        // "cadence updated" note. Only an active agent acts on throttle.
+        if (thAgent?.status === "paused") {
+          ilog.disposition = "control:throttle:paused_silent";
+          logger.info("Throttle intent ignored — agent is paused (silent)", { agentId });
+          res.json({ status: "control", intent: "throttle", changed: false });
+          return;
+        }
         const agentName = thAgent?.name ?? "Your agent";
         const to = parseEmailFromHeader(from) ?? thAgent?.client?.email ?? from;
         const step = nextThrottledFrequency(thAgent?.emailFrequency ?? "immediate");
