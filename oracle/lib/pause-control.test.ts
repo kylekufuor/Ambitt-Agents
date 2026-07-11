@@ -129,6 +129,26 @@ async function run() {
     check("resume when not paused: noop ok:true", r.ok === true && r.noop === true && r.status === "active", JSON.stringify(r));
   }
 
+  // --- Edge: LEGACY null pause (paused before pausedBy existed) --------------
+  // A client/operator halt must NOT re-pause it (that re-confirms to the client
+  // + downgrades the owner). Treated as operator-rank: client & operator halts
+  // no-op (silent), only a system halt escalates.
+  {
+    const db = makeDb({ n1: { status: "paused", pausedBy: null } });
+    const r = await haltAgent(db, { agentId: "n1", by: "client" });
+    check("legacy null-pause + client halt: noop (silent, not downgraded)", r.ok === true && r.noop === true, JSON.stringify(r));
+  }
+  {
+    const db = makeDb({ n2: { status: "paused", pausedBy: null } });
+    const r = await haltAgent(db, { agentId: "n2", by: "operator" });
+    check("legacy null-pause + operator halt: noop", r.ok === true && r.noop === true, JSON.stringify(r));
+  }
+  {
+    const db = makeDb({ n3: { status: "paused", pausedBy: null } });
+    const r = await haltAgent(db, { agentId: "n3", by: "system" });
+    check("legacy null-pause + system halt: escalates to system", r.ok === true && r.noop !== true && r.pausedBy === "system", JSON.stringify(r));
+  }
+
   // --- Edge: killed agent cannot be paused ----------------------------------
   {
     const db = makeDb({ a8: { status: "killed", pausedBy: null } });

@@ -84,15 +84,22 @@ export async function haltAgent(
 
   if (agent.status === "paused") {
     const existing = (agent.pausedBy as PausedBy | null) ?? null;
-    // If we can't rank the existing actor (null/unknown), treat the new halt as
-    // authoritative; otherwise only stronger-or-equal existing pauses hold.
-    if (existing && pauseRank(existing) >= pauseRank(by)) {
+    // A paused agent is ALREADY paused — a halt must not casually re-pause it
+    // (that both downgrades the owner and, in the handler, re-confirms to the
+    // client). Rank the existing actor; a legacy/unknown (null) pause is treated
+    // as operator-rank, so a client or operator halt no-ops (stays silent, no
+    // downgrade) and only a stronger system halt escalates. Legacy null pauses
+    // are therefore operator-only to resume — the safe default.
+    const existingRank = existing ? pauseRank(existing) : pauseRank("operator");
+    if (existingRank >= pauseRank(by)) {
       return {
         ok: true,
         noop: true,
         status: "paused",
         pausedBy: existing,
-        message: `Agent already paused by ${existing}; ${by} halt did not downgrade it.`,
+        message: existing
+          ? `Agent already paused by ${existing}; ${by} halt did not downgrade it.`
+          : `Agent already paused; ${by} halt did not change it.`,
       };
     }
   }
