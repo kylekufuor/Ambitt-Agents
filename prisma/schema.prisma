@@ -580,6 +580,7 @@ model StripeEvent {
 // kind values:
 //   "email"     — captured a sendEmail call (payload has to/subject/html)
 //   "whatsapp"  — captured a WhatsApp send (payload has to/message)
+//   "sms"       — captured a 2FA-relay SMS (payload has to/message/service)
 //   "composio"  — captured a Composio tool execution (payload has tool/params)
 //   "browse"    — captured a Stagehand browse action (payload has goal/url)
 //   "other"     — anything else we add a hook for later

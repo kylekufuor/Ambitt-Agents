@@ -23,6 +23,7 @@ import {
   costSummary,
 } from "../platform-tools/ops-queries.js";
 import { sendAgentEmail } from "../../oracle/lib/emailRouter.js";
+import { relayMfaRequest } from "../mfa-relay.js";
 import { logUsage, CLIENT_MODEL, TRIAGE_MODEL } from "../claude.js";
 import type { EmailAttachment } from "../email.js";
 import prisma from "../db.js";
@@ -95,7 +96,7 @@ const BUILTIN_TOOLS = new Set([
 export interface RuntimeInput {
   agentId: string;
   userMessage: string;
-  channel: "email" | "whatsapp" | "chat";
+  channel: "email" | "whatsapp" | "chat" | "sms";
   threadId: string;
   senderEmail?: string;
   // When false, this run does NOT count toward the client's monthly interaction
@@ -857,29 +858,33 @@ async function executeBuiltinTool(
     if (toolName === "request_2fa_code") {
       const { service, reason } = args as { service: string; reason?: string };
       const svc = (service ?? "the service").trim() || "the service";
-      const agentRow = await prisma.agent.findUnique({
-        where: { id: agentId },
-        select: { agentType: true, client: { select: { email: true } } },
-      });
-      const clientEmail = agentRow?.client?.email;
-      if (!clientEmail) {
-        return { content: "request_2fa_code failed: no client email on file.", isError: true };
-      }
-      const why = reason?.trim() ? `${reason.trim()} ` : "";
-      const responseBody = `${why}${svc} just sent you a one-time verification code so I can finish logging in on your behalf.\n\nPlease reply to this email with the code (just the digits) and I'll continue right away. The code is only used once and is never stored.`;
-      await sendAgentEmail({
-        trigger: "agent-response",
-        to: clientEmail,
-        agentId,
-        agentName,
-        agentRole: agentRow?.agentType ?? "Assistant",
-        clientBusinessName,
+      // SMS-first → email fallback, shared with the Remote Hands need-2fa
+      // path (shared/mfa-relay.ts). The relay sends the ask, registers the
+      // phone-capture pending (SMS reply resumes the paused run via
+      // /webhooks/sms), and handles dry-run + throttle + operator alerting.
+      // An email reply resumes through the normal inbound path, as before.
+      const relay = await relayMfaRequest({
         clientId,
-        responseBody,
-        toolsUsed: [],
+        agentId,
+        service: svc,
+        mode: "runtime",
+        reason: reason?.trim() || undefined,
       });
+      if (relay.channel === "none") {
+        return {
+          content: `request_2fa_code failed: could not reach the client on any channel (no mobile or email on file, or both sends failed). The operator has been alerted.`,
+          isError: true,
+        };
+      }
+      const how =
+        relay.channel === "sms"
+          ? "Texted the client's mobile"
+          : "Emailed the client";
+      const throttleNote = relay.throttled
+        ? " (a recent request is still pending, so no duplicate was sent)"
+        : "";
       return {
-        content: `Emailed ${clientEmail} asking them to reply with the ${svc} verification code. Run paused — when they reply with the code, resume the parked browser session (resume_session_id) and enter the code to finish logging in.`,
+        content: `${how} asking for the ${svc} verification code${throttleNote}. Run paused — when the code arrives (by text or email reply) the run resumes; use resume_session_id to re-enter the parked browser session and finish logging in.`,
         isError: false,
         isPause: true,
       };

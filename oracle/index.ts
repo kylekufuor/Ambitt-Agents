@@ -14,6 +14,7 @@ import { nextThrottledFrequency, throttleConfirmation } from "./lib/throttle.js"
 import prisma from "../shared/db.js";
 import logger from "../shared/logger.js";
 import { parseCommunicationSettings } from "../shared/communication-settings.js";
+import { relayMfaRequest, capturePhoneCode, captureEmailCode, takeCode } from "../shared/mfa-relay.js";
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } }); // 20MB max
 
@@ -234,19 +235,11 @@ function param(req: Request, key: string): string {
   return Array.isArray(val) ? val[0] : val;
 }
 
-// Remote Hands MFA relay — short-lived in-memory state (the code arrives within
-// ~a minute). pending2fa: a client's worker is waiting for a CoStar code;
-// codes2fa: the code the client replied with. Keyed by clientId. Not durable by
-// design (if Oracle restarts mid-MFA the worker just re-requests).
-const pending2fa = new Map<string, { taskId: string; at: number }>();
-const codes2fa = new Map<string, { code: string; at: number }>();
-// WhatsApp path: an inbound WhatsApp reply arrives keyed by the sender's phone,
-// so we keep a reverse index (last-10-digits → clientId) to match it back to the
-// client with a pending 2FA request. WhatsApp inbound lands in seconds vs email's
-// minutes, so it's the preferred MFA-relay channel.
-const pending2faByPhone = new Map<string, { clientId: string; at: number }>();
-const phoneKey = (s: string) => (s || "").replace(/\D/g, "").slice(-10);
-const MFA_TTL_MS = 15 * 60 * 1000; // hold the 2FA request/code 15 min — email inbound (Gmail → Resend) can lag several minutes, and a person on a call needs room
+// Remote Hands MFA relay — state + channel logic (SMS-first → email) live in
+// shared/mfa-relay.ts so BOTH request paths (the need-2fa handler below and
+// the runtime's request_2fa_code tool) share the same in-memory maps. Still
+// short-lived + not durable by design (an Oracle restart mid-MFA means the
+// worker just re-requests).
 
 // Extracts the bare email from a "Name <email@x.com>" header, or returns the
 // trimmed lowercase address if no angle brackets. Returns null if the header
@@ -1541,29 +1534,19 @@ app.get("/chat/:agentId/history", async (req: Request, res: Response) => {
   }
 });
 
-// WhatsApp webhook — Kyle's approval replies
-app.post("/webhooks/whatsapp", async (req: Request, res: Response) => {
-  try {
-    const body = req.body.Body?.trim() ?? "";
-    const from = req.body.From ?? "";
+// Twilio posts webhooks as application/x-www-form-urlencoded — Oracle only
+// mounts express.json globally, so without this per-route parser req.body is
+// undefined on real Twilio traffic. Per-route (not global) keeps the blast
+// radius zero for every other endpoint (Stripe/Svix raw-body routes included).
+const twilioForm = express.urlencoded({ extended: false });
 
-    // MFA relay capture — a client (not the operator) replying with their
-    // verification code. Checked BEFORE the operator-only guard so any client
-    // with a pending 2FA request can answer. Matched by phone, guarded by the
-    // pending map + TTL, so a random inbound message never reaches here.
-    {
-      const pend = pending2faByPhone.get(phoneKey(from));
-      if (pend && Date.now() - pend.at < MFA_TTL_MS) {
-        const m = body.match(/\b(\d{4,8})\b/);
-        if (m) {
-          codes2fa.set(pend.clientId, { code: m[1], at: Date.now() });
-          pending2faByPhone.delete(phoneKey(from));
-          logger.info("2FA code captured via WhatsApp", { clientId: pend.clientId });
-          res.type("text/xml").send("<Response><Message>Got it — entering your code now. Thanks!</Message></Response>");
-          return;
-        }
-      }
-    }
+// WhatsApp webhook — Kyle's approval replies. Operator approvals ONLY: the 2FA
+// capture branch that used to live here is gone — WhatsApp is out of the MFA
+// relay entirely (SMS-first → email; see /webhooks/sms + shared/mfa-relay.ts).
+app.post("/webhooks/whatsapp", twilioForm, async (req: Request, res: Response) => {
+  try {
+    const body = req.body?.Body?.trim() ?? "";
+    const from = req.body?.From ?? "";
 
     const kyleNumber = process.env.KYLE_WHATSAPP_NUMBER;
     if (!from.includes(kyleNumber ?? "NONE")) {
@@ -1590,6 +1573,73 @@ app.post("/webhooks/whatsapp", async (req: Request, res: Response) => {
   } catch (error) {
     logger.error("WhatsApp webhook failed", { error });
     res.status(500).json({ error: "Webhook processing failed" });
+  }
+});
+
+// Inbound SMS webhook — Twilio posts From/To/Body/MessageSid when a client
+// texts back their 2FA code. Matched to the pending request by sender phone
+// (shared/mfa-relay.ts), guarded by TTL. Responses are always 200 + TwiML —
+// never 4xx/5xx (Twilio error-logs those), never a content reply to a
+// stranger, never the message body in a log line.
+app.post("/webhooks/sms", twilioForm, async (req: Request, res: Response) => {
+  try {
+    const from = String(req.body?.From ?? "");
+    const body = String(req.body?.Body ?? "").trim();
+    const hit = capturePhoneCode(from, body);
+
+    if (hit.kind === "captured") {
+      logger.info("2FA code captured via SMS", { clientId: hit.clientId, origin: hit.origin });
+      res.type("text/xml").send("<Response><Message>Got it — entering your code now. Thanks!</Message></Response>");
+      // Engine-origin: nothing polls for the code — the paused run resumes by
+      // spawning a run on the SAME thread the email-reply path uses, then
+      // dispatching the response. Fire-and-forget so Twilio gets its TwiML
+      // ack immediately. Worker-origin codes sit in the poll map (handled
+      // inside capturePhoneCode); the worker's 2fa-code poll consumes them.
+      if (hit.origin === "engine" && hit.agentId) {
+        const resumeAgentId = hit.agentId;
+        const resumeClientId = hit.clientId;
+        const resumeCode = hit.code;
+        void (async () => {
+          const { processInboundMessage } = await import("../shared/runtime/index.js");
+          // billable: false — relaying a code mid-task is plumbing, not a new
+          // client ask; it must not burn an interaction from the quota.
+          const runtimeOutput = await processInboundMessage({
+            agentId: resumeAgentId,
+            userMessage: `Verification code: ${resumeCode}`,
+            channel: "sms",
+            threadId: `thread-${resumeAgentId}-${resumeClientId}`,
+            billable: false,
+          });
+          const { dispatchAgentResponse } = await import("./lib/dispatchAgentResponse.js");
+          await dispatchAgentResponse({ agentId: resumeAgentId, runtimeOutput, isReply: true });
+        })().catch((err: unknown) => {
+          logger.error("SMS 2FA resume failed", {
+            agentId: resumeAgentId,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        });
+      }
+      return;
+    }
+
+    if (hit.kind === "no_code") {
+      // Pending request but no digits in the reply — one nudge per request,
+      // then silence (no loops with autoresponders).
+      res.type("text/xml").send(
+        hit.nudge
+          ? "<Response><Message>Hmm — I couldn't spot a code in that. Text back just the digits and I'll take it from there.</Message></Response>"
+          : "<Response/>"
+      );
+      return;
+    }
+
+    // Unknown sender or expired pending — deliberate silence. STOP/HELP never
+    // get a platform reply either (Twilio's own opt-out handling sits upstream).
+    logger.info("SMS webhook: no pending match", { fromKnown: false });
+    res.type("text/xml").send("<Response/>");
+  } catch (error) {
+    logger.error("SMS webhook failed", { error: error instanceof Error ? error.message : String(error) });
+    res.type("text/xml").send("<Response/>");
   }
 });
 
@@ -1757,18 +1807,15 @@ app.post("/webhooks/email-inbound", async (req: Request, res: Response) => {
 
     // Remote Hands MFA relay: if this client's worker is waiting for a CoStar
     // verification code, capture it from this reply and stop (don't run the
-    // agent). Guarded by pending2fa, so a normal reply never reaches this.
+    // agent). Guarded by the pending map inside captureEmailCode, so a normal
+    // reply never reaches the code path.
     {
       const agentRow = await prisma.agent.findUnique({ where: { id: agentId }, select: { clientId: true } });
       const mfaClientId = agentRow?.clientId;
-      const pending = mfaClientId ? pending2fa.get(mfaClientId) : undefined;
-      if (mfaClientId && pending && Date.now() - pending.at < MFA_TTL_MS) {
+      if (mfaClientId) {
         const rawText = typeof emailData.text === "string" ? emailData.text : "";
-        const top = rawText.split(/^\s*>|-{3,}\s*Original|On .* wrote:/m)[0].slice(0, 400);
-        const codeMatch = top.match(/\b(\d{4,8})\b/);
-        if (codeMatch) {
-          codes2fa.set(mfaClientId, { code: codeMatch[1], at: Date.now() });
-          pending2fa.delete(mfaClientId);
+        const captured = captureEmailCode(mfaClientId, rawText);
+        if (captured.matched) {
           logger.info("Remote Hands 2FA code captured from reply", { clientId: mfaClientId, agentId });
           res.json({ status: "2fa_captured" });
           return;
@@ -6061,74 +6108,42 @@ app.post("/extension/tasks/:taskId/resolve-cred", async (req: Request, res: Resp
   }
 });
 
-// Remote Hands: worker hit an MFA screen — email the client to reply with the
-// code. Casey's reply is captured by the guarded branch in /webhooks/email-inbound.
+// Remote Hands: worker hit an MFA screen — ask the client for the code.
+// Channel chain is exactly two: SMS first (the code already arrived as a text
+// on their phone; the natural reply is a text back, captured by /webhooks/sms
+// in seconds), email fallback (captured by the guarded branch in
+// /webhooks/email-inbound). All send + pending logic lives in
+// shared/mfa-relay.ts so the runtime's request_2fa_code shares it.
 app.post("/extension/tasks/:taskId/need-2fa", async (req: Request, res: Response) => {
   const device = await authExtensionDevice(req, res);
   if (!device) return;
   try {
     const taskId = param(req, "taskId");
     const service = String(req.body?.service || "your tool").trim() || "your tool";
+    // Only ACTIVE agents may text/email the client — a paused or dry-run-only
+    // fleet stays silent (dry-run agents that ARE selected get intercepted to
+    // DryRunLog inside the relay).
     const agent = await prisma.agent.findFirst({
       where: { clientId: device.clientId, status: "active" },
-      select: { id: true, name: true, agentType: true, communicationSettings: true, client: { select: { email: true, whatsappNumber: true } } },
+      select: { id: true, client: { select: { email: true, whatsappNumber: true } } },
       orderBy: { createdAt: "asc" },
     });
-    const clientEmail = agent?.client?.email;
-    const clientWhatsApp = agent?.client?.whatsappNumber;
-    if (!agent || (!clientEmail && !clientWhatsApp)) { res.status(400).json({ error: "no client email or WhatsApp on file" }); return; }
-    pending2fa.set(device.clientId, { taskId, at: Date.now() });
-    codes2fa.delete(device.clientId);
-
-    // Which channel reaches the human for the code. Default order is WhatsApp
-    // first — the reply lands in seconds (push) vs several minutes for email
-    // (Gmail → Resend) — then email as fallback. The client can flip this in
-    // Communication Settings (mfaRelay). A 'connected' relay target (e.g. Slack)
-    // isn't wired to send+capture yet, so it falls back to the platform default.
-    // Both reply paths (/webhooks/whatsapp + email-inbound) feed codes2fa.
-    const comms = parseCommunicationSettings(agent.communicationSettings);
-    const prefersEmail = comms.mfaRelay?.kind === "platform_email";
-    const order: ("whatsapp" | "email")[] = prefersEmail ? ["email", "whatsapp"] : ["whatsapp", "email"];
-
-    let channel = "none";
-    for (const ch of order) {
-      if (channel !== "none") break;
-      if (ch === "whatsapp" && clientWhatsApp) {
-        try {
-          const { sendWhatsApp } = await import("../shared/whatsapp.js");
-          await sendWhatsApp({
-            to: clientWhatsApp,
-            message: `${agent.name} here — ${service} just sent you a one-time verification code so I can finish signing in on your behalf. Reply with just the code (the digits) and I'll continue right away.`,
-          });
-          pending2faByPhone.set(phoneKey(clientWhatsApp), { clientId: device.clientId, at: Date.now() });
-          channel = "whatsapp";
-        } catch (waErr) {
-          logger.warn("need-2fa: WhatsApp send failed, trying next channel", { error: waErr instanceof Error ? waErr.message : String(waErr) });
-        }
-      } else if (ch === "email" && clientEmail) {
-        try {
-          const { sendEmail } = await import("../shared/email.js");
-          await sendEmail({
-            agentId: agent.id,
-            agentName: agent.name,
-            to: clientEmail,
-            subject: `${agent.name} — verification code for ${service}`,
-            html: `<div style="font-family:-apple-system,sans-serif;max-width:540px;margin:0 auto;padding:24px;font-size:15px;color:#26332f;line-height:1.6;">
-        <p>${service} just sent you a one-time verification code so I can finish logging in on your behalf.</p>
-        <p><strong>Reply to this email with the code</strong> (just the digits) and I'll continue right away.</p>
-        <p style="color:#9aa8a4;font-size:13px;">The code is used once and never stored. ${agent.name}, your agent at Ambitt</p>
-      </div>`,
-            replyToAgentId: agent.id,
-          });
-          channel = "email";
-        } catch (emailErr) {
-          logger.warn("need-2fa: email send failed, trying next channel", { error: emailErr instanceof Error ? emailErr.message : String(emailErr) });
-        }
-      }
+    if (!agent || (!agent.client?.email && !agent.client?.whatsappNumber)) {
+      res.status(400).json({ error: "no active agent, or no mobile/email on file" });
+      return;
     }
-    if (channel === "none") { res.status(500).json({ error: "could not reach the client on any channel" }); return; }
-    logger.info("2FA request sent", { clientId: device.clientId, channel, service });
-    res.json({ ok: true, channel });
+    const relay = await relayMfaRequest({
+      clientId: device.clientId,
+      agentId: agent.id,
+      service,
+      mode: "worker",
+      taskId,
+    });
+    if (relay.channel === "none") {
+      res.status(500).json({ error: "could not reach the client on any channel" });
+      return;
+    }
+    res.json({ ok: true, channel: relay.channel, ...(relay.throttled ? { throttled: true } : {}) });
   } catch (error) {
     logger.error("need-2fa failed", { error: error instanceof Error ? error.message : String(error) });
     res.status(500).json({ error: "need-2fa failed" });
@@ -6139,13 +6154,7 @@ app.post("/extension/tasks/:taskId/need-2fa", async (req: Request, res: Response
 app.get("/extension/tasks/:taskId/2fa-code", async (req: Request, res: Response) => {
   const device = await authExtensionDevice(req, res);
   if (!device) return;
-  const entry = codes2fa.get(device.clientId);
-  if (entry && Date.now() - entry.at < MFA_TTL_MS) {
-    codes2fa.delete(device.clientId);
-    res.json({ code: entry.code });
-  } else {
-    res.json({ code: null });
-  }
+  res.json({ code: takeCode(device.clientId) });
 });
 
 // Run agent manually — triggers the universal runtime engine
