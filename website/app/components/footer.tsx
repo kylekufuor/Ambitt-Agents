@@ -30,6 +30,7 @@ export function Footer() {
               <div className="flex flex-col gap-3 text-sm text-muted-foreground">
                 <Link href="/contact" className="hover:text-foreground transition-colors duration-300">Contact</Link>
                 <Link href="/privacy" className="hover:text-foreground transition-colors duration-300">Privacy</Link>
+                <Link href="/terms" className="hover:text-foreground transition-colors duration-300">Terms</Link>
                 <a href="mailto:support@ambitt.agency" className="hover:text-foreground transition-colors duration-300">Support</a>
               </div>
             </div>
@@ -39,7 +40,7 @@ export function Footer() {
         {/* Bottom row */}
         <div className="border-t border-white/[0.04] pt-6 flex flex-col md:flex-row items-center justify-between gap-4">
           <p className="text-muted-foreground/40 text-xs">
-            &copy; {new Date().getFullYear()} Ambitt Agents. All rights reserved.
+            &copy; {new Date().getFullYear()} Kufgroup LLC (d/b/a Ambitt Agents). All rights reserved.
           </p>
           <p className="text-muted-foreground/30 text-[11px]">
             Built with purpose. Powered by Claude.
