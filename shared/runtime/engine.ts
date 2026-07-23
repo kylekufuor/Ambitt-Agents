@@ -870,6 +870,12 @@ async function executeBuiltinTool(
         mode: "runtime",
         reason: reason?.trim() || undefined,
       });
+      if (relay.halted) {
+        return {
+          content: `request_2fa_code blocked: the 2FA relay hourly rate cap was exceeded, so nothing was sent and the agent has been paused for safety. The operator has been alerted.`,
+          isError: true,
+        };
+      }
       if (relay.channel === "none") {
         return {
           content: `request_2fa_code failed: could not reach the client on any channel (no mobile or email on file, or both sends failed). The operator has been alerted.`,

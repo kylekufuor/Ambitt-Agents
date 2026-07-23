@@ -19,6 +19,11 @@ export const SEATBELT_DEFAULTS = {
   hourlyMax: 20,
   repetitionWindowMs: 30 * 60_000,
   repetitionMax: 2,
+  // Durable per-client cap on relay SMS (2FA) per rolling hour. Enforced in
+  // shared/mfa-relay.ts against the SmsSend audit table (NOT the email checks
+  // above, which key on EmailSend). Kept here so per-agent safety-sensitivity
+  // and per-agent overrides scale it the same way as the email caps.
+  smsHourlyMax: 6,
 };
 
 export type SeatbeltTrip = "rate_short" | "rate_hourly" | "repetition";
@@ -117,10 +122,13 @@ export async function checkOutboundSeatbelts(
 // false pauses, but never disable safety: the floor keeps the circuit breaker
 // meaningful, and repetitionMax can never be raised above 5 (the loop-catcher
 // must stay tight) nor dropped below its default of 2.
-const SEATBELT_CLAMP: Record<"shortMax" | "hourlyMax" | "repetitionMax", { min: number; max: number }> = {
+const SEATBELT_CLAMP: Record<"shortMax" | "hourlyMax" | "repetitionMax" | "smsHourlyMax", { min: number; max: number }> = {
   shortMax: { min: 1, max: 20 },
   hourlyMax: { min: 1, max: 60 },
   repetitionMax: { min: 2, max: 5 },
+  // SMS is costly + high-signal (a real person's phone), so keep the ceiling
+  // tight — even a "relaxed" agent (×2 → 12) or a loud override can't blast.
+  smsHourlyMax: { min: 1, max: 20 },
 };
 
 /**
@@ -143,6 +151,7 @@ export function resolveSeatbeltConfig(commSettings: unknown, sensitivity?: strin
   if (f !== 1) {
     resolved.shortMax = Math.round(resolved.shortMax * f);
     resolved.hourlyMax = Math.round(resolved.hourlyMax * f);
+    resolved.smsHourlyMax = Math.round(resolved.smsHourlyMax * f);
   }
 
   const overrides =
@@ -154,7 +163,7 @@ export function resolveSeatbeltConfig(commSettings: unknown, sensitivity?: strin
       : undefined;
 
   if (overrides) {
-    for (const key of ["shortMax", "hourlyMax", "repetitionMax"] as const) {
+    for (const key of ["shortMax", "hourlyMax", "repetitionMax", "smsHourlyMax"] as const) {
       const raw = overrides[key];
       if (typeof raw === "number" && Number.isFinite(raw)) {
         const { min, max } = SEATBELT_CLAMP[key];
@@ -164,7 +173,7 @@ export function resolveSeatbeltConfig(commSettings: unknown, sensitivity?: strin
   }
 
   // Final safety clamp — keeps the sensitivity-scaled base within safe bounds too.
-  for (const key of ["shortMax", "hourlyMax", "repetitionMax"] as const) {
+  for (const key of ["shortMax", "hourlyMax", "repetitionMax", "smsHourlyMax"] as const) {
     const { min, max } = SEATBELT_CLAMP[key];
     resolved[key] = Math.min(max, Math.max(min, resolved[key]));
   }

@@ -73,6 +73,8 @@ export const CommunicationSettings = z.object({
       shortMax: z.number().int().positive(),
       hourlyMax: z.number().int().positive(),
       repetitionMax: z.number().int().positive(),
+      // Durable per-client relay-SMS (2FA) cap per hour — see seatbelts.ts.
+      smsHourlyMax: z.number().int().positive(),
     })
     .partial()
     .optional(),

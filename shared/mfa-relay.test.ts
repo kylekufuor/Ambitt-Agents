@@ -15,6 +15,9 @@ import {
   relayThrottled,
   smsCapExceeded,
   recordSmsSend,
+  smsCapExceededDurable,
+  relayMfaRequest,
+  type RelayDeps,
 } from "./mfa-relay.js";
 
 let pass = 0;
@@ -150,5 +153,171 @@ check(
   { exceeded: false, alertOperator: false }
 );
 
-console.log(`\n${pass}/${pass + fail} passed${fail ? ` — ${fail} FAILED` : " — all green"}`);
-process.exitCode = fail ? 1 : 0;
+// ---------------------------------------------------------------------------
+// Composed send-path (relayMfaRequest) with injected deps. Mocks prisma +
+// sendSms + halt/alert/email so the channel selection, dry-run intercept,
+// durable-cap-halt, and race guard can be driven without a DB or Twilio.
+// ---------------------------------------------------------------------------
+type AgentRow = {
+  name: string;
+  agentType: string | null;
+  dryRun: boolean;
+  communicationSettings: unknown;
+  safetySensitivity: string | null;
+  client: { email: string | null; whatsappNumber: string | null; businessName: string | null } | null;
+};
+
+const DEFAULT_AGENT: AgentRow = {
+  name: "Aria",
+  agentType: "Assistant",
+  dryRun: false,
+  communicationSettings: null,
+  safetySensitivity: null,
+  client: { email: "client@example.com", whatsappNumber: "+18175551234", businessName: "Acme Co" },
+};
+
+interface Spy {
+  sendSms: number;
+  smsSendCreate: number;
+  dryRunLog: number;
+  haltAgent: number;
+  alertOperator: number;
+  workerEmail: number;
+  runtimeEmail: number;
+}
+
+function makeDeps(opts: {
+  agent?: AgentRow | null;
+  smsConfigured?: boolean;
+  durableCount?: number;
+  sendSmsThrows?: boolean;
+} = {}): { deps: RelayDeps; spy: Spy } {
+  const spy: Spy = { sendSms: 0, smsSendCreate: 0, dryRunLog: 0, haltAgent: 0, alertOperator: 0, workerEmail: 0, runtimeEmail: 0 };
+  const agent: AgentRow | null = opts.agent === undefined ? DEFAULT_AGENT : opts.agent;
+  const deps: RelayDeps = {
+    db: {
+      agent: { findUnique: async () => agent },
+      dryRunLog: { create: async () => { spy.dryRunLog++; return {}; } },
+      smsSend: {
+        count: async () => opts.durableCount ?? 0,
+        create: async () => { spy.smsSendCreate++; return {}; },
+      },
+    },
+    smsConfigured: () => opts.smsConfigured ?? true,
+    sendSms: async () => { spy.sendSms++; if (opts.sendSmsThrows) throw new Error("sms boom"); return "SMx"; },
+    haltAgent: async () => { spy.haltAgent++; return {}; },
+    alertOperator: async () => { spy.alertOperator++; return "alerted"; },
+    sendWorkerEmail: async () => { spy.workerEmail++; return {}; },
+    sendRuntimeEmail: async () => { spy.runtimeEmail++; return {}; },
+  };
+  return { deps, spy };
+}
+
+function checkTrue(name: string, cond: boolean, detail?: unknown) {
+  if (cond) {
+    pass++;
+  } else {
+    fail++;
+    console.log(`FAIL  ${name}${detail !== undefined ? ` — ${JSON.stringify(detail)}` : ""}`);
+  }
+}
+
+// Each case uses its own clientId/agentId so module-global relay state (throttle,
+// pendings, in-flight, cap-alert dedupe) never bleeds between cases.
+async function composedPathTests() {
+  // --- dry-run → DryRunLog intercept, NO real send, NO audit row -------------
+  {
+    const { deps, spy } = makeDeps({ agent: { ...DEFAULT_AGENT, dryRun: true } });
+    const r = await relayMfaRequest({ clientId: "cp-dry", agentId: "ag-dry", service: "CoStar", mode: "runtime" }, deps);
+    checkTrue("dry-run: channel sms (captured)", r.channel === "sms", r);
+    checkTrue("dry-run: DryRunLog written once", spy.dryRunLog === 1, spy);
+    checkTrue("dry-run: sendSms NOT called", spy.sendSms === 0, spy);
+    checkTrue("dry-run: NO SmsSend audit row", spy.smsSendCreate === 0, spy);
+    checkTrue("dry-run: agent NOT halted", spy.haltAgent === 0, spy);
+  }
+
+  // --- SMS-first (default preference) → SMS sent, audit row, no email --------
+  {
+    const { deps, spy } = makeDeps({});
+    const r = await relayMfaRequest({ clientId: "cp-sms", agentId: "ag-sms", service: "CoStar", mode: "worker", taskId: "t1" }, deps);
+    checkTrue("sms-first: channel sms", r.channel === "sms", r);
+    checkTrue("sms-first: sendSms called once", spy.sendSms === 1, spy);
+    checkTrue("sms-first: SmsSend audit row written", spy.smsSendCreate === 1, spy);
+    checkTrue("sms-first: email NOT used", spy.workerEmail === 0 && spy.runtimeEmail === 0, spy);
+    checkTrue("sms-first: not halted", spy.haltAgent === 0, spy);
+  }
+
+  // --- platform_email preference wins → email first, SMS never attempted -----
+  {
+    const { deps, spy } = makeDeps({
+      agent: { ...DEFAULT_AGENT, communicationSettings: { mfaRelay: { kind: "platform_email" } } },
+    });
+    const r = await relayMfaRequest({ clientId: "cp-eml", agentId: "ag-eml", service: "CoStar", mode: "runtime" }, deps);
+    checkTrue("platform_email: channel email", r.channel === "email", r);
+    checkTrue("platform_email: runtime email sent once", spy.runtimeEmail === 1, spy);
+    checkTrue("platform_email: sendSms NOT called", spy.sendSms === 0, spy);
+    checkTrue("platform_email: no SmsSend row", spy.smsSendCreate === 0, spy);
+  }
+
+  // --- durable cap exceeded → HALT, no send, email NOT silently used ---------
+  {
+    // durableCount 6 == default smsHourlyMax (6) → over the cap.
+    const { deps, spy } = makeDeps({ durableCount: 6 });
+    const r = await relayMfaRequest({ clientId: "cp-cap", agentId: "ag-cap", service: "CoStar", mode: "runtime" }, deps);
+    checkTrue("cap: channel none + halted flag", r.channel === "none" && r.halted === true, r);
+    checkTrue("cap: agent system-halted once", spy.haltAgent === 1, spy);
+    checkTrue("cap: NO SMS sent", spy.sendSms === 0, spy);
+    checkTrue("cap: NO audit row", spy.smsSendCreate === 0, spy);
+    checkTrue("cap: email NOT used as silent fallback", spy.runtimeEmail === 0 && spy.workerEmail === 0, spy);
+    checkTrue("cap: operator alerted once", spy.alertOperator === 1, spy);
+  }
+
+  // --- cap just under (5 < 6) → sends normally ------------------------------
+  {
+    const { deps, spy } = makeDeps({ durableCount: 5 });
+    const r = await relayMfaRequest({ clientId: "cp-under", agentId: "ag-under", service: "CoStar", mode: "runtime" }, deps);
+    checkTrue("under-cap: channel sms", r.channel === "sms", r);
+    checkTrue("under-cap: sent + not halted", spy.sendSms === 1 && spy.haltAgent === 0, spy);
+  }
+
+  // --- strict sensitivity halves the cap (3) → 3 rows already over ----------
+  {
+    const { deps, spy } = makeDeps({
+      agent: { ...DEFAULT_AGENT, safetySensitivity: "strict" },
+      durableCount: 3,
+    });
+    const r = await relayMfaRequest({ clientId: "cp-strict", agentId: "ag-strict", service: "CoStar", mode: "runtime" }, deps);
+    checkTrue("strict: cap halved → halted at 3", r.halted === true && spy.haltAgent === 1, { r, spy });
+    checkTrue("strict: no send", spy.sendSms === 0, spy);
+  }
+
+  // --- race guard: two concurrent calls for one client → one real send ------
+  {
+    const { deps, spy } = makeDeps({});
+    const input = { clientId: "cp-race", agentId: "ag-race", service: "CoStar", mode: "runtime" as const };
+    const [r1, r2] = await Promise.all([relayMfaRequest(input, deps), relayMfaRequest(input, deps)]);
+    checkTrue("race: exactly one real send", spy.sendSms === 1, spy);
+    checkTrue("race: exactly one audit row", spy.smsSendCreate === 1, spy);
+    checkTrue("race: loser reported throttled", (r1.throttled === true) !== (r2.throttled === true), { r1, r2 });
+    checkTrue("race: winner sent sms", r1.channel === "sms" || r2.channel === "sms", { r1, r2 });
+  }
+
+  // --- no channels on file → none, operator alerted, not halted -------------
+  {
+    const { deps, spy } = makeDeps({
+      agent: { ...DEFAULT_AGENT, client: { email: null, whatsappNumber: null, businessName: "Nobody" } },
+    });
+    const r = await relayMfaRequest({ clientId: "cp-nochan", agentId: "ag-nochan", service: "CoStar", mode: "runtime" }, deps);
+    checkTrue("no-channel: channel none, not halted", r.channel === "none" && r.halted !== true, r);
+    checkTrue("no-channel: operator alerted", spy.alertOperator === 1, spy);
+  }
+
+  // --- smsCapExceededDurable pure boundary ----------------------------------
+  checkTrue("durable cap: 6 >= 6 → exceeded", (await smsCapExceededDurable({ smsSend: { count: async () => 6 } }, "c", 6)) === true);
+  checkTrue("durable cap: 5 < 6 → ok", (await smsCapExceededDurable({ smsSend: { count: async () => 5 } }, "c", 6)) === false);
+}
+
+composedPathTests().then(() => {
+  console.log(`\n${pass}/${pass + fail} passed${fail ? ` — ${fail} FAILED` : " — all green"}`);
+  process.exitCode = fail ? 1 : 0;
+});

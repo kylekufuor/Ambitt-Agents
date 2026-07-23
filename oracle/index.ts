@@ -6139,6 +6139,11 @@ app.post("/extension/tasks/:taskId/need-2fa", async (req: Request, res: Response
       mode: "worker",
       taskId,
     });
+    if (relay.halted) {
+      // Durable SMS cap tripped — agent system-paused for safety, nothing sent.
+      res.status(429).json({ error: "2FA relay rate cap exceeded — agent paused for safety" });
+      return;
+    }
     if (relay.channel === "none") {
       res.status(500).json({ error: "could not reach the client on any channel" });
       return;

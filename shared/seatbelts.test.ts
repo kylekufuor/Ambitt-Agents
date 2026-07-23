@@ -297,6 +297,18 @@ async function main() {
   chk("explicit override beats sensitivity (short 5, hourly 40)", overrideWins.shortMax === 5 && overrideWins.hourlyMax === 40, overrideWins);
   chk("repetitionMax unchanged by sensitivity", relaxed.repetitionMax === 2 && strict.repetitionMax === 2);
 
+  // --- smsHourlyMax (durable SMS 2FA relay cap) scales like the email caps ---
+  chk("default smsHourlyMax = 6", resolveSeatbeltConfig(null).smsHourlyMax === 6);
+  chk("relaxed doubles smsHourlyMax (12)", relaxed.smsHourlyMax === 12, relaxed);
+  chk("strict halves smsHourlyMax (3)", strict.smsHourlyMax === 3, strict);
+  chk("standard smsHourlyMax = 6", standard.smsHourlyMax === 6, standard);
+  const smsOverride = resolveSeatbeltConfig({ seatbelts: { smsHourlyMax: 10 } });
+  chk("smsHourlyMax override applied (10)", smsOverride.smsHourlyMax === 10, smsOverride);
+  const smsOverrideWins = resolveSeatbeltConfig({ seatbelts: { smsHourlyMax: 4 } }, "relaxed");
+  chk("explicit smsHourlyMax override beats sensitivity (4)", smsOverrideWins.smsHourlyMax === 4, smsOverrideWins);
+  const smsClamped = resolveSeatbeltConfig({ seatbelts: { smsHourlyMax: 999 } });
+  chk("smsHourlyMax clamped to ceiling (20)", smsClamped.smsHourlyMax === 20, smsClamped);
+
   console.log(`\n${pass}/${pass + fail} passed${fail ? ` — ${fail} FAILED` : " — all green"}`);
   process.exitCode = fail ? 1 : 0;
 }

@@ -56,6 +56,7 @@ model Client {
   overageEvents          OverageEvent[]
   scheduledEmails        ScheduledEmail[]
   emailSends             EmailSend[]
+  smsSends               SmsSend[]
   toolRequests           ToolRequest[]
   toolConnectionRequests ToolConnectionRequest[]
   browserSessions        BrowserSession[]
@@ -202,6 +203,7 @@ model Agent {
   overageEvents          OverageEvent[]
   scheduledEmails        ScheduledEmail[]
   emailSends             EmailSend[]
+  smsSends               SmsSend[]
   toolRequests           ToolRequest[]
   toolConnectionRequests ToolConnectionRequest[]
   browserSessions        BrowserSession[]
@@ -539,6 +541,46 @@ model EmailSend {
   @@index([resendMessageId])
   @@index([status, acceptedAt])
   @@index([to])
+}
+
+// SmsSend — audit trail for every outbound relay SMS via shared/mfa-relay.ts
+// (sister to EmailSend). Today the only sender is the 2FA-code relay: the
+// agent texts the client "reply with the code from {service}". Each REAL send
+// writes one row (dry-run agents capture to DryRunLog kind "sms" instead, so
+// they never accumulate). shared/mfa-relay.ts counts rows in the last rolling
+// hour per client as the DURABLE runaway cap (parity with the EmailSend-backed
+// outbound seatbelt) — over the cap, the send is blocked and the agent is
+// system-paused. Privacy: unlike EmailSend (which stores the full recipient
+// address), a phone number is higher-sensitivity PII and the cap keys on
+// clientId, not the number — so we store only the last 4 digits for audit, and
+// NEVER the 2FA code or the message body.
+model SmsSend {
+  id String @id @default(cuid())
+
+  // Who it was for. clientId is required + indexed — it is the cap key. agentId
+  // is optional (some future platform SMS may be client-level, not agent-level).
+  clientId String
+  client   Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  agentId  String?
+  agent    Agent?  @relation(fields: [agentId], references: [id], onDelete: SetNull)
+
+  // Non-sensitive recipient reference: last 4 digits only (see model note).
+  toLast4 String?
+
+  // Free-form categorization, e.g. "sms_2fa". Default matches the only sender.
+  kind String @default("sms_2fa")
+
+  // Lifecycle status. A row is written only on a successful provider accept, so
+  // this is "sent" today; the field exists for parity/forward-compat.
+  status String  @default("sent")
+  error  String? @db.Text
+
+  createdAt DateTime @default(now())
+
+  // [clientId, createdAt] backs the rolling-hour cap count; the rest are for ops.
+  @@index([clientId, createdAt])
+  @@index([agentId])
+  @@index([status, createdAt])
 }
 
 model StripeEvent {
