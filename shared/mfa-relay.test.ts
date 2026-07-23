@@ -18,6 +18,7 @@ import {
   smsCapExceededDurable,
   relayMfaRequest,
   type RelayDeps,
+  type RelayMfaResult,
 } from "./mfa-relay.js";
 
 let pass = 0;
@@ -190,6 +191,7 @@ function makeDeps(opts: {
   agent?: AgentRow | null;
   smsConfigured?: boolean;
   durableCount?: number;
+  durableCountThrows?: boolean;
   sendSmsThrows?: boolean;
 } = {}): { deps: RelayDeps; spy: Spy } {
   const spy: Spy = { sendSms: 0, smsSendCreate: 0, dryRunLog: 0, haltAgent: 0, alertOperator: 0, workerEmail: 0, runtimeEmail: 0 };
@@ -199,7 +201,10 @@ function makeDeps(opts: {
       agent: { findUnique: async () => agent },
       dryRunLog: { create: async () => { spy.dryRunLog++; return {}; } },
       smsSend: {
-        count: async () => opts.durableCount ?? 0,
+        count: async () => {
+          if (opts.durableCountThrows) throw new Error("SmsSend.count boom (table missing / DB down)");
+          return opts.durableCount ?? 0;
+        },
         create: async () => { spy.smsSendCreate++; return {}; },
       },
     },
@@ -270,6 +275,29 @@ async function composedPathTests() {
     checkTrue("cap: NO audit row", spy.smsSendCreate === 0, spy);
     checkTrue("cap: email NOT used as silent fallback", spy.runtimeEmail === 0 && spy.workerEmail === 0, spy);
     checkTrue("cap: operator alerted once", spy.alertOperator === 1, spy);
+  }
+
+  // --- durable cap COUNT ERRORS → degrade to email (safer channel), no SMS,
+  //     no throw, agent NOT halted, operator alerted once (Finding A hardening) -
+  {
+    const { deps, spy } = makeDeps({ durableCountThrows: true });
+    let threw = false;
+    let r: RelayMfaResult = { channel: "none" };
+    try {
+      r = await relayMfaRequest(
+        { clientId: "cp-caperr", agentId: "ag-caperr", service: "CoStar", mode: "runtime" },
+        deps
+      );
+    } catch {
+      threw = true;
+    }
+    checkTrue("cap-err: relay did NOT throw", threw === false);
+    checkTrue("cap-err: degraded to email channel", r.channel === "email", r);
+    checkTrue("cap-err: NO SMS sent", spy.sendSms === 0, spy);
+    checkTrue("cap-err: NO SmsSend audit row", spy.smsSendCreate === 0, spy);
+    checkTrue("cap-err: agent NOT halted", spy.haltAgent === 0 && r.halted !== true, { r, spy });
+    checkTrue("cap-err: email fallback used", spy.runtimeEmail === 1, spy);
+    checkTrue("cap-err: operator alerted once", spy.alertOperator === 1, spy);
   }
 
   // --- cap just under (5 < 6) → sends normally ------------------------------

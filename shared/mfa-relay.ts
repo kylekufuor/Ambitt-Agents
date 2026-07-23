@@ -504,7 +504,37 @@ export async function relayMfaRequest(
         // Durable cap = the live authority. Over the cap: BLOCK the send, halt
         // the agent (system pause, operator-only resume), alert once/hour, and
         // do NOT fall back to email — stop the runaway.
-        if (await smsCapExceededDurable(deps.db, clientId, smsCap, now)) {
+        //
+        // If the cap COUNT itself throws (SmsSend table not migrated yet on a
+        // deploy-order gap, or the DB is briefly unreachable) we can't verify the
+        // runaway cap. Fail toward the SAFER channel: skip SMS entirely and let
+        // the email fallback (which has its own durable seatbelt) take it —
+        // never send un-capped SMS, and never throw the whole relay (the relay's
+        // contract is "never throw, always degrade"). Alert the operator once so
+        // we're not silent about running blind on the cap.
+        let capExceeded: boolean;
+        try {
+          capExceeded = await smsCapExceededDurable(deps.db, clientId, smsCap, now);
+        } catch (capErr) {
+          logger.warn("MFA relay: durable SMS cap check failed — degrading to email", {
+            clientId,
+            agentId,
+            error: capErr instanceof Error ? capErr.message : String(capErr),
+          });
+          if (markCapAlert(clientId, now)) {
+            try {
+              await deps.alertOperator(
+                `⚠️ 2FA relay couldn't verify the SMS rate cap for ${businessLabel} (SmsSend count errored) — degrading to email for ${agent.name}. Check the DB / SmsSend table.`
+              );
+            } catch (alertErr) {
+              logger.warn("MFA relay: cap-check-failed alert failed", {
+                error: alertErr instanceof Error ? alertErr.message : String(alertErr),
+              });
+            }
+          }
+          continue;
+        }
+        if (capExceeded) {
           await deps.haltAgent({ agentId, by: "system", reason: "sms 2fa relay rate cap exceeded" });
           logger.warn("MFA relay: durable SMS cap exceeded — send blocked, agent system-paused", {
             clientId,
