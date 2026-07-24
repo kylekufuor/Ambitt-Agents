@@ -1,21 +1,43 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
+// Self-hosted, no CDN. woff2 extracted from the approved mockup into public/fonts.
+const lexend = localFont({
+  src: "../public/fonts/lexend.woff2",
+  weight: "400 700",
+  display: "swap",
+  variable: "--font-lexend",
+  fallback: ["system-ui", "-apple-system", "Segoe UI", "Roboto", "sans-serif"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+const bricolage = localFont({
+  src: "../public/fonts/bricolage-grotesque.woff2",
+  weight: "600 800",
+  display: "swap",
+  variable: "--font-bricolage",
+  fallback: ["Lexend", "system-ui", "sans-serif"],
 });
 
 export const metadata: Metadata = {
-  title: "Ambitt Agents — Hire an AI Agent, Not Another Tool",
+  metadataBase: new URL("https://ambitt.agency"),
+  title: "Ambitt Agents — named AI agents that do the work in your tools",
   description:
-    "AI agents that work like your best employee. They email you results, use your tools, and deliver real value. No dashboards. No logins. Just work.",
+    "Hire a named AI agent that works inside the tools you already use and emails you the finished work. You ask in plain English. It does the job. You never touch a dashboard.",
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/brand/ambitt-agents-favicon.svg", type: "image/svg+xml" },
+    ],
+  },
+  openGraph: {
+    title: "Ambitt Agents — named AI agents that do the work in your tools",
+    description:
+      "You ask in plain English. It does the job inside the tools you already use, and emails you the finished work. You never touch a dashboard.",
+    url: "https://ambitt.agency",
+    siteName: "Ambitt Agents",
+    type: "website",
+  },
 };
 
 export default function RootLayout({
@@ -24,11 +46,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
-      <body className="min-h-full flex flex-col">{children}</body>
+    <html lang="en" className={`${lexend.variable} ${bricolage.variable}`}>
+      <body>{children}</body>
     </html>
   );
 }

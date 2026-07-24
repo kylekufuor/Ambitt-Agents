@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Nav } from "../components/nav";
 import { Footer } from "../components/footer";
+import { BOOKING_URL } from "../lib/site";
 
 export const metadata: Metadata = {
   title: "Contact — Ambitt Agents",
@@ -13,8 +14,7 @@ export default function ContactPage() {
       <Nav />
 
       {/* Hero */}
-      <section className="relative pt-36 pb-16 px-6">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(52,211,153,0.04)_0%,transparent_60%)]" />
+      <section className="relative pt-16 pb-16 px-6">
         <div className="relative z-10 max-w-3xl mx-auto text-center">
           <div className="label-pill mb-6">Contact</div>
           <h1 className="text-4xl md:text-6xl font-bold tracking-tight mb-4">Reach us anytime.</h1>
@@ -34,12 +34,13 @@ export default function ContactPage() {
               See a live demo of an agent connected to your tools. We&apos;ll show you exactly how it works for your business.
             </p>
             <a
-              href="https://calendly.com/ambitt"
+              href={BOOKING_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="block text-center bg-accent text-background py-3 rounded-xl text-sm font-semibold hover:shadow-[0_0_25px_rgba(52,211,153,0.25)] transition-all duration-300"
+              className="btn btn-primary"
+              style={{ width: "100%" }}
             >
-              Book on Calendly
+              Book a call
             </a>
           </div>
 
@@ -49,10 +50,7 @@ export default function ContactPage() {
             <p className="text-muted-foreground text-sm mb-8 leading-relaxed">
               Questions about pricing, capabilities, integrations, or anything else? Just email us.
             </p>
-            <a
-              href="mailto:support@ambitt.agency"
-              className="block text-center bg-white/[0.04] text-foreground py-3 rounded-xl text-sm font-semibold border border-white/[0.08] hover:border-white/[0.15] hover:bg-white/[0.06] transition-all duration-300"
-            >
+            <a href="mailto:support@ambitt.agency" className="btn btn-ghost" style={{ width: "100%" }}>
               support@ambitt.agency
             </a>
           </div>

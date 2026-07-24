@@ -12,8 +12,7 @@ export default function TermsPage() {
     <main className="overflow-x-hidden">
       <Nav />
 
-      <section className="relative pt-36 pb-28 px-6">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(52,211,153,0.03)_0%,transparent_60%)]" />
+      <section className="relative pt-16 pb-28 px-6">
         <div className="relative z-10 max-w-3xl mx-auto">
           <div className="label-pill mb-6">Legal</div>
           <h1 className="text-4xl md:text-6xl font-bold tracking-tight mb-4">Terms of Service</h1>

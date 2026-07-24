@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 116" width="128" height="116" role="img" aria-label="Ambitt Agents">
+  <circle cx="64" cy="10" r="8" fill="#00b3b3"/>
+  <rect x="60" y="16" width="8" height="18" rx="4" fill="#00b3b3"/>
+  <rect x="6" y="58" width="13" height="30" rx="6.5" fill="#00b3b3" opacity="0.8"/>
+  <rect x="109" y="58" width="13" height="30" rx="6.5" fill="#00b3b3" opacity="0.8"/>
+  <rect x="16" y="32" width="96" height="74" rx="26" fill="#00b3b3"/>
+  <circle cx="46" cy="70" r="14" fill="#ffffff"/>
+  <circle cx="82" cy="70" r="14" fill="#ffffff"/></svg>

@@ -1,28 +1,62 @@
-import Link from "next/link";
+"use client";
+
+import { useState } from "react";
+import { AmbittLogo } from "./logo";
+import { Menu, Close } from "./icons";
+import { NAV_LINKS, CTA } from "../lib/site";
 
 export function Nav() {
+  const [open, setOpen] = useState(false);
+
   return (
-    <header className="fixed top-0 left-0 right-0 z-50">
-      <div className="mx-auto max-w-6xl px-6 pt-4">
-        <div className="flex items-center justify-between h-14 px-6 rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-xl">
-          <Link href="/" className="text-lg font-bold tracking-tight">
-            <span className="text-accent">A</span>
-            <span className="text-foreground/90">mbitt</span>
-          </Link>
-          <nav className="hidden md:flex items-center gap-8 text-[13px] text-muted-foreground">
-            <Link href="/#features" className="hover:text-foreground transition-colors duration-300">Features</Link>
-            <Link href="/#how-it-works" className="hover:text-foreground transition-colors duration-300">How It Works</Link>
-            <Link href="/#pricing" className="hover:text-foreground transition-colors duration-300">Pricing</Link>
-            <Link href="/#faq" className="hover:text-foreground transition-colors duration-300">FAQ</Link>
-            <Link href="/contact" className="hover:text-foreground transition-colors duration-300">Contact</Link>
-          </nav>
-          <Link
-            href="/#pricing"
-            className="bg-accent/90 hover:bg-accent text-background text-[13px] font-semibold px-5 py-2 rounded-xl transition-all duration-300 hover:shadow-[0_0_20px_rgba(52,211,153,0.2)]"
-          >
-            Get Started
-          </Link>
-        </div>
+    <header className="nav">
+      <div className="wrap">
+        <nav className="nav-in">
+          <a href="#top" aria-label="Ambitt Agents home">
+            <AmbittLogo variant="light" />
+          </a>
+
+          <div className="nav-links">
+            {NAV_LINKS.map((l) => (
+              <a key={l.href} href={l.href}>
+                {l.label}
+              </a>
+            ))}
+          </div>
+
+          <div className="nav-cta">
+            <a className="btn btn-ghost" href={CTA.secondary.href}>
+              {CTA.secondary.label}
+            </a>
+            <a className="btn btn-primary" href={CTA.primary.href}>
+              {CTA.primary.label}
+            </a>
+            <button
+              type="button"
+              className="nav-toggle"
+              aria-label={open ? "Close menu" : "Open menu"}
+              aria-expanded={open}
+              aria-controls="nav-panel"
+              onClick={() => setOpen((v) => !v)}
+            >
+              {open ? <Close /> : <Menu />}
+            </button>
+          </div>
+
+          <div id="nav-panel" className={`nav-panel${open ? " open" : ""}`} hidden={!open}>
+            {NAV_LINKS.map((l) => (
+              <a key={l.href} href={l.href} onClick={() => setOpen(false)}>
+                {l.label}
+              </a>
+            ))}
+            <a className="btn btn-ghost" href={CTA.secondary.href} onClick={() => setOpen(false)}>
+              {CTA.secondary.label}
+            </a>
+            <a className="btn btn-primary" href={CTA.primary.href} onClick={() => setOpen(false)}>
+              {CTA.primary.label}
+            </a>
+          </div>
+        </nav>
       </div>
     </header>
   );
