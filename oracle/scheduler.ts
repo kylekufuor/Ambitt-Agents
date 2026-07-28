@@ -682,6 +682,12 @@ async function maybeAlertExhausted(): Promise<void> {
   <div style="margin: 0 0 12px;"><a href="${prdUrl}" style="display: inline-block; padding: 10px 18px; background: #171717; color: #ffffff; text-decoration: none; border-radius: 8px; font-size: 13px; font-weight: 600;">Open PRD page →</a></div>
 </div>`,
           replyToAgentId: atlas.id,
+          emailType: "ops_notification",
+          // Operator alert about a platform failure, not client copy. Goes out
+          // verbatim (the subject and body carry dashes on purpose). The scrub
+          // exemption used to come free from the OPERATOR_EMAIL recipient; it
+          // is now opt-in, so it is declared here.
+          audience: "operator",
         });
       } catch (err) {
         logger.warn("PRD-exhausted ops alert send failed", { prospectId: p.id, err });

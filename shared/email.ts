@@ -34,10 +34,16 @@ interface SendEmailOptions {
   // Used by the dashboard delivery badge + bounce alerts to identify which
   // artifact failed delivery.
   emailType?: string;
-  // Who reads this. Client-facing copy (the default) gets the em-dash scrub;
-  // operator-facing mail is Kyle's, written for signal not for voice, and is
-  // passed through untouched. Recipient-matching OPERATOR_EMAIL is treated as
-  // "operator" automatically, so existing ops call sites need no change.
+  // Who reads this. Default (omitted / "client") is human-facing copy and gets
+  // the em-dash scrub. Only "operator" — an explicit marker meaning "this is a
+  // system notice ABOUT the platform, addressed to whoever operates it" — is
+  // passed through untouched.
+  //
+  // This is opt-in ONLY. It used to also be inferred from the recipient
+  // matching OPERATOR_EMAIL, which was wrong: an agent replying to a human
+  // skipped the voice rules purely because of WHO that human was, so the
+  // operator could never see the copy a client would actually receive. The
+  // inference is gone. Any genuine ops/system send must set this flag.
   audience?: "client" | "operator";
 }
 
@@ -58,10 +64,13 @@ export async function sendEmail(
   // all of them regardless of template or trigger. Runs before the dry-run
   // intercept below so a captured preview is byte-identical to what a live
   // send would put in the client's inbox.
-  const operatorAddress = (process.env.OPERATOR_EMAIL ?? "").toLowerCase().trim();
-  const operatorBound =
-    options.audience === "operator" ||
-    (operatorAddress.length > 0 && to.toLowerCase().trim() === operatorAddress);
+  //
+  // The exemption is the explicit marker and nothing else. Who the recipient
+  // happens to be says nothing about what the copy is: an agent's reply to the
+  // operator is still an agent writing to a person and gets scrubbed like any
+  // other. Callers that send real system notices declare it (see notifyOps in
+  // oracle/index.ts, maybeAlertExhausted in oracle/scheduler.ts).
+  const operatorBound = options.audience === "operator";
   const subjectScrub = operatorBound
     ? { text: options.subject, replaced: 0 }
     : stripEmDashes(options.subject);

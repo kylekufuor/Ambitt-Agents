@@ -1,7 +1,12 @@
 // Run: node_modules/.bin/tsx shared/scrub-emdash.test.ts
-// Pure unit test for the send-time em-dash scrub, plus one wiring test that
-// drives the real sendSms() path through its injected-sender seam. No network,
-// no DB, no Twilio credentials.
+// Pure unit test for the send-time em-dash scrub, plus wiring tests that drive
+// the real sendSms() and sendEmail() paths. No network, no DB, no Twilio or
+// Resend credentials.
+//
+// NOTE: ./email.js must NOT be imported statically here. The email wiring test
+// installs a fake Prisma on globalThis, and shared/db.ts latches whatever is
+// there the first time it loads — so the import has to happen after the fake
+// is in place, i.e. dynamically, inside emailWiringTests().
 import { stripEmDashes, stripEmDashesHtml } from "./scrub-emdash.js";
 import { sendSms, type SmsSender } from "./sms.js";
 
@@ -276,7 +281,156 @@ async function wiringTests(): Promise<void> {
   );
 }
 
-wiringTests().then(() => {
-  console.log(`\n${pass}/${pass + fail} passed${fail ? ` — ${fail} FAILED` : " — all green"}`);
-  process.exitCode = fail ? 1 : 0;
-});
+// --- Wiring: the real sendEmail() path -------------------------------------
+//
+// The exemption from the scrub is `audience: "operator"` and nothing else.
+// It used to ALSO be inferred from the recipient matching OPERATOR_EMAIL,
+// which meant an agent replying to the operator skipped the voice rules purely
+// because of who the human on the other end was — the operator could never see
+// the copy a client would actually get. These tests pin the new gate.
+//
+// No network: a fake Prisma reports the agent as dryRun, so sendEmail captures
+// the would-be send to dryRunLog and returns before touching Resend. The
+// captured payload is byte-identical to what would have hit the inbox (the
+// scrub runs before the intercept). Same trick oracle/lib/emailRouter.test.ts
+// uses.
+
+interface CapturedEmail {
+  to: string;
+  subject: string;
+  html: string;
+}
+
+async function emailWiringTests(): Promise<void> {
+  const captured: CapturedEmail[] = [];
+  const fakePrisma = {
+    agent: {
+      async findUnique() {
+        return { dryRun: true, email: "atlas@ambitt.agency" };
+      },
+    },
+    dryRunLog: {
+      async create(args: {
+        data: { payload: { to?: unknown; subject?: unknown; html?: unknown } };
+      }) {
+        captured.push({
+          to: String(args.data.payload.to ?? ""),
+          subject: String(args.data.payload.subject ?? ""),
+          html: String(args.data.payload.html ?? ""),
+        });
+        return { id: `dr_${captured.length}`, capturedAt: new Date() };
+      },
+    },
+  };
+  (globalThis as unknown as { prisma?: unknown }).prisma = fakePrisma;
+
+  // The operator's own address. Every send below that targets it used to be
+  // exempt automatically; only the explicitly marked ones still are.
+  const OPERATOR = "kylekufuor@gmail.com";
+  process.env.OPERATOR_EMAIL = OPERATOR;
+
+  const { sendEmail } = await import("./email.js");
+  const base = { agentId: "agent_atlas", agentName: "Atlas" };
+
+  // 1. The regression Kyle hit live: Atlas replies to Kyle, Kyle's address IS
+  //    OPERATOR_EMAIL, and the reply arrived with its em dashes intact.
+  await sendEmail({
+    ...base,
+    to: OPERATOR,
+    subject: "Re: Atlas at Ambitt Agents — quote status",
+    html: "<p>Here's where we landed — the quote went out this morning.</p>",
+  });
+  eq(
+    "wiring: agent reply to OPERATOR_EMAIL has its subject scrubbed",
+    captured[0]?.subject ?? "",
+    "Re: Atlas at Ambitt Agents, quote status"
+  );
+  eq(
+    "wiring: agent reply to OPERATOR_EMAIL has its body scrubbed",
+    captured[0]?.html ?? "",
+    "<p>Here's where we landed, the quote went out this morning.</p>"
+  );
+
+  // 2. Same copy, same recipient, explicitly marked a system notice: verbatim.
+  await sendEmail({
+    ...base,
+    to: OPERATOR,
+    subject: "Re: Atlas at Ambitt Agents — quote status",
+    html: "<p>Here's where we landed — the quote went out this morning.</p>",
+    audience: "operator",
+  });
+  eq(
+    "wiring: operator-audience subject goes out verbatim",
+    captured[1]?.subject ?? "",
+    "Re: Atlas at Ambitt Agents — quote status"
+  );
+  eq(
+    "wiring: operator-audience body goes out verbatim",
+    captured[1]?.html ?? "",
+    "<p>Here's where we landed — the quote went out this morning.</p>"
+  );
+
+  // 3. Ordinary client mail is unaffected — still scrubbed, as it always was.
+  await sendEmail({
+    ...base,
+    to: "casey@acme.com",
+    subject: "Atlas at Acme Realty",
+    html: "<p>Three comps came back — all under ask.</p>",
+  });
+  eq(
+    "wiring: client-facing body still scrubbed",
+    captured[2]?.html ?? "",
+    "<p>Three comps came back, all under ask.</p>"
+  );
+
+  // 4. The two call sites marked audience:"operator" in this change still ship
+  //    their copy untouched. Their subjects/bodies are mirrored literally here
+  //    because neither helper is exported (notifyOps lives inside oracle's
+  //    Express app; maybeAlertExhausted inside the scheduler) — importing
+  //    either module would boot a server or a cron. If those strings change,
+  //    change them here too.
+  const opsSubject = "Scope approved — Casey Litsey (Litsey Realty)";
+  const opsHtml =
+    '<p><strong style="color: #00b3b3;">Scope approved.</strong> Time to draft a quote — proposal link below.</p>';
+  await sendEmail({
+    ...base,
+    to: OPERATOR,
+    subject: opsSubject,
+    html: opsHtml,
+    emailType: "ops_notification",
+    audience: "operator",
+  });
+  eq("wiring: notifyOps subject untouched", captured[3]?.subject ?? "", opsSubject);
+  eq("wiring: notifyOps body untouched", captured[3]?.html ?? "", opsHtml);
+
+  const prdSubject = "PRD generation failed (3x) — Casey Litsey (Litsey Realty)";
+  const prdHtml =
+    "<p><strong>PRD generation failed 3 times.</strong> Manual investigation needed — Atlas keeps producing invalid output for this intake.</p>";
+  await sendEmail({
+    ...base,
+    to: OPERATOR,
+    subject: prdSubject,
+    html: prdHtml,
+    emailType: "ops_notification",
+    audience: "operator",
+  });
+  eq("wiring: PRD-exhausted alert subject untouched", captured[4]?.subject ?? "", prdSubject);
+  eq("wiring: PRD-exhausted alert body untouched", captured[4]?.html ?? "", prdHtml);
+
+  // 5. And the flag is what's doing the work — drop it and the same ops copy
+  //    gets rewritten, even though the recipient is still OPERATOR_EMAIL.
+  //    (Dash before a capital reads as a clause break, so it lands as a period.)
+  await sendEmail({ ...base, to: OPERATOR, subject: opsSubject, html: opsHtml });
+  eq(
+    "wiring: without the flag, the operator address no longer exempts anything",
+    captured[5]?.subject ?? "",
+    "Scope approved. Casey Litsey (Litsey Realty)"
+  );
+}
+
+wiringTests()
+  .then(emailWiringTests)
+  .then(() => {
+    console.log(`\n${pass}/${pass + fail} passed${fail ? ` — ${fail} FAILED` : " — all green"}`);
+    process.exitCode = fail ? 1 : 0;
+  });

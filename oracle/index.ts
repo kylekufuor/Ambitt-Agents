@@ -4733,6 +4733,12 @@ async function notifyOps(input: {
     prospectId: input.prospectId,
     clientId: input.clientId,
     emailType: "ops_notification",
+    // System notice about the platform, not agent copy written for a client.
+    // Ops mail is written for signal (dashes, IDs, raw reasons) and must land
+    // verbatim, so it opts out of the client-voice em-dash scrub. Previously
+    // this was inferred from the recipient being OPERATOR_EMAIL; that
+    // inference is gone, so the exemption has to be declared here.
+    audience: "operator",
   });
 }
 
