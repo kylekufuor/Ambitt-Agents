@@ -15,6 +15,20 @@ import prisma from "../shared/db.js";
 import logger from "../shared/logger.js";
 import { parseCommunicationSettings } from "../shared/communication-settings.js";
 import { relayMfaRequest, capturePhoneCode, captureEmailCode, takeCode } from "../shared/mfa-relay.js";
+import {
+  webhookAuthMode,
+  collectSecrets,
+  decideWebhookAuth,
+  verifySvixSignature,
+  verifyTwilioSignature,
+  buildTwilioWebhookUrl,
+  twilioFormParams,
+  rememberRawBody,
+  recallRawBody,
+  type VerifyResult,
+  type WebhookAuthDecision,
+  type WebhookAuthMode,
+} from "../shared/webhook-auth.js";
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } }); // 20MB max
 
@@ -41,6 +55,41 @@ app.use((req: Request, res: Response, next: () => void) => {
   }
   next();
 });
+
+// ---------------------------------------------------------------------------
+// Webhook sender verification (Svix for Resend, X-Twilio-Signature for Twilio)
+// ---------------------------------------------------------------------------
+//
+// The crypto lives in shared/webhook-auth.ts; this is the wiring — one place
+// that decides observe-vs-enforce and one log line per verified webhook.
+//
+// WEBHOOK_AUTH_MODE=observe (the default, and what an UNSET variable means)
+// verifies, reports, and then processes the request exactly as before.
+// WEBHOOK_AUTH_MODE=enforce turns away anything that fails to verify with a
+// 401. A missing signing secret behaves as observe in BOTH modes and logs
+// loudly — an unset Railway variable must never be able to kill inbound email.
+//
+// This sits IN FRONT of the sender-identity checks each route already runs
+// (checkInboundAuth, classifyAutomatedInbound, the Kyle-number check). It does
+// not replace any of them.
+function checkWebhookAuth(
+  route: string,
+  result: VerifyResult,
+  mode: WebhookAuthMode = webhookAuthMode()
+): WebhookAuthDecision {
+  const decision = decideWebhookAuth(mode, result);
+  const fields = {
+    route,
+    verification: result.status,
+    detail: result.detail, // safe by construction — never a secret or signature
+    mode: decision.mode,
+    processed: decision.proceed,
+    rejected: decision.rejected,
+  };
+  if (decision.logLevel === "warn") logger.warn("webhook-auth", fields);
+  else logger.info("webhook-auth", fields);
+  return decision;
+}
 
 // Stripe webhook needs raw body — must come before express.json()
 app.post("/webhooks/stripe", express.raw({ type: "application/json" }), async (req: Request, res: Response) => {
@@ -79,8 +128,21 @@ app.post(
   express.raw({ type: "application/json" }),
   async (req: Request, res: Response) => {
     try {
-      const secret = process.env.RESEND_WEBHOOK_SECRET;
-      if (!secret) {
+      const rawBody: Buffer = req.body;
+      const verification = verifySvixSignature({
+        rawBody,
+        headers: req.headers,
+        secrets: collectSecrets([process.env.RESEND_WEBHOOK_SECRET]),
+      });
+
+      // Pinned to "enforce" regardless of WEBHOOK_AUTH_MODE: this route has
+      // rejected bad signatures since it shipped, and the observe rollout is
+      // for the routes that had NO verification before — it must not be a way
+      // to weaken a guard that already exists. An unset secret still falls
+      // through to the 200-ack below, exactly as before.
+      const decision = checkWebhookAuth("/webhooks/email-events", verification, "enforce");
+
+      if (verification.status === "unconfigured") {
         // Don't 500 — just log and 200 so Resend doesn't flood retries while
         // we're still configuring. Production should always have this set.
         logger.warn("email-events webhook: RESEND_WEBHOOK_SECRET not set, ignoring");
@@ -88,30 +150,16 @@ app.post(
         return;
       }
 
-      const headers = {
-        "svix-id": req.headers["svix-id"] as string,
-        "svix-timestamp": req.headers["svix-timestamp"] as string,
-        "svix-signature": req.headers["svix-signature"] as string,
-      };
-
-      if (!headers["svix-id"] || !headers["svix-timestamp"] || !headers["svix-signature"]) {
-        res.status(400).json({ error: "Missing svix-* headers" });
+      if (!decision.proceed) {
+        res
+          .status(verification.status === "missing_signature" ? 400 : 401)
+          .json({ error: "Invalid signature" });
         return;
       }
 
-      const rawBody = req.body.toString();
-      const { Webhook } = await import("svix");
-      const wh = new Webhook(secret);
-      let event: { type: string; data: Record<string, unknown> };
-      try {
-        event = wh.verify(rawBody, headers) as { type: string; data: Record<string, unknown> };
-      } catch (verifyErr) {
-        logger.warn("email-events webhook: signature verification failed", {
-          err: verifyErr instanceof Error ? verifyErr.message : String(verifyErr),
-        });
-        res.status(401).json({ error: "Invalid signature" });
-        return;
-      }
+      // Verified — safe to read. Parsing the already-verified bytes, not
+      // re-deriving them.
+      const event = JSON.parse(rawBody.toString()) as { type: string; data: Record<string, unknown> };
 
       const emailId = typeof event.data.email_id === "string" ? event.data.email_id : null;
       if (!emailId) {
@@ -227,8 +275,30 @@ app.post(
   }
 );
 
-// Raise body limit — scaffold endpoint accepts base64-encoded SOP uploads
-app.use(express.json({ limit: "30mb" }));
+// Routes whose raw request bytes we need to keep for signature verification.
+// /webhooks/email-inbound is signed by Svix over the exact bytes Resend sent,
+// and JSON.parse → JSON.stringify does not reproduce them. The route sits below
+// express.json() (its handler is ~650 lines and moving it above the parser
+// would mean reshuffling the single path every client email flows through), so
+// instead the parser's `verify` hook hands us the buffer on the way past.
+const RAW_BODY_ROUTES = new Set(["/webhooks/email-inbound"]);
+
+function needsRawBody(url: string | undefined): boolean {
+  const path = String(url ?? "").split("?")[0].replace(/\/+$/, "");
+  return RAW_BODY_ROUTES.has(path);
+}
+
+// Raise body limit — scaffold endpoint accepts base64-encoded SOP uploads.
+// The `verify` hook only stashes bytes for RAW_BODY_ROUTES, so we're not
+// holding a second copy of every 30MB scaffold upload.
+app.use(
+  express.json({
+    limit: "30mb",
+    verify: (req, _res, buf) => {
+      if (needsRawBody(req.url)) rememberRawBody(req, buf);
+    },
+  })
+);
 
 function param(req: Request, key: string): string {
   const val = req.params[key];
@@ -1560,11 +1630,43 @@ app.get("/chat/:agentId/history", async (req: Request, res: Response) => {
 // radius zero for every other endpoint (Stripe/Svix raw-body routes included).
 const twilioForm = express.urlencoded({ extended: false });
 
+// X-Twilio-Signature check shared by both Twilio routes. Twilio signs
+// HMAC-SHA1 over (exact public URL + alphabetically sorted form params) with
+// the account auth token, so no raw body is needed — the urlencoded params
+// above are what was signed. Railway terminates TLS in front of us, hence the
+// forwarded-header URL rebuild; TWILIO_WEBHOOK_BASE_URL overrides it if the
+// number is ever pointed at a host Oracle doesn't see in the Host header.
+//
+// TWILIO_AUTH_TOKEN is not currently set on prod Oracle, which resolves to
+// "unconfigured" → processed as today, logged loudly. Deliberate: an absent
+// token must not break the 2FA relay.
+function verifyTwilioWebhook(req: Request, route: string): WebhookAuthDecision {
+  const result = verifyTwilioSignature({
+    authToken: process.env.TWILIO_AUTH_TOKEN,
+    signature: String(req.headers["x-twilio-signature"] ?? ""),
+    url: buildTwilioWebhookUrl({
+      headers: req.headers,
+      originalUrl: req.originalUrl,
+      overrideBase: process.env.TWILIO_WEBHOOK_BASE_URL,
+    }),
+    params: twilioFormParams(req.body),
+  });
+  return checkWebhookAuth(route, result);
+}
+
 // WhatsApp webhook — Kyle's approval replies. Operator approvals ONLY: the 2FA
 // capture branch that used to live here is gone — WhatsApp is out of the MFA
 // relay entirely (SMS-first → email; see /webhooks/sms + shared/mfa-relay.ts).
 app.post("/webhooks/whatsapp", twilioForm, async (req: Request, res: Response) => {
   try {
+    // Signature first — the Kyle-number check below reads From out of the
+    // request body, which an unauthenticated caller controls. That check stays
+    // exactly as it is; this is an additional layer in front of it.
+    if (!verifyTwilioWebhook(req, "/webhooks/whatsapp").proceed) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+
     const body = req.body?.Body?.trim() ?? "";
     const from = req.body?.From ?? "";
 
@@ -1603,6 +1705,16 @@ app.post("/webhooks/whatsapp", twilioForm, async (req: Request, res: Response) =
 // stranger, never the message body in a log line.
 app.post("/webhooks/sms", twilioForm, async (req: Request, res: Response) => {
   try {
+    // Signature first. Without it, anyone who knows a client's mobile number
+    // can POST a fake code into a live 2FA relay — From and Body below are
+    // both caller-supplied. 401 (not TwiML) is right here: a request that
+    // fails signature verification did not come from Twilio, so there is no
+    // Twilio error log to pollute.
+    if (!verifyTwilioWebhook(req, "/webhooks/sms").proceed) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+
     const from = String(req.body?.From ?? "");
     const body = String(req.body?.Body ?? "").trim();
     const hit = capturePhoneCode(from, body);
@@ -1667,6 +1779,11 @@ app.post("/webhooks/sms", twilioForm, async (req: Request, res: Response) => {
 // Resend fires ONE webhook for all inbound emails. We extract the agentId
 // from the recipient address (reply-{agentId}@ambitt.agency), then fetch
 // the full email content + attachments via Resend API.
+//
+// Sender verification (Svix) runs first — see the block at the top of the
+// handler. Everything after it, including the `from` address the auth checks
+// compare against, comes out of the request body, so without a verified
+// signature an anonymous POST can claim to be any client and drive their agent.
 app.post("/webhooks/email-inbound", async (req: Request, res: Response) => {
   const t0 = Date.now();
   const ilog: Record<string, unknown> = { disposition: "received" };
@@ -1684,6 +1801,33 @@ app.post("/webhooks/email-inbound", async (req: Request, res: Response) => {
     return _resJson(body);
   }) as typeof res.json;
   try {
+    // --- Sender verification ------------------------------------------------
+    // Resend signs with Svix, per endpoint. RESEND_INBOUND_WEBHOOK_SECRET is
+    // this endpoint's secret; RESEND_WEBHOOK_SECRET is accepted as a second
+    // candidate for the case where one Resend endpoint carries both inbound
+    // and lifecycle events. Raw bytes come from the express.json() verify hook.
+    //
+    // Observe mode (the default) processes the request either way — this route
+    // carries every client conversation and a wrong secret must not silently
+    // black-hole inbound mail. Flip WEBHOOK_AUTH_MODE=enforce once the logs
+    // show real Resend traffic reading verification: "verified".
+    const verification = verifySvixSignature({
+      rawBody: recallRawBody(req),
+      headers: req.headers,
+      secrets: collectSecrets([
+        process.env.RESEND_INBOUND_WEBHOOK_SECRET,
+        process.env.RESEND_WEBHOOK_SECRET,
+      ]),
+    });
+    const decision = checkWebhookAuth("/webhooks/email-inbound", verification);
+    if (!decision.proceed) {
+      // Matches the existing InboundEmailLog convention ("ok" |
+      // "rejected:<reason>") so the drop shows up in the same audit row.
+      ilog.authResult = "rejected:signature:" + verification.status;
+      res.status(401).json({ status: "unauthorized_signature" });
+      return;
+    }
+
     const event = req.body;
 
     // Resend webhook payload has type + data
