@@ -3,8 +3,9 @@ import { logRecommendations, type RecommendationEntry } from "./logRecommendatio
 import logger from "../../shared/logger.js";
 import prisma from "../../shared/db.js";
 import { signChatToken } from "../../shared/chat-token.js";
-import { checkOutboundSeatbelts } from "../../shared/seatbelts.js";
+import { checkOutboundSeatbelts, resolveSeatbeltConfig } from "../../shared/seatbelts.js";
 import { haltAgent } from "./pause-control.js";
+import { actionRequiredSubject, permissionSubject } from "./email-subject.js";
 
 // Template imports
 import { buildWelcomeEmail } from "../templates/welcome-email.js";
@@ -199,7 +200,10 @@ export async function sendAgentEmail(props: EmailProps): Promise<void> {
     case "action-required": {
       const p = props as Extract<EmailProps, { trigger: "action-required" }>;
       html = buildActionRequiredEmail(p);
-      subject = `${p.agentName} — Action Required`;
+      // Subject carries the actual ask, not a constant banner — see
+      // email-subject.ts for why (the seatbelt's repetition check keys on the
+      // subject, so a constant one halts an agent making distinct asks).
+      subject = actionRequiredSubject(p.agentName, p.summary, p.actionSteps?.[0]?.step);
       agentId = p.agentId;
       agentName = p.agentName;
       clientId = p.clientId;
@@ -229,7 +233,9 @@ export async function sendAgentEmail(props: EmailProps): Promise<void> {
     case "permission": {
       const p = props as Extract<EmailProps, { trigger: "permission" }>;
       html = buildPermissionEmail(p);
-      subject = `${p.agentName} — Permission Request`;
+      // Same rule as action-required: the app being requested is what makes
+      // this ask different from the last one, so it goes in the subject.
+      subject = permissionSubject(p.agentName, (p.permissions ?? []).map((x) => x.toolName), p.summary);
       agentId = p.agentId;
       agentName = p.agentName;
       clientId = p.clientId;
@@ -269,18 +275,35 @@ export async function sendAgentEmail(props: EmailProps): Promise<void> {
       throw new Error(`Unknown email trigger: ${trigger}`);
   }
 
+  const seatbeltBody = seatbeltBodyFor(props, subject);
+
+  // One agent lookup serves two callers below: the chat-token injection (needs
+  // clientId) and the seatbelt (needs the per-agent overrides + safety
+  // sensitivity). Only fetched when something actually needs it, so ungated
+  // mail that already carries clientId in its props costs no extra query.
+  // Best-effort: a failed lookup degrades to an unsigned chat link and the
+  // GLOBAL seatbelt defaults — it never blocks the send.
+  let agentRow: { clientId: string; communicationSettings: unknown; safetySensitivity: string | null } | null = null;
+  if (!clientId || seatbeltBody !== null) {
+    try {
+      agentRow = await prisma.agent.findUnique({
+        where: { id: agentId },
+        select: { clientId: true, communicationSettings: true, safetySensitivity: true },
+      });
+    } catch (err) {
+      logger.warn("Agent lookup failed — chat token skipped, seatbelt on global defaults", {
+        agentId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+    clientId = clientId ?? agentRow?.clientId;
+  }
+
   // Inject a fresh HMAC-signed chat token into the footer's chat link so
   // "Chat with {agent}" lands the client straight into chat.ambitt.agency
   // already authenticated. Best-effort — if the secret isn't configured or
-  // the DB lookup fails, we send the email with the bare (unsigned) link.
+  // signing fails, we send the email with the bare (unsigned) link.
   try {
-    if (!clientId) {
-      const a = await prisma.agent.findUnique({
-        where: { id: agentId },
-        select: { clientId: true },
-      });
-      clientId = a?.clientId;
-    }
     if (clientId && process.env.CHAT_TOKEN_SECRET) {
       const token = signChatToken(clientId, agentId);
       const bareUrl = `https://chat.ambitt.agency/${agentId}`;
@@ -307,11 +330,17 @@ export async function sendAgentEmail(props: EmailProps): Promise<void> {
   // not chosen by a looping agent, and a suppressed one is worse than a
   // duplicate — an error or alert that never lands hides the incident.
   //
+  // Caps come from the agent's own config — per-agent overrides in
+  // communicationSettings.seatbelts on top of the operator's safety
+  // sensitivity (relaxed/standard/strict), same resolution dispatchAgentResponse
+  // uses. Without this a "Relaxed" or "Strict" agent was silently held to the
+  // global defaults on every trigger this router gates.
+  //
   // On trip: block the send, system-pause the agent (operator-only resume),
   // and alert the operator.
-  const seatbeltBody = seatbeltBodyFor(props, subject);
   if (seatbeltBody !== null) {
-    const verdict = await checkOutboundSeatbelts(prisma, { agentId, recipient: to, subject, bodyText: seatbeltBody });
+    const seatbeltCfg = resolveSeatbeltConfig(agentRow?.communicationSettings, agentRow?.safetySensitivity);
+    const verdict = await checkOutboundSeatbelts(prisma, { agentId, recipient: to, subject, bodyText: seatbeltBody }, seatbeltCfg);
     if (!verdict.allowed) {
       await haltAgent(prisma, { agentId, by: "system", reason: `seatbelt:${verdict.tripped} — ${verdict.reason ?? ""}`.slice(0, 300) });
       logger.warn("Outbound seatbelt tripped — send blocked, agent system-paused", { agentId, to, trigger, tripped: verdict.tripped, reason: verdict.reason });

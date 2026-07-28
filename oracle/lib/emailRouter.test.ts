@@ -63,6 +63,11 @@ const TO = "casey@acme.com";
 let history: FakeSend[] = [];
 let captured: Array<{ to: string; subject: string }> = [];
 let agentRow: AgentRow = { status: "active", pausedBy: null, pausedReason: null };
+// Per-agent seatbelt config the router resolves off the Agent row.
+let agentConfig: { communicationSettings: unknown; safetySensitivity: string | null } = {
+  communicationSettings: null,
+  safetySensitivity: null,
+};
 
 const matches = (r: FakeSend, where: SendWhere): boolean => {
   if (where.agentId !== undefined && r.agentId !== where.agentId) return false;
@@ -84,6 +89,9 @@ const fakePrisma = {
         // dryRun keeps sendEmail off the network — the capture below IS the send.
         dryRun: true,
         email: `${NAME.toLowerCase()}@ambitt.agency`,
+        // Per-agent seatbelt config (operator sensitivity + explicit overrides).
+        communicationSettings: agentConfig.communicationSettings,
+        safetySensitivity: agentConfig.safetySensitivity,
       };
     },
     async update(args: { where: { id: string }; data: Record<string, unknown> }) {
@@ -119,6 +127,44 @@ g.prisma = fakePrisma;
 // --- 3. Props builders (one valid payload per trigger) ----------------------
 const base = { agentId: AGENT, agentName: NAME, clientId: CLIENT, clientName: "Casey", productName: "Ambitt Agents" };
 
+// The two approval emails, parameterized by the ASK — that's what the subject
+// now carries and what the seatbelt's repetition check keys on.
+const approvalAsk = (summary: string): EmailProps => ({
+  trigger: "action-required",
+  to: TO,
+  ...base,
+  summary,
+  actionSteps: [{ step: "Email 12 owners" }],
+  reasoning: "They all match the brief.",
+  impactStatement: "These changes will be made on your behalf once you approve.",
+  approveActionId: "act_1",
+  ctaUrl: "mailto:reply-x@ambitt.agency?subject=APPROVE%20act_1",
+});
+
+const accessAsk = (app: string): EmailProps => ({
+  trigger: "permission",
+  to: TO,
+  ...base,
+  summary: `I need access to your ${app} account to send the outreach. Click below to authorize.`,
+  permissions: [{ toolName: app, accessLevel: "OAuth", description: `Send outreach from your ${app}.` }],
+  intentSteps: [{ step: "Send the approved outreach" }],
+  approveActionId: "perm_1",
+  ctaUrl: "https://oracle.ambitt.agency/composio/connect",
+});
+
+// credential-request already names the item in its subject; parameterized here
+// so the "different asks don't trip" property is checked for it too.
+const credentialAsk = (itemTitle: string): EmailProps => ({
+  trigger: "credential-request",
+  to: TO,
+  ...base,
+  summary: `I need your ${itemTitle} login to finish the run.`,
+  itemTitle,
+  fieldTitles: ["username", "password"],
+  openUrl: "https://portal.ambitt.agency/agents/x/tools",
+  approveActionId: "cred_1",
+});
+
 const propsFor: Record<string, () => EmailProps> = {
   "agent-response": () => ({
     trigger: "agent-response",
@@ -140,27 +186,8 @@ const propsFor: Record<string, () => EmailProps> = {
     openUrl: "https://portal.ambitt.agency/agents/x/tools",
     approveActionId: "cred_1",
   }),
-  "action-required": () => ({
-    trigger: "action-required",
-    to: TO,
-    ...base,
-    summary: "Approve the outreach list before I send it.",
-    actionSteps: [{ step: "Email 12 owners" }],
-    reasoning: "They all match the brief.",
-    impactStatement: "These changes will be made on your behalf once you approve.",
-    approveActionId: "act_1",
-    ctaUrl: "mailto:reply-x@ambitt.agency?subject=APPROVE%20act_1",
-  }),
-  permission: () => ({
-    trigger: "permission",
-    to: TO,
-    ...base,
-    summary: "I need access to your Gmail to send the outreach.",
-    permissions: [{ toolName: "Gmail", accessLevel: "OAuth", description: "Send outreach on your behalf." }],
-    intentSteps: [{ step: "Send the approved outreach" }],
-    approveActionId: "perm_1",
-    ctaUrl: "https://oracle.ambitt.agency/composio/connect",
-  }),
+  "action-required": () => approvalAsk("I'd like to send the outreach list to 12 owners."),
+  permission: () => accessAsk("Gmail"),
   welcome: () => ({
     trigger: "welcome",
     to: TO,
@@ -200,10 +227,13 @@ const propsFor: Record<string, () => EmailProps> = {
   }),
 };
 
-// Subjects the router builds, needed to seed repetition cases.
+// Subjects the router builds, needed to seed repetition cases. Written out
+// literally (not re-derived from the code under test) so the client-facing copy
+// is pinned here: the approval subjects name the ASK, they are not constants.
 const SUBJECT = {
   "credential-request": `${NAME} needs your CoStar login`,
-  "action-required": `${NAME} — Action Required`,
+  "action-required": `${NAME} — approve: send the outreach list to 12 owners`,
+  permission: `${NAME} — access needed: Gmail`,
   welcome: `Meet ${NAME} — your new Ambitt agent for Acme`,
 };
 
@@ -230,6 +260,12 @@ interface Case {
   seed: FakeSend[];
   wantSent: boolean;
   wantHalted: boolean;
+  // Exact subject the client should see (checked when the send goes through).
+  wantSubject?: string;
+  // Per-agent seatbelt config for this case (operator sensitivity dial +
+  // explicit CommunicationSettings.seatbelts overrides).
+  sensitivity?: string;
+  commSettings?: unknown;
 }
 
 const cases: Case[] = [
@@ -254,13 +290,37 @@ const cases: Case[] = [
     wantSent: false,
     wantHalted: true,
   },
+  {
+    name: "permission repeated subject -> blocked + halted",
+    trigger: "permission",
+    seed: repeated(SUBJECT.permission),
+    wantSent: false,
+    wantHalted: true,
+  },
 
-  // Under cap the gate must be invisible.
+  // Under cap the gate must be invisible. wantSubject pins the copy the client
+  // sees — each approval subject names its ask.
   { name: "agent-response under cap -> sent", trigger: "agent-response", seed: [], wantSent: true, wantHalted: false },
-  { name: "credential-request under cap -> sent", trigger: "credential-request", seed: [], wantSent: true, wantHalted: false },
-  { name: "action-required under cap -> sent", trigger: "action-required", seed: [], wantSent: true, wantHalted: false },
-  { name: "permission under cap -> sent", trigger: "permission", seed: [], wantSent: true, wantHalted: false },
+  { name: "credential-request under cap -> sent", trigger: "credential-request", seed: [], wantSent: true, wantHalted: false, wantSubject: SUBJECT["credential-request"] },
+  { name: "action-required under cap -> sent", trigger: "action-required", seed: [], wantSent: true, wantHalted: false, wantSubject: SUBJECT["action-required"] },
+  { name: "permission under cap -> sent", trigger: "permission", seed: [], wantSent: true, wantHalted: false, wantSubject: SUBJECT.permission },
   { name: "credential-request under cap w/ 1 prior identical -> sent", trigger: "credential-request", seed: [ago(5, { subject: SUBJECT["credential-request"] })], wantSent: true, wantHalted: false },
+
+  // --- Per-agent seatbelt config: the router honours the agent's own caps ---
+  // 3 sends in 15 min is under the global shortMax (6) but over a "strict"
+  // agent's halved cap, and 6 is over the global cap but under a "relaxed"
+  // agent's doubled one. Both only pass if the router resolves the agent row.
+  { name: "strict agent trips at half the global rate cap", trigger: "action-required", seed: OVER_CAP.slice(0, 3), wantSent: false, wantHalted: true, sensitivity: "strict" },
+  { name: "standard agent at the same volume -> sent", trigger: "action-required", seed: OVER_CAP.slice(0, 3), wantSent: true, wantHalted: false },
+  { name: "relaxed agent survives the global rate cap", trigger: "action-required", seed: OVER_CAP, wantSent: true, wantHalted: false, sensitivity: "relaxed" },
+  {
+    name: "explicit per-agent shortMax override wins",
+    trigger: "action-required",
+    seed: OVER_CAP.slice(0, 2),
+    wantSent: false,
+    wantHalted: true,
+    commSettings: { seatbelts: { shortMax: 2 } },
+  },
 
   // --- UNGATED: system / lifecycle mail must always send ---
   { name: "welcome over cap -> still sent", trigger: "welcome", seed: OVER_CAP, wantSent: true, wantHalted: false },
@@ -292,6 +352,7 @@ async function main() {
     history = [...c.seed];
     captured = [];
     agentRow = { status: "active", pausedBy: null, pausedReason: null };
+    agentConfig = { communicationSettings: c.commSettings ?? null, safetySensitivity: c.sensitivity ?? null };
 
     let threw: string | null = null;
     try {
@@ -319,6 +380,120 @@ async function main() {
         `got pausedBy=${agentRow.pausedBy ?? "-"} reason="${agentRow.pausedReason ?? ""}"`,
       );
     }
+
+    if (c.wantSubject && sent) {
+      chk(
+        `${c.name} :: subject`,
+        captured[0].subject === c.wantSubject,
+        `got  "${captured[0].subject}"\n        want "${c.wantSubject}"`,
+      );
+    }
+  }
+
+  // --- Repetition keys on the ASK, not on the trigger ------------------------
+  // THE regression this file exists to hold down. Supervised mode is the
+  // default, so an agent that makes several DIFFERENT approval asks in one
+  // session is doing its job — it must not be system-paused for it. A genuine
+  // loop (the same ask, over and over) must still be caught.
+  //
+  // Each send is run through the real router in order, and every accepted send
+  // is written back into the fake EmailSend history exactly as a real send
+  // would be, so send N sees sends 1..N-1 the way production does.
+  interface SeqCase {
+    name: string;
+    sends: EmailProps[];
+    wantSent: boolean[];
+    wantSubjects: string[];
+    wantHalted: boolean;
+  }
+
+  const sequences: SeqCase[] = [
+    {
+      name: "3 DIFFERENT approval asks in 30 min",
+      sends: [
+        approvalAsk("I'd like to send the outreach list to 12 owners."),
+        approvalAsk("I'd like to book a tour of 400 Main St for Thursday."),
+        approvalAsk("I'd like to archive the 6 listings that went under contract."),
+      ],
+      wantSent: [true, true, true],
+      wantSubjects: [
+        `${NAME} — approve: send the outreach list to 12 owners`,
+        `${NAME} — approve: book a tour of 400 Main St for Thursday`,
+        `${NAME} — approve: archive the 6 listings that went under contract`,
+      ],
+      wantHalted: false,
+    },
+    {
+      name: "the SAME approval ask 3x in 30 min",
+      sends: [
+        approvalAsk("I'd like to send the outreach list to 12 owners."),
+        approvalAsk("I'd like to send the outreach list to 12 owners."),
+        approvalAsk("I'd like to send the outreach list to 12 owners."),
+      ],
+      wantSent: [true, true, false],
+      wantSubjects: [SUBJECT["action-required"], SUBJECT["action-required"]],
+      wantHalted: true,
+    },
+    {
+      name: "3 DIFFERENT access asks in 30 min",
+      sends: [accessAsk("HubSpot"), accessAsk("Gmail"), accessAsk("Slack")],
+      wantSent: [true, true, true],
+      wantSubjects: [`${NAME} — access needed: HubSpot`, `${NAME} — access needed: Gmail`, `${NAME} — access needed: Slack`],
+      wantHalted: false,
+    },
+    {
+      // credential-request needed no change — its subject already carries the
+      // item. Pinned here so a future edit can't quietly make it constant.
+      name: "3 DIFFERENT credential asks in 30 min",
+      sends: [credentialAsk("CoStar"), credentialAsk("LinkedIn"), credentialAsk("Crexi")],
+      wantSent: [true, true, true],
+      wantSubjects: [`${NAME} needs your CoStar login`, `${NAME} needs your LinkedIn login`, `${NAME} needs your Crexi login`],
+      wantHalted: false,
+    },
+    {
+      name: "the SAME access ask 3x in 30 min",
+      sends: [accessAsk("HubSpot"), accessAsk("HubSpot"), accessAsk("HubSpot")],
+      wantSent: [true, true, false],
+      wantSubjects: [`${NAME} — access needed: HubSpot`, `${NAME} — access needed: HubSpot`],
+      wantHalted: true,
+    },
+  ];
+
+  for (const s of sequences) {
+    history = [];
+    captured = [];
+    agentRow = { status: "active", pausedBy: null, pausedReason: null };
+    agentConfig = { communicationSettings: null, safetySensitivity: null };
+
+    const gotSent: boolean[] = [];
+    let threw: string | null = null;
+    for (const send of s.sends) {
+      const before = captured.length;
+      try {
+        await sendAgentEmail(send);
+      } catch (e) {
+        threw ??= e instanceof Error ? e.message : String(e);
+      }
+      const accepted = captured.length > before;
+      gotSent.push(accepted);
+      // Mirror what a real (non-dry-run) send does: log the EmailSend row the
+      // next seatbelt check reads.
+      if (accepted) history.push({ agentId: AGENT, to: TO, subject: captured[captured.length - 1].subject, acceptedAt: new Date() });
+    }
+
+    const halted = agentRow.status === "paused";
+    const gotSubjects = captured.map((c) => c.subject);
+    const okSent = threw === null && gotSent.join() === s.wantSent.join() && halted === s.wantHalted;
+    chk(
+      `${s.name} -> sent ${s.wantSent.map((b) => (b ? "y" : "n")).join("")}, halted=${s.wantHalted}`,
+      okSent,
+      `got sent=${gotSent.join()} halted=${halted} threw=${threw ?? "-"}\n        want sent=${s.wantSent.join()} halted=${s.wantHalted}`,
+    );
+    chk(
+      `${s.name} :: subjects`,
+      gotSubjects.join(" | ") === s.wantSubjects.join(" | "),
+      `got  ${JSON.stringify(gotSubjects)}\n        want ${JSON.stringify(s.wantSubjects)}`,
+    );
   }
 
   // The operator alert must degrade cleanly when no channel is configured
