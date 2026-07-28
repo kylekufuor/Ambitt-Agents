@@ -80,7 +80,9 @@ export async function sendKyleWhatsApp(message: string): Promise<string> {
 // Email fallback for operator alerts → OPERATOR_EMAIL via Resend (a verified
 // domain; RESEND_API_KEY + OPERATOR_EMAIL are set on Oracle). Best-effort:
 // returns a marker string, never throws.
-async function sendOperatorEmail(message: string): Promise<string> {
+// Exported so shared/alert-operator.ts (SMS-first operator alerts) reuses the
+// exact same fallback instead of duplicating it.
+export async function sendOperatorEmail(message: string): Promise<string> {
   const to = process.env.OPERATOR_EMAIL;
   const key = process.env.RESEND_API_KEY;
   if (!to || !key) {

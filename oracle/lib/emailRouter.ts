@@ -72,6 +72,42 @@ export type EmailProps =
       approveActionId: string;
     };
 
+// Which triggers the outbound seatbelt gates, and what body text each one
+// contributes to the runaway signal. Returns null for mail that must never be
+// gated. Pure + exhaustive: the union has no `default` arm, so adding a new
+// trigger to EmailProps without classifying it here is a compile error — a new
+// agent-initiated email can't quietly slip past the seatbelt.
+//
+// Body text falls back to the subject rather than "" so a trigger whose props
+// carry no prose still produces a usable repetition signal.
+function seatbeltBodyFor(props: EmailProps, subject: string): string | null {
+  switch (props.trigger) {
+    // --- Agent-initiated, client-facing: GATED ---
+    // Runtime reply to the client (inbound reply, scheduled run).
+    case "agent-response":
+      return props.responseBody || subject;
+    // request_credential tool — "send me your X login".
+    case "credential-request":
+      return props.body || props.summary || subject;
+    // request_approval tool — "approve this plan".
+    case "action-required":
+      return props.summary || subject;
+    // request_tool_connection tool — "connect your X account".
+    case "permission":
+      return props.summary || subject;
+
+    // --- System / lifecycle: NEVER gated ---
+    case "welcome":
+    case "onboarding":
+    case "digest":
+    case "alert":
+    case "error":
+    case "milestone":
+    case "progress":
+      return null;
+  }
+}
+
 export async function sendAgentEmail(props: EmailProps): Promise<void> {
   const { trigger, to } = props;
 
@@ -254,34 +290,42 @@ export async function sendAgentEmail(props: EmailProps): Promise<void> {
     logger.warn("Chat token injection skipped", { agentId, error: err instanceof Error ? err.message : String(err) });
   }
 
-  // Outbound seatbelt (control-plane Pillar 4) — gate ONLY client-facing agent
-  // replies. Runtime client-facing sends (agent replies, request_2fa_code's
-  // "reply with your verification code", etc.) route through this router and
-  // call sendEmail() directly, bypassing the seatbelt enforced in
+  // Outbound seatbelt (control-plane Pillar 4) — the rule is AGENT-INITIATED
+  // client-facing mail is gated; genuine system/lifecycle mail is not.
+  //
+  // Everything an agent decides to send mid-run reaches the client through this
+  // router and calls sendEmail() directly, bypassing the seatbelt enforced in
   // dispatchAgentResponse. That is exactly the path the "spammed Casey with
-  // code requests" loop used. If this agent is looping — too many sends in a
-  // short window, or the same message repeated to the same recipient — block
-  // the send, system-pause the agent (operator-only resume), and alert the
-  // operator. System/lifecycle mail (welcome, onboarding, checkpoint, digest,
-  // alert, error, permission, milestone, credential-request, action-required,
-  // progress) is never gated — it must always send.
-  if (trigger === "agent-response") {
-    const responseBody = (props as Extract<EmailProps, { trigger: "agent-response" }>).responseBody;
-    const verdict = await checkOutboundSeatbelts(prisma, { agentId, recipient: to, subject, bodyText: responseBody });
+  // code requests" loop used. The reply path (agent-response) was gated first;
+  // the three tool-triggered sends inside a run — request_credential
+  // (credential-request), request_approval (action-required) and
+  // request_tool_connection (permission) — are the same failure shape: a loop
+  // in the agentic loop mails the client again and again. They are gated too.
+  //
+  // Not gated, ever: welcome, onboarding, digest, alert, error, milestone,
+  // progress. Those are fired by Oracle itself (lifecycle, scheduler, monitor),
+  // not chosen by a looping agent, and a suppressed one is worse than a
+  // duplicate — an error or alert that never lands hides the incident.
+  //
+  // On trip: block the send, system-pause the agent (operator-only resume),
+  // and alert the operator.
+  const seatbeltBody = seatbeltBodyFor(props, subject);
+  if (seatbeltBody !== null) {
+    const verdict = await checkOutboundSeatbelts(prisma, { agentId, recipient: to, subject, bodyText: seatbeltBody });
     if (!verdict.allowed) {
       await haltAgent(prisma, { agentId, by: "system", reason: `seatbelt:${verdict.tripped} — ${verdict.reason ?? ""}`.slice(0, 300) });
-      logger.warn("Outbound seatbelt tripped — send blocked, agent system-paused", { agentId, to, tripped: verdict.tripped, reason: verdict.reason });
+      logger.warn("Outbound seatbelt tripped — send blocked, agent system-paused", { agentId, to, trigger, tripped: verdict.tripped, reason: verdict.reason });
       try {
-        const { sendWhatsApp } = await import("../../shared/whatsapp.js");
-        const kyle = process.env.KYLE_WHATSAPP_NUMBER;
-        if (kyle) {
-          await sendWhatsApp({
-            to: kyle,
-            message: `🚨 Seatbelt tripped for ${agentName} (${agentId}): ${verdict.tripped}. ${verdict.reason ?? ""}\nAgent auto-paused (system). Resume from the dashboard when it's safe.`,
-          });
-        }
+        // alertOperator (not sendWhatsApp) — SMS first, operator email when SMS
+        // is unavailable, which it is today. The old direct sendWhatsApp call
+        // was skipped entirely unless KYLE_WHATSAPP_NUMBER was set, so seatbelt
+        // trips halted agents silently.
+        const { alertOperator } = await import("../../shared/alert-operator.js");
+        await alertOperator(
+          `🚨 Seatbelt tripped for ${agentName} (${agentId}) on ${trigger}: ${verdict.tripped}. ${verdict.reason ?? ""}\nAgent auto-paused (system). Resume from the dashboard when it's safe.`,
+        );
       } catch (e) {
-        logger.warn("Seatbelt operator alert (WhatsApp) failed", { agentId, err: e instanceof Error ? e.message : String(e) });
+        logger.warn("Seatbelt operator alert failed", { agentId, err: e instanceof Error ? e.message : String(e) });
       }
       return;
     }
