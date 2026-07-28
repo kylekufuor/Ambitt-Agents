@@ -65,11 +65,11 @@ export default function PrivacyPage() {
 
             <Section title="7. Tool Connections & Client Data">
               <p>When you connect tools (e.g., Salesforce, PostHog, Slack), your agent accesses data from those tools on your behalf. This data is used solely to perform the tasks you request and is not shared with other clients or used for any other purpose.</p>
-              <p>You can disconnect any tool at any time from the dashboard. Disconnecting a tool immediately revokes the agent&apos;s access.</p>
+              <p>You can disconnect any tool at any time from your client portal. Disconnecting a tool immediately revokes the agent&apos;s access.</p>
             </Section>
 
             <Section title="8. Cookies">
-              <p>Our website and dashboard use cookies to enhance your experience. You can control cookies through your browser settings, though disabling them may limit functionality.</p>
+              <p>Our website and client portal use cookies to enhance your experience. You can control cookies through your browser settings, though disabling them may limit functionality.</p>
             </Section>
 
             <Section title="9. Your Rights">

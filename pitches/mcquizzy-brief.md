@@ -69,9 +69,9 @@ Every tier has a response expectation. Agent: immediate. Oracle: within 15 minut
 
 ### 7. What the client sees
 
-Nothing. No dashboard. No login. No app to learn.
+Their inbox, mostly. There's no app to learn and nothing they have to keep up with.
 
-The client gets emails from their agent. They reply when they want. They get a billing portal with a magic link if they need to update payment. That's it.
+The client gets emails from their agent. They reply when they want. They also get a portal holding everything the agent has done, the tools it's connected to, its settings, and billing. It's there for when they want a closer look, not something they have to check.
 
 The agent is a team member that shows up in their inbox. Not another SaaS tool they have to check.
 

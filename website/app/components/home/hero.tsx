@@ -17,16 +17,14 @@ export function Hero() {
               <span className="a">Handled before your coffee&rsquo;s cold.</span>
             </h1>
             <p className="hero-sub">
-              Hire a named AI agent that works inside the tools you already use and emails you the finished work —{" "}
-              <b>not a to-do list</b>. You ask in plain English. It does the job. You never touch a dashboard.
+              Hire a named AI agent that works inside the tools you already use and emails you the finished work,{" "}
+              <b>not a to-do list</b>. You ask in plain English. It does the job. You never have to log in.
             </p>
             <CtaPair size="lg" className="hero-cta" />
             <div className="hero-micro">
-              <b>No dashboard.</b>
+              <b>Work lands in your inbox.</b>
               <span className="dot" />
-              <b>No busywork.</b>
-              <span className="dot" />
-              The work just shows up.
+              Your portal&rsquo;s there if you want a look.
             </div>
             <a className="hero-see" href="#what">
               See what a day with one looks like{" "}

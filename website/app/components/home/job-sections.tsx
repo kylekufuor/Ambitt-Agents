@@ -303,8 +303,8 @@ function WrenJob() {
         </span>
         <p className="quote">
           &ldquo;Every Monday, last week&rsquo;s numbers are in your inbox before your first meeting — pulled from your
-          tools, written up in plain English, with the two things that changed and why they matter. One email. No
-          dashboard to open, no report to build. A copy lands in your <b>Slack</b>, too.&rdquo;
+          tools, written up in plain English, with the two things that changed and why they matter. One email. No report
+          to build, no numbers to go hunt down. A copy lands in your <b>Slack</b>, too.&rdquo;
         </p>
         <div className="job-role">
           <span className="ric" style={{ background: "#b453091f", color: "#b45309" }}>

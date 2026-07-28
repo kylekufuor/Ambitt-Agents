@@ -87,7 +87,7 @@ export default function ContactPage() {
 const faqs = [
   { q: "What services do you offer?", a: "We build and deploy dedicated AI agents for businesses. Each agent connects to your tools, runs tasks on a schedule, and emails you results — analytics, research, reports, alerts, and more." },
   { q: "How long does it take to get started?", a: "Under 60 seconds to create an agent. Connect your tools via OAuth, approve the agent, and it starts working immediately. Upload documents to give it deeper business context." },
-  { q: "Do I need technical expertise?", a: "No. You create agents from our dashboard, connect tools with one click, and communicate via email. If you can reply to an email, you can use Ambitt." },
+  { q: "Do I need technical expertise?", a: "No. We set your agent up with you and connect your tools, then you work with it by email. Your portal is there when you want to see what it's been doing. If you can reply to an email, you can use Ambitt." },
   { q: "Is my data safe?", a: "All credentials are encrypted at rest with AES-256-GCM. Each agent is fully isolated per client. We follow strict data privacy protocols and never log sensitive data in plaintext." },
   { q: "Can AI really help my business grow?", a: "Yes. Our agents automate research, monitor metrics, surface insights, and generate reports — freeing you to focus on decisions. Clients typically save 10+ hours per week on tasks their agents handle." },
 ];

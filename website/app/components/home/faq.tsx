@@ -7,7 +7,7 @@ const QA: { q: string; a: React.ReactNode }[] = [
   },
   {
     q: "Do I have to log into anything?",
-    a: "No. There's no dashboard to check. You talk to your agent by email or text, and the work comes to you. If you can reply to an email, you can work with an agent.",
+    a: "No. You talk to your agent by email or text, and the work comes to you. You do get a portal, with everything your agent has done, the tools it's connected to, and its settings. It's there for when you want a closer look, not something you have to keep up with. If you can reply to an email, you can work with an agent.",
   },
   {
     q: "Which of my tools can it work in?",

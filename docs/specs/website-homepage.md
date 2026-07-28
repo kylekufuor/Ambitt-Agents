@@ -21,7 +21,7 @@ The live homepage is generic AI-startup slop and doesn't answer the only questio
 ## Goals
 
 1. A visitor groks "what an agent does for me" in ~5 seconds — outcome-led, not a feature grid.
-2. The product model *is* the differentiator: you ask in plain English, the finished work arrives by email/text, you never touch a dashboard. Dramatize it, don't bury it.
+2. The product model *is* the differentiator: you ask in plain English, the finished work arrives by email/text, you never *have* to log in. Dramatize it, don't bury it. (Amended 2026-07-28 — see "Positioning correction" at the end of this spec. The promise is effortlessness, not absence: the client portal exists and is a selling point, offered as optional depth.)
 3. Every claim is legally safe (no named third-party platforms we operate; customer-possessive framing) and passes the anti-slop bar (reads human-written, no glaze words, no slop layout tells).
 4. Trust comes from specificity — named agents, named jobs, real dated artifacts — not borrowed logos or unsourced stats.
 
@@ -116,13 +116,13 @@ Order: Nav → Hero → Your-tools strip → Job sections (×4) → Meet the age
 > Handled before your coffee's cold.
 
 **Subhead:**
-> Hire a named AI agent that works inside the tools you already use and emails you the finished work — not a to-do list. You ask in plain English. It does the job. You never touch a dashboard.
+> Hire a named AI agent that works inside the tools you already use and emails you the finished work, not a to-do list. You ask in plain English. It does the job. You never have to log in.
 
 **CTAs:** {{PRIMARY_CTA}} ("Book a call", teal fill) + {{SECONDARY_CTA}} ("Start now", ghost) side by side.
 **Tertiary (quiet text link, optional):** "See what a day with one looks like ↓" (anchors to §3).
 
 **Body microcopy under the CTA (replaces the current italic quote):**
-> No dashboard. No busywork. The work just shows up.
+> **Work lands in your inbox.** · Your portal's there if you want a look.
 
 **Visual / artifact (the hero — this is the star, build it real):**
 A single **text-message thread** resolving on load (the one permitted motion):
@@ -134,7 +134,8 @@ A single **text-message thread** resolving on load (the one permitted motion):
 - [ ] H1 names **one task** ("unpaid invoices") and **one outcome** ("handled before your coffee's cold").
 - [ ] Two CTAs present with clear hierarchy: primary "Book a call" (teal), secondary "Start now" (ghost). The optional "see a day" scroll link must not compete visually with either.
 - [ ] Hero visual is a **conversation/delivery surface** (text or email), not a dashboard/app screenshot.
-- [ ] Copy contains **no** banned string, including the literal "no login"/"no logins" (uses "no dashboard"/"no busywork"/"never touch a dashboard" instead).
+- [ ] Copy contains **no** banned string, including the literal "no login"/"no logins". The verb phrase "you never *have* to log in" is permitted and intended — it is second-person about *our* product and is immediately disambiguated by the portal mention in the next line.
+- [ ] Copy never claims we have no dashboard. The client portal exists; the hero offers it as optional depth ("if you want a look"), never as a task.
 - [ ] Dollar/count figures in the artifact are illustrative and internally consistent; no unsourced "10x/99.9%" claims.
 - [ ] Reads human: passes the "would someone say this in a DM" test; no glaze words.
 
@@ -195,7 +196,7 @@ A single **text-message thread** resolving on load (the one permitted motion):
 
 ### 3d — Wren (ops & reporting)
 **First-person copy:**
-> "Every Monday, last week's numbers are in your inbox before your first meeting — pulled from your tools, written up in plain English, with the two things that changed and why they matter. One email. No dashboard to open, no report to build."
+> "Every Monday, last week's numbers are in your inbox before your first meeting — pulled from your tools, written up in plain English, with the two things that changed and why they matter. One email. No report to build, no numbers to go hunt down."
 
 **Artifact:** a **weekly digest email** from `wren@ambitt.agency` with a small stats block (revenue, signups, churn — each with a delta and accent color), a one-paragraph "what changed" note, and an attached `weekly-report.pdf` chip.
 
@@ -246,7 +247,7 @@ A single **text-message thread** resolving on load (the one permitted motion):
 **Steps:**
 1. **Tell us the job.** A short call or a written brief — the plain-English version of "here's what I keep having to do." We set up a named agent for exactly that.
 2. **It works in your tools, with your logins.** Under your direction. You approve anything big before it happens, and you can pause it any time with a single reply.
-3. **The finished work arrives by email or text.** On a schedule you set, or the minute you ask. You review the result — not a dashboard.
+3. **The finished work arrives by email or text.** On a schedule you set, or the minute you ask. You read it and get on with your day. Everything it's done stays in your portal if you ever want to look back.
 
 **Reassurance line (below the steps):**
 > You're always in control. Big actions wait for your ok. One reply pauses everything.
@@ -326,7 +327,7 @@ A single **text-message thread** resolving on load (the one permitted motion):
 1. **What does an agent actually do all day?**
    It works inside the tools you already use — your inbox, your CRM, your spreadsheets — and does the recurring work you'd otherwise do by hand or hire for: research, follow-ups, reports, chasing things down. It runs on a schedule or whenever you ask, and emails or texts you the finished result.
 2. **Do I have to log into anything?**
-   No. There's no dashboard to check. You talk to your agent by email or text, and the work comes to you. If you can reply to an email, you can work with an agent.
+   No. You talk to your agent by email or text, and the work comes to you. You do get a portal, with everything your agent has done, the tools it's connected to, and its settings. It's there for when you want a closer look, not something you have to keep up with. If you can reply to an email, you can work with an agent.
 3. **Which of my tools can it work in?**
    The ones you already use — Gmail, Google Calendar and Sheets, Slack, your CRM (HubSpot or Salesforce), QuickBooks, and hundreds more. For specialized work like commercial real estate, it works in the listing and market-data platforms your brokers already subscribe to.
 4. **Whose account does it use?**
@@ -339,7 +340,7 @@ A single **text-message thread** resolving on load (the one permitted motion):
    Yes. No contracts, no lock-in. Pause or cancel with a reply and your agent stops.
 
 **Acceptance criteria:**
-- [ ] Q2 sells "no dashboard" using our-product framing; **no** literal "no login" string.
+- [ ] Q2 answers "no, you don't have to" and then **sells the portal** as optional depth (work history + tool connections + settings), framed as an invitation, never a task; **no** literal "no login" string; no claim that a dashboard doesn't exist.
 - [ ] Q3 names integrated tools as word-marks and genericizes CRE ("listing and market-data platforms your brokers already subscribe to") — no named third-party site.
 - [ ] Q4 is customer-possessive and avoids over-claiming ("nothing it couldn't already do with your permission," not "fully authorized/compliant").
 - [ ] No banned/glaze words in any answer.
@@ -432,7 +433,25 @@ Plus a hard block on third-party CRE platform names: `CoStar, LoopNet, CREXi` �
 
 > **Decided (2026-07-23):** Primary CTA = "Book a call", Secondary CTA = "Start now" (self-serve onboarding). Baked into every CTA section above. (Was Open Question 3 — now resolved.)
 
-## Open questions for Kyle (2 — each with a recommended default)
+## Open questions for Kyle (3 — each with a recommended default)
 
 1. **Which example agents do we feature?** This spec uses Nadia (CRE sourcing), Francis (EA), Reed (sales follow-up), Wren (ops/reporting), Otto (AR). **Recommended default:** ship these five — they map to real capability and give breadth across verticals. Swap any name/role freely; the only hard constraint is Nadia's CRE data source stays a category noun.
 2. **Do we show a real founder (name + photo) in the §11 close?** Research says a real, accountable founder face is a top trust lever for an unknown brand. It doesn't conflict with the "never name an operator to clients" rule — that's about not attributing agent work to a person, not about the CEO signing a founder note. **Recommended default:** yes — short signed note, first name + role, photo optional. Fallback "— the Ambitt team" if Kyle prefers to stay we-voice.
+3. **Does "You never have to log in" clear the legal line that banned "no login"?** The §"Global constraints" conflict note bans the literal string "no login"/"no logins" (CFAA/circumvention ambiguity). The new hero uses the verb phrase "you never *have* to log in", second-person about *our* product, with "Your portal's there if you want a look" on the very next line — which removes the ambiguity the ban was written to prevent. **Recommended default:** ship it as written; the banned literal string does not appear. If counsel still objects, the drop-in replacement is "Logging in is optional." (same promise, no form of the banned phrase) and it changes one line in `hero.tsx` plus the two `layout.tsx` meta strings.
+
+---
+
+## Positioning correction — the portal is real, and it's an asset (amended 2026-07-28, approved by Kyle)
+
+**What was wrong.** The shipped homepage claimed we have no dashboard ("You never touch a dashboard", "No dashboard. No busywork.", FAQ "There's no dashboard to check", how-it-works "You review the result. Not a dashboard."). That is inaccurate. Clients have a portal at `portal.ambitt.agency` where they can see the work their agent has done, connect and disconnect tools, and change settings. Two independent audits rated its best surfaces 7–8/10. We were denying a real asset to make a rhetorical point.
+
+**Kyle's decision (verbatim intent).** Don't soften the claim, sell the portal: *"Work lands in your inbox. If you ever want to look deeper, it's all in your portal."*
+
+**The three rules any future copy must follow:**
+1. **The promise is effortlessness, not absence.** "You never *have* to log in" is both true and stronger than "there is no dashboard." Never write a sentence that denies the portal exists.
+2. **The portal is optional depth, never homework.** Always an invitation ("if you want a look", "if you ever want to look back"), never an instruction ("check your portal", "log in to see"). Nothing that implies the client has something to keep up with.
+3. **Depth ladder — say it shorter the higher up the page you are.** Hero subhead gets a clause. The microcopy strip under the CTAs gets the invitation. "How it works" step 3 gets one sentence. The FAQ gets the full answer with the three concrete things the portal holds (work history, tool connections, settings). The hero must still read in five seconds.
+
+**Where the portal is now mentioned (and deliberately not mentioned):** hero microcopy strip, §5 step 3, §9 FAQ Q2, `/contact` FAQ. It is **not** linked from the homepage — a visitor is not a client and a portal link would dead-end at a login wall. It stays a noun, not a CTA.
+
+**Related copy no longer permitted anywhere on the site:** "no dashboard", "no dashboard to open", "no dashboard to check", "you never touch a dashboard", and any variant asserting the absence of a client-facing surface. Quinn: `grep -ri "dashboard" website/app` should return zero matches while this remains true.

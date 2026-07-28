@@ -66,7 +66,10 @@ export function HowItWorks() {
             <div className="node">3</div>
             <div>
               <h3 className="disp">The finished work arrives by email or text</h3>
-              <p>On a schedule you set, or the minute you ask. You review the result. Not a dashboard.</p>
+              <p>
+                On a schedule you set, or the minute you ask. You read it and get on with your day. Everything it&rsquo;s
+                done stays in your portal if you ever want to look back.
+              </p>
             </div>
             <div className="step-art">
               <div className="mini">
