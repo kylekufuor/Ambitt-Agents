@@ -73,7 +73,7 @@ export async function spawnProspect(input: SpawnProspectInput): Promise<SpawnPro
   const bodyText =
     custom_message && custom_message.trim().length > 0
       ? custom_message.trim()
-      : "Quick intro — here's the link to start onboarding for the custom agent we're building. Takes about 5–10 minutes; we'll send a tailored proposal back within 30 minutes.";
+      : "Quick intro: here's the link to start onboarding for the custom agent we're building. Takes about 5–10 minutes; we'll send a tailored proposal back within 30 minutes.";
 
   // 3) Send the email via the calling agent.
   try {
@@ -148,9 +148,9 @@ function renderSpawnTeaserEmail(input: {
     <a href="${input.onboardUrl}" style="display: inline-block; padding: 14px 30px; background: #00b3b3; color: #ffffff; text-decoration: none; border-radius: 9px; font-size: 15px; font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,0.05), 0 4px 12px rgba(0, 179, 179, 0.28);">Start onboarding →</a>
   </div>
   <p style="font-size: 13px; color: #737373; margin: 0 0 8px; line-height: 1.6;">
-    Takes about 5–10 minutes. Your progress saves automatically — you can pause and come back any time.
+    Takes about 5–10 minutes. Your progress saves automatically, so you can pause and come back any time.
   </p>
-  <p style="font-size: 13px; color: #a3a3a3; margin: 32px 0 0;">— Atlas, your onboarding agent at Ambitt Agents</p>
+  <p style="font-size: 13px; color: #a3a3a3; margin: 32px 0 0;">Atlas<br />Your onboarding agent at Ambitt</p>
 </div>`;
 }
 

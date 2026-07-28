@@ -65,7 +65,7 @@ export async function generateHowToWorkBody(agentId: string): Promise<ContentRes
     ``,
     `Rules:`,
     `- NO greeting ("Hi Kyle"). The template handles that.`,
-    `- NO sign-off ("— ${agent.name}"). The template handles that.`,
+    `- NO sign-off (no closing "${agent.name}" line). The template handles that.`,
     `- Max ${MAX_BODY_CHARS} characters. Under 1200 is better.`,
     `- Reference ONE specific thing about ${agent.client.businessName} you already know — pull from memory or the Zoom context. Proves you remembered.`,
     `- No tool calls needed. Write this from what you already know.`,

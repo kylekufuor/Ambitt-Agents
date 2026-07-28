@@ -1,8 +1,8 @@
 {
-  "subject": "Your custom agent — proposal from Atlas",
+  "subject": "Your custom agent proposal from Atlas",
   "greeting": {
     "name": "Kyle",
-    "body": "Based on your form, here's the agent I'd build for you. Have a read — if it feels right, hit Approve. If anything's off, hit Make changes and you can update your answers."
+    "body": "Based on your form, here's the agent I'd build for you. Have a read. If it feels right, hit Approve. If anything's off, hit Make changes and you can update your answers."
   },
   "hero": {
     "label": "YOUR CUSTOM AGENT",
@@ -14,18 +14,18 @@
     "specs": [
       { "label": "Targets", "value": "Small businesses · No website yet" },
       { "label": "Cadence", "value": "Daily mornings · <span class=\"accent\">10 prospects/day</span>" },
-      { "label": "Mode", "value": "Supervised — approval before sending" },
+      { "label": "Mode", "value": "Supervised · Approval before sending" },
       { "label": "Voice", "value": "Ambitt Media tone · Brand-aligned" },
       { "label": "Stack", "value": "Google Maps · Gmail · Notion" }
     ]
   },
   "introQuote": {
-    "text": "Every day, thousands of small businesses collect Google reviews — and still don't have a website. They're already credible. They just haven't been asked yet. Kwame finds them, researches them, and sends a cold email that actually looks like it was written for <em>them</em>. Not a blast. A pitch."
+    "text": "Every day, thousands of small businesses collect Google reviews and still don't have a website. They're already credible. They just haven't been asked yet. Kwame finds them, researches them, and sends a cold email that actually looks like it was written for <em>them</em>. Not a blast. A pitch."
   },
   "whatWeBuild": {
     "headline": "The Prospect Hunter",
     "paragraphs": [
-      "Kwame is a daily outbound agent. His one job: find small businesses with Google reviews but no website, locate a contact email, and send them a personalised cold email on Ambitt Media's behalf — complete with a sample one-pager showing what their site could look like.",
+      "Kwame is a daily outbound agent. His one job: find small businesses with Google reviews but no website, locate a contact email, and send them a personalised cold email on Ambitt Media's behalf, complete with a sample one-pager showing what their site could look like.",
       "He runs every morning. By the time you start your day, 10 qualified prospects have already heard from you."
     ]
   },
@@ -35,17 +35,17 @@
       {
         "number": 1,
         "title": "Hunt",
-        "description": "Kwame searches Google Maps for businesses in your target categories — restaurants, salons, contractors, shops — that have reviews but no linked website. He pulls 10 per day."
+        "description": "Kwame searches Google Maps for businesses in your target categories (restaurants, salons, contractors, shops) that have reviews but no linked website. He pulls 10 per day."
       },
       {
         "number": 2,
         "title": "Research",
-        "description": "For each business, he finds a contact email — from Google, their social profiles, or their listing. He notes their category, location, review count, and rating so the email feels specific."
+        "description": "For each business, he finds a contact email from Google, their social profiles, or their listing. He notes their category, location, review count, and rating so the email feels specific."
       },
       {
         "number": 3,
         "title": "Draft",
-        "description": "He writes a short, personalised cold email in Ambitt Media's voice — mentioning the business by name, referencing their reviews, and attaching a sample one-pager of what their site could look like. No price discussions, ever."
+        "description": "He writes a short, personalised cold email in Ambitt Media's voice, mentioning the business by name, referencing their reviews, and attaching a sample one-pager of what their site could look like. No price discussions, ever."
       },
       {
         "number": 4,
@@ -61,15 +61,15 @@
   },
   "sample": {
     "headline": "What an email looks like",
-    "introText": "Here's the kind of email Kwame would draft — based on a real business type, a local barbershop in Dallas with 87 Google reviews and no website.",
+    "introText": "Here's the kind of email Kwame would draft, based on a real business type: a local barbershop in Dallas with 87 Google reviews and no website.",
     "card": {
       "headerRows": [
         { "label": "From", "value": "team@ambittmedia.com", "type": "link" },
         { "label": "To", "value": "owner@freshcutsbarber.com", "type": "link" },
-        { "label": "Subject", "value": "Fresh Cuts has 87 reviews — but no website yet 👀", "type": "subject" }
+        { "label": "Subject", "value": "Fresh Cuts has 87 reviews but no website yet 👀", "type": "subject" }
       ],
-      "body": "<p>Hey Fresh Cuts team,</p><p>I came across your shop on Google — 87 reviews and a 4.8 rating. That's a serious reputation. But when someone searches for you and wants to book or check your hours, there's no website to land on.</p><p>We put together a quick sample of what a site for Fresh Cuts could look like — nothing generic, something built around your brand. It's attached.</p><p>We're Ambitt Media — a Dallas-based agency that's helped 200+ businesses get online and grow. We handle the whole thing: design, build, and ongoing support.</p><p>Worth a 15-minute call to see if it's a fit?</p>",
-      "signature": "— Ambitt Media Team<br><a href=\"https://ambittmedia.com\">ambittmedia.com</a> · Dallas, TX"
+      "body": "<p>Hey Fresh Cuts team,</p><p>I came across your shop on Google: 87 reviews and a 4.8 rating. That's a serious reputation. But when someone searches for you and wants to book or check your hours, there's no website to land on.</p><p>We put together a quick sample of what a site for Fresh Cuts could look like. Nothing generic, something built around your brand. It's attached.</p><p>We're Ambitt Media, a Dallas-based agency that's helped 200+ businesses get online and grow. We handle the whole thing: design, build, and ongoing support.</p><p>Worth a 15-minute call to see if it's a fit?</p>",
+      "signature": "Ambitt Media Team<br><a href=\"https://ambittmedia.com\">ambittmedia.com</a> · Dallas, TX"
     }
   },
   "digest": {
@@ -106,7 +106,7 @@
   },
   "cta": {
     "headline": "If this feels right, approve it.",
-    "subtext": "Pricing comes after you approve scope — we'll send a quote within the same business day. Builds typically run 2–8 weeks from quote acceptance depending on scope.",
+    "subtext": "Pricing comes after you approve scope. We'll send a quote within the same business day. Builds typically run 2–8 weeks from quote acceptance depending on scope.",
     "primaryLabel": "Approve",
     "primaryUrl": "https://ambitt.agency/approve/kwame-12af",
     "secondaryLabel": "Make changes",

@@ -69,7 +69,7 @@ export function throttleConfirmation(
   r: ReturnType<typeof nextThrottledFrequency>
 ): string {
   if (r.changed) {
-    return `Got it — I'll dial back to ${r.label} from here on. Reply any time if you want me more or less often.`;
+    return `Got it. I'll dial back to ${r.label} from here on. Reply any time if you want me more or less often.`;
   }
-  return `I'm already sending as little as I can — ${r.label}. Want me to pause entirely instead? Just say "pause".`;
+  return `I'm already sending as little as I can: ${r.label}. Want me to pause entirely instead? Just say "pause".`;
 }

@@ -65,7 +65,7 @@ eq(
     NAME,
     "I'd like to email every owner in the downtown submarket about the new vacancy report we published",
   ),
-  `${NAME} needs your approval: email every owner in the downtown submarket about the new…`,
+  `${NAME} needs your approval: email every owner in the downtown submarket about…`,
 );
 eq(
   "empty summary falls back to the first plan step",
@@ -113,6 +113,23 @@ eq("permission with nothing at all", permissionSubject(NAME, [null, "  "]), `${N
     "every generated subject stays inbox-sized (<= 90 chars)",
     subjects.every((s) => s.length <= 90),
     `got ${JSON.stringify(subjects.map((s) => s.length))}`,
+  );
+  // The label ("{name} needs your approval: ") is longer than the old
+  // "{name} — Action Required" banner it replaced, so MAX_DETAIL has to give
+  // that back or a long agent name plus a maxed-out ask blows the budget.
+  // Worst case: the longest realistic name against an ask that clips.
+  const LONG_NAME = "Alexandria"; // 10 chars; the cap holds to 15
+  const maxed = [
+    actionRequiredSubject(
+      LONG_NAME,
+      "I'd like to email every single owner in the downtown submarket about the new vacancy report we just published",
+    ),
+    permissionSubject(LONG_NAME, ["Google Calendar", "Google Sheets", "Google Drive", "HubSpot"]),
+  ];
+  ok(
+    "a long agent name with a maxed-out ask still fits the inbox budget",
+    maxed.every((s) => s.length <= 90),
+    `got ${JSON.stringify(maxed.map((s) => [s.length, s]))}`,
   );
 }
 

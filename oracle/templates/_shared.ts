@@ -226,13 +226,46 @@ export function navFooterLinks(agentName: string, agentId: string): string {
     .join('<span style="color: #e4e4e7; margin: 0 6px;">·</span>');
 }
 
+// ---------------------------------------------------------------------------
+// Sign-off
+// ---------------------------------------------------------------------------
+// House convention (Kyle, 5ef3bba): the agent's name on its own line, then
+// their role underneath. NO leading dash. The "— {name}" sign-off the templates
+// used to carry is the banned character, and the send-time scrub in
+// shared/email.ts DELETES a dash sitting at a line edge, so that copy shipped
+// as a bare name with no sign-off shape at all.
+//
+//   Arthur
+//   Sourcing agent at Ambitt
+
+/** Second sign-off line when the caller has no role to give us. True, and not an invented title. */
+const NEUTRAL_ROLE_LINE = "Your agent at Ambitt";
+
+/**
+ * Second line of the sign-off: "[Role] at Ambitt".
+ *
+ * `role` is whatever short job title the caller has to hand. For agents Atlas
+ * built, the first sentence of Agent.purpose IS the role the client picked
+ * (see the Convert path in oracle/index.ts), which is why we take the first
+ * sentence and cap it: the rest of `purpose` is the internal operating brief
+ * and none of it belongs in a client's inbox.
+ */
+export function signatureRoleLine(role?: string | null): string {
+  const firstSentence = (role ?? "").split(/[.\n]/)[0].replace(/\s+/g, " ").trim();
+  const clipped =
+    firstSentence.length > 60
+      ? firstSentence.slice(0, 60).replace(/[\s,;:-]+$/, "")
+      : firstSentence;
+  return clipped ? `${clipped} at Ambitt` : NEUTRAL_ROLE_LINE;
+}
+
 export function footerBlock(
   agentName: string,
   agentId: string,
   options: { systemEmail?: boolean } = {}
 ): string {
   const onUsLine = options.systemEmail
-    ? `<p style="margin: 8px 0 0 0; font-size: 11px; color: #86efac; font-style: italic;">This one is on us — it doesn't count toward your monthly interactions.</p>`
+    ? `<p style="margin: 8px 0 0 0; font-size: 11px; color: #86efac; font-style: italic;">This one is on us. It doesn't count toward your monthly interactions.</p>`
     : "";
   return `
 <p style="margin: 0; font-size: 11px; color: #a1a1aa;">

@@ -424,7 +424,7 @@ const BUILTIN_CLAUDE_TOOLS: Anthropic.Messages.Tool[] = [
         summary: {
           type: "string",
           description:
-            "One-sentence headline of what you're proposing, in the client's voice. Example: 'I'd like to send these 3 follow-up emails to leads from last week.' or 'I've drafted the monthly report — approve to send it to your list.' Under 200 characters.",
+            "One-sentence headline of what you're proposing, in the client's voice. Example: 'I'd like to send these 3 follow-up emails to leads from last week.' or 'I've drafted the monthly report. Approve and I'll send it to your list.' Under 200 characters.",
         },
         plan_items: {
           type: "array",

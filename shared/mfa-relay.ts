@@ -471,7 +471,7 @@ export async function relayMfaRequest(
           logger.info("MFA relay: SMS not configured — trying next channel", { clientId });
           continue;
         }
-        const message = `${agent.name} here — ${service} just sent you a verification code. Text back just the code and I'll finish signing in.`;
+        const message = `${agent.name} here. ${service} just sent you a verification code. Text back just the code and I'll finish signing in.`;
         if (agent.dryRun) {
           // Runtime-identical, nothing leaves: capture the would-be text and
           // still register the pending so the flow can be driven end-to-end.

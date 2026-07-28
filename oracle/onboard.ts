@@ -156,11 +156,11 @@ function buildWelcomeEmail(businessName: string, agentName: string, credentialLi
       <div style="background: #f8f9fa; border-radius: 8px; padding: 20px; margin: 24px 0;">
         <h3 style="color: #1a1a1a; margin-top: 0;">Your 7-day onboarding</h3>
         <ol style="color: #555; line-height: 2;">
-          <li><strong>Today</strong> — ${agentName} is reviewing your business profile</li>
-          <li><strong>Day 1-2</strong> — Connect your tools so ${agentName} can access your data</li>
-          <li><strong>Day 3-5</strong> — ${agentName} learns your brand voice and business context</li>
-          <li><strong>Day 6</strong> — You'll receive a test brief for review</li>
-          <li><strong>Day 7</strong> — ${agentName} goes live with your first automated task</li>
+          <li><strong>Today.</strong> ${agentName} is reviewing your business profile</li>
+          <li><strong>Day 1-2.</strong> Connect your tools so ${agentName} can access your data</li>
+          <li><strong>Day 3-5.</strong> ${agentName} learns your brand voice and business context</li>
+          <li><strong>Day 6.</strong> You'll receive a test brief for review</li>
+          <li><strong>Day 7.</strong> ${agentName} goes live with your first automated task</li>
         </ol>
       </div>
 
@@ -178,7 +178,7 @@ function buildWelcomeEmail(businessName: string, agentName: string, credentialLi
 
       <p style="color: #888; font-size: 14px;">
         Questions? Reply to this email or reach us at support@ambitt.agency.<br/>
-        — ${agentName}, your Ambitt agent
+        ${agentName}<br/>Your agent at Ambitt
       </p>
     </div>
   `;

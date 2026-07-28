@@ -38,7 +38,7 @@ export interface CredentialRequestEmailProps {
 export function buildCredentialRequestEmail(props: CredentialRequestEmailProps): string {
   const { agentName, agentId, headline, body, openUrl, approveActionId } = props;
   const steps = props.steps ?? [
-    "Click the button — opens a pre-made item in your 1Password vault.",
+    "Click the button. It opens a pre-made item in your 1Password vault.",
     "Fill in the fields, save.",
     "I'll pick it up on the next task. Revoke any time by deleting the item.",
   ];
@@ -52,7 +52,7 @@ export function buildCredentialRequestEmail(props: CredentialRequestEmailProps):
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>${agentName} — ${headline}</title>
+  <title>${agentName}: ${headline}</title>
 </head>
 <body style="margin: 0; padding: 0; background-color: #f5f3ed; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; color: #1a1a1a;">
   <table role="presentation" style="width: 100%; border-collapse: collapse; background-color: #f5f3ed;">

@@ -1721,7 +1721,7 @@ app.post("/webhooks/sms", twilioForm, async (req: Request, res: Response) => {
 
     if (hit.kind === "captured") {
       logger.info("2FA code captured via SMS", { clientId: hit.clientId, origin: hit.origin });
-      res.type("text/xml").send("<Response><Message>Got it — entering your code now. Thanks!</Message></Response>");
+      res.type("text/xml").send("<Response><Message>Got it. Entering your code now. Thanks!</Message></Response>");
       // Engine-origin: nothing polls for the code — the paused run resumes by
       // spawning a run on the SAME thread the email-reply path uses, then
       // dispatching the response. Fire-and-forget so Twilio gets its TwiML
@@ -1759,7 +1759,7 @@ app.post("/webhooks/sms", twilioForm, async (req: Request, res: Response) => {
       // then silence (no loops with autoresponders).
       res.type("text/xml").send(
         hit.nudge
-          ? "<Response><Message>Hmm — I couldn't spot a code in that. Text back just the digits and I'll take it from there.</Message></Response>"
+          ? "<Response><Message>Hmm, I couldn't spot a code in that. Text back just the digits and I'll take it from there.</Message></Response>"
           : "<Response/>"
       );
       return;
@@ -2064,7 +2064,7 @@ app.post("/webhooks/email-inbound", async (req: Request, res: Response) => {
               <p>I've received and studied the following documents:</p>
               <ul>${parsed.map((p) => `<li><strong>${p.filename}</strong> (${p.sizeBytes > 1024 ? Math.round(p.sizeBytes / 1024) + "KB" : p.sizeBytes + "B"})</li>`).join("")}</ul>
               <p>This information is now part of my knowledge about your business. I'll reference it in future work.</p>
-              <p style="color: #9ca3af; font-size: 13px;">— ${agent.name}, your AI agent at Ambitt</p>
+              <p style="color: #9ca3af; font-size: 13px;">${agent.name}<br />Your agent at Ambitt</p>
             </div>`,
             replyToAgentId: agentId,
           });
@@ -2111,8 +2111,8 @@ app.post("/webhooks/email-inbound", async (req: Request, res: Response) => {
             const actionWord = action === "approved" ? "APPROVED" : "RETRY";
             const syntheticMessage =
               action === "approved"
-                ? `${actionWord} — please proceed with the plan you presented.`
-                : `${actionWord} — please try that plan again.`;
+                ? `${actionWord}. Please proceed with the plan you presented.`
+                : `${actionWord}. Please try that plan again.`;
             const threadId = `thread-${agentId}-${recommendation.clientId}`;
 
             const { processInboundMessage } = await import("../shared/runtime/index.js");
@@ -2153,7 +2153,7 @@ app.post("/webhooks/email-inbound", async (req: Request, res: Response) => {
                 subject: `${agent.name} dismissed that action`,
                 html: `<div style="font-family: -apple-system, sans-serif; max-width: 560px; margin: 0 auto; padding: 24px;">
                   <p>Got it. I've <strong>dismissed</strong>: "${recommendation.title}". I won't proceed.</p>
-                  <p style="color: #9ca3af; font-size: 13px;">— ${agent.name}, your AI agent at Ambitt</p>
+                  <p style="color: #9ca3af; font-size: 13px;">${agent.name}<br />Your agent at Ambitt</p>
                 </div>`,
                 replyToAgentId: agentId,
               });
@@ -2198,7 +2198,7 @@ app.post("/webhooks/email-inbound", async (req: Request, res: Response) => {
     // and any payload-shape we haven't anticipated.
     const subjectPlain = (typeof emailData.subject === "string" ? emailData.subject : "").trim();
     if (!messageContent && subjectPlain.length > 0) {
-      messageContent = `(No body — subject only: "${subjectPlain}")`;
+      messageContent = `(No body, subject only: "${subjectPlain}")`;
     }
 
     // Control-intent (Pillars 1/2/5): read the message like a person would —
@@ -2242,15 +2242,15 @@ app.post("/webhooks/email-inbound", async (req: Request, res: Response) => {
           disposition = "control:resume:" + (r.ok ? (r.noop ? "noop" : "ok") : "denied");
           subjectState = "is back up and running";
           if (r.ok && !r.noop) {
-            confirmMsg = `You're back up — I'm resuming now and I'll pick up where we left off.`;
+            confirmMsg = `You're back up. I'm resuming now and I'll pick up where we left off.`;
           }
         } else {
           const r = await haltAgent(prisma, { agentId, by: requester, reason: `client asked to ${ci.intent} (${ci.source})`.slice(0, 200) });
           disposition = "control:halt:" + ci.intent + (r.noop ? ":noop" : "");
           if (r.ok && !r.noop) {
             confirmMsg = ci.intent === "ambiguous"
-              ? `Just to be safe, I've paused — it read like you might want me to hold off. Reply "resume" whenever you want me going again, or tell me what to change.`
-              : `Got it — I've paused. I won't send anything or do any work until you tell me to pick back up. Just reply "resume" whenever you're ready.`;
+              ? `Just to be safe, I've paused. It read like you might want me to hold off. Reply "resume" whenever you want me going again, or tell me what to change.`
+              : `Got it. I've paused. I won't send anything or do any work until you tell me to pick back up. Just reply "resume" whenever you're ready.`;
           }
         }
         ilog.disposition = disposition;
@@ -2265,7 +2265,7 @@ app.post("/webhooks/email-inbound", async (req: Request, res: Response) => {
               subject: `${agentName} ${subjectState}`,
               html: `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;max-width:520px;margin:0 auto;padding:8px 4px;color:#3f4a48;font-size:15px;line-height:1.6;">
                 <p style="margin:0 0 14px;">${confirmMsg}</p>
-                <p style="margin:0;font-size:13px;color:#8a938f;">— ${agentName} · <span style="color:#0f7a74;">Ambitt Agents</span></p>
+                <p style="margin:0;font-size:13px;color:#8a938f;">${agentName}<br />Your agent at <span style="color:#0f7a74;">Ambitt</span></p>
               </div>`,
               replyToAgentId: agentId,
               emailType: "control_ack",
@@ -2310,7 +2310,7 @@ app.post("/webhooks/email-inbound", async (req: Request, res: Response) => {
             subject: `How often ${agentName} emails you`,
             html: `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;max-width:520px;margin:0 auto;padding:8px 4px;color:#3f4a48;font-size:15px;line-height:1.6;">
               <p style="margin:0 0 14px;">${throttleConfirmation(agentName, step)}</p>
-              <p style="margin:0;font-size:13px;color:#8a938f;">— ${agentName} · <span style="color:#0f7a74;">Ambitt Agents</span></p>
+              <p style="margin:0;font-size:13px;color:#8a938f;">${agentName}<br />Your agent at <span style="color:#0f7a74;">Ambitt</span></p>
             </div>`,
             replyToAgentId: agentId,
             emailType: "control_ack",
@@ -2576,15 +2576,15 @@ async function sendOnboardLinkTeaser(
   </div>
   <p style="font-size: 15px; color: #404040; margin: 0 0 16px; line-height: 1.6;">Hey ${escapeHtmlBasic(firstName)},</p>
   <p style="font-size: 15px; color: #404040; margin: 0 0 24px; line-height: 1.6;">
-    Here's your onboarding link. Takes about 5–10 minutes — we'll ask about your business, what you want your agent to do, and any tools or SOPs you have. Once you're done, we'll send back a tailored proposal within 30 minutes.
+    Here's your onboarding link. Takes about 5–10 minutes. We'll ask about your business, what you want your agent to do, and any tools or SOPs you have. Once you're done, we'll send back a tailored proposal within 30 minutes.
   </p>
   <div style="margin: 0 0 28px;">
     <a href="${onboardUrl}" style="display: inline-block; padding: 14px 30px; background: #00b3b3; color: #ffffff; text-decoration: none; border-radius: 9px; font-size: 15px; font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,0.05), 0 4px 12px rgba(0, 179, 179, 0.28);">Start onboarding →</a>
   </div>
   <p style="font-size: 13px; color: #737373; margin: 0 0 8px; line-height: 1.6;">
-    Your progress saves automatically — you can pause and come back any time.
+    Your progress saves automatically, so you can pause and come back any time.
   </p>
-  <p style="font-size: 13px; color: #a3a3a3; margin: 32px 0 0;">— Atlas, your onboarding agent at Ambitt Agents</p>
+  <p style="font-size: 13px; color: #a3a3a3; margin: 32px 0 0;">Atlas<br />Your onboarding agent at Ambitt</p>
 </div>`,
     replyToAgentId: atlas.id,
   });
@@ -3904,7 +3904,7 @@ app.post("/onboarding/prospects/:id/convert", async (req: Request, res: Response
           contactName: prospect.contactName ?? prd.identity.ownerContactName,
           preferredName: stringField(fd, "preferredName") || (prospect.contactName ?? "").split(/\s+/)[0] || null,
           businessName: prospect.businessName ?? prd.identity.ownerBusinessName,
-          industry: prd.identity.ownerIndustry || stringField(fd, "industry") || "—",
+          industry: prd.identity.ownerIndustry || stringField(fd, "industry") || "Unknown",
           businessGoal: stringField(fd, "agentPitch") || prd.summary || prd.identity.agentRole,
           website: prospect.website ?? null,
           brandVoice: stringField(fd, "brandVoice") || "Friendly, conversational, plain language.",
@@ -4099,17 +4099,17 @@ function renderToolsHandoffEmail(input: {
   const toolSummary =
     composioCount > 0
       ? `${composioCount} integration${composioCount === 1 ? "" : "s"} need${composioCount === 1 ? "s" : ""} your OAuth (Gmail-style click-through)${customCount > 0 ? "; the rest we'll wire up on our end" : ""}.`
-      : "We'll wire all the tools on our end — nothing for you to connect.";
+      : "We'll wire all the tools on our end. Nothing for you to connect.";
   return `<div style="font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; max-width: 560px; margin: 0 auto; padding: 32px 24px; background: #ffffff; color: #171717;">
   <div style="margin-bottom: 28px;">
     <img src="${input.portalBase}/brand/ambitt-agents-lockup.svg" alt="Ambitt Agents" width="220" height="27" style="display: block; max-width: 220px; height: auto;" />
   </div>
   <p style="font-size: 15px; color: #404040; margin: 0 0 16px; line-height: 1.6;">Hey ${input.firstName},</p>
   <p style="font-size: 15px; color: #404040; margin: 0 0 16px; line-height: 1.6;">
-    Great — we're getting started on <strong style="color: #171717;">${input.agentName}</strong> (${input.agentRole}).
+    Great news, we're getting started on <strong style="color: #171717;">${input.agentName}</strong> (${input.agentRole}).
   </p>
   <p style="font-size: 15px; color: #404040; margin: 0 0 24px; line-height: 1.6;">
-    ${toolSummary} The link below opens your agent's tools page. Click each integration to authorize — takes about 30 seconds each.
+    ${toolSummary} The link below opens your agent's tools page. Click each integration to authorize. Takes about 30 seconds each.
   </p>
   <div style="margin: 0 0 28px;">
     <a href="${input.toolsUrl}" style="display: inline-block; padding: 14px 30px; background: #00b3b3; color: #ffffff; text-decoration: none; border-radius: 9px; font-size: 15px; font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,0.05), 0 4px 12px rgba(0, 179, 179, 0.28);">Connect tools →</a>
@@ -4117,7 +4117,7 @@ function renderToolsHandoffEmail(input: {
   <p style="font-size: 13px; color: #737373; margin: 0 0 8px; line-height: 1.6;">
     Once tools are connected, we'll finish the build internally and let you know when ${input.agentName} is ready to start running.
   </p>
-  <p style="font-size: 13px; color: #a3a3a3; margin: 32px 0 0;">— Atlas, your onboarding agent at Ambitt Agents</p>
+  <p style="font-size: 13px; color: #a3a3a3; margin: 32px 0 0;">Atlas<br />Your onboarding agent at Ambitt</p>
 </div>`;
 }
 
@@ -4183,7 +4183,7 @@ Output a single JSON object matching the QuoteData TypeScript contract below. JS
 # Prospect basics
 - Email: ${prospect.email}
 - Name: ${prospect.contactName ?? "(no name)"}
-- Business: ${prospect.businessName ?? "—"}
+- Business: ${prospect.businessName ?? "(not provided)"}
 
 # Approved PRD (the source of truth)
 Use the PRD as the basis for everything. Don't invent new tools/scope — translate what's in the PRD into client-readable language.
@@ -4255,6 +4255,7 @@ interface QuoteData {
 - monthlyIncludes: what they get for the recurring retainer — typically things like "Daily agent runs", "Email/Slack escalation", "Ongoing prompt refinement based on results", "Tool maintenance when APIs change", "Monthly performance review".
 - notIncluded: set boundaries — typical: "Third-party API costs (e.g. Composio premium tiers) billed at cost", "Scope changes mid-build (priced separately)", "Custom tools beyond the listed scope", "Live training sessions beyond initial handoff".
 - cta.approveUrl + cta.denyUrl must match the URLs above VERBATIM.
+- Never use em dashes. The "—" character is banned in everything we send. Use a period, a comma, a colon, parentheses, or two short sentences. No exceptions (a normal hyphen in a compound word like "off-market" is fine).
 - Speak as "we" / "our team" — never name Kyle or any individual operator.
 - Use the prospect's preferred name in greeting (from the PRD's identity block or the prospect's contactName).
 - pricing.summary can reference market context naturally ("comparable to a junior contractor at $4-5k/mo loaded") but don't list specific competitor names — that's internal PRD context, the quote should feel value-led not comparison-shop-led.
@@ -4301,7 +4302,7 @@ function renderQuoteTeaserEmail(
   <div style="margin: 0 0 32px;">
     <a href="${quoteUrl}" style="display: inline-block; padding: 14px 30px; background: #00b3b3; color: #ffffff; text-decoration: none; border-radius: 9px; font-size: 15px; font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,0.05), 0 4px 12px rgba(0, 179, 179, 0.28);">View your quote →</a>
   </div>
-  <p style="font-size: 13px; color: #a3a3a3; margin: 32px 0 0;">— Atlas, your onboarding agent at Ambitt Agents</p>
+  <p style="font-size: 13px; color: #a3a3a3; margin: 32px 0 0;">Atlas<br />Your onboarding agent at Ambitt</p>
 </div>`;
 }
 
@@ -4848,15 +4849,15 @@ function renderProspectAutoResponse(firstName: string, onboardUrl: string, porta
   </div>
   <p style="font-size: 15px; color: #404040; margin: 0 0 16px; line-height: 1.6;">Hey ${escapeHtmlBasic(firstName)},</p>
   <p style="font-size: 15px; color: #404040; margin: 0 0 16px; line-height: 1.65;">
-    Got your email — I'm Atlas, the onboarding agent for Ambitt Agents. I can't pick up cold messages here, but your onboarding link is below. It's already tied to you, so your progress is saved.
+    Got your email. I'm Atlas, the onboarding agent for Ambitt Agents. I can't pick up cold messages here, but your onboarding link is below. It's already tied to you, so your progress is saved.
   </p>
   <div style="margin: 0 0 24px;">
     <a href="${onboardUrl}" style="display: inline-block; padding: 14px 28px; background: #00b3b3; color: #ffffff; text-decoration: none; border-radius: 9px; font-size: 15px; font-weight: 600;">Open your onboarding →</a>
   </div>
   <p style="font-size: 14px; color: #404040; margin: 0 0 16px; line-height: 1.65;">
-    Anything outside the form, just reply to this email — that route works because I'll see the thread.
+    Anything outside the form, just reply to this email. That route works because I'll see the thread.
   </p>
-  <p style="font-size: 13px; color: #a3a3a3; margin: 24px 0 0;">— Atlas, your onboarding agent at Ambitt Agents</p>
+  <p style="font-size: 13px; color: #a3a3a3; margin: 24px 0 0;">Atlas<br />Your onboarding agent at Ambitt</p>
 </div>`;
 }
 
@@ -4867,7 +4868,7 @@ function renderGenericAutoResponse(firstName: string, onboardLandingUrl: string,
   </div>
   <p style="font-size: 15px; color: #404040; margin: 0 0 16px; line-height: 1.6;">Hey ${escapeHtmlBasic(firstName)},</p>
   <p style="font-size: 15px; color: #404040; margin: 0 0 16px; line-height: 1.65;">
-    Got your email — I'm Atlas, the onboarding agent for Ambitt Agents. I can't read cold inbound here. The fastest way to start is to fill out the short onboarding form — takes about 5–10 minutes, then I'll send a tailored proposal back within 30 minutes.
+    Got your email. I'm Atlas, the onboarding agent for Ambitt Agents. I can't read cold inbound here. The fastest way to start is to fill out the short onboarding form. It takes about 5–10 minutes, then I'll send a tailored proposal back within 30 minutes.
   </p>
   <div style="margin: 0 0 24px;">
     <a href="${onboardLandingUrl}" style="display: inline-block; padding: 14px 28px; background: #00b3b3; color: #ffffff; text-decoration: none; border-radius: 9px; font-size: 15px; font-weight: 600;">Start onboarding →</a>
@@ -4875,7 +4876,7 @@ function renderGenericAutoResponse(firstName: string, onboardLandingUrl: string,
   <p style="font-size: 14px; color: #404040; margin: 0 0 16px; line-height: 1.65;">
     Not a fit for onboarding? Email <a href="mailto:team@ambitt.agency" style="color: #00b3b3; text-decoration: none;">team@ambitt.agency</a> and a human will get back to you.
   </p>
-  <p style="font-size: 13px; color: #a3a3a3; margin: 24px 0 0;">— Atlas, your onboarding agent at Ambitt Agents</p>
+  <p style="font-size: 13px; color: #a3a3a3; margin: 24px 0 0;">Atlas<br />Your onboarding agent at Ambitt</p>
 </div>`;
 }
 
@@ -4904,9 +4905,9 @@ function renderProposalTeaserEmail(
     <a href="${proposalUrl}" style="display: inline-block; padding: 14px 30px; background: #00b3b3; color: #ffffff; text-decoration: none; border-radius: 9px; font-size: 15px; font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,0.05), 0 4px 12px rgba(0, 179, 179, 0.28);">View your proposal →</a>
   </div>
   <p style="font-size: 13px; color: #737373; margin: 0 0 8px; line-height: 1.6;">
-    Pricing and timeline come after you approve scope — we'll handle those next.
+    Pricing and timeline come after you approve scope. We'll handle those next.
   </p>
-  <p style="font-size: 13px; color: #a3a3a3; margin: 32px 0 0;">— Atlas, your onboarding agent at Ambitt Agents</p>
+  <p style="font-size: 13px; color: #a3a3a3; margin: 32px 0 0;">Atlas<br />Your onboarding agent at Ambitt</p>
 </div>`;
 }
 
@@ -4924,12 +4925,12 @@ function renderThanksEmail(
   </div>
   <p style="font-size: 15px; color: #404040; margin: 0 0 16px; line-height: 1.6;">Hey ${firstName},</p>
   <p style="font-size: 15px; color: #404040; margin: 0 0 16px; line-height: 1.6;">
-    Got your brief${business} — thanks for laying it all out. I'm reading through your answers now.
+    Got your brief${business}. Thanks for laying it all out. I'm reading through your answers now.
   </p>
   <p style="font-size: 15px; color: #404040; margin: 0 0 24px; line-height: 1.6;">
-    Your proposal will land in this inbox within <strong style="color: #171717;">30 minutes</strong>. When it does, you'll be able to approve the scope or ask for changes — pricing comes after.
+    Your proposal will land in this inbox within <strong style="color: #171717;">30 minutes</strong>. When it does, you'll be able to approve the scope or ask for changes. Pricing comes after.
   </p>
-  <p style="font-size: 13px; color: #a3a3a3; margin: 32px 0 0;">— Atlas, your onboarding agent at Ambitt Agents</p>
+  <p style="font-size: 13px; color: #a3a3a3; margin: 32px 0 0;">Atlas<br />Your onboarding agent at Ambitt</p>
 </div>`;
 }
 
@@ -5121,7 +5122,7 @@ interface ProposalEmailData {
 \`\`\`json
 {
   "subject": "Your custom agent proposal from Atlas",
-  "greeting": { "name": "Kyle", "body": "Based on your form, here's the agent we'd build for you. Have a read — if it feels right, hit Approve. If anything's off, hit Make changes and you can update your answers." },
+  "greeting": { "name": "Kyle", "body": "Based on your form, here's the agent we'd build for you. Have a read. If it feels right, hit Approve. If anything's off, hit Make changes and you can update your answers." },
   "hero": {
     "label": "YOUR CUSTOM AGENT",
     "title": "Meet Kwame,<br>your new lead-gen agent.",
@@ -5129,11 +5130,11 @@ interface ProposalEmailData {
     "specs": [
       { "label": "Targets", "value": "Small businesses · No website yet" },
       { "label": "Cadence", "value": "Daily mornings · <span class=\\"accent\\">10 prospects/day</span>" },
-      { "label": "Mode", "value": "Supervised — approval before sending" },
+      { "label": "Mode", "value": "Supervised · Approval before sending" },
       { "label": "Stack", "value": "Google Maps · Gmail · Notion" }
     ]
   },
-  "introQuote": { "text": "Every day, thousands of small businesses collect Google reviews — and still don't have a website. Kwame finds them, researches them, and sends a cold email that actually looks like it was written for <em>them</em>." },
+  "introQuote": { "text": "Every day, thousands of small businesses collect Google reviews and still don't have a website. Kwame finds them, researches them, and sends a cold email that actually looks like it was written for <em>them</em>." },
   "whatWeBuild": {
     "headline": "The Prospect Hunter",
     "paragraphs": ["Kwame is a daily outbound agent. Find small businesses with Google reviews but no website, locate a contact email, send them a personalised cold email."]
@@ -5149,7 +5150,7 @@ interface ProposalEmailData {
   },
   "cta": {
     "headline": "If this feels right, approve it.",
-    "subtext": "Pricing comes after you approve scope — we'll send a quote within the same business day. Builds typically run 2–8 weeks from quote acceptance depending on scope.",
+    "subtext": "Pricing comes after you approve scope. We'll send a quote within the same business day. Builds typically run 2–8 weeks from quote acceptance depending on scope.",
     "primaryLabel": "Approve",
     "primaryUrl": "<approve url goes here>",
     "secondaryLabel": "Make changes",
@@ -5187,7 +5188,8 @@ Do NOT skip the review. Do NOT emit JSON before calling \`request_review\`.
 - **cta.subtext MUST mention the build-time window**: "Builds typically run 2–8 weeks from quote acceptance depending on scope." Phrase it naturally into the subtext (the example above shows one good way) — Atlas owns the exact wording but the 2–8 weeks fact must be there.
 - **Do NOT promise capabilities the platform doesn't have.** If they asked for something genuinely impossible, soften it in whatWeBuild and propose a realistic version.
 - **Speak as we / our team.** Never name an individual operator. The brand is Ambitt Agents.
-- **Write like a human, not like AI.** Avoid: "leverage", "comprehensive", "robust", "seamless", "delve into", "in today's fast-paced world", "it's worth noting", "furthermore", "moreover", "indeed", "truly", "incredibly". Avoid tricolon reflex ("X, Y, and Z" everywhere) and em-dash overuse. Use contractions. Vary sentence length. Sometimes start with "And" or "But". If you'd say it that way in a Slack DM to a smart colleague, ship it. If it reads like a press release, rewrite shorter.
+- **Never use em dashes.** The "—" character is banned in everything we send. Use a period, a comma, a colon, parentheses, or two short sentences. No exceptions (a normal hyphen in a compound word like "off-market" is fine).
+- **Write like a human, not like AI.** Avoid: "leverage", "comprehensive", "robust", "seamless", "delve into", "in today's fast-paced world", "it's worth noting", "furthermore", "moreover", "indeed", "truly", "incredibly". Avoid tricolon reflex ("X, Y, and Z" everywhere). Use contractions. Vary sentence length. Sometimes start with "And" or "But". If you'd say it that way in a Slack DM to a smart colleague, ship it. If it reads like a press release, rewrite shorter.
 - **Sample output**: include if useful — pick the artifact type that matches their work (cold email for lead-gen, ticket reply for support, article draft for content, etc.). Omit \`sample\` field entirely if the agent doesn't produce a discrete artifact.
 - **Digest**: include if the agent produces a recurring report. Omit \`digest\` field entirely otherwise.
 - **Length limits**: hero title ≤ 60 chars across both lines, spec value ≤ 50 chars, flow step description ≤ 280 chars.`;

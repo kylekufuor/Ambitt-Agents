@@ -43,7 +43,7 @@ export interface ProposalEmailData {
 
   /** Section 01 — what the agent does */
   whatWeBuild: {
-    /** Defaults to "01 — WHAT WE'D BUILD" if omitted. */
+    /** Defaults to "01 · WHAT WE'D BUILD" if omitted. */
     label?: string;
     /** Headline (H2). e.g., "The Prospect Hunter" */
     headline: string;
@@ -53,7 +53,7 @@ export interface ProposalEmailData {
 
   /** Section 02 — numbered list of how the agent operates */
   flow: {
-    /** Defaults to "02 — HOW IT WORKS". */
+    /** Defaults to "02 · HOW IT WORKS". */
     label?: string;
     /** Headline. e.g., "The daily flow" */
     headline: string;
@@ -63,7 +63,7 @@ export interface ProposalEmailData {
 
   /** Section 03 — sample artifact the agent would produce (optional) */
   sample?: {
-    /** Defaults to "03 — SAMPLE OUTPUT". */
+    /** Defaults to "03 · SAMPLE OUTPUT". */
     label?: string;
     /** Headline. e.g., "What an email looks like" */
     headline: string;
@@ -82,7 +82,7 @@ export interface ProposalEmailData {
 
   /** Section 04 — the recurring digest preview (optional) */
   digest?: {
-    /** Defaults to "04 — YOUR MORNING DIGEST". */
+    /** Defaults to "04 · YOUR MORNING DIGEST". */
     label?: string;
     /** Headline. e.g., "What you'd see before approving" */
     headline: string;

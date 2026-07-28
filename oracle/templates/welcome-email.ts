@@ -5,7 +5,7 @@
 // Must feel personal, specific, and immediately useful.
 // ---------------------------------------------------------------------------
 
-import { navFooterLinks } from "./_shared.js";
+import { navFooterLinks, signatureRoleLine } from "./_shared.js";
 
 interface WelcomeEmailOptions {
   agentName: string;
@@ -141,7 +141,7 @@ export function buildWelcomeEmail(options: WelcomeEmailOptions): {
               <div style="background-color: #f9fafb; border-radius: 8px; padding: 20px;">
                 <p style="margin: 0 0 8px 0; font-size: 11px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px;">How to Give Me Tasks</p>
                 <p style="margin: 0; font-size: 14px; color: #374151; line-height: 1.6;">
-                  Just <strong>reply to this email</strong> with what you need. Write it like you'd text a colleague — plain English, no special format needed. I'll handle the rest and email you back with results.
+                  Just <strong>reply to this email</strong> with what you need. Write it like you'd text a colleague: plain English, no special format needed. I'll handle the rest and email you back with results.
                 </p>
               </div>
             </td>
@@ -172,8 +172,9 @@ export function buildWelcomeEmail(options: WelcomeEmailOptions): {
           <!-- Signature -->
           <tr>
             <td style="padding: 20px 40px 12px 40px; color: #9ca3af; font-size: 13px; line-height: 1.6;">
-              <p style="margin: 0;">— ${agentName}, ${agentPurpose}</p>
-              <p style="margin: 4px 0 0 0;">Powered by <a href="https://ambitt.agency" style="color: #6b7280; text-decoration: none;">Ambitt Agents</a></p>
+              <p style="margin: 0;">${agentName}</p>
+              <p style="margin: 2px 0 0 0;">${signatureRoleLine(agentPurpose)}</p>
+              <p style="margin: 8px 0 0 0;">Powered by <a href="https://ambitt.agency" style="color: #6b7280; text-decoration: none;">Ambitt Agents</a></p>
             </td>
           </tr>
 

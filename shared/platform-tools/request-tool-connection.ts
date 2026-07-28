@@ -135,7 +135,7 @@ export async function requestToolConnection(
     await sendPermissionEmail({
       agentId,
       to: clientRow.email,
-      summary: `I need access to your ${appName} account to ${reason}. Click below to authorize — takes ~30 seconds.`,
+      summary: `I need access to your ${appName} account to ${reason}. Click below to authorize. Takes about 30 seconds.`,
       reason,
       appName,
       ctaUrl: redirectUrl,

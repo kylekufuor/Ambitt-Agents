@@ -10,7 +10,7 @@
 // renderer — it just wraps the body in the Ambitt shell.
 // ---------------------------------------------------------------------------
 
-import { navFooterLinks } from "./_shared.js";
+import { navFooterLinks, signatureRoleLine } from "./_shared.js";
 
 interface OnboardingEmailOptions {
   agentName: string;
@@ -79,14 +79,15 @@ export function buildOnboardingEmail(options: OnboardingEmailOptions): {
           <!-- Signature -->
           <tr>
             <td style="padding: 20px 40px 8px 40px; color: #9ca3af; font-size: 13px; line-height: 1.6;">
-              <p style="margin: 0;">— ${agentName}</p>
+              <p style="margin: 0;">${agentName}</p>
+              <p style="margin: 2px 0 0 0;">${signatureRoleLine()}</p>
             </td>
           </tr>
 
           <!-- On-us note -->
           <tr>
             <td style="padding: 0 40px 12px 40px;">
-              <p style="margin: 0; font-size: 12px; color: #15803d; font-style: italic;">This one is on us — it doesn't count toward your monthly interactions.</p>
+              <p style="margin: 0; font-size: 12px; color: #15803d; font-style: italic;">This one is on us. It doesn't count toward your monthly interactions.</p>
             </td>
           </tr>
 

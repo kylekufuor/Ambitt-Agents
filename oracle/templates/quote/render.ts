@@ -76,7 +76,10 @@ export type QuoteData = z.infer<typeof quoteSchema>;
 // ---------------------------------------------------------------------------
 
 Handlebars.registerHelper("dollars", (cents: unknown) => {
-  if (typeof cents !== "number") return "—";
+  // "n/a" rather than a dash placeholder: the quote is client-facing, em dashes
+  // are banned there, and the send-time scrub deletes a lone dash between tags,
+  // which would leave the price cell blank instead of saying anything.
+  if (typeof cents !== "number") return "n/a";
   return `$${(cents / 100).toLocaleString()}`;
 });
 

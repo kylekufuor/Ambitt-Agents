@@ -614,7 +614,7 @@ export async function generateWelcomeBrief(agentId: string): Promise<{
     "",
     "Deliver exactly two things:",
     "",
-    `1. A PDF with the full brief. Call generate_pdf with filename "${pdfFilename}" and title "Strategic Brief — ${agent.client.businessName}". Include: 4-6 specific observations about their business, 3-5 named competitors with concrete differences, 3 actionable recommendations. Cite what you actually read. No filler.`,
+    `1. A PDF with the full brief. Call generate_pdf with filename "${pdfFilename}" and title "Strategic Brief: ${agent.client.businessName}". Include: 4-6 specific observations about their business, 3-5 named competitors with concrete differences, 3 actionable recommendations. Cite what you actually read. No filler.`,
     "",
     "2. Your reply text for the welcome email. Write exactly this shape, 3 short paragraphs:",
     "   - Paragraph 1: one sentence saying what stood out most.",

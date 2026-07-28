@@ -124,7 +124,7 @@ When you're reviewing a \`proposal_email\` payload, here's what each field rende
 - **\`whatWeBuild\`** — describes what the agent does. Third-person about the agent. Naming the agent here is fine.
 - **\`flow.steps[].description\`** — numbered steps. Naming the agent ("Bob hunts...", "Bob drafts...") is fine and encouraged.
 - **\`sample.card.body\`** — the body of a SAMPLE artifact the agent would produce (e.g., a sample cold email, a sample support reply). This is a DRAFT the agent would write on the client's behalf. The voice inside this body should match whoever is sending the artifact — usually the client (e.g., the client's cold email to a prospect). Naming the agent in HERE would be wrong (the agent doesn't send the artifact as itself), but the agent's name CAN appear in surrounding labels.
-- **\`sample.card.signature\`** — the sign-off of the SAMPLE artifact. This is the SENDER of the sample. Almost always the CLIENT's brand (e.g., "— Ambitt Media Team") because the agent drafts FOR the client. Signing as the agent persona ("— Kwame, your lead-gen agent") would be WRONG — that's the case to reject.
+- **\`sample.card.signature\`** — the sign-off of the SAMPLE artifact. This is the SENDER of the sample. Almost always the CLIENT's brand (e.g., "Ambitt Media Team") because the agent drafts FOR the client. Signing as the agent persona ("Kwame, your lead-gen agent") would be WRONG. That's the case to reject.
 - **\`digest.cardTitle\`** — the title of a daily/weekly digest the agent emits to the client. Naming the agent ("Kwame's Daily Report") is fine and encouraged.
 - **\`cta\`** — the action buttons. \`subtext\` may mention timeline/scope but NEVER prices.
 
@@ -146,7 +146,7 @@ Reject if any of these phrases or patterns appear in any prose field (greeting.b
 - "leverage", "robust", "seamless", "delve into", "comprehensive", "streamline", "value-add", "unlock", "synergy", "in today's fast-paced world", "it's worth noting", "furthermore", "moreover", "indeed"
 - "navigate the landscape", "the journey", "elevate your", "harness the power"
 - Tricolons on every line (the "X, Y, and Z" symmetric rhythm)
-- Em-dashes used as filler in every sentence (one or two is fine; six in a paragraph reads AI)
+- ANY em dash (the — character). Banned platform-wide, no exceptions. Reject on the first one; a normal hyphen in a compound word is fine
 - Empty intensifiers: "truly", "incredibly", "absolutely", "literally"
 - Bullet-list reflex when prose would read better
 - Symmetrical clauses on consecutive lines ("Not just X. But Y." repeated 3+ times)
@@ -162,7 +162,7 @@ Reject if any of these are true:
 Reject if any of these mismatch:
 - greeting.name is the AGENT's name instead of the prospect's preferred name. (greeting.name should be the human the email is addressed TO.)
 - The agent's name appears in some sections but not others (e.g. in digest.cardTitle but not in hero.title — pick one: name them throughout, or don't). NOTE: naming the agent in hero.title, whatWeBuild, flow.steps, digest.cardTitle is EXPECTED and CORRECT — only flag the absence of the name where it logically should appear, not its presence.
-- sample.card.signature is the AGENT signing AS A PERSON (e.g. "— Kwame, your lead-gen agent" or "— Bob"). The sample artifact's signature should be the CLIENT's brand (e.g. "— Ambitt Media Team") because the agent drafts ON BEHALF OF the client. Signing as the client's brand is correct; signing as the agent is the defect.
+- sample.card.signature is the AGENT signing AS A PERSON (e.g. "Kwame, your lead-gen agent" or "Bob"). The sample artifact's signature should be the CLIENT's brand (e.g. "Ambitt Media Team") because the agent drafts ON BEHALF OF the client. Signing as the client's brand is correct; signing as the agent is the defect.
 - The role described in spec rows / flow / digest contradicts itself (says "lead gen" in one place, "support" in another — without a clear reason).
 
 ## Schema-shape issues to flag (NOT reject for — Zod handles those)

@@ -26,11 +26,16 @@
 //
 // Pure string functions — no DB, no env, no I/O.
 
-// Inbox clients truncate around 60-70 characters on mobile, and the agent name
-// plus label already eats ~28. Keep the ask itself short enough that the
+// Inbox clients truncate around 60-70 characters on mobile, and the label alone
+// eats 22 ("{name} needs your approval: "). Keep the ask short enough that the
 // distinguishing part survives, long enough that two different asks don't
 // collapse into the same string (which would resurrect the false trip).
-const MAX_DETAIL = 60;
+//
+// 52 holds the pre-rewrite ceiling: name + 22 + 52 + 1 (ellipsis) = name + 75,
+// so any agent name up to 15 characters lands inside the ~90-char budget the
+// tests pin. The old "{name} — Action Required" banner was 18 characters; the
+// ask-carrying label is longer, so the ask itself gives the difference back.
+const MAX_DETAIL = 52;
 
 // First-person lead-ins the model habitually opens a summary with ("I'd like to
 // send these 3 follow-up emails..." — see the request_approval tool schema).
