@@ -149,7 +149,7 @@ export function AgentSettings({
       {/* Work rhythm */}
       <SettingCard
         title="Work rhythm"
-        hint={`How often ${agentName}{" "}gets to work.${status === "active" ? " Changes apply right away." : ""}`}
+        hint={`How often ${agentName} gets to work.${status === "active" ? " Changes apply right away." : ""}`}
         icon={<ClockIcon size={19} />}
         accent="chip-teal"
         flash={flash?.key === "schedule" ? flash : null}
@@ -177,7 +177,7 @@ export function AgentSettings({
       {/* Approval style */}
       <SettingCard
         title="Approval style"
-        hint={`Decide how much ${agentName}{" "}runs past you before acting.`}
+        hint={`Decide how much ${agentName} runs past you before acting.`}
         icon={<ShieldIcon size={19} />}
         accent="chip-emerald"
         flash={flash?.key === "autonomy" ? flash : null}
@@ -202,15 +202,15 @@ export function AgentSettings({
       {/* Outreach volume */}
       <SettingCard
         title="Outreach volume"
-        hint={`The most new emails ${agentName}{" "}will send in a single day. Replies and follow-ups don't count toward this.`}
+        hint={`The most new emails ${agentName} will send in a single day. Replies and follow-ups don't count toward this.`}
         icon={<CommunicationIcon size={19} />}
         accent="chip-indigo"
         flash={flash?.key === "volume" ? flash : null}
       >
         <p className="text-[12.5px] text-[color:var(--text-3)] -mt-2 mb-3">
           {sentToday === 0
-            ? `${agentName}{" "}hasn't sent any outreach today.`
-            : `${agentName}{" "}has sent ${sentToday} ${sentToday === 1 ? "email" : "emails"} today${
+            ? `${agentName} hasn't sent any outreach today.`
+            : `${agentName} has sent ${sentToday} ${sentToday === 1 ? "email" : "emails"} today${
                 typeof volume === "number" ? ` of ${volume}` : ""
               }.`}
         </p>
@@ -234,7 +234,7 @@ export function AgentSettings({
       {/* Follow-up cadence */}
       <SettingCard
         title="Follow-ups"
-        hint={`When someone doesn't reply, how persistently should ${agentName}{" "}follow up?`}
+        hint={`When someone doesn't reply, how persistently should ${agentName} follow up?`}
         icon={<RepeatIcon size={19} />}
         accent="chip-amber"
         flash={flash?.key === "followup" ? flash : null}
@@ -259,7 +259,7 @@ export function AgentSettings({
       {/* Writing style */}
       <SettingCard
         title="Writing style"
-        hint={`How ${agentName}{" "}sounds in the emails it sends on your behalf.`}
+        hint={`How ${agentName} sounds in the emails it sends on your behalf.`}
         icon={<PenIcon size={19} />}
         accent="chip-violet"
         flash={flash?.key === "tone" ? flash : null}
@@ -284,7 +284,7 @@ export function AgentSettings({
       {/* Email updates to you */}
       <SettingCard
         title="Your updates"
-        hint={`How often ${agentName}{" "}emails you to report on its work.`}
+        hint={`How often ${agentName} emails you to report on its work.`}
         icon={<MailIcon size={19} />}
         accent="chip-rose"
         flash={flash?.key === "frequency" ? flash : null}

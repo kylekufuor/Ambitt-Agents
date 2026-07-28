@@ -144,6 +144,14 @@ export default async function PortalPage() {
 
   const usedThisCycle = activeAgents.reduce((s, a) => s + a.interactionCount, 0);
 
+  // What the plan actually covers this cycle. Past an agent's interactionLimit
+  // the runtime bills every further task at the tier's per-task rate and writes
+  // an OverageEvent (shared/runtime/engine.ts), so the usage card has to say so
+  // rather than claim it's all included. A limit of 0 or -1 means uncapped.
+  const includedThisCycle = activeAgents.reduce((s, a) => s + Math.max(a.interactionLimit, 0), 0);
+  const uncappedPlan = activeAgents.some((a) => a.interactionLimit <= 0);
+  const overageThisCycle = activeAgents.reduce((s, a) => s + a.overageCount, 0);
+
   // Usage in $$, over a rolling 30-day window. We take the real API/token cost
   // (the authoritative figure logged per run) and mark it up for the client.
   // DISPLAY ONLY — the retainer is what they actually pay; this just puts a
@@ -325,7 +333,14 @@ export default async function PortalPage() {
               </p>
 
               <div className="flex flex-wrap items-center gap-x-6 gap-y-2 mt-2 text-[13px] text-[color:var(--text-3)]">
-                <span>Included in your plan — no extra charge.</span>
+                <span>
+                  {uncappedPlan || includedThisCycle === 0
+                    ? "Covered by your plan."
+                    : `Your plan covers ${includedThisCycle.toLocaleString()} tasks a month. Anything past that is billed at your plan's per-task rate.`}
+                  {overageThisCycle > 0
+                    ? ` You're ${overageThisCycle.toLocaleString()} past that so far this cycle.`
+                    : ""}
+                </span>
               </div>
             </div>
 

@@ -123,7 +123,11 @@ cmd_reject() {
 cmd_pause() {
   [ -z "${1:-}" ] && error "Usage: oracle pause <agentId>"
   header "Pausing agent ${1}"
-  curl -sf -X POST "${ORACLE_URL}/agents/${1}/pause" | pretty
+  # by=operator is required — Oracle records any caller that doesn't say
+  # "operator" as a client pause (least privilege).
+  curl -sf -X POST "${ORACLE_URL}/agents/${1}/pause" \
+    -H "Content-Type: application/json" \
+    -d '{"by":"operator","reason":"Paused by operator from the CLI"}' | pretty
   echo -e "\n  ${YELLOW}⏸${NC} Agent paused"
 }
 

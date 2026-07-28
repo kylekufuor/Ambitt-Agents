@@ -50,6 +50,32 @@ export function canResume(
   return pausedBy === "client";
 }
 
+// Who is asking, for the HTTP control endpoints (/agents/:id/pause|resume)?
+//
+// Two surfaces drive those endpoints: the OPERATOR dashboard (server actions +
+// oracle/cli.sh) and the CLIENT portal proxy. Oracle has no auth on them, so
+// the caller declares itself in the body (`by` on pause, `requester` on resume;
+// either key is accepted on both) and we validate the value here.
+//
+// Rules, all fail-safe:
+//   - "operator" is the ONLY value that grants operator authority.
+//   - absent / unknown / non-string → "client" (least privilege). A caller that
+//     forgets the field can never silently inherit authority to lift a system
+//     safety halt.
+//   - "system" is NOT reachable over HTTP — a seatbelt/spike/budget halt is
+//     in-process code only, never something a request can claim to be.
+//   - if both keys are present and disagree, the least privileged wins.
+export function resolveControlRequester(body: unknown): "client" | "operator" {
+  if (typeof body !== "object" || body === null) return "client";
+  const b = body as { by?: unknown; requester?: unknown };
+  const declared = [b.requester, b.by].filter((v) => v !== undefined && v !== null);
+  if (declared.length === 0) return "client";
+  const allOperator = declared.every(
+    (v) => typeof v === "string" && v.trim().toLowerCase() === "operator"
+  );
+  return allOperator ? "operator" : "client";
+}
+
 // Minimal structural DB interface — the real PrismaClient satisfies this shape,
 // and tests supply an in-memory mock.
 export interface PauseDb {

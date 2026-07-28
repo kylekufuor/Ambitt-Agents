@@ -3,6 +3,7 @@
 import {
   pauseRank,
   canResume,
+  resolveControlRequester,
   haltAgent,
   resumeAgent,
   type PauseDb,
@@ -63,6 +64,29 @@ check("canResume client over client pause", canResume("client", "client") === tr
 check("canResume client DENIED over system pause", canResume("system", "client") === false);
 check("canResume client DENIED over operator pause", canResume("operator", "client") === false);
 check("canResume client DENIED over null pause", canResume(null, "client") === false);
+
+// --- resolveControlRequester: who the HTTP caller is allowed to claim to be --
+// The portal (client) and the dashboard/CLI (operator) both hit the same
+// unauthenticated Oracle endpoints, so the body declares the caller. Anything
+// that isn't an explicit "operator" must fall back to the least-privileged
+// actor, or a portal call inherits authority over a safety halt.
+check("requester: dashboard resume body {requester:'operator'} -> operator", resolveControlRequester({ requester: "operator" }) === "operator");
+check("requester: dashboard pause body {by:'operator'} -> operator", resolveControlRequester({ by: "operator", reason: "x" }) === "operator");
+check("requester: portal resume body {requester:'client'} -> client", resolveControlRequester({ requester: "client" }) === "client");
+check("requester: portal pause body {by:'client'} -> client", resolveControlRequester({ by: "client", reason: "x" }) === "client");
+check("requester: no body (legacy caller) -> client", resolveControlRequester(undefined) === "client");
+check("requester: null body -> client", resolveControlRequester(null) === "client");
+check("requester: empty body -> client", resolveControlRequester({}) === "client");
+check("requester: reason-only body -> client", resolveControlRequester({ reason: "Paused by operator" }) === "client");
+check("requester: cannot claim 'system' over HTTP", resolveControlRequester({ requester: "system" }) === "client");
+check("requester: cannot claim 'system' via by", resolveControlRequester({ by: "system" }) === "client");
+check("requester: unknown string -> client", resolveControlRequester({ requester: "admin" }) === "client");
+check("requester: non-string -> client", resolveControlRequester({ requester: 1 }) === "client");
+check("requester: array body -> client", resolveControlRequester(["operator"]) === "client");
+check("requester: string body -> client", resolveControlRequester("operator") === "client");
+check("requester: case/whitespace tolerated -> operator", resolveControlRequester({ requester: " Operator " }) === "operator");
+check("requester: conflicting keys -> least privileged wins", resolveControlRequester({ by: "operator", requester: "client" }) === "client");
+check("requester: conflicting keys (reverse) -> least privileged wins", resolveControlRequester({ by: "client", requester: "operator" }) === "client");
 
 // --- Flow: client halt -> client resume OK ---------------------------------
 async function run() {
@@ -163,6 +187,84 @@ async function run() {
     check("unknown agent halt: ok:false status unknown", h.ok === false && h.status === "unknown", JSON.stringify(h));
     const r = await resumeAgent(db, { agentId: "nope", requester: "operator" });
     check("unknown agent resume: ok:false status unknown", r.ok === false && r.status === "unknown", JSON.stringify(r));
+  }
+
+  // --- Endpoint-shaped flows: the request BODY decides authority -------------
+  // These mirror what the HTTP handlers do — resolveControlRequester(req.body)
+  // then halt/resume — so a regression in the wiring (e.g. hardcoding
+  // "operator" again) fails here, not in production.
+  const portalResumeBody = { requester: "client" } as const;
+  const portalPauseBody = { by: "client", reason: "Paused by the client from the portal" } as const;
+  const dashboardResumeBody = { requester: "operator" } as const;
+  const dashboardPauseBody = { by: "operator", reason: "Paused by operator from the dashboard" } as const;
+
+  {
+    // The regression that started this: spike-detector auto-pause + portal Resume.
+    const db = makeDb({ p1: { status: "active", pausedBy: null } });
+    await haltAgent(db, { agentId: "p1", by: "system", reason: "spike: 6× baseline" });
+    const r = await resumeAgent(db, { agentId: "p1", requester: resolveControlRequester(portalResumeBody) });
+    check("portal resume of SYSTEM pause: DENIED", r.ok === false && r.pausedBy === "system", JSON.stringify(r));
+    check("portal resume of SYSTEM pause: agent stays paused", db.rows.get("p1")?.status === "paused");
+  }
+
+  {
+    const db = makeDb({ p2: { status: "active", pausedBy: null } });
+    await haltAgent(db, { agentId: "p2", by: "operator", reason: "Paused by operator from the dashboard" });
+    const r = await resumeAgent(db, { agentId: "p2", requester: resolveControlRequester(portalResumeBody) });
+    check("portal resume of OPERATOR pause: DENIED", r.ok === false && r.pausedBy === "operator", JSON.stringify(r));
+    check("portal resume of OPERATOR pause: agent stays paused", db.rows.get("p2")?.status === "paused");
+  }
+
+  {
+    const db = makeDb({ p3: { status: "active", pausedBy: null } });
+    const h = await haltAgent(db, {
+      agentId: "p3",
+      by: resolveControlRequester(portalPauseBody),
+      reason: portalPauseBody.reason,
+    });
+    check("portal pause records pausedBy=client", h.ok && h.pausedBy === "client", JSON.stringify(h));
+    const r = await resumeAgent(db, { agentId: "p3", requester: resolveControlRequester(portalResumeBody) });
+    check("portal resume of OWN client pause: allowed", r.ok && r.status === "active", JSON.stringify(r));
+  }
+
+  {
+    const db = makeDb({ p4: { status: "active", pausedBy: null } });
+    await haltAgent(db, { agentId: "p4", by: "system", reason: "outbound seatbelt" });
+    const r = await resumeAgent(db, { agentId: "p4", requester: resolveControlRequester(dashboardResumeBody) });
+    check("dashboard resume of SYSTEM pause: allowed", r.ok && r.status === "active", JSON.stringify(r));
+  }
+
+  {
+    const db = makeDb({ p5: { status: "active", pausedBy: null } });
+    const h = await haltAgent(db, {
+      agentId: "p5",
+      by: resolveControlRequester(dashboardPauseBody),
+      reason: dashboardPauseBody.reason,
+    });
+    check("dashboard pause records pausedBy=operator", h.ok && h.pausedBy === "operator", JSON.stringify(h));
+    const denied = await resumeAgent(db, { agentId: "p5", requester: resolveControlRequester(portalResumeBody) });
+    check("client can't undo a dashboard pause", denied.ok === false, JSON.stringify(denied));
+  }
+
+  {
+    // A caller that sends no body at all gets client authority — fail-safe.
+    const db = makeDb({ p6: { status: "active", pausedBy: null } });
+    await haltAgent(db, { agentId: "p6", by: "system", reason: "budget cap" });
+    const r = await resumeAgent(db, { agentId: "p6", requester: resolveControlRequester(undefined) });
+    check("bodyless resume of SYSTEM pause: DENIED (fail-safe default)", r.ok === false && r.pausedBy === "system", JSON.stringify(r));
+  }
+
+  {
+    // A client pause must never downgrade a live system halt.
+    const db = makeDb({ p7: { status: "active", pausedBy: null } });
+    await haltAgent(db, { agentId: "p7", by: "system", reason: "spike" });
+    const h = await haltAgent(db, {
+      agentId: "p7",
+      by: resolveControlRequester(portalPauseBody),
+      reason: portalPauseBody.reason,
+    });
+    check("portal pause over SYSTEM pause: noop, stays system", h.ok === true && h.noop === true && h.pausedBy === "system", JSON.stringify(h));
+    check("portal pause over SYSTEM pause: db still system", db.rows.get("p7")?.pausedBy === "system");
   }
 
   console.log(`\n${pass}/${pass + fail} passed${fail ? ` — ${fail} FAILED` : " — all green"}`);

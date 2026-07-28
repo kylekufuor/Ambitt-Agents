@@ -37,15 +37,18 @@ async function patch(path: string, body: unknown): Promise<void> {
   }
 }
 
+// `by` / `requester` are REQUIRED for operator authority — Oracle treats any
+// caller that doesn't say "operator" as a client, and a client can't lift a
+// system (spike / seatbelt / budget) or operator halt.
 export async function pauseAgentAction(formData: FormData): Promise<void> {
   const id = formData.get("agentId") as string;
-  await post(`/agents/${id}/pause`, { reason: "Paused by operator from the dashboard" });
+  await post(`/agents/${id}/pause`, { by: "operator", reason: "Paused by operator from the dashboard" });
   revalidatePath("/agents");
 }
 
 export async function resumeAgentAction(formData: FormData): Promise<void> {
   const id = formData.get("agentId") as string;
-  await post(`/agents/${id}/resume`);
+  await post(`/agents/${id}/resume`, { requester: "operator" });
   revalidatePath("/agents");
 }
 

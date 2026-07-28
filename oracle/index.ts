@@ -9,7 +9,7 @@ import { handleStripeWebhook } from "./billing.js";
 import { onboardClient } from "./onboard.js";
 import { classifyAutomatedInbound } from "./lib/inbound-classify.js";
 import { classifyControlIntent, isHaltIntent } from "./lib/intent-classify.js";
-import { haltAgent, resumeAgent } from "./lib/pause-control.js";
+import { haltAgent, resumeAgent, resolveControlRequester } from "./lib/pause-control.js";
 import { nextThrottledFrequency, throttleConfirmation } from "./lib/throttle.js";
 import prisma from "../shared/db.js";
 import logger from "../shared/logger.js";
@@ -558,14 +558,28 @@ app.post("/agents/pause-all", async (_req: Request, res: Response) => {
   }
 });
 
-// Pause agent
+// Pause agent. The caller declares itself in the body (`by`/`requester`);
+// anything that isn't an explicit "operator" is recorded as a CLIENT pause —
+// see resolveControlRequester. A client pause is the weakest halt, so it never
+// downgrades an existing operator/system halt and only the client (or an
+// operator) can lift it.
 app.post("/agents/:id/pause", async (req: Request, res: Response) => {
   try {
     const id = param(req, "id");
+    const by = resolveControlRequester(req.body);
     const { unregisterAgent } = await import("./scheduler.js");
     unregisterAgent(id);
-    const reason = typeof req.body?.reason === "string" ? req.body.reason : "Paused by operator";
-    await haltAgent(prisma, { agentId: id, by: "operator", reason });
+    const reason =
+      typeof req.body?.reason === "string" && req.body.reason.trim().length > 0
+        ? req.body.reason
+        : by === "operator"
+          ? "Paused by operator"
+          : "Paused by the client from the portal";
+    const r = await haltAgent(prisma, { agentId: id, by, reason });
+    if (!r.ok) {
+      res.status(r.status === "unknown" ? 404 : 400).json({ error: r.message, status: r.status });
+      return;
+    }
     // Cancel pending onboarding checkpoints — pause means "stop the flow."
     try {
       const { cancelOnboardingCheckpoints } = await import("./scaffold.js");
@@ -573,7 +587,8 @@ app.post("/agents/:id/pause", async (req: Request, res: Response) => {
     } catch (err) {
       logger.warn("Failed to cancel checkpoints on pause", { agentId: id, error: err });
     }
-    res.json({ status: "paused" });
+    logger.info("Agent paused", { agentId: id, by, noop: r.noop ?? false });
+    res.json({ status: r.status, pausedBy: r.pausedBy ?? null, noop: r.noop ?? false });
   } catch (error) {
     logger.error("Agent pause failed", { error, agentId: param(req, "id") });
     res.status(500).json({ error: "Pause failed" });
@@ -594,10 +609,15 @@ app.post("/agents/:id/resume", async (req: Request, res: Response) => {
       return;
     }
 
-    // Operator resume — authoritative over client/operator/system pauses.
-    const r = await resumeAgent(prisma, { agentId: id, requester: "operator" });
+    // Resume authority follows WHO is asking. Only an explicit operator caller
+    // (dashboard / CLI) can lift an operator or system halt — a client resume
+    // can only clear a pause the client themselves placed, so the spike
+    // auto-pause, the outbound seatbelt and the budget cap stay held.
+    const requester = resolveControlRequester(req.body);
+    const r = await resumeAgent(prisma, { agentId: id, requester });
     if (!r.ok) {
-      res.status(400).json({ error: r.message });
+      logger.warn("Agent resume denied", { agentId: id, requester, pausedBy: r.pausedBy ?? null });
+      res.status(403).json({ error: r.message, pausedBy: r.pausedBy ?? null, status: r.status });
       return;
     }
 
@@ -606,7 +626,7 @@ app.post("/agents/:id/resume", async (req: Request, res: Response) => {
       registerAgent(id, agent.schedule);
     }
 
-    logger.info("Agent resumed", { agentId: id, noop: r.noop ?? false });
+    logger.info("Agent resumed", { agentId: id, requester, noop: r.noop ?? false });
     res.json({ status: r.status });
   } catch (error) {
     logger.error("Agent resume failed", { error, agentId: param(req, "id") });

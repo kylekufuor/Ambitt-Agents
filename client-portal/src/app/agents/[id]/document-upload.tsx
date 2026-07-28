@@ -48,7 +48,7 @@ export function DocumentUpload({
         const newDocs = data.documents as DocumentItem[];
         setDocs((prev) => [...prev, ...newDocs]);
         const n = newDocs.length;
-        setResult(`Added ${n} ${n === 1 ? "file" : "files"} — ${agentName}{" "}can work from ${n === 1 ? "it" : "them"} now.`);
+        setResult(`Added ${n} ${n === 1 ? "file" : "files"} — ${agentName} can work from ${n === 1 ? "it" : "them"} now.`);
         if (fileRef.current) fileRef.current.value = "";
       }
     } catch (err) {

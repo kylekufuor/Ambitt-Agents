@@ -197,7 +197,7 @@ export function CommunicationSettings({ agentId, agentName }: { agentId: string;
       {/* MFA relay */}
       <SettingCard
         title="Verification codes"
-        hint={`When ${agentName}{" "}needs a one-time code to sign in on your behalf, how should it reach you?`}
+        hint={`When ${agentName} needs a one-time code to sign in on your behalf, how should it reach you?`}
         icon={<KeyIcon size={19} />}
         accent="chip-amber"
       >
@@ -231,7 +231,7 @@ export function CommunicationSettings({ agentId, agentName }: { agentId: string;
       {/* Outbound identity */}
       <SettingCard
         title="Send to your clients from"
-        hint={`Which inbox ${agentName}{" "}sends outreach from. Replies land in that inbox. Ambitt's address is the default.`}
+        hint={`Which inbox ${agentName} sends outreach from. Replies land in that inbox. Ambitt's address is the default.`}
         icon={<MailIcon size={19} />}
         accent="chip-teal"
       >
@@ -276,7 +276,7 @@ export function CommunicationSettings({ agentId, agentName }: { agentId: string;
       {/* Signature */}
       <SettingCard
         title="Email signature"
-        hint={`Added to the bottom of emails ${agentName}{" "}sends on your behalf. Name, title, phone, a booking link.`}
+        hint={`Added to the bottom of emails ${agentName} sends on your behalf. Name, title, phone, a booking link.`}
         icon={<PenIcon size={19} />}
         accent="chip-indigo"
       >
