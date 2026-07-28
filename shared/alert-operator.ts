@@ -34,7 +34,9 @@ export async function alertOperator(message: string): Promise<string> {
 
   if (phone && smsConfigured()) {
     try {
-      const sid = await sendSms({ to: phone, message });
+      // audience:"operator" — alerts are Kyle-facing, so they skip the
+      // client-copy em-dash scrub in shared/sms.ts and go out verbatim.
+      const sid = await sendSms({ to: phone, message, audience: "operator" });
       return `sms:${sid}`;
     } catch (err) {
       logger.warn("Operator SMS failed — falling back to email", {

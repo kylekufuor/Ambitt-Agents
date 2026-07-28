@@ -227,14 +227,18 @@ const propsFor: Record<string, () => EmailProps> = {
   }),
 };
 
-// Subjects the router builds, needed to seed repetition cases. Written out
-// literally (not re-derived from the code under test) so the client-facing copy
-// is pinned here: the approval subjects name the ASK, they are not constants.
+// Subjects as DELIVERED, needed to seed repetition cases. Written out literally
+// (not re-derived from the code under test) so the client-facing copy is pinned
+// here: the approval subjects name the ASK, they are not constants.
+//
+// The builder in email-subject.ts still writes "Arthur — approve: …"; the
+// em-dash scrub in shared/email.ts rewrites it to "Arthur, approve: …" on the
+// way out, so that's what lands in the inbox and in the EmailSend audit row.
 const SUBJECT = {
   "credential-request": `${NAME} needs your CoStar login`,
-  "action-required": `${NAME} — approve: send the outreach list to 12 owners`,
-  permission: `${NAME} — access needed: Gmail`,
-  welcome: `Meet ${NAME} — your new Ambitt agent for Acme`,
+  "action-required": `${NAME}, approve: send the outreach list to 12 owners`,
+  permission: `${NAME}, access needed: Gmail`,
+  welcome: `Meet ${NAME}, your new Ambitt agent for Acme`,
 };
 
 // --- 4. Seeds --------------------------------------------------------------
@@ -417,9 +421,9 @@ async function main() {
       ],
       wantSent: [true, true, true],
       wantSubjects: [
-        `${NAME} — approve: send the outreach list to 12 owners`,
-        `${NAME} — approve: book a tour of 400 Main St for Thursday`,
-        `${NAME} — approve: archive the 6 listings that went under contract`,
+        `${NAME}, approve: send the outreach list to 12 owners`,
+        `${NAME}, approve: book a tour of 400 Main St for Thursday`,
+        `${NAME}, approve: archive the 6 listings that went under contract`,
       ],
       wantHalted: false,
     },
@@ -438,7 +442,7 @@ async function main() {
       name: "3 DIFFERENT access asks in 30 min",
       sends: [accessAsk("HubSpot"), accessAsk("Gmail"), accessAsk("Slack")],
       wantSent: [true, true, true],
-      wantSubjects: [`${NAME} — access needed: HubSpot`, `${NAME} — access needed: Gmail`, `${NAME} — access needed: Slack`],
+      wantSubjects: [`${NAME}, access needed: HubSpot`, `${NAME}, access needed: Gmail`, `${NAME}, access needed: Slack`],
       wantHalted: false,
     },
     {
@@ -454,7 +458,7 @@ async function main() {
       name: "the SAME access ask 3x in 30 min",
       sends: [accessAsk("HubSpot"), accessAsk("HubSpot"), accessAsk("HubSpot")],
       wantSent: [true, true, false],
-      wantSubjects: [`${NAME} — access needed: HubSpot`, `${NAME} — access needed: HubSpot`],
+      wantSubjects: [`${NAME}, access needed: HubSpot`, `${NAME}, access needed: HubSpot`],
       wantHalted: true,
     },
   ];

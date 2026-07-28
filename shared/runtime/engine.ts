@@ -25,6 +25,7 @@ import {
 import { sendAgentEmail } from "../../oracle/lib/emailRouter.js";
 import { relayMfaRequest } from "../mfa-relay.js";
 import { logUsage, CLIENT_MODEL, TRIAGE_MODEL } from "../claude.js";
+import { stripEmDashes } from "../scrub-emdash.js";
 import type { EmailAttachment } from "../email.js";
 import prisma from "../db.js";
 import { Prisma } from "@prisma/client";
@@ -1462,8 +1463,27 @@ export async function runAgent(input: RuntimeInput): Promise<RuntimeOutput> {
     modelsUsed: Object.keys(usageByModel),
   });
 
+  // Em-dash safety net for the chat surface. Email and SMS get scrubbed at
+  // their send choke points (shared/email.ts, shared/sms.ts); chat has none —
+  // this string is returned straight down the wire to the client by
+  // POST /chat/:agentId/messages. The ConversationMessage row above keeps the
+  // model's raw output on purpose: that's the honest record of what the model
+  // actually wrote, which is what tells us whether VOICE_RULES is holding.
+  let clientResponse = finalResponse;
+  if (channel === "chat") {
+    const scrub = stripEmDashes(finalResponse);
+    if (scrub.replaced > 0) {
+      logger.warn("Em dashes scrubbed from outbound chat reply", {
+        channel: "chat",
+        agentId,
+        replaced: scrub.replaced,
+      });
+    }
+    clientResponse = scrub.text;
+  }
+
   return {
-    response: finalResponse,
+    response: clientResponse,
     toolsUsed,
     attachments,
     totalInputTokens,

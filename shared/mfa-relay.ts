@@ -317,7 +317,7 @@ export interface RuntimeEmailArgs {
 export interface RelayDeps {
   db: RelayDb;
   smsConfigured: () => boolean | Promise<boolean>;
-  sendSms: (opts: { to: string; message: string }) => Promise<unknown>;
+  sendSms: (opts: { to: string; message: string; agentId?: string }) => Promise<unknown>;
   haltAgent: (args: { agentId: string; by: "system"; reason: string }) => Promise<unknown>;
   alertOperator: (message: string) => Promise<unknown>;
   sendWorkerEmail: (args: WorkerEmailArgs) => Promise<unknown>;
@@ -556,7 +556,7 @@ export async function relayMfaRequest(
         }
 
         try {
-          await deps.sendSms({ to: clientMobile, message });
+          await deps.sendSms({ to: clientMobile, message, agentId });
           // Durable audit row = the cap ledger. Best-effort (mirrors EmailSend):
           // the text already went out, so a write hiccup must not fail the send
           // or trigger a resend. Store only the last 4 digits; never the code.

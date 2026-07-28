@@ -8,6 +8,8 @@
 // Thresholds here are GLOBAL defaults for now; they are made per-agent
 // configurable later (pass overrides via the `cfg` argument in the meantime).
 
+import { stripEmDashes } from "./scrub-emdash.js";
+
 // Rate caps are tuned to tolerate legitimately chatty exchanges: a client
 // firing off several quick replies must NOT system-pause the agent. The rate
 // checks are the blunt fallback; the repetition detector (same subject → same
@@ -47,10 +49,18 @@ export interface SeatbeltDb {
 }
 
 // Normalize a subject for repetition comparison:
-// lowercase, trim, collapse internal whitespace, strip a single leading Re:/Fw:/Fwd:.
+// em-dash scrub, lowercase, trim, collapse internal whitespace, strip a single
+// leading Re:/Fw:/Fwd:.
+//
+// The scrub has to run FIRST and on both sides, because shared/email.ts rewrites
+// em dashes on the way out: the subject handed to this check is pre-scrub while
+// the EmailSend rows it compares against are post-scrub (and rows written before
+// the scrub existed still carry em dashes). Without this, "Arthur — approve: X"
+// and the stored "Arthur, approve: X" look like different subjects and the
+// repetition circuit breaker silently stops tripping.
 function normalizeSubject(subject: string): string {
-  return subject
-    .toLowerCase()
+  return stripEmDashes(subject)
+    .text.toLowerCase()
     .trim()
     .replace(/\s+/g, " ")
     .replace(/^(re|fwd?):\s*/i, "")

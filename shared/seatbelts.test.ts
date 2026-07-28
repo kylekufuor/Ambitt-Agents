@@ -151,6 +151,20 @@ const cases: Case[] = [
     wantTripped: "repetition",
   },
   {
+    // shared/email.ts scrubs em dashes on the way out, so the subject handed to
+    // this check (pre-scrub) and the stored rows (post-scrub, plus older rows
+    // written before the scrub existed) must still compare equal. If they don't,
+    // the repetition breaker silently stops tripping.
+    name: "em-dash vs scrubbed subject normalize-equal -> repetition",
+    rows: [
+      ago(5, { subject: "Arthur, approve: send the outreach list" }),
+      ago(10, { subject: "Arthur — approve: send the outreach list" }),
+    ],
+    args: { agentId: AGENT, recipient: RECIPIENT, subject: "Arthur — approve: send the outreach list" },
+    wantAllowed: false,
+    wantTripped: "repetition",
+  },
+  {
     name: "single prior identical subject (below repetitionMax) -> allowed",
     rows: [ago(5, { subject: "Ping" })],
     args: { agentId: AGENT, recipient: RECIPIENT, subject: "Ping" },

@@ -1,6 +1,7 @@
 import { Resend } from "resend";
 import logger from "./logger.js";
 import prisma from "./db.js";
+import { stripEmDashes, stripEmDashesHtml } from "./scrub-emdash.js";
 
 function getClient(): Resend {
   const key = process.env.RESEND_API_KEY;
@@ -33,6 +34,11 @@ interface SendEmailOptions {
   // Used by the dashboard delivery badge + bounce alerts to identify which
   // artifact failed delivery.
   emailType?: string;
+  // Who reads this. Client-facing copy (the default) gets the em-dash scrub;
+  // operator-facing mail is Kyle's, written for signal not for voice, and is
+  // passed through untouched. Recipient-matching OPERATOR_EMAIL is treated as
+  // "operator" automatically, so existing ops call sites need no change.
+  audience?: "client" | "operator";
 }
 
 interface EmailResult {
@@ -44,7 +50,37 @@ export async function sendEmail(
   options: SendEmailOptions,
   retries = 3
 ): Promise<EmailResult> {
-  const { agentId, agentName, to, subject, html, replyToAgentId } = options;
+  const { agentId, agentName, to, replyToAgentId } = options;
+
+  // Em-dash safety net. VOICE_RULES bans the em dash in every agent's system
+  // prompt; this is what happens when a model ignores it. sendEmail is the
+  // choke point every agent email funnels through, so scrubbing here covers
+  // all of them regardless of template or trigger. Runs before the dry-run
+  // intercept below so a captured preview is byte-identical to what a live
+  // send would put in the client's inbox.
+  const operatorAddress = (process.env.OPERATOR_EMAIL ?? "").toLowerCase().trim();
+  const operatorBound =
+    options.audience === "operator" ||
+    (operatorAddress.length > 0 && to.toLowerCase().trim() === operatorAddress);
+  const subjectScrub = operatorBound
+    ? { text: options.subject, replaced: 0 }
+    : stripEmDashes(options.subject);
+  const bodyScrub = operatorBound
+    ? { text: options.html, replaced: 0 }
+    : stripEmDashesHtml(options.html);
+  const subject = subjectScrub.text;
+  const html = bodyScrub.text;
+  if (subjectScrub.replaced + bodyScrub.replaced > 0) {
+    // Counts only — never the copy itself. This log IS the signal for whether
+    // the prompt rule is holding; if it gets noisy, fix the prompt.
+    logger.warn("Em dashes scrubbed from outbound email", {
+      channel: "email",
+      agentId,
+      subjectReplaced: subjectScrub.replaced,
+      bodyReplaced: bodyScrub.replaced,
+      emailType: options.emailType ?? null,
+    });
+  }
 
   // The agent's canonical, unique inbox address (e.g. "arthur-litsey@ambitt.agency").
   // We send FROM this so the address the client sees in their inbox is the same

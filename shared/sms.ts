@@ -1,5 +1,6 @@
 import twilio from "twilio";
 import logger from "./logger.js";
+import { stripEmDashes } from "./scrub-emdash.js";
 
 // ---------------------------------------------------------------------------
 // Plain SMS via Twilio — sister to shared/whatsapp.ts, minus the "whatsapp:"
@@ -34,22 +35,62 @@ export function smsConfigured(): boolean {
 interface SmsOptions {
   to: string;
   message: string;
+  /** Log context only — never sent to Twilio. */
+  agentId?: string;
+  // Who reads this. Client-facing copy (the default) gets the em-dash scrub;
+  // operator alerts (shared/alert-operator.ts) pass "operator" and go out
+  // exactly as written.
+  audience?: "client" | "operator";
 }
+
+/**
+ * The one Twilio call this module makes. Injectable so the send path can be
+ * unit-tested without credentials or a network hop; production always uses the
+ * real client built below.
+ */
+export type SmsSender = (args: {
+  body: string;
+  from: string;
+  to: string;
+}) => Promise<{ sid: string }>;
 
 export async function sendSms(
   options: SmsOptions,
-  retries = 3
+  retries = 3,
+  sender?: SmsSender
 ): Promise<string> {
-  const { to, message } = options;
+  const { to, agentId } = options;
+
+  // Em-dash safety net — the SMS twin of the scrub in shared/email.ts. This is
+  // the last stop before the text leaves the platform.
+  const scrub =
+    options.audience === "operator"
+      ? { text: options.message, replaced: 0 }
+      : stripEmDashes(options.message);
+  const message = scrub.text;
+  if (scrub.replaced > 0) {
+    // Count only, never the body — MFA-relay copy names the service being
+    // signed into (same reason the error log below omits it).
+    logger.warn("Em dashes scrubbed from outbound SMS", {
+      channel: "sms",
+      agentId: agentId ?? null,
+      replaced: scrub.replaced,
+    });
+  }
+
   const from =
     process.env.TWILIO_SMS_NUMBER || process.env.TWILIO_WHATSAPP_NUMBER;
   if (!from) throw new Error("TWILIO_SMS_NUMBER is not set");
 
-  const client = getClient();
+  let send = sender;
+  if (!send) {
+    const client = getClient();
+    send = (args) => client.messages.create(args);
+  }
 
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
-      const result = await client.messages.create({
+      const result = await send({
         body: message,
         from,
         to,
