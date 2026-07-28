@@ -178,7 +178,7 @@ function buildWelcomeEmail(businessName: string, agentName: string, credentialLi
 
       <p style="color: #888; font-size: 14px;">
         Questions? Reply to this email or reach us at support@ambitt.agency.<br/>
-        ${agentName}<br/>Your agent at Ambitt
+        ${agentName}<br/>Your agent at Ambitt Agents
       </p>
     </div>
   `;

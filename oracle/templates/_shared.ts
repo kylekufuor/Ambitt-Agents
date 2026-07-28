@@ -236,13 +236,13 @@ export function navFooterLinks(agentName: string, agentId: string): string {
 // as a bare name with no sign-off shape at all.
 //
 //   Arthur
-//   Sourcing agent at Ambitt
+//   Sourcing agent at Ambitt Agents
 
 /** Second sign-off line when the caller has no role to give us. True, and not an invented title. */
-const NEUTRAL_ROLE_LINE = "Your agent at Ambitt";
+const NEUTRAL_ROLE_LINE = "Your agent at Ambitt Agents";
 
 /**
- * Second line of the sign-off: "[Role] at Ambitt".
+ * Second line of the sign-off: "[Role] at Ambitt Agents".
  *
  * `role` is whatever short job title the caller has to hand. For agents Atlas
  * built, the first sentence of Agent.purpose IS the role the client picked
@@ -256,7 +256,7 @@ export function signatureRoleLine(role?: string | null): string {
     firstSentence.length > 60
       ? firstSentence.slice(0, 60).replace(/[\s,;:-]+$/, "")
       : firstSentence;
-  return clipped ? `${clipped} at Ambitt` : NEUTRAL_ROLE_LINE;
+  return clipped ? `${clipped} at Ambitt Agents` : NEUTRAL_ROLE_LINE;
 }
 
 export function footerBlock(

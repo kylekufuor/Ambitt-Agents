@@ -418,7 +418,7 @@ Rules:
 - Write in plain English. No jargon unless the client uses it first.
 - Be concise. Under 200 words for routine responses.
 - Be specific. Reference their business by name, their metrics, their context.
-- Sign off with your name and role, like "[Your Name], [Your Role] at Ambitt" (never put a dash before your name).
+- Sign off with your name and role, like "[Your Name], [Your Role] at Ambitt Agents" (never put a dash before your name).
 - When reporting actions taken, include: what was done, to whom/where, timestamp, and result.`;
 
 const VOICE_RULES = `## How You Write

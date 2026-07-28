@@ -2067,7 +2067,7 @@ app.post("/webhooks/email-inbound", async (req: Request, res: Response) => {
               <p>I've received and studied the following documents:</p>
               <ul>${parsed.map((p) => `<li><strong>${p.filename}</strong> (${p.sizeBytes > 1024 ? Math.round(p.sizeBytes / 1024) + "KB" : p.sizeBytes + "B"})</li>`).join("")}</ul>
               <p>This information is now part of my knowledge about your business. I'll reference it in future work.</p>
-              <p style="color: #9ca3af; font-size: 13px;">${agent.name}<br />Your agent at Ambitt</p>
+              <p style="color: #9ca3af; font-size: 13px;">${agent.name}<br />Your agent at Ambitt Agents</p>
             </div>`,
             replyToAgentId: agentId,
           });
@@ -2156,7 +2156,7 @@ app.post("/webhooks/email-inbound", async (req: Request, res: Response) => {
                 subject: `${agent.name} dismissed that action`,
                 html: `<div style="font-family: -apple-system, sans-serif; max-width: 560px; margin: 0 auto; padding: 24px;">
                   <p>Got it. I've <strong>dismissed</strong>: "${recommendation.title}". I won't proceed.</p>
-                  <p style="color: #9ca3af; font-size: 13px;">${agent.name}<br />Your agent at Ambitt</p>
+                  <p style="color: #9ca3af; font-size: 13px;">${agent.name}<br />Your agent at Ambitt Agents</p>
                 </div>`,
                 replyToAgentId: agentId,
               });
@@ -2587,7 +2587,7 @@ async function sendOnboardLinkTeaser(
   <p style="font-size: 13px; color: #737373; margin: 0 0 8px; line-height: 1.6;">
     Your progress saves automatically, so you can pause and come back any time.
   </p>
-  <p style="font-size: 13px; color: #a3a3a3; margin: 32px 0 0;">Atlas<br />Your onboarding agent at Ambitt</p>
+  <p style="font-size: 13px; color: #a3a3a3; margin: 32px 0 0;">Atlas<br />Your onboarding agent at Ambitt Agents</p>
 </div>`,
     replyToAgentId: atlas.id,
   });
@@ -4120,7 +4120,7 @@ function renderToolsHandoffEmail(input: {
   <p style="font-size: 13px; color: #737373; margin: 0 0 8px; line-height: 1.6;">
     Once tools are connected, we'll finish the build internally and let you know when ${input.agentName} is ready to start running.
   </p>
-  <p style="font-size: 13px; color: #a3a3a3; margin: 32px 0 0;">Atlas<br />Your onboarding agent at Ambitt</p>
+  <p style="font-size: 13px; color: #a3a3a3; margin: 32px 0 0;">Atlas<br />Your onboarding agent at Ambitt Agents</p>
 </div>`;
 }
 
@@ -4305,7 +4305,7 @@ function renderQuoteTeaserEmail(
   <div style="margin: 0 0 32px;">
     <a href="${quoteUrl}" style="display: inline-block; padding: 14px 30px; background: #00b3b3; color: #ffffff; text-decoration: none; border-radius: 9px; font-size: 15px; font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,0.05), 0 4px 12px rgba(0, 179, 179, 0.28);">View your quote →</a>
   </div>
-  <p style="font-size: 13px; color: #a3a3a3; margin: 32px 0 0;">Atlas<br />Your onboarding agent at Ambitt</p>
+  <p style="font-size: 13px; color: #a3a3a3; margin: 32px 0 0;">Atlas<br />Your onboarding agent at Ambitt Agents</p>
 </div>`;
 }
 
@@ -4860,7 +4860,7 @@ function renderProspectAutoResponse(firstName: string, onboardUrl: string, porta
   <p style="font-size: 14px; color: #404040; margin: 0 0 16px; line-height: 1.65;">
     Anything outside the form, just reply to this email. That route works because I'll see the thread.
   </p>
-  <p style="font-size: 13px; color: #a3a3a3; margin: 24px 0 0;">Atlas<br />Your onboarding agent at Ambitt</p>
+  <p style="font-size: 13px; color: #a3a3a3; margin: 24px 0 0;">Atlas<br />Your onboarding agent at Ambitt Agents</p>
 </div>`;
 }
 
@@ -4879,7 +4879,7 @@ function renderGenericAutoResponse(firstName: string, onboardLandingUrl: string,
   <p style="font-size: 14px; color: #404040; margin: 0 0 16px; line-height: 1.65;">
     Not a fit for onboarding? Email <a href="mailto:team@ambitt.agency" style="color: #00b3b3; text-decoration: none;">team@ambitt.agency</a> and a human will get back to you.
   </p>
-  <p style="font-size: 13px; color: #a3a3a3; margin: 24px 0 0;">Atlas<br />Your onboarding agent at Ambitt</p>
+  <p style="font-size: 13px; color: #a3a3a3; margin: 24px 0 0;">Atlas<br />Your onboarding agent at Ambitt Agents</p>
 </div>`;
 }
 
@@ -4910,7 +4910,7 @@ function renderProposalTeaserEmail(
   <p style="font-size: 13px; color: #737373; margin: 0 0 8px; line-height: 1.6;">
     Pricing and timeline come after you approve scope. We'll handle those next.
   </p>
-  <p style="font-size: 13px; color: #a3a3a3; margin: 32px 0 0;">Atlas<br />Your onboarding agent at Ambitt</p>
+  <p style="font-size: 13px; color: #a3a3a3; margin: 32px 0 0;">Atlas<br />Your onboarding agent at Ambitt Agents</p>
 </div>`;
 }
 
@@ -4933,7 +4933,7 @@ function renderThanksEmail(
   <p style="font-size: 15px; color: #404040; margin: 0 0 24px; line-height: 1.6;">
     Your proposal will land in this inbox within <strong style="color: #171717;">30 minutes</strong>. When it does, you'll be able to approve the scope or ask for changes. Pricing comes after.
   </p>
-  <p style="font-size: 13px; color: #a3a3a3; margin: 32px 0 0;">Atlas<br />Your onboarding agent at Ambitt</p>
+  <p style="font-size: 13px; color: #a3a3a3; margin: 32px 0 0;">Atlas<br />Your onboarding agent at Ambitt Agents</p>
 </div>`;
 }
 

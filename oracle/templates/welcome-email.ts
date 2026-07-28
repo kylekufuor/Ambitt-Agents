@@ -95,7 +95,7 @@ export function buildWelcomeEmail(options: WelcomeEmailOptions): {
                   </td>
                   <td style="padding-left: 14px;">
                     <p style="margin: 0; font-size: 16px; font-weight: 700; color: #1a1a1a;">${agentName}</p>
-                    <p style="margin: 3px 0 0 0; font-size: 12px; color: #9ca3af;">Your AI Agent at Ambitt · ${clientBusinessName}</p>
+                    <p style="margin: 3px 0 0 0; font-size: 12px; color: #9ca3af;">Your AI Agent at Ambitt Agents · ${clientBusinessName}</p>
                   </td>
                 </tr>
               </table>

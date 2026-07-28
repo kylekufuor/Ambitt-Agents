@@ -352,7 +352,7 @@ export function defaultRelayDeps(): RelayDeps {
         html: `<div style="font-family:-apple-system,sans-serif;max-width:540px;margin:0 auto;padding:24px;font-size:15px;color:#26332f;line-height:1.6;">
         <p>${service} just sent you a one-time verification code so I can finish logging in on your behalf.</p>
         <p><strong>Reply to this email with the code</strong> (just the digits) and I'll continue right away.</p>
-        <p style="color:#9aa8a4;font-size:13px;">The code is used once and never stored. ${agentName}, your agent at Ambitt</p>
+        <p style="color:#9aa8a4;font-size:13px;">The code is used once and never stored. ${agentName}, your agent at Ambitt Agents</p>
       </div>`,
         replyToAgentId: agentId,
       });

@@ -94,7 +94,7 @@ const CTA = "https://portal.ambitt.agency/agents/agent_1";
   noEmDash("welcome", html);
   ok(
     "welcome: sign-off is name then role, no leading dash",
-    html.includes(">Arthur</p>") && html.includes(">CRE sourcing agent at Ambitt</p>"),
+    html.includes(">Arthur</p>") && html.includes(">CRE sourcing agent at Ambitt Agents</p>"),
     "sign-off block not found in the render",
   );
 }
@@ -110,7 +110,7 @@ const CTA = "https://portal.ambitt.agency/agents/agent_1";
   noEmDash("onboarding", html);
   ok(
     "onboarding: sign-off is name then neutral role, no leading dash",
-    html.includes(">Arthur</p>") && html.includes(">Your agent at Ambitt</p>"),
+    html.includes(">Arthur</p>") && html.includes(">Your agent at Ambitt Agents</p>"),
     "sign-off block not found in the render",
   );
   ok(
@@ -131,7 +131,7 @@ for (const kind of ["checkin_3day", "highlight_7day", "feedback_14day"] as Check
   noEmDash(`checkpoint (${kind})`, html);
   ok(
     `checkpoint (${kind}): sign-off is name then neutral role, no leading dash`,
-    html.includes(">Arthur</p>") && html.includes(">Your agent at Ambitt</p>"),
+    html.includes(">Arthur</p>") && html.includes(">Your agent at Ambitt Agents</p>"),
   );
 }
 
@@ -296,23 +296,23 @@ ok(
   const eq = (name: string, got: string, want: string) =>
     ok(name, got === want, `got  "${got}"\n        want "${want}"`);
 
-  eq("role line appends 'at Ambitt'", signatureRoleLine("Sourcing agent"), "Sourcing agent at Ambitt");
+  eq("role line appends 'at Ambitt Agents'", signatureRoleLine("Sourcing agent"), "Sourcing agent at Ambitt Agents");
   eq(
     "only the first sentence of purpose is used (the rest is the internal brief)",
     signatureRoleLine("CRE sourcing agent. NEVER price a deal autonomously."),
-    "CRE sourcing agent at Ambitt",
+    "CRE sourcing agent at Ambitt Agents",
   );
   eq(
     "a multi-line purpose stops at the first line",
     signatureRoleLine("Lead-gen agent\nRuns every morning at 8."),
-    "Lead-gen agent at Ambitt",
+    "Lead-gen agent at Ambitt Agents",
   );
-  eq("no role falls back to a neutral true line", signatureRoleLine(), "Your agent at Ambitt");
-  eq("empty role falls back too", signatureRoleLine("   "), "Your agent at Ambitt");
-  eq("null role falls back too", signatureRoleLine(null), "Your agent at Ambitt");
+  eq("no role falls back to a neutral true line", signatureRoleLine(), "Your agent at Ambitt Agents");
+  eq("empty role falls back too", signatureRoleLine("   "), "Your agent at Ambitt Agents");
+  eq("null role falls back too", signatureRoleLine(null), "Your agent at Ambitt Agents");
   ok(
     "an over-long purpose is capped rather than dumped into the signature",
-    signatureRoleLine(`${"a".repeat(200)}`).length <= 60 + " at Ambitt".length,
+    signatureRoleLine(`${"a".repeat(200)}`).length <= 60 + " at Ambitt Agents".length,
     `got length ${signatureRoleLine("a".repeat(200)).length}`,
   );
   ok(
