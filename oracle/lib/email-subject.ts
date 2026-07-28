@@ -13,17 +13,21 @@
 // distinct subjects (no false trip); the same ask sent over and over still
 // produces the same subject and still trips (real loops still caught).
 //
-// Copy rules (client-facing): plain English, first person, no jargon, no
-// "Action Required" shouting. The client should know what they're being asked
-// from the inbox list without opening anything:
+// Copy rules (client-facing): plain English, no jargon, no "Action Required"
+// shouting, and NO EM DASH — the send-time scrub in shared/email.ts rewrites
+// U+2014 on the way out, and a dash we wrote ourselves would both read worse
+// after that rewrite and drown the scrub's warn log, which exists to tell us a
+// MODEL has drifted off the rule. Our own copy is written dash-free instead.
+// The client should know what they're being asked from the inbox list without
+// opening anything:
 //
-//   Arthur — approve: send the outreach list to 12 owners
-//   Arthur — access needed: HubSpot
+//   Arthur needs your approval: send the outreach list to 12 owners
+//   Arthur needs access to HubSpot
 //
 // Pure string functions — no DB, no env, no I/O.
 
 // Inbox clients truncate around 60-70 characters on mobile, and the agent name
-// plus label already eats ~20. Keep the ask itself short enough that the
+// plus label already eats ~28. Keep the ask itself short enough that the
 // distinguishing part survives, long enough that two different asks don't
 // collapse into the same string (which would resurrect the false trip).
 const MAX_DETAIL = 60;
@@ -77,7 +81,7 @@ export function actionRequiredSubject(
   firstStep?: string | null,
 ): string {
   const detail = askDetail(summary) || askDetail(firstStep);
-  return detail ? `${agentName} — approve: ${detail}` : `${agentName} — can you approve this?`;
+  return detail ? `${agentName} needs your approval: ${detail}` : `${agentName} needs your approval`;
 }
 
 /**
@@ -92,10 +96,10 @@ export function permissionSubject(
 ): string {
   const apps = appNames.map((a) => (a ?? "").trim()).filter((a) => a.length > 0);
   // The summary fallback opens with "I need access to your X account to ..."
-  // (see request-tool-connection.ts), which the label already says. Stripped
-  // here rather than in askDetail: "I need access to" is real information in an
-  // approval ask, it's only redundant under the "access needed" label.
+  // (see request-tool-connection.ts), which the subject itself already says.
+  // Stripped here rather than in askDetail: "I need access to" is real
+  // information in an approval ask, it's only redundant after "needs access to".
   const fromSummary = askDetail((summary ?? "").replace(/^\s*(?:please\s+)?i\s+need\s+access\s+to\s+/i, ""));
   const detail = apps.length > 0 ? clipDetail(apps.join(" + ")) : fromSummary;
-  return detail ? `${agentName} — access needed: ${detail}` : `${agentName} — I need access to one of your tools`;
+  return `${agentName} needs access to ${detail || "one of your tools"}`;
 }

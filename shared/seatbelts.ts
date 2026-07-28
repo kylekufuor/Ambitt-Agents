@@ -58,6 +58,10 @@ export interface SeatbeltDb {
 // the scrub existed still carry em dashes). Without this, "Arthur — approve: X"
 // and the stored "Arthur, approve: X" look like different subjects and the
 // repetition circuit breaker silently stops tripping.
+//
+// KEEP IT even though platform-composed subjects are now written dash-free
+// (oracle/lib/email-subject.ts et al): historical EmailSend rows still carry the
+// old em-dash subjects, and any subject an agent supplies can still contain one.
 function normalizeSubject(subject: string): string {
   return stripEmDashes(subject)
     .text.toLowerCase()

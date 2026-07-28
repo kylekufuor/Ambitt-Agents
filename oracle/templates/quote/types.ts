@@ -16,7 +16,7 @@
  */
 
 export interface QuoteData {
-  /** Email subject for the slim teaser. e.g., "Your custom agent — quote inside" */
+  /** Email subject for the slim teaser. e.g., "Your custom agent quote is ready" */
   subject: string;
 
   /** Salutation paragraph for the hosted page. */

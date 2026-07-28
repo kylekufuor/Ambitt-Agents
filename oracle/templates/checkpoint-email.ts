@@ -27,7 +27,7 @@ interface CheckpointEmailOptions {
 const DEFAULT_SUBJECTS: Record<CheckpointKind, string> = {
   checkin_3day: "Quick check-in",
   highlight_7day: "One more thing I can do",
-  feedback_14day: "Two weeks in — how's it going?",
+  feedback_14day: "How's it going after two weeks?",
 };
 
 export function buildCheckpointEmail(options: CheckpointEmailOptions): {

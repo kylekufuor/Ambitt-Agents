@@ -348,7 +348,7 @@ export function defaultRelayDeps(): RelayDeps {
         agentId,
         agentName,
         to,
-        subject: `${agentName} — verification code for ${service}`,
+        subject: `${agentName} needs your ${service} verification code`,
         html: `<div style="font-family:-apple-system,sans-serif;max-width:540px;margin:0 auto;padding:24px;font-size:15px;color:#26332f;line-height:1.6;">
         <p>${service} just sent you a one-time verification code so I can finish logging in on your behalf.</p>
         <p><strong>Reply to this email with the code</strong> (just the digits) and I'll continue right away.</p>

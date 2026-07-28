@@ -79,7 +79,7 @@ export async function onboardClient(request: OnboardingRequest): Promise<Onboard
     agentId,
     agentName: request.agentName,
     to: request.email,
-    subject: `Welcome to Ambitt — ${request.agentName} is getting ready for ${request.businessName}`,
+    subject: `Your Ambitt agent ${request.agentName} is getting ready for ${request.businessName}`,
     html: buildWelcomeEmail(request.businessName, request.agentName, credentialLink),
   });
 

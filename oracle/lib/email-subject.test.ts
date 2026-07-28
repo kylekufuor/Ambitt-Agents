@@ -32,32 +32,32 @@ const ok = (name: string, cond: boolean, detail?: string) => {
 eq(
   "action-required carries the ask",
   actionRequiredSubject(NAME, "I'd like to send the outreach list to 12 owners."),
-  `${NAME} — approve: send the outreach list to 12 owners`,
+  `${NAME} needs your approval: send the outreach list to 12 owners`,
 );
 eq(
   "curly apostrophe lead-in stripped",
   actionRequiredSubject(NAME, "I’d like to book a tour of 400 Main St for Thursday."),
-  `${NAME} — approve: book a tour of 400 Main St for Thursday`,
+  `${NAME} needs your approval: book a tour of 400 Main St for Thursday`,
 );
 eq(
   "redundant leading 'Approve' dropped (no 'approve: approve')",
   actionRequiredSubject(NAME, "Approve the outreach list before I send it."),
-  `${NAME} — approve: the outreach list before I send it`,
+  `${NAME} needs your approval: the outreach list before I send it`,
 );
 eq(
   "only the first sentence is used",
   actionRequiredSubject(NAME, "I want to archive 6 listings. They all went under contract last week."),
-  `${NAME} — approve: archive 6 listings`,
+  `${NAME} needs your approval: archive 6 listings`,
 );
 eq(
   "newlines collapse to single spaces",
   actionRequiredSubject(NAME, "I plan to\n  email\tBob\n\nand Alice"),
-  `${NAME} — approve: email Bob and Alice`,
+  `${NAME} needs your approval: email Bob and Alice`,
 );
 eq(
   "no lead-in to strip -> summary used as-is",
   actionRequiredSubject(NAME, "The Q3 report is drafted and ready to go out."),
-  `${NAME} — approve: The Q3 report is drafted and ready to go out`,
+  `${NAME} needs your approval: The Q3 report is drafted and ready to go out`,
 );
 eq(
   "long summary truncates on a word boundary with an ellipsis",
@@ -65,28 +65,28 @@ eq(
     NAME,
     "I'd like to email every owner in the downtown submarket about the new vacancy report we published",
   ),
-  `${NAME} — approve: email every owner in the downtown submarket about the new…`,
+  `${NAME} needs your approval: email every owner in the downtown submarket about the new…`,
 );
 eq(
   "empty summary falls back to the first plan step",
   actionRequiredSubject(NAME, "   ", "Send the contract to Casey"),
-  `${NAME} — approve: Send the contract to Casey`,
+  `${NAME} needs your approval: Send the contract to Casey`,
 );
 eq(
   "nothing to describe the ask -> plain human fallback",
   actionRequiredSubject(NAME, undefined, undefined),
-  `${NAME} — can you approve this?`,
+  `${NAME} needs your approval`,
 );
 
 // --- permission: the app IS the distinguishing detail ----------------------
-eq("permission names the app", permissionSubject(NAME, ["HubSpot"]), `${NAME} — access needed: HubSpot`);
-eq("permission with two apps", permissionSubject(NAME, ["Gmail", "Google Calendar"]), `${NAME} — access needed: Gmail + Google Calendar`);
+eq("permission names the app", permissionSubject(NAME, ["HubSpot"]), `${NAME} needs access to HubSpot`);
+eq("permission with two apps", permissionSubject(NAME, ["Gmail", "Google Calendar"]), `${NAME} needs access to Gmail + Google Calendar`);
 eq(
   "permission with no app row falls back to the summary",
   permissionSubject(NAME, [], "I need access to your CRM to log the calls."),
-  `${NAME} — access needed: your CRM to log the calls`,
+  `${NAME} needs access to your CRM to log the calls`,
 );
-eq("permission with nothing at all", permissionSubject(NAME, [null, "  "]), `${NAME} — I need access to one of your tools`);
+eq("permission with nothing at all", permissionSubject(NAME, [null, "  "]), `${NAME} needs access to one of your tools`);
 
 // --- the seatbelt property -------------------------------------------------
 {
@@ -113,6 +113,39 @@ eq("permission with nothing at all", permissionSubject(NAME, [null, "  "]), `${N
     "every generated subject stays inbox-sized (<= 90 chars)",
     subjects.every((s) => s.length <= 90),
     `got ${JSON.stringify(subjects.map((s) => s.length))}`,
+  );
+}
+
+// --- the em-dash ban -------------------------------------------------------
+// Our own subjects must never contain U+2014. The send-time scrub in
+// shared/email.ts would rewrite one ("Arthur — approve:" → "Arthur, approve:"),
+// which reads worse than purpose-written copy AND fires the scrub's warn log on
+// every email, destroying its value as the signal that a MODEL has drifted off
+// the rule. An em dash arriving in the summary (agent-written) is scrubbed on
+// the way out; one WE compose is a bug.
+{
+  const composed = [
+    actionRequiredSubject(NAME, "I'd like to send the outreach list to 12 owners."),
+    actionRequiredSubject(NAME, "   ", "Send the contract to Casey"),
+    actionRequiredSubject(NAME, undefined, undefined),
+    actionRequiredSubject(
+      NAME,
+      "I'd like to email every owner in the downtown submarket about the new vacancy report we published",
+    ),
+    permissionSubject(NAME, ["HubSpot"]),
+    permissionSubject(NAME, ["Gmail", "Google Calendar"]),
+    permissionSubject(NAME, [], "I need access to your CRM to log the calls."),
+    permissionSubject(NAME, [null, "  "]),
+  ];
+  ok(
+    "no composed subject contains an em dash (U+2014)",
+    composed.every((s) => !s.includes("—")),
+    `got ${JSON.stringify(composed.filter((s) => s.includes("—")))}`,
+  );
+  ok(
+    "every composed subject stays inbox-sized (<= 90 chars)",
+    composed.every((s) => s.length <= 90),
+    `got ${JSON.stringify(composed.map((s) => s.length))}`,
   );
 }
 

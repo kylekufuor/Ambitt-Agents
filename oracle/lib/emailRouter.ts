@@ -169,7 +169,10 @@ export async function sendAgentEmail(props: EmailProps): Promise<void> {
         sourceLinks: p.sourceLinks,
         recommendations: p.recommendations,
       });
-      subject = `Re: ${p.agentName} — ${p.clientBusinessName}`;
+      // Same string dispatchAgentResponse composes for this trigger. Both paths
+      // must normalize identically or the seatbelt's repetition check stops
+      // seeing a loop that alternates between them.
+      subject = `Re: ${p.agentName} at ${p.clientBusinessName}`;
       agentId = p.agentId;
       agentName = p.agentName;
       recommendations = p.recommendations;
@@ -179,7 +182,7 @@ export async function sendAgentEmail(props: EmailProps): Promise<void> {
     case "alert": {
       const p = props as Extract<EmailProps, { trigger: "alert" }>;
       html = buildAlertEmail(p);
-      subject = `${p.agentName} — Alert: ${p.metricLabel}`;
+      subject = `Heads up from ${p.agentName}: ${p.metricLabel}`;
       agentId = p.agentId;
       agentName = p.agentName;
       clientId = p.clientId;
@@ -189,7 +192,9 @@ export async function sendAgentEmail(props: EmailProps): Promise<void> {
     case "digest": {
       const p = props as Extract<EmailProps, { trigger: "digest" }>;
       html = buildDigestEmail(p);
-      subject = `${p.agentName} — ${p.periodLabel} Digest`;
+      // periodLabel is "Today" / "This week" (see digestCron.ts), so this reads
+      // as a sentence rather than a label.
+      subject = `${p.periodLabel} with ${p.agentName}`;
       agentId = p.agentId;
       agentName = p.agentName;
       clientId = p.clientId;
@@ -213,7 +218,7 @@ export async function sendAgentEmail(props: EmailProps): Promise<void> {
     case "progress": {
       const p = props as Extract<EmailProps, { trigger: "progress" }>;
       html = buildProgressEmail(p);
-      subject = `${p.agentName} — Day ${p.dayNumber} of ${p.totalDays}`;
+      subject = `Day ${p.dayNumber} of ${p.totalDays} with ${p.agentName}`;
       agentId = p.agentId;
       agentName = p.agentName;
       clientId = p.clientId;
@@ -223,7 +228,7 @@ export async function sendAgentEmail(props: EmailProps): Promise<void> {
     case "error": {
       const p = props as Extract<EmailProps, { trigger: "error" }>;
       html = buildErrorEmail(p);
-      subject = `${p.agentName} — Error: ${p.errorCode}`;
+      subject = `${p.agentName} ran into a problem: ${p.errorCode}`;
       agentId = p.agentId;
       agentName = p.agentName;
       clientId = p.clientId;
@@ -245,7 +250,7 @@ export async function sendAgentEmail(props: EmailProps): Promise<void> {
     case "milestone": {
       const p = props as Extract<EmailProps, { trigger: "milestone" }>;
       html = buildMilestoneEmail(p);
-      subject = `${p.agentName} — Milestone: ${p.milestoneValue} ${p.milestoneLabel}`;
+      subject = `${p.agentName} hit ${p.milestoneValue} ${p.milestoneLabel}`;
       agentId = p.agentId;
       agentName = p.agentName;
       clientId = p.clientId;

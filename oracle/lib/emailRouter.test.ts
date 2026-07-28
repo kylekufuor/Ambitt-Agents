@@ -231,14 +231,16 @@ const propsFor: Record<string, () => EmailProps> = {
 // (not re-derived from the code under test) so the client-facing copy is pinned
 // here: the approval subjects name the ASK, they are not constants.
 //
-// The builder in email-subject.ts still writes "Arthur — approve: …"; the
-// em-dash scrub in shared/email.ts rewrites it to "Arthur, approve: …" on the
-// way out, so that's what lands in the inbox and in the EmailSend audit row.
+// None of them contains an em dash, so the scrub in shared/email.ts is a no-op
+// on our own copy and what's written here is exactly what lands in the inbox
+// and in the EmailSend audit row the seatbelt reads back.
 const SUBJECT = {
   "credential-request": `${NAME} needs your CoStar login`,
-  "action-required": `${NAME}, approve: send the outreach list to 12 owners`,
-  permission: `${NAME}, access needed: Gmail`,
-  welcome: `Meet ${NAME}, your new Ambitt agent for Acme`,
+  "action-required": `${NAME} needs your approval: send the outreach list to 12 owners`,
+  permission: `${NAME} needs access to Gmail`,
+  welcome: `${NAME} is your new Ambitt agent for Acme`,
+  "agent-response": `Re: ${NAME} at Acme`,
+  error: `${NAME} ran into a problem: TOOL_TIMEOUT`,
 };
 
 // --- 4. Seeds --------------------------------------------------------------
@@ -304,7 +306,7 @@ const cases: Case[] = [
 
   // Under cap the gate must be invisible. wantSubject pins the copy the client
   // sees — each approval subject names its ask.
-  { name: "agent-response under cap -> sent", trigger: "agent-response", seed: [], wantSent: true, wantHalted: false },
+  { name: "agent-response under cap -> sent", trigger: "agent-response", seed: [], wantSent: true, wantHalted: false, wantSubject: SUBJECT["agent-response"] },
   { name: "credential-request under cap -> sent", trigger: "credential-request", seed: [], wantSent: true, wantHalted: false, wantSubject: SUBJECT["credential-request"] },
   { name: "action-required under cap -> sent", trigger: "action-required", seed: [], wantSent: true, wantHalted: false, wantSubject: SUBJECT["action-required"] },
   { name: "permission under cap -> sent", trigger: "permission", seed: [], wantSent: true, wantHalted: false, wantSubject: SUBJECT.permission },
@@ -331,7 +333,7 @@ const cases: Case[] = [
   { name: "error over cap -> still sent", trigger: "error", seed: OVER_CAP, wantSent: true, wantHalted: false },
   { name: "alert over cap -> still sent", trigger: "alert", seed: OVER_CAP, wantSent: true, wantHalted: false },
   { name: "welcome with repeated subject -> still sent", trigger: "welcome", seed: repeated(SUBJECT.welcome), wantSent: true, wantHalted: false },
-  { name: "error over cap AND repeated subject -> still sent", trigger: "error", seed: [...OVER_CAP, ...repeated(`${NAME} — Error: TOOL_TIMEOUT`)], wantSent: true, wantHalted: false },
+  { name: "error over cap AND repeated subject -> still sent", trigger: "error", seed: [...OVER_CAP, ...repeated(SUBJECT.error)], wantSent: true, wantHalted: false },
 ];
 
 async function main() {
@@ -421,9 +423,9 @@ async function main() {
       ],
       wantSent: [true, true, true],
       wantSubjects: [
-        `${NAME}, approve: send the outreach list to 12 owners`,
-        `${NAME}, approve: book a tour of 400 Main St for Thursday`,
-        `${NAME}, approve: archive the 6 listings that went under contract`,
+        `${NAME} needs your approval: send the outreach list to 12 owners`,
+        `${NAME} needs your approval: book a tour of 400 Main St for Thursday`,
+        `${NAME} needs your approval: archive the 6 listings that went under contract`,
       ],
       wantHalted: false,
     },
@@ -442,7 +444,7 @@ async function main() {
       name: "3 DIFFERENT access asks in 30 min",
       sends: [accessAsk("HubSpot"), accessAsk("Gmail"), accessAsk("Slack")],
       wantSent: [true, true, true],
-      wantSubjects: [`${NAME}, access needed: HubSpot`, `${NAME}, access needed: Gmail`, `${NAME}, access needed: Slack`],
+      wantSubjects: [`${NAME} needs access to HubSpot`, `${NAME} needs access to Gmail`, `${NAME} needs access to Slack`],
       wantHalted: false,
     },
     {
@@ -458,7 +460,7 @@ async function main() {
       name: "the SAME access ask 3x in 30 min",
       sends: [accessAsk("HubSpot"), accessAsk("HubSpot"), accessAsk("HubSpot")],
       wantSent: [true, true, false],
-      wantSubjects: [`${NAME}, access needed: HubSpot`, `${NAME}, access needed: HubSpot`],
+      wantSubjects: [`${NAME} needs access to HubSpot`, `${NAME} needs access to HubSpot`],
       wantHalted: true,
     },
   ];
@@ -497,6 +499,33 @@ async function main() {
       `${s.name} :: subjects`,
       gotSubjects.join(" | ") === s.wantSubjects.join(" | "),
       `got  ${JSON.stringify(gotSubjects)}\n        want ${JSON.stringify(s.wantSubjects)}`,
+    );
+  }
+
+  // --- No subject WE compose may contain an em dash --------------------------
+  // shared/email.ts scrubs U+2014 out of client-facing copy at send time. A dash
+  // in our own subject would come out as a comma (worse than copy written for
+  // the job) and would fire the scrub's warn log on every send, which is the one
+  // signal that tells us a MODEL has drifted off the rule. Runs one email per
+  // trigger through the real router and inspects what was captured.
+  {
+    history = [];
+    captured = [];
+    agentRow = { status: "active", pausedBy: null, pausedReason: null };
+    agentConfig = { communicationSettings: null, safetySensitivity: null };
+
+    for (const trigger of Object.keys(propsFor)) {
+      try {
+        await sendAgentEmail(propsFor[trigger]());
+      } catch {
+        // Send failures are covered by the cases above; this block only judges copy.
+      }
+    }
+    const dashed = captured.map((c) => c.subject).filter((s) => s.includes("—"));
+    chk(
+      "no composed subject contains an em dash (U+2014)",
+      captured.length === Object.keys(propsFor).length && dashed.length === 0,
+      `captured=${captured.length}/${Object.keys(propsFor).length} dashed=${JSON.stringify(dashed)}`,
     );
   }
 

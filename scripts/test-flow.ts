@@ -100,7 +100,7 @@ async function main() {
     agentId,
     agentName: agent.name,
     to: agent.client.email,
-    subject: `${agent.name} — ${agent.client.businessName}`,
+    subject: `${agent.name} at ${agent.client.businessName}`,
     html,
     replyToAgentId: agentId,
     attachments: result.attachments.length > 0 ? result.attachments : undefined,

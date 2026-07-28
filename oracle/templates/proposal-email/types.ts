@@ -9,7 +9,7 @@
  */
 
 export interface ProposalEmailData {
-  /** Email subject line. e.g., "Your custom agent — proposal from Atlas" */
+  /** Email subject line. e.g., "Your custom agent proposal from Atlas" */
   subject: string;
 
   /** Salutation block at the very top of the email body */

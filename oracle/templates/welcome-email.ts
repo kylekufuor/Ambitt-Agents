@@ -31,7 +31,9 @@ export function buildWelcomeEmail(options: WelcomeEmailOptions): {
 } {
   const { agentName, agentId, agentPurpose, clientFirstName, clientBusinessName, tools, capabilities, hasDocuments, agentEmail, portalUrl, briefText, briefHasPdf } = options;
 
-  const subject = `Meet ${agentName} — your new Ambitt agent for ${clientBusinessName}`;
+  // Written without an em dash on purpose: the send-time scrub in
+  // shared/email.ts rewrites U+2014, and our own copy shouldn't need rewriting.
+  const subject = `${agentName} is your new Ambitt agent for ${clientBusinessName}`;
 
   const toolPills = tools
     .map((t) => `<span style="display: inline-block; background: #f0fdf4; color: #15803d; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 6px; margin: 0 4px 4px 0;">${t}</span>`)

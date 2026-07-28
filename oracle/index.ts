@@ -2059,7 +2059,7 @@ app.post("/webhooks/email-inbound", async (req: Request, res: Response) => {
             agentId,
             agentName: agent.name,
             to: agent.client?.email ?? from,
-            subject: `${agent.name} — Documents received`,
+            subject: `${agent.name} received your documents`,
             html: `<div style="font-family: -apple-system, sans-serif; max-width: 560px; margin: 0 auto; padding: 24px;">
               <p>I've received and studied the following documents:</p>
               <ul>${parsed.map((p) => `<li><strong>${p.filename}</strong> (${p.sizeBytes > 1024 ? Math.round(p.sizeBytes / 1024) + "KB" : p.sizeBytes + "B"})</li>`).join("")}</ul>
@@ -2150,7 +2150,7 @@ app.post("/webhooks/email-inbound", async (req: Request, res: Response) => {
                 agentId,
                 agentName: agent.name,
                 to: agent.client?.email ?? from,
-                subject: `${agent.name} — Action dismissed`,
+                subject: `${agent.name} dismissed that action`,
                 html: `<div style="font-family: -apple-system, sans-serif; max-width: 560px; margin: 0 auto; padding: 24px;">
                   <p>Got it. I've <strong>dismissed</strong>: "${recommendation.title}". I won't proceed.</p>
                   <p style="color: #9ca3af; font-size: 13px;">— ${agent.name}, your AI agent at Ambitt</p>
@@ -2233,12 +2233,14 @@ app.post("/webhooks/email-inbound", async (req: Request, res: Response) => {
         // SILENT. A paused agent must never email the client on its own; the
         // one exception is a genuine resume it just performed.
         let confirmMsg: string | null = null;
-        let subjectWord = "paused";
+        // Reads as a sentence with the agent name in front of it, so the client
+        // sees the state in the inbox list without opening anything.
+        let subjectState = "is paused";
         let disposition: string;
         if (ci.intent === "resume") {
           const r = await resumeAgent(prisma, { agentId, requester });
           disposition = "control:resume:" + (r.ok ? (r.noop ? "noop" : "ok") : "denied");
-          subjectWord = "resumed";
+          subjectState = "is back up and running";
           if (r.ok && !r.noop) {
             confirmMsg = `You're back up — I'm resuming now and I'll pick up where we left off.`;
           }
@@ -2260,7 +2262,7 @@ app.post("/webhooks/email-inbound", async (req: Request, res: Response) => {
               agentId,
               agentName,
               to,
-              subject: `${agentName} — ${subjectWord}`,
+              subject: `${agentName} ${subjectState}`,
               html: `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;max-width:520px;margin:0 auto;padding:8px 4px;color:#3f4a48;font-size:15px;line-height:1.6;">
                 <p style="margin:0 0 14px;">${confirmMsg}</p>
                 <p style="margin:0;font-size:13px;color:#8a938f;">— ${agentName} · <span style="color:#0f7a74;">Ambitt Agents</span></p>
@@ -2305,7 +2307,7 @@ app.post("/webhooks/email-inbound", async (req: Request, res: Response) => {
             agentId,
             agentName,
             to,
-            subject: `${agentName} — cadence updated`,
+            subject: `How often ${agentName} emails you`,
             html: `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;max-width:520px;margin:0 auto;padding:8px 4px;color:#3f4a48;font-size:15px;line-height:1.6;">
               <p style="margin:0 0 14px;">${throttleConfirmation(agentName, step)}</p>
               <p style="margin:0;font-size:13px;color:#8a938f;">— ${agentName} · <span style="color:#0f7a74;">Ambitt Agents</span></p>
@@ -2889,7 +2891,7 @@ app.post("/onboarding/prospects/:id/event", async (req: Request, res: Response) 
           agentId: atlas.id,
           agentName: atlas.name,
           to: prospect.email,
-          subject: "Got your brief — proposal incoming",
+          subject: "Got your brief and your proposal is on the way",
           html: renderThanksEmail(prospect, portalBase),
           replyToAgentId: atlas.id,
           prospectId: prospect.id,
@@ -4197,7 +4199,7 @@ ${prdJson}
 # QuoteData TypeScript contract
 \`\`\`ts
 interface QuoteData {
-  subject: string;                              // email subject line — e.g. "Your custom agent — quote inside"
+  subject: string;                              // email subject line — e.g. "Your custom agent quote is ready"
   greeting: { name: string; body: string };     // name = prospect's first name; body = 1-2 sentence opener
   hero: {
     label: string;                              // "YOUR CUSTOM AGENT QUOTE" or similar
@@ -5063,7 +5065,7 @@ ${sopBlock}
 
 \`\`\`ts
 interface ProposalEmailData {
-  subject: string;                       // e.g. "Your custom agent — proposal from Atlas"
+  subject: string;                       // e.g. "Your custom agent proposal from Atlas"
   greeting: { name: string; body: string };
   hero: {
     label: string;                       // e.g. "YOUR CUSTOM AGENT" (uppercase, short)
@@ -5118,7 +5120,7 @@ interface ProposalEmailData {
 
 \`\`\`json
 {
-  "subject": "Your custom agent — proposal from Atlas",
+  "subject": "Your custom agent proposal from Atlas",
   "greeting": { "name": "Kyle", "body": "Based on your form, here's the agent we'd build for you. Have a read — if it feels right, hit Approve. If anything's off, hit Make changes and you can update your answers." },
   "hero": {
     "label": "YOUR CUSTOM AGENT",

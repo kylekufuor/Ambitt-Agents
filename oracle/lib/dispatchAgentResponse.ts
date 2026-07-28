@@ -86,9 +86,12 @@ export async function dispatchAgentResponse(input: DispatchInput): Promise<
     });
 
     const to = recipientEmail ?? agent.client.email;
+    // No em dash: the send-time scrub in shared/email.ts would rewrite one, and
+    // this subject is the seatbelt's repetition key (see emailRouter.ts, which
+    // composes the identical string for the same trigger).
     const subject = isReply
-      ? `Re: ${agent.name} — ${agent.client.businessName}`
-      : `${agent.name} — ${agent.client.businessName}`;
+      ? `Re: ${agent.name} at ${agent.client.businessName}`
+      : `${agent.name} at ${agent.client.businessName}`;
 
     // Outbound seatbelt (control-plane Pillar 4). If this agent is looping —
     // too many sends in a short window, or the same message repeated to the
