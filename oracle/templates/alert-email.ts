@@ -1,15 +1,29 @@
 import {
+  T,
   type BaseEmailProps,
   type SourceLink,
-  emailWrapper,
-  headerBlock,
-  sectionLabel,
-  summaryBlock,
+  emailDocument,
+  section,
+  letterhead,
+  h2,
+  paragraph,
+  dataTable,
+  portalInvite,
   sourceLinksBlock,
-  primaryCta,
-  footerBlock,
-  badge,
+  divider,
+  signature,
+  footerRows,
+  signatureRoleLine,
 } from "./_shared.js";
+import { portalLink } from "../../shared/portal-links.js";
+
+// ---------------------------------------------------------------------------
+// Alert — something moved and the client should know now
+// ---------------------------------------------------------------------------
+// Amber, not red. Red is for "we broke" (error-email). An alert is a heads-up,
+// and half of them are good news, so a blood-red banner was always the wrong
+// read. The number gets to be big because the number IS the message.
+// ---------------------------------------------------------------------------
 
 interface CheckItem {
   signal: string;
@@ -26,47 +40,106 @@ export interface AlertEmailProps extends BaseEmailProps {
   checksTable: CheckItem[];
   sourceLinks: SourceLink[];
   ctaUrl: string;
+  agentRole?: string;
 }
 
 export function buildAlertEmail(props: AlertEmailProps): string {
-  const { agentName, agentId, productName, summary, metricValue, metricLabel, metricDelta, detectedAt, checksTable, sourceLinks, ctaUrl } = props;
+  const {
+    agentName,
+    agentId,
+    summary,
+    metricValue,
+    metricLabel,
+    metricDelta,
+    detectedAt,
+    checksTable,
+    sourceLinks,
+    ctaUrl,
+    agentRole,
+  } = props;
 
-  const statusColors: Record<string, string> = { ok: "#16a34a", warn: "#f59e0b", critical: "#dc2626" };
-  const statusIcons: Record<string, string> = { ok: "&#10003;", warn: "&#9888;", critical: "&#10007;" };
+  const statusColor: Record<CheckItem["statusType"], string> = {
+    ok: T.tealText,
+    warn: T.attention,
+    critical: T.problem,
+  };
+  // Dark-mode counterparts, so a reading keeps its meaning after inversion.
+  const statusClass: Record<CheckItem["statusType"], string> = {
+    ok: "dm-ok",
+    warn: "dm-warn",
+    critical: "dm-bad",
+  };
 
-  const detected = new Date(detectedAt).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" });
+  const detected = new Date(detectedAt).toLocaleString("en-US", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
 
-  const header = headerBlock(agentName, productName, "Alert", "alert");
+  const rows = [
+    section(
+      letterhead({
+        agentName,
+        roleLine: signatureRoleLine(agentRole),
+        chipLabel: "Heads up",
+        tone: "attention",
+      }),
+      30,
+      0
+    ),
 
-  const body = `
-    ${summaryBlock(summary)}
+    // The headline number. One big figure, its label, and the move.
+    section(
+      `<p class="h1 dm-ink" style="margin:0;font-size:40px;line-height:1.05;font-weight:600;color:${T.ink};letter-spacing:-0.028em;font-variant-numeric:tabular-nums;">${metricValue}</p>
+<p class="dm-body" style="margin:8px 0 0 0;font-size:16px;line-height:1.45;color:${T.body};">${metricLabel}</p>
+<p style="margin:4px 0 0 0;font-size:15px;line-height:1.45;font-weight:600;color:${T.attention};">${metricDelta}</p>`,
+      26,
+      0
+    ),
 
-    <!-- Alert Metric -->
-    <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 20px; text-align: center; margin-bottom: 20px;">
-      <p style="margin: 0; font-size: 32px; font-weight: 600; color: #dc2626;">${metricValue}</p>
-      <p style="margin: 4px 0 0 0; font-size: 12px; color: #71717a;">${metricLabel}</p>
-      <p style="margin: 4px 0 0 0; font-size: 12px; color: #dc2626; font-weight: 500;">${metricDelta}</p>
-    </div>
+    section(paragraph(summary), 22, 0),
 
-    <p style="margin: 0 0 16px 0; font-size: 11px; color: #a1a1aa;">Detected ${detected}</p>
+    checksTable.length > 0
+      ? section(
+          h2("What I checked") +
+            dataTable(
+              ["Signal", "Reading"],
+              checksTable.map((c) => ({
+                columns: [
+                  c.signal,
+                  `<span class="${statusClass[c.statusType]}" style="color:${statusColor[c.statusType]};font-weight:500;">${c.status}</span>`,
+                ],
+              }))
+            ),
+          10,
+          0
+        )
+      : "",
 
-    ${checksTable.length > 0 ? `
-    ${sectionLabel("System Checks")}
-    <table role="presentation" style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
-      ${checksTable.map((c) => `
-      <tr>
-        <td style="padding: 8px 0; border-bottom: 1px solid #f4f4f5; font-size: 13px; color: #52525b;">${c.signal}</td>
-        <td style="padding: 8px 0; border-bottom: 1px solid #f4f4f5; text-align: right;">
-          <span style="color: ${statusColors[c.statusType]}; font-size: 12px; font-weight: 500;">${statusIcons[c.statusType]} ${c.status}</span>
-        </td>
-      </tr>`).join("")}
-    </table>` : ""}
+    section(
+      `<p class="dm-mute" style="margin:0;font-size:13px;color:${T.mute};">Spotted ${detected}</p>`,
+      16,
+      0
+    ),
 
-    ${sourceLinksBlock(sourceLinks)}
+    sourceLinks.length > 0 ? section(sourceLinksBlock(sourceLinks), 14, 0) : "",
 
-    ${primaryCta("View Full Details", ctaUrl, "alert")}
-  `;
+    section(
+      portalInvite(
+        "The full history behind this reading is in your portal.",
+        "See the detail",
+        ctaUrl || portalLink(agentId, "overview")
+      ),
+      18,
+      0
+    ),
 
-  const footer = footerBlock(agentName, agentId);
-  return emailWrapper("alert", header, body, footer);
+    section(divider(26, 22) + signature(agentName, agentRole), 0, 32),
+  ].join("");
+
+  return emailDocument({
+    preheader: `${metricLabel}: ${metricValue}, ${metricDelta}`,
+    tone: "attention",
+    rows,
+    outerRows: footerRows(agentName, agentId),
+  });
 }

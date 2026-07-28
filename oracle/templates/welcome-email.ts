@@ -1,11 +1,32 @@
 // ---------------------------------------------------------------------------
 // Welcome Email — sent when an agent is activated
 // ---------------------------------------------------------------------------
-// First impression. The client opens this and meets their agent.
-// Must feel personal, specific, and immediately useful.
+// First impression. The client opens this and meets their agent, so it carries
+// more weight than anything else we send. Everything visual comes from
+// _shared.ts; this file composes and nothing else.
+//
+// Dumb renderer (CLAUDE.md rule 12): the brief, the capabilities and the tool
+// list all arrive as props. The only words this file owns are the fixed
+// mechanics ("reply to this email", "DOCS in the subject").
 // ---------------------------------------------------------------------------
 
-import { navFooterLinks, signatureRoleLine } from "./_shared.js";
+import {
+  T,
+  emailDocument,
+  section,
+  letterhead,
+  h2,
+  paragraph,
+  bullets,
+  richText,
+  panel,
+  portalInvite,
+  divider,
+  signature,
+  footerRows,
+  signatureRoleLine,
+} from "./_shared.js";
+import { portalLink } from "../../shared/portal-links.js";
 
 interface WelcomeEmailOptions {
   agentName: string;
@@ -25,172 +46,128 @@ interface WelcomeEmailOptions {
   briefHasPdf?: boolean;
 }
 
+/** Connected systems, as quiet teal chips. Reads as a fact, not a trophy shelf. */
+function toolChips(tools: string[]): string {
+  if (tools.length === 0) return "";
+  return tools
+    .map(
+      (t) =>
+        `<span style="display:inline-block;font-size:13.5px;font-weight:500;color:${T.tealText};background-color:${T.washBrand};padding:6px 12px;border-radius:7px;margin:0 6px 7px 0;">${t}</span>`
+    )
+    .join("");
+}
+
 export function buildWelcomeEmail(options: WelcomeEmailOptions): {
   subject: string;
   html: string;
 } {
-  const { agentName, agentId, agentPurpose, clientFirstName, clientBusinessName, tools, capabilities, hasDocuments, agentEmail, portalUrl, briefText, briefHasPdf } = options;
+  const {
+    agentName,
+    agentId,
+    agentPurpose,
+    clientFirstName,
+    clientBusinessName,
+    tools,
+    capabilities,
+    hasDocuments,
+    portalUrl,
+    briefText,
+    briefHasPdf,
+  } = options;
 
   // Written without an em dash on purpose: the send-time scrub in
   // shared/email.ts rewrites U+2014, and our own copy shouldn't need rewriting.
   const subject = `${agentName} is your new Ambitt agent for ${clientBusinessName}`;
 
-  const toolPills = tools
-    .map((t) => `<span style="display: inline-block; background: #f0fdf4; color: #15803d; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 6px; margin: 0 4px 4px 0;">${t}</span>`)
-    .join("");
+  const hasBrief = !!briefText && briefText.trim().length > 0;
 
-  const capabilityList = capabilities
-    .map((c) => `<li style="margin: 0 0 8px 0; color: #374151; font-size: 14px;">${c}</li>`)
-    .join("");
+  const rows = [
+    section(letterhead({ agentName, roleLine: signatureRoleLine(agentPurpose), chipLabel: "Now working" }), 30, 0),
 
-  // Render the activation brief (plain text with "- " bullets) as inline HTML.
-  let briefHtml = "";
-  if (briefText && briefText.trim().length > 0) {
-    const lines = briefText.split("\n").map((l) => l.trim()).filter(Boolean);
-    const rendered = lines
-      .map((line) => {
-        if (line.startsWith("- ") || line.startsWith("• ")) {
-          return `<li style="margin: 0 0 6px 0; color: #374151; font-size: 14px; line-height: 1.6;">${line.slice(2)}</li>`;
-        }
-        return `<p style="margin: 0 0 10px 0; color: #374151; font-size: 14px; line-height: 1.7;">${line}</p>`;
-      })
-      .join("")
-      .replace(/(<li[^>]*>.*?<\/li>\s*)+/g, (match) => `<ul style="margin: 0 0 10px 0; padding-left: 20px;">${match}</ul>`);
-    const pdfHint = briefHasPdf
-      ? `<p style="margin: 8px 0 0 0; font-size: 12px; color: #6b7280; font-style: italic;">Full brief attached as PDF.</p>`
-      : "";
-    briefHtml = `
-          <!-- First brief -->
-          <tr>
-            <td style="padding: 24px 40px 0 40px;">
-              <p style="margin: 0 0 10px 0; font-size: 11px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px;">What I Found About ${clientBusinessName}</p>
-              <div style="background-color: #fafafa; border-left: 3px solid #1a1a1a; border-radius: 6px; padding: 16px 20px;">
-                ${rendered}
-                ${pdfHint}
-              </div>
-            </td>
-          </tr>`;
-  }
+    section(
+      paragraph(`Hi ${clientFirstName},`) +
+        paragraph(
+          hasBrief
+            ? `I'm <strong style="font-weight:600;color:${T.ink};">${agentName}</strong>, and I'm working for ${clientBusinessName} from today. Before I introduced myself I went and read up on the business, so I could start useful rather than start asking.`
+            : `I'm <strong style="font-weight:600;color:${T.ink};">${agentName}</strong>, and I'm working for ${clientBusinessName} from today. I've been set up for your business specifically and I'm ready to go.`
+        ),
+      24,
+      0
+    ),
 
-  const html = `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-</head>
-<body style="margin: 0; padding: 0; background-color: #f8f8f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
-  <table role="presentation" style="width: 100%; border-collapse: collapse;">
-    <tr>
-      <td style="padding: 40px 20px;">
-        <table role="presentation" style="max-width: 560px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08);">
+    hasBrief
+      ? section(
+          h2(`What I found about ${clientBusinessName}`) +
+            panel(
+              richText(briefText!) +
+                (briefHasPdf
+                  ? `<p class="dm-mute" style="margin:6px 0 0 0;font-size:13.5px;color:${T.mute};">The full brief is attached as a PDF.</p>`
+                  : "")
+            ),
+          26,
+          0
+        )
+      : "",
 
-          <!-- Agent Header -->
-          <tr>
-            <td style="padding: 32px 40px 0 40px;">
-              <table role="presentation" style="width: 100%;">
-                <tr>
-                  <td style="width: 44px; vertical-align: top;">
-                    <div style="width: 40px; height: 40px; background-color: #1a1a1a; border-radius: 10px; text-align: center; line-height: 40px; color: #ffffff; font-weight: 700; font-size: 17px;">${agentName[0]}</div>
-                  </td>
-                  <td style="padding-left: 14px;">
-                    <p style="margin: 0; font-size: 16px; font-weight: 700; color: #1a1a1a;">${agentName}</p>
-                    <p style="margin: 3px 0 0 0; font-size: 12px; color: #9ca3af;">Your AI Agent at Ambitt Agents · ${clientBusinessName}</p>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
+    capabilities.length > 0
+      ? section(h2("What I'll be doing") + bullets(capabilities), 26, 0)
+      : "",
 
-          <!-- Greeting -->
-          <tr>
-            <td style="padding: 28px 40px 0 40px; color: #374151; font-size: 15px; line-height: 1.7;">
-              <p style="margin: 0 0 16px 0;">Hi ${clientFirstName},</p>
-              ${briefText && briefText.trim().length > 0
-                ? `<p style="margin: 0 0 16px 0;">I'm <strong>${agentName}</strong>, your new AI agent. Before introducing myself I spent some time looking at ${clientBusinessName} so I could start useful.</p>`
-                : `<p style="margin: 0 0 16px 0;">I'm <strong>${agentName}</strong>, your new AI agent. I've been set up specifically for ${clientBusinessName} and I'm ready to start working.</p>`
-              }
-            </td>
-          </tr>
+    tools.length > 0
+      ? section(
+          h2("What I'm connected to") +
+            `<div style="line-height:1.9;">${toolChips(tools)}</div>` +
+            `<p class="dm-mute" style="margin:8px 0 0 0;font-size:13.5px;line-height:1.55;color:${T.mute};">Nothing else. If I ever need access to something new, I'll ask you first and tell you why.</p>`,
+          20,
+          0
+        )
+      : "",
 
-          ${briefHtml}
+    section(
+      h2("How to give me work") +
+        paragraph(
+          `Reply to this email. Write it the way you'd text a colleague, plain English, no format to learn. I'll take it from there and come back to you with the result.`
+        ),
+      26,
+      0
+    ),
 
-          <!-- Connected Tools -->
-          <tr>
-            <td style="padding: 20px 40px 0 40px;">
-              <p style="margin: 0 0 10px 0; font-size: 11px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px;">Connected Tools</p>
-              <div style="line-height: 2;">
-                ${toolPills}
-              </div>
-            </td>
-          </tr>
+    !hasDocuments
+      ? section(
+          panel(
+            `<p class="dm-ink" style="margin:0 0 8px 0;font-size:16px;font-weight:600;color:${T.ink};">One thing that would help</p>` +
+              `<p class="dm-body" style="margin:0 0 12px 0;font-size:15px;line-height:1.6;color:${T.body};">I don't have any of your own documents yet. An SOP, a past deal, brand guidelines, whatever you'd hand a new hire on day one. It makes everything I send you sharper.</p>` +
+              `<p class="dm-body" style="margin:0;font-size:15px;line-height:1.6;color:${T.body};">Reply with <strong style="font-weight:600;color:${T.ink};">DOCS</strong> in the subject and attach the files${
+                portalUrl ? ", or drop them in your portal" : ""
+              }. Whenever suits. I'll work with what I have until then.</p>`,
+            "attention"
+          ),
+          16,
+          0
+        )
+      : "",
 
-          <!-- What I can do -->
-          <tr>
-            <td style="padding: 24px 40px 0 40px;">
-              <p style="margin: 0 0 12px 0; font-size: 11px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px;">What I Can Do For You</p>
-              <ul style="margin: 0; padding-left: 18px;">
-                ${capabilityList}
-              </ul>
-            </td>
-          </tr>
+    section(
+      portalInvite(
+        `You've got a portal too. It's where you can see what I've been doing, connect a tool, or change how often I report. You shouldn't need it, but it's there.`,
+        "Have a look around",
+        portalUrl ?? portalLink(agentId, "overview")
+      ),
+      18,
+      0
+    ),
 
-          <!-- How to use -->
-          <tr>
-            <td style="padding: 24px 40px 0 40px;">
-              <div style="background-color: #f9fafb; border-radius: 8px; padding: 20px;">
-                <p style="margin: 0 0 8px 0; font-size: 11px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px;">How to Give Me Tasks</p>
-                <p style="margin: 0; font-size: 14px; color: #374151; line-height: 1.6;">
-                  Just <strong>reply to this email</strong> with what you need. Write it like you'd text a colleague: plain English, no special format needed. I'll handle the rest and email you back with results.
-                </p>
-              </div>
-            </td>
-          </tr>
+    section(divider(26, 22) + signature(agentName, agentPurpose), 0, 32),
+  ].join("");
 
-          ${!hasDocuments ? `
-          <!-- Share Documents -->
-          <tr>
-            <td style="padding: 24px 40px 0 40px;">
-              <div style="background-color: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 20px;">
-                <p style="margin: 0 0 8px 0; font-size: 11px; font-weight: 700; color: #92400e; text-transform: uppercase; letter-spacing: 0.5px;">Help Me Work Smarter</p>
-                <p style="margin: 0 0 12px 0; font-size: 14px; color: #374151; line-height: 1.6;">
-                  I don't have any documents about ${clientBusinessName} yet. Sharing SOPs, brand guidelines, sales decks, or any internal docs helps me deliver better, more specific results.
-                </p>
-                <p style="margin: 0 0 4px 0; font-size: 13px; color: #374151;"><strong>Option 1:</strong> Reply to any of my emails with the subject line <strong style="color: #92400e;">DOCS</strong> and attach your files.</p>
-                ${portalUrl ? `<p style="margin: 0; font-size: 13px; color: #374151;"><strong>Option 2:</strong> <a href="${portalUrl}" style="color: #2563eb; text-decoration: none; font-weight: 500;">Upload via your portal</a></p>` : ""}
-              </div>
-            </td>
-          </tr>` : ""}
-
-          <!-- Divider -->
-          <tr>
-            <td style="padding: 28px 40px 0 40px;">
-              <div style="border-top: 1px solid #f0f0f0;"></div>
-            </td>
-          </tr>
-
-          <!-- Signature -->
-          <tr>
-            <td style="padding: 20px 40px 12px 40px; color: #9ca3af; font-size: 13px; line-height: 1.6;">
-              <p style="margin: 0;">${agentName}</p>
-              <p style="margin: 2px 0 0 0;">${signatureRoleLine(agentPurpose)}</p>
-              <p style="margin: 8px 0 0 0;">Powered by <a href="https://ambitt.agency" style="color: #6b7280; text-decoration: none;">Ambitt Agents</a></p>
-            </td>
-          </tr>
-
-          <!-- Nav footer -->
-          <tr>
-            <td style="padding: 0 40px 24px 40px; color: #9ca3af; font-size: 11px; line-height: 1.8;">
-              ${navFooterLinks(agentName, agentId)}
-            </td>
-          </tr>
-
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>`;
+  const html = emailDocument({
+    preheader: hasBrief
+      ? `I read up on ${clientBusinessName} before saying hello. Here's what I found.`
+      : `I'm set up for ${clientBusinessName} and ready to start. Here's how we'll work.`,
+    tone: "brand",
+    rows,
+    outerRows: footerRows(agentName, agentId, { systemEmail: true }),
+  });
 
   return { subject, html };
 }

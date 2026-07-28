@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en" style="color-scheme:light dark;supported-color-schemes:light dark;">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta name="x-apple-disable-message-reformatting" />
+<meta name="color-scheme" content="light dark" />
+<meta name="supported-color-schemes" content="light dark" />
+<title></title>
+<style>
+  /* Inline styles win on specificity, so overrides carry !important. */
+  @media only screen and (max-width:600px) {
+    .px { padding-left:24px !important; padding-right:24px !important; }
+    .card { border-radius:12px !important; }
+    .h1 { font-size:22px !important; }
+    .h2 { font-size:18px !important; }
+    .stat-v { font-size:22px !important; }
+    .btn a { display:block !important; text-align:center !important; }
+    .stack { display:block !important; width:100% !important; }
+    .stack-gap { height:10px !important; display:block !important; }
+    /* A 5-column shortlist at 390px needs the gutter and the type to give a
+       little, or every property name wraps to three lines. */
+    .tbl th, .tbl td { font-size:13px !important; padding-left:9px !important; }
+    .tbl th:first-child, .tbl td:first-child { padding-left:0 !important; }
+  }
+  @media (prefers-color-scheme: dark) {
+    .dm-page { background-color:#111c25 !important; }
+    .dm-card { background-color:#18242f !important; }
+    .dm-wash { background-color:#1f2d3a !important; }
+    .dm-ink, .dm-ink * { color:#eaf1f6 !important; }
+    .dm-body, .dm-body * { color:#c3d2de !important; }
+    .dm-mute, .dm-mute * { color:#93a7b8 !important; }
+    .dm-rule { border-color:#2a3b4a !important; }
+    /* Declared last on purpose. The blanket .dm-body/.dm-mute descendant rules
+       above would otherwise flatten every semantic colour inside a table cell,
+       so "Done" and "Needs you" would arrive in dark mode as the same grey.
+       Equal specificity, later wins. */
+    .dm-teal, .dm-teal * { color:#4ed4d0 !important; }
+    .dm-ok, .dm-ok * { color:#4ed4d0 !important; }
+    .dm-warn, .dm-warn * { color:#f2ad63 !important; }
+    .dm-bad, .dm-bad * { color:#ff8fa3 !important; }
+  }
+</style>
+</head>
+<body class="dm-page" style="margin:0;padding:0;width:100%;background-color:#eef2f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI Variable Text','Segoe UI',Roboto,'Helvetica Neue',Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;">
+<div style="display:none;font-size:1px;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;mso-hide:all;">Three days in. Nothing needed from you unless something's off.&#8199;&#65279;&nbsp;&#8199;&#65279;&nbsp;&#8199;&#65279;&nbsp;&#8199;&#65279;&nbsp;&#8199;&#65279;&nbsp;&#8199;&#65279;&nbsp;&#8199;&#65279;&nbsp;&#8199;&#65279;&nbsp;&#8199;&#65279;&nbsp;&#8199;&#65279;&nbsp;&#8199;&#65279;&nbsp;&#8199;&#65279;&nbsp;&#8199;&#65279;&nbsp;&#8199;&#65279;&nbsp;&#8199;&#65279;&nbsp;&#8199;&#65279;&nbsp;&#8199;&#65279;&nbsp;&#8199;&#65279;&nbsp;&#8199;&#65279;&nbsp;&#8199;&#65279;&nbsp;&#8199;&#65279;&nbsp;&#8199;&#65279;&nbsp;&#8199;&#65279;&nbsp;&#8199;&#65279;&nbsp;&#8199;&#65279;&nbsp;&#8199;&#65279;&nbsp;&#8199;&#65279;&nbsp;&#8199;&#65279;&nbsp;&#8199;&#65279;&nbsp;&#8199;&#65279;&nbsp;&#8199;&#65279;&nbsp;&#8199;&#65279;&nbsp;&#8199;&#65279;&nbsp;&#8199;&#65279;&nbsp;&#8199;&#65279;&nbsp;&#8199;&#65279;&nbsp;&#8199;&#65279;&nbsp;&#8199;&#65279;&nbsp;&#8199;&#65279;&nbsp;&#8199;&#65279;&nbsp;&#8199;&#65279;&nbsp;&#8199;&#65279;&nbsp;&#8199;&#65279;&nbsp;&#8199;&#65279;&nbsp;&#8199;&#65279;&nbsp;&#8199;&#65279;&nbsp;&#8199;&#65279;&nbsp;&#8199;&#65279;&nbsp;&#8199;&#65279;&nbsp;&#8199;&#65279;&nbsp;&#8199;&#65279;&nbsp;&#8199;&#65279;&nbsp;&#8199;&#65279;&nbsp;&#8199;&#65279;&nbsp;&#8199;&#65279;&nbsp;&#8199;&#65279;&nbsp;&#8199;&#65279;&nbsp;&#8199;&#65279;&nbsp;&#8199;&#65279;&nbsp;&#8199;&#65279;&nbsp;</div>
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" class="dm-page" style="width:100%;border-collapse:collapse;background-color:#eef2f6;">
+<tr><td align="center" style="padding:32px 12px 40px 12px;">
+
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" align="center" class="card dm-card" style="width:100%;max-width:600px;background-color:#ffffff;border-radius:14px;overflow:hidden;box-shadow:0 1px 2px rgba(29,47,64,0.04),0 8px 20px rgba(29,47,64,0.05),0 24px 48px rgba(29,47,64,0.05);">
+  <tr><td height="3" bgcolor="#00b3b3" style="height:3px;line-height:3px;font-size:0;background-color:#00b3b3;">&nbsp;</td></tr>
+<tr><td class="px" style="padding:30px 40px 0px 40px;"><table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%;">
+<tr>
+  <td width="44" valign="middle" style="width:44px;vertical-align:middle;"><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+<td width="44" height="44" bgcolor="#00b3b3" align="center" valign="middle" style="width:44px;height:44px;background-color:#00b3b3;border-radius:44px;text-align:center;vertical-align:middle;">
+<img src="file:///Users/kylekufuor/Projects/Ambitt Agents/client-portal/public/brand/ambitt-agent-avatar.png" width="44" height="44" alt="A" style="display:block;width:44px;height:44px;border-radius:44px;border:0;outline:none;text-decoration:none;color:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI Variable Text','Segoe UI',Roboto,'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:18px;font-weight:600;line-height:44px;text-align:center;" />
+</td></tr></table></td>
+  <td valign="middle" style="vertical-align:middle;padding-left:14px;">
+    <p class="dm-ink" style="margin:0;font-size:16px;font-weight:600;color:#1d2f40;letter-spacing:-0.005em;">Arthur</p>
+    <p class="dm-mute" style="margin:2px 0 0 0;font-size:13px;color:#56697c;">Sourcing agent at Ambitt Agents</p>
+  </td>
+  
+</tr>
+</table></td></tr><tr><td class="px" style="padding:24px 40px 4px 40px;"><p class="dm-body" style="margin:0 0 16px 0;font-size:16px;line-height:1.62;color:#33475b;">Hi Casey,</p><p class="dm-body" style="margin:0 0 15px 0;font-size:16px;line-height:1.62;color:#33475b;">Three days in, so a quick pulse check.</p><p class="dm-body" style="margin:0 0 15px 0;font-size:16px;line-height:1.62;color:#33475b;">I've screened 61 listings and sent you two shortlists. You moved on Forest Lane, which is the one I'd have picked too.</p><table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%;">
+<tr>
+<td width="16" valign="top" style="width:16px;vertical-align:top;padding:0 0 9px 0;"><span style="color:#00b3b3;font-size:15px;line-height:1.6;">&bull;</span></td>
+<td valign="top" style="vertical-align:top;padding:0 0 9px 0;"><p class="dm-body" style="margin:0;font-size:15px;line-height:1.6;color:#33475b;">I noticed you passed on both Grand Prairie deals without asking me anything. If it's the flood zone, I can filter those out permanently.</p></td>
+</tr><tr>
+<td width="16" valign="top" style="width:16px;vertical-align:top;padding:0 0 9px 0;"><span style="color:#00b3b3;font-size:15px;line-height:1.6;">&bull;</span></td>
+<td valign="top" style="vertical-align:top;padding:0 0 9px 0;"><p class="dm-body" style="margin:0;font-size:15px;line-height:1.6;color:#33475b;">Your buy box says 40,000 SF minimum, but you opened the 38,500 SF Irving listing twice. Want me to loosen the floor?</p></td>
+</tr>
+</table><p class="dm-body" style="margin:0 0 15px 0;font-size:16px;line-height:1.62;color:#33475b;">Nothing needed from you unless one of those lands.</p></td></tr><tr><td class="px" style="padding:0px 40px 32px 40px;"><div class="dm-rule" style="border-top:1px solid #e2eaf1;margin:22px 0 22px 0;font-size:0;line-height:0;">&nbsp;</div><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+<td width="40" valign="middle" style="width:40px;vertical-align:middle;"><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+<td width="40" height="40" bgcolor="#00b3b3" align="center" valign="middle" style="width:40px;height:40px;background-color:#00b3b3;border-radius:40px;text-align:center;vertical-align:middle;">
+<img src="file:///Users/kylekufuor/Projects/Ambitt Agents/client-portal/public/brand/ambitt-agent-avatar.png" width="40" height="40" alt="A" style="display:block;width:40px;height:40px;border-radius:40px;border:0;outline:none;text-decoration:none;color:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI Variable Text','Segoe UI',Roboto,'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:16px;font-weight:600;line-height:40px;text-align:center;" />
+</td></tr></table></td>
+<td valign="middle" style="vertical-align:middle;padding-left:12px;">
+  <p class="dm-ink" style="margin:0;font-size:15px;font-weight:600;color:#1d2f40;">Arthur</p>
+  <p class="dm-mute" style="margin:2px 0 0 0;font-size:13px;color:#56697c;">Sourcing agent at Ambitt Agents</p>
+</td>
+</tr></table></td></tr>
+</table>
+
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" align="center" style="width:100%;max-width:600px;margin:0 auto;">
+<tr><td class="px" style="padding:22px 40px 0 40px;text-align:center;">
+  <p class="dm-body" style="margin:0;font-size:14px;line-height:1.6;color:#33475b;">Just reply to this email. Arthur reads every one.</p>
+  <p class="dm-mute" style="margin:10px 0 0 0;font-size:13px;color:#56697c;">This one is on us. It doesn't count toward your monthly interactions.</p>
+</td></tr>
+<tr><td class="px" style="padding:14px 40px 0 40px;text-align:center;">
+  <p class="dm-mute" style="margin:0;font-size:12.5px;line-height:2.1;color:#56697c;"><a href="https://chat.ambitt.agency/agt_7f3c9a21" style="color:#56697c;text-decoration:none;white-space:nowrap;">Chat with Arthur</a><span style="color:#728799;"> &middot; </span><a href="https://portal.ambitt.agency/agents/agt_7f3c9a21" style="color:#56697c;text-decoration:none;white-space:nowrap;">Your portal</a><span style="color:#728799;"> &middot; </span><a href="https://portal.ambitt.agency/agents/agt_7f3c9a21/tools" style="color:#56697c;text-decoration:none;white-space:nowrap;">Tools</a><span style="color:#728799;"> &middot; </span><a href="https://portal.ambitt.agency/agents/agt_7f3c9a21#communication" style="color:#56697c;text-decoration:none;white-space:nowrap;">Communication</a><span style="color:#728799;"> &middot; </span><a href="https://portal.ambitt.agency/billing" style="color:#56697c;text-decoration:none;white-space:nowrap;">Billing</a><span style="color:#728799;"> &middot; </span><a href="mailto:reply-agt_7f3c9a21@ambitt.agency?subject=PAUSE" style="color:#56697c;text-decoration:none;white-space:nowrap;">Pause agent</a><span style="color:#728799;"> &middot; </span><a href="mailto:support@ambitt.agency" style="color:#56697c;text-decoration:none;white-space:nowrap;">Help</a></p>
+</td></tr>
+<tr><td style="padding:16px 24px 0 24px;text-align:center;">
+  <p style="margin:0;font-size:12.5px;">
+    <span class="dm-mute" style="font-weight:600;color:#56697c;">Ambitt</span><span class="dm-teal" style="font-weight:600;color:#00706f;"> Agents</span>
+  </p>
+</td></tr>
+</table>
+
+</td></tr>
+</table>
+</body>
+</html>

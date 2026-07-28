@@ -1,16 +1,31 @@
 import {
+  T,
   type BaseEmailProps,
   type StatItem,
   type RecommendationItem,
-  emailWrapper,
-  headerBlock,
-  sectionLabel,
-  summaryBlock,
-  statsGrid,
-  recommendationsBlock,
-  primaryCta,
-  footerBlock,
+  emailDocument,
+  section,
+  letterhead,
+  h2,
+  paragraph,
+  statStrip,
+  progressBar,
+  decisionCard,
+  portalInvite,
+  divider,
+  signature,
+  footerRows,
+  signatureRoleLine,
 } from "./_shared.js";
+import { portalLink } from "../../shared/portal-links.js";
+
+// ---------------------------------------------------------------------------
+// Milestone — something the client has been working toward actually happened
+// ---------------------------------------------------------------------------
+// The temptation is confetti. The better move is understatement: state the
+// thing, put the number next to it, and get out. Quiet confidence is what
+// makes a win read as real rather than as gamification.
+// ---------------------------------------------------------------------------
 
 export interface MilestoneEmailProps extends BaseEmailProps {
   summary: string;
@@ -22,46 +37,97 @@ export interface MilestoneEmailProps extends BaseEmailProps {
   stats: StatItem[];
   recommendations: RecommendationItem[];
   ctaUrl: string;
+  agentRole?: string;
 }
 
 export function buildMilestoneEmail(props: MilestoneEmailProps): string {
-  const { agentName, agentId, productName, summary, milestoneValue, milestoneLabel, milestoneDate, currentProgress, nextMilestone, stats, recommendations, ctaUrl } = props;
+  const {
+    agentName,
+    agentId,
+    summary,
+    milestoneValue,
+    milestoneLabel,
+    milestoneDate,
+    currentProgress,
+    nextMilestone,
+    stats,
+    recommendations,
+    ctaUrl,
+    agentRole,
+  } = props;
 
   const dateFormatted = new Date(milestoneDate).toLocaleDateString("en-US", { dateStyle: "medium" });
 
-  const header = headerBlock(agentName, productName, "Milestone", "success");
+  const rows = [
+    section(
+      letterhead({
+        agentName,
+        roleLine: signatureRoleLine(agentRole),
+        chipLabel: "Milestone",
+        tone: "good",
+      }),
+      30,
+      0
+    ),
 
-  const body = `
-    <!-- Milestone Hero -->
-    <div style="text-align: center; margin-bottom: 24px;">
-      <div style="display: inline-block; background: #f0fdf4; border: 2px solid #86efac; border-radius: 12px; padding: 24px 40px;">
-        <p style="margin: 0; font-size: 36px; font-weight: 600; color: #16a34a;">${milestoneValue}</p>
-        <p style="margin: 6px 0 0 0; font-size: 13px; color: #52525b; font-weight: 500;">${milestoneLabel}</p>
-        <p style="margin: 4px 0 0 0; font-size: 11px; color: #a1a1aa;">${dateFormatted}</p>
-      </div>
-    </div>
+    section(
+      `<p class="h1 dm-ink" style="margin:0;font-size:40px;line-height:1.05;font-weight:600;color:${T.ink};letter-spacing:-0.028em;font-variant-numeric:tabular-nums;">${milestoneValue}</p>
+<p class="dm-body" style="margin:8px 0 0 0;font-size:16px;line-height:1.45;color:${T.body};">${milestoneLabel}</p>
+<p class="dm-mute" style="margin:4px 0 0 0;font-size:13.5px;color:${T.mute};">${dateFormatted}</p>`,
+      26,
+      0
+    ),
 
-    ${summaryBlock(summary)}
+    section(paragraph(summary), 22, 0),
 
-    <!-- Next Milestone Progress -->
-    <div style="margin-bottom: 24px;">
-      ${sectionLabel("Next Milestone")}
-      <p style="margin: 0 0 8px 0; font-size: 13px; color: #18181b; font-weight: 500;">${nextMilestone}</p>
-      <div style="background: #f4f4f5; border-radius: 4px; height: 8px; overflow: hidden;">
-        <div style="background: #16a34a; height: 8px; border-radius: 4px; width: ${Math.min(currentProgress, 100)}%;"></div>
-      </div>
-      <p style="margin: 4px 0 0 0; font-size: 11px; color: #a1a1aa;">${currentProgress}% progress</p>
-    </div>
+    stats.length > 0 ? section(statStrip(stats), 4, 4) : "",
 
-    ${statsGrid(stats)}
+    nextMilestone
+      ? section(
+          h2("What's next") +
+            `<p class="dm-body" style="margin:0 0 12px 0;font-size:15px;line-height:1.6;color:${T.body};">${nextMilestone}</p>` +
+            progressBar(currentProgress) +
+            `<p class="dm-mute" style="margin:8px 0 0 0;font-size:13.5px;color:${T.mute};">${Math.round(currentProgress)}% of the way there</p>`,
+          24,
+          0
+        )
+      : "",
 
-    ${recommendationsBlock(recommendations, agentId)}
+    recommendations.length > 0
+      ? recommendations
+          .map((rec) =>
+            section(
+              decisionCard({
+                title: rec.title,
+                description: rec.description,
+                reasoning: rec.reasoning,
+                primaryLabel: rec.approveLabel,
+                primaryUrl: `mailto:reply-${agentId}@ambitt.agency?subject=APPROVE ${rec.approveActionId}`,
+              }),
+              22,
+              0
+            )
+          )
+          .join("")
+      : "",
 
-    <div style="margin-top: 20px;">
-      ${primaryCta("View Full Report", ctaUrl)}
-    </div>
-  `;
+    section(
+      portalInvite(
+        "The whole story of how this one came together is in your portal.",
+        "Look back over it",
+        ctaUrl || portalLink(agentId, "overview")
+      ),
+      20,
+      0
+    ),
 
-  const footer = footerBlock(agentName, agentId);
-  return emailWrapper("success", header, body, footer);
+    section(divider(26, 22) + signature(agentName, agentRole), 0, 32),
+  ].join("");
+
+  return emailDocument({
+    preheader: `${milestoneLabel}. ${milestoneValue}.`,
+    tone: "good",
+    rows,
+    outerRows: footerRows(agentName, agentId),
+  });
 }

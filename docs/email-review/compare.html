@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Ambitt agent emails — before and after</title>
+<style>
+  :root {
+    --page: #eef2f6;
+    --card: #ffffff;
+    --ink: #1d2f40;
+    --body: #33475b;
+    --mute: #5f7488;
+    --teal: #00b3b3;
+    --teal-text: #00706f;
+    --rule: #e2eaf1;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--page);
+    color: var(--body);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+  }
+  header { padding: 40px 32px 8px; max-width: 1400px; margin: 0 auto; }
+  h1 { font-size: 26px; line-height: 1.2; font-weight: 600; color: var(--ink); letter-spacing: -0.016em; margin: 0 0 8px; }
+  header p { margin: 0 0 4px; max-width: 70ch; }
+  header .meta { color: var(--mute); font-size: 14px; }
+  main { max-width: 1400px; margin: 0 auto; padding: 16px 32px 80px; }
+
+  .row {
+    background: var(--card);
+    border-radius: 14px;
+    margin: 0 0 24px;
+    overflow: hidden;
+    box-shadow: 0 1px 2px rgba(29,47,64,.04), 0 8px 20px rgba(29,47,64,.05), 0 24px 48px rgba(29,47,64,.05);
+  }
+  .row > .bar { border-top: 3px solid var(--teal); }
+  .row h2 {
+    margin: 0; padding: 18px 24px 4px;
+    font-size: 19px; font-weight: 600; color: var(--ink); letter-spacing: -0.01em;
+  }
+  .row .note { margin: 0; padding: 0 24px 16px; font-size: 14.5px; color: var(--mute); max-width: 90ch; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--rule); }
+  .pane { background: var(--page); padding: 0; }
+  .pane .lbl {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 24px; background: var(--card);
+    font-size: 12px; font-weight: 600; letter-spacing: .09em; text-transform: uppercase; color: var(--mute);
+  }
+  .pane.after .lbl { color: var(--teal-text); }
+  .dot { width: 8px; height: 8px; border-radius: 8px; background: #b7c4d0; }
+  .pane.after .dot { background: var(--teal); }
+  iframe { width: 100%; height: 900px; border: 0; display: block; background: var(--page); }
+  .links { padding: 12px 24px 18px; background: var(--card); font-size: 14px; }
+  .links a { color: var(--teal-text); text-decoration: none; font-weight: 600; margin-right: 18px; }
+  .links a:hover { text-decoration: underline; }
+  @media (max-width: 900px) { .pair { grid-template-columns: 1fr; } iframe { height: 620px; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Agent emails, before and after</h1>
+  <p>Same content in both columns: Arthur, a CRE sourcing agent, working a Dallas industrial shortlist for Litsey Creek Partners. Left is what we send today. Right is the new system.</p>
+  <p class="meta">Scroll inside each panel. Every render is a real file produced by the real template, not a mockup.</p>
+</header>
+<main>
+
+<section class="row"><div class="bar"></div>
+  <h2>Agent response</h2>
+  <p class="note">The one clients see most, and the one that has to carry the relationship. Before: serif headings that fight the portal, an avatar floating with no name attached, raw tool names ("google sheets append row") shown to the client. After: a letterhead that says who this is from, the numbers as an editorial strip instead of boxed tiles, the systems we touched named the way the client names them, and the portal offered rather than assigned.</p>
+  <div class="pair">
+    <div class="pane"><div class="lbl"><span class="dot"></span>Before</div><iframe src="before/agent-response.html"></iframe></div>
+    <div class="pane after"><div class="lbl"><span class="dot"></span>After</div><iframe src="after/agent-response.html"></iframe></div>
+  </div>
+  <div class="links">
+    <a href="after/shots/agent-response-mobile.png">Mobile</a>
+    <a href="after/shots/agent-response-dark.png">Dark mode</a>
+    <a href="after/shots/agent-response-noimages.png">Images blocked</a>
+  </div>
+</section>
+
+<section class="row"><div class="bar"></div>
+  <h2>Welcome</h2>
+  <p class="note">First impression, and the worst offender before: a black letter-avatar, green tool pills, an amber box with a coloured 1px border, a blue link. Four unrelated accent colours and no teal anywhere. After: the agent has a face, the brief sits in a tonal panel with no border, tools are teal chips, and the promise about access is stated in words.</p>
+  <div class="pair">
+    <div class="pane"><div class="lbl"><span class="dot"></span>Before</div><iframe src="before/welcome.html"></iframe></div>
+    <div class="pane after"><div class="lbl"><span class="dot"></span>After</div><iframe src="after/welcome.html"></iframe></div>
+  </div>
+  <div class="links">
+    <a href="after/shots/welcome-mobile.png">Mobile</a>
+    <a href="after/shots/welcome-dark.png">Dark mode</a>
+    <a href="after/shots/welcome-noimages.png">Images blocked</a>
+  </div>
+</section>
+
+<section class="row"><div class="bar"></div>
+  <h2>Approval request</h2>
+  <p class="note">The highest-stakes email we send: something is about to happen under the client's name. Before: a brown-black warning slab, "WHAT I'LL DO" and "WHY" in all caps, a black "Approve This Action" button. After: an amber rule and one chip carry the state, the consequence gets its own panel and a plain sentence, and the button says "Yes, go ahead". The reassurance line at the bottom is new.</p>
+  <div class="pair">
+    <div class="pane"><div class="lbl"><span class="dot"></span>Before</div><iframe src="before/action-required.html"></iframe></div>
+    <div class="pane after"><div class="lbl"><span class="dot"></span>After</div><iframe src="after/action-required.html"></iframe></div>
+  </div>
+  <div class="links">
+    <a href="after/shots/action-required-mobile.png">Mobile</a>
+    <a href="after/shots/action-required-dark.png">Dark mode</a>
+    <a href="after/shots/action-required-noimages.png">Images blocked</a>
+  </div>
+</section>
+
+<section class="row"><div class="bar"></div>
+  <h2>Weekly digest</h2>
+  <p class="note">Before: a near-black header slab, five all-caps labels, grey stat tiles, a black "View Full Report" button. It read like a monitoring tool. After: the summary leads, the numbers sit between two hairlines, statuses keep their meaning in a colour that survives dark mode, and there is exactly one thing to decide.</p>
+  <div class="pair">
+    <div class="pane"><div class="lbl"><span class="dot"></span>Before</div><iframe src="before/digest.html"></iframe></div>
+    <div class="pane after"><div class="lbl"><span class="dot"></span>After</div><iframe src="after/digest.html"></iframe></div>
+  </div>
+  <div class="links">
+    <a href="after/shots/digest-mobile.png">Mobile</a>
+    <a href="after/shots/digest-dark.png">Dark mode</a>
+    <a href="after/shots/digest-noimages.png">Images blocked</a>
+  </div>
+</section>
+
+<section class="row"><div class="bar"></div>
+  <h2>Credential request</h2>
+  <p class="note">This one ran its own design system entirely: warm beige page, light-blue avatar, navy text, black button. Asking for a password was the moment we looked least like ourselves. Now it belongs to the family.</p>
+  <div class="pair">
+    <div class="pane"><div class="lbl"><span class="dot"></span>Before</div><iframe src="before/credential-request.html"></iframe></div>
+    <div class="pane after"><div class="lbl"><span class="dot"></span>After</div><iframe src="after/credential-request.html"></iframe></div>
+  </div>
+  <div class="links"><a href="after/shots/credential-request-mobile.png">Mobile</a></div>
+</section>
+
+<section class="row"><div class="bar"></div>
+  <h2>Setup progress</h2>
+  <p class="note">The old version laid its rows out with <code>display:flex</code>, which does not exist in Outlook, so the layout collapsed there. It also ran a green / blue / amber traffic light that made a setup checklist look like a health dashboard. Now it's nested tables and one teal.</p>
+  <div class="pair">
+    <div class="pane"><div class="lbl"><span class="dot"></span>Before</div><iframe src="before/progress.html"></iframe></div>
+    <div class="pane after"><div class="lbl"><span class="dot"></span>After</div><iframe src="after/progress.html"></iframe></div>
+  </div>
+  <div class="links"><a href="after/shots/progress-mobile.png">Mobile</a></div>
+</section>
+
+<section class="row"><div class="bar"></div>
+  <h2>Alert</h2>
+  <p class="note">Amber now, not red. Half of these are good news (this one is a price cut in the client's favour) and a blood-red banner was always the wrong read. The number is the message, so the number is the biggest thing on the page.</p>
+  <div class="pair">
+    <div class="pane"><div class="lbl"><span class="dot"></span>Before</div><iframe src="before/alert.html"></iframe></div>
+    <div class="pane after"><div class="lbl"><span class="dot"></span>After</div><iframe src="after/alert.html"></iframe></div>
+  </div>
+  <div class="links"><a href="after/shots/alert-mobile.png">Mobile</a></div>
+</section>
+
+<section class="row"><div class="bar"></div>
+  <h2>Error</h2>
+  <p class="note">Leads with plain language about what the client actually lost, and puts the stack-trace detail in a quiet panel at the bottom for whoever wants it. Before, the black terminal block was the second thing on the page.</p>
+  <div class="pair">
+    <div class="pane"><div class="lbl"><span class="dot"></span>Before</div><iframe src="before/error.html"></iframe></div>
+    <div class="pane after"><div class="lbl"><span class="dot"></span>After</div><iframe src="after/error.html"></iframe></div>
+  </div>
+  <div class="links"><a href="after/shots/error-mobile.png">Mobile</a></div>
+</section>
+
+<section class="row"><div class="bar"></div>
+  <h2>Permission request</h2>
+  <p class="note">Scope has to be unmistakable, so each system gets a row with its access level called out, and the closing promise about limits is in words rather than a legal footer.</p>
+  <div class="pair">
+    <div class="pane"><div class="lbl"><span class="dot"></span>Before</div><iframe src="before/permission.html"></iframe></div>
+    <div class="pane after"><div class="lbl"><span class="dot"></span>After</div><iframe src="after/permission.html"></iframe></div>
+  </div>
+  <div class="links"><a href="after/shots/permission-mobile.png">Mobile</a></div>
+</section>
+
+<section class="row"><div class="bar"></div>
+  <h2>Milestone</h2>
+  <p class="note">The temptation is confetti. Understatement reads as real: state the thing, put the number next to it, get out.</p>
+  <div class="pair">
+    <div class="pane"><div class="lbl"><span class="dot"></span>Before</div><iframe src="before/milestone.html"></iframe></div>
+    <div class="pane after"><div class="lbl"><span class="dot"></span>After</div><iframe src="after/milestone.html"></iframe></div>
+  </div>
+  <div class="links"><a href="after/shots/milestone-mobile.png">Mobile</a></div>
+</section>
+
+<section class="row"><div class="bar"></div>
+  <h2>How to work with me (T+5min)</h2>
+  <p class="note">One of the three onboarding letters. All three now share one shell, so the 14-day sequence reads as a continuous conversation rather than three different-looking emails.</p>
+  <div class="pair">
+    <div class="pane"><div class="lbl"><span class="dot"></span>Before</div><iframe src="before/onboarding.html"></iframe></div>
+    <div class="pane after"><div class="lbl"><span class="dot"></span>After</div><iframe src="after/onboarding.html"></iframe></div>
+  </div>
+  <div class="links"><a href="after/shots/onboarding-mobile.png">Mobile</a></div>
+</section>
+
+<section class="row"><div class="bar"></div>
+  <h2>Check-in (T+3)</h2>
+  <p class="note">Same shell as the onboarding letter above, different moment.</p>
+  <div class="pair">
+    <div class="pane"><div class="lbl"><span class="dot"></span>Before</div><iframe src="before/checkpoint.html"></iframe></div>
+    <div class="pane after"><div class="lbl"><span class="dot"></span>After</div><iframe src="after/checkpoint.html"></iframe></div>
+  </div>
+  <div class="links"><a href="after/shots/checkpoint-mobile.png">Mobile</a></div>
+</section>
+
+</main>
+</body>
+</html>

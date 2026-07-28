@@ -17,3 +17,8 @@ build/
 
 # Claude Code — personal settings, hooks, and local project memory
 .claude/
+
+# Email design review: rendered HTML is committed, screenshots are regenerable
+# (npx tsx scripts/shoot-emails.ts docs/email-review/after)
+docs/email-review/**/shots/
+docs/email-review/compare-top.png

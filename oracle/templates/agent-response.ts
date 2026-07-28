@@ -1,13 +1,36 @@
 import type { RuntimeOutput } from "../../shared/runtime/index.js";
-import { navFooterLinks, AGENT_AVATAR_URL } from "./_shared.js";
+import {
+  T,
+  emailDocument,
+  section,
+  letterhead,
+  h2Flow,
+  h3Flow,
+  divider,
+  statStrip,
+  dataTable,
+  panel,
+  decisionCard,
+  portalInvite,
+  sourceLinksBlock,
+  signature,
+  footerRows,
+  signatureRoleLine,
+} from "./_shared.js";
+import { portalLink } from "../../shared/portal-links.js";
 
 // ---------------------------------------------------------------------------
-// Agent Response Email Template — premium, teal, card-based.
+// Agent Response — the email a client sees most
 // ---------------------------------------------------------------------------
-// A calm, confident email that reads like a capable teammate wrote it. Lots of
-// white space, one teal accent, rounded info-cards with soft-teal fills, a
-// single primary button, and a clean signature with the agent's avatar.
-// Dumb renderer — all content is AI-generated and passed in as props.
+// The reply to an inbound message, and the output of a scheduled run. If only
+// one template is right, it's this one.
+//
+// It reads as a letter from a colleague: letterhead, prose, the evidence, one
+// ask, a signature. Everything visual comes from _shared.ts, so this file is
+// almost entirely about turning the agent's markdown into type.
+//
+// Dumb renderer (CLAUDE.md rule 12). Every word here is either the agent's or
+// fixed platform chrome. Nothing is generated, only formatted.
 // ---------------------------------------------------------------------------
 
 interface AgentResponseOptions {
@@ -31,215 +54,248 @@ interface AgentResponseOptions {
   proactiveInsights?: string[];
 }
 
-const BRAND = "#00b3b3";
-const BRAND_DARK = "#0f7a74"; // readable teal for text on soft-teal fills
-const CARD = "#eaf7f4"; // soft-teal card fill
-const BADGE = "#d3efe9"; // slightly deeper teal for icon badges
-const INK = "#15201f"; // near-black heading
-const BODY = "#3f4a48"; // body text
-const MUTE = "#8a938f"; // muted gray-teal
-const SERIF = "Georgia,'Times New Roman',serif"; // premium display face for headings
-const MONO = "'SF Mono',ui-monospace,Menlo,Consolas,monospace"; // tool-name / code chips
+const MONO = "'SF Mono',ui-monospace,Menlo,Consolas,monospace";
 
-// Inline markdown: `code`, **bold**, and [text](url).
+// ---------------------------------------------------------------------------
+// Markdown, rendered as type
+// ---------------------------------------------------------------------------
+
+/** Inline markdown: `code`, **bold**, [text](url). */
 function inlineMd(s: string): string {
   return s
     .replace(
       /`([^`]+)`/g,
-      `<code style="font-family:${MONO};font-size:12.5px;background:${CARD};color:${BRAND_DARK};padding:2px 7px;border-radius:6px;white-space:nowrap;">$1</code>`
+      `<code style="font-family:${MONO};font-size:13px;background:${T.wash};color:${T.tealText};padding:2px 6px;border-radius:5px;white-space:nowrap;">$1</code>`
     )
-    .replace(/\*\*([^*]+)\*\*/g, `<strong style="font-weight:600;color:${INK};">$1</strong>`)
+    .replace(/\*\*([^*]+)\*\*/g, `<strong style="font-weight:600;color:${T.ink};">$1</strong>`)
     .replace(
       /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g,
-      `<a href="$2" style="color:${BRAND_DARK};text-decoration:none;border-bottom:1px solid ${BADGE};">$1</a>`
+      `<a href="$2" style="color:${T.tealText};text-decoration:underline;text-underline-offset:2px;">$1</a>`
     );
 }
 
-// An h2 (`##`) heading. If the text starts with an emoji, render it as a
-// soft-teal icon badge + serif title (the "sectioned" look); otherwise a clean
-// serif title. Agents opt into the badge by prefixing a heading emoji — no
-// auto-guessing, so a plain heading never gets a random emoji stuck on it.
-function h2Heading(text: string): string {
-  const em = text.match(/^(\p{Extended_Pictographic}[️‍\p{Extended_Pictographic}]*)\s+(.*)/u);
-  if (em) {
-    return `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:22px 0 6px;"><tr>
-      <td style="width:34px;vertical-align:middle;padding-right:12px;"><div style="width:34px;height:34px;background:${BADGE};border-radius:10px;text-align:center;"><span style="font-size:17px;line-height:34px;">${em[1]}</span></div></td>
-      <td style="vertical-align:middle;"><p style="margin:0;font-family:${SERIF};font-size:16px;font-weight:600;color:${INK};letter-spacing:0.2px;">${inlineMd(em[2])}</p></td>
-    </tr></table>`;
-  }
-  return `<p style="margin:24px 0 8px;font-family:${SERIF};font-size:16px;font-weight:600;color:${INK};letter-spacing:0.2px;">${inlineMd(text)}</p>`;
+/**
+ * Headings arrive from the model and sometimes carry a leading emoji. Emoji as
+ * a section header is on the anti-slop list and it undercuts the whole tone, so
+ * we strip it at the render layer. That enforces house style without the
+ * template generating any copy of its own.
+ */
+function stripLeadingEmoji(text: string): string {
+  return text.replace(/^(\p{Extended_Pictographic}[️‍\p{Extended_Pictographic}]*)\s+/u, "");
 }
 
-// Render the agent's markdown body into clean, email-safe HTML.
+/** The agent's markdown body, rendered into the shared type scale. */
 function renderMarkdown(md: string): string {
   const out: string[] = [];
   let list: "ul" | "ol" | null = null;
   const closeList = () => {
-    if (list) { out.push(`</${list}>`); list = null; }
+    if (list) {
+      out.push(`</${list}>`);
+      list = null;
+    }
   };
   for (const raw of md.split("\n")) {
     const line = raw.trimEnd();
-    if (!line.trim()) { closeList(); continue; }
+    if (!line.trim()) {
+      closeList();
+      continue;
+    }
     let m: RegExpMatchArray | null;
     if ((m = line.match(/^###\s+(.*)/))) {
       closeList();
-      out.push(`<p style="margin:20px 0 6px;font-family:${SERIF};font-size:14px;font-weight:600;color:${INK};letter-spacing:0.2px;">${inlineMd(m[1])}</p>`);
+      out.push(h3Flow(inlineMd(stripLeadingEmoji(m[1]))));
     } else if ((m = line.match(/^##\s+(.*)/))) {
       closeList();
-      out.push(h2Heading(m[1]));
+      out.push(h2Flow(inlineMd(stripLeadingEmoji(m[1]))));
     } else if (/^(---|___|\*\*\*)\s*$/.test(line)) {
       closeList();
-      out.push(`<div style="border-top:1px solid #e7ecec;margin:20px 0;"></div>`);
+      out.push(divider(22, 22));
     } else if ((m = line.match(/^[-•]\s+(.*)/))) {
-      if (list !== "ul") { closeList(); out.push(`<ul style="margin:0 0 16px;padding-left:20px;">`); list = "ul"; }
-      out.push(`<li style="margin:0 0 7px;">${inlineMd(m[1])}</li>`);
+      if (list !== "ul") {
+        closeList();
+        out.push(`<ul style="margin:0 0 16px 0;padding-left:22px;">`);
+        list = "ul";
+      }
+      out.push(`<li style="margin:0 0 8px 0;padding-left:2px;">${inlineMd(m[1])}</li>`);
     } else if ((m = line.match(/^\d+\.\s+(.*)/))) {
-      if (list !== "ol") { closeList(); out.push(`<ol style="margin:0 0 16px;padding-left:22px;">`); list = "ol"; }
-      out.push(`<li style="margin:0 0 7px;">${inlineMd(m[1])}</li>`);
+      if (list !== "ol") {
+        closeList();
+        out.push(`<ol style="margin:0 0 16px 0;padding-left:24px;">`);
+        list = "ol";
+      }
+      out.push(`<li style="margin:0 0 8px 0;padding-left:2px;">${inlineMd(m[1])}</li>`);
     } else {
       closeList();
-      out.push(`<p style="margin:0 0 16px;">${inlineMd(line)}</p>`);
+      out.push(`<p style="margin:0 0 16px 0;">${inlineMd(line)}</p>`);
     }
   }
   closeList();
   return out.join("");
 }
 
-// A rounded teal icon badge (a table cell so it renders in every client).
-function iconBadge(glyph: string, square = true): string {
-  return `<div style="width:38px;height:38px;background:${BADGE};border-radius:${square ? "11px" : "50%"};text-align:center;">
-    <span style="font-size:19px;line-height:38px;color:${BRAND_DARK};">${glyph}</span>
-  </div>`;
+// ---------------------------------------------------------------------------
+// Tools touched
+// ---------------------------------------------------------------------------
+// The old version printed raw function names at the client: "google sheets
+// append row", "costar pull comps". That's our plumbing on their desk. What a
+// client wants to know is which of their systems we were in, so we dedupe to
+// the system and show that. Normalising a name is formatting, not authoring.
+
+const BRAND_CASING: Record<string, string> = {
+  costar: "CoStar",
+  loopnet: "LoopNet",
+  linkedin: "LinkedIn",
+  github: "GitHub",
+  hubspot: "HubSpot",
+  postgresql: "PostgreSQL",
+  powerbi: "Power BI",
+  quickbooks: "QuickBooks",
+  zoominfo: "ZoomInfo",
+  google_sheets: "Google Sheets",
+  googlesheets: "Google Sheets",
+  sheets: "Google Sheets",
+  google_analytics: "Google Analytics",
+  gmail: "Gmail",
+  web: "Web search",
+  websearch: "Web search",
+  web_search: "Web search",
+};
+
+function systemName(serverId: string, toolName: string): string {
+  const key = (serverId || toolName.split("_")[0] || "").toLowerCase();
+  if (BRAND_CASING[key]) return BRAND_CASING[key];
+  return key
+    .replace(/[_-]+/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase())
+    .trim();
+}
+
+function toolsLine(toolsUsed: AgentResponseOptions["toolsUsed"]): string {
+  if (toolsUsed.length === 0) return "";
+  const seen = new Map<string, boolean>();
+  for (const t of toolsUsed) {
+    const name = systemName(t.serverId, t.toolName);
+    if (!name) continue;
+    seen.set(name, (seen.get(name) ?? true) && t.success);
+  }
+  if (seen.size === 0) return "";
+  const parts = [...seen.entries()].map(([name, ok]) =>
+    ok
+      ? `<span style="color:${T.body};">${name}</span>`
+      : `<span class="dm-warn" style="color:${T.attention};">${name} (couldn't reach)</span>`
+  );
+  return `<p style="margin:0;font-size:13.5px;line-height:1.6;color:${T.mute};">
+    <span style="color:${T.tealText};font-weight:600;">&#10003;</span>&nbsp; Worked in ${parts.join(", ")}
+  </p>`;
+}
+
+// ---------------------------------------------------------------------------
+
+/** First sentence of the body, for the inbox preview line. */
+function previewFrom(body: string): string {
+  const firstProse = body
+    .split("\n")
+    .map((l) => l.trim())
+    .find((l) => l && !l.startsWith("#") && !l.startsWith("-"));
+  const text = (firstProse ?? "").replace(/[*`_[\]]/g, "");
+  return text.length > 140 ? `${text.slice(0, 137).trimEnd()}...` : text;
 }
 
 export function buildAgentResponseEmail(options: AgentResponseOptions): string {
-  const { agentName, agentId, agentRole, clientBusinessName, responseBody, toolsUsed, stats, tableHeaders, tableRows, sourceLinks, recommendations, proactiveInsights } = options;
+  const {
+    agentName,
+    agentId,
+    agentRole,
+    responseBody,
+    toolsUsed,
+    stats,
+    tableHeaders,
+    tableRows,
+    sourceLinks,
+    recommendations,
+    proactiveInsights,
+  } = options;
 
-  const bodyHtml = renderMarkdown(responseBody);
+  const tools = toolsLine(toolsUsed);
+  const hasStats = !!stats && stats.length > 0;
+  const hasTable = !!tableHeaders && !!tableRows && tableRows.length > 0;
+  const hasRecs = !!recommendations && recommendations.length > 0;
+  const hasInsights = !!proactiveInsights && proactiveInsights.length > 0;
+  const hasSources = !!sourceLinks && sourceLinks.length > 0;
 
-  // "What I did" status card — a soft-teal card with a checkmark badge.
-  const actionsHtml = toolsUsed.length > 0
-    ? `
-          <tr><td style="padding: 4px 40px 20px 40px;">
-            <table role="presentation" style="width:100%;background:${CARD};border-radius:14px;">
-              <tr>
-                <td style="width:38px;vertical-align:top;padding:18px 0 18px 18px;">${iconBadge("&#10003;", true)}</td>
-                <td style="padding:18px 18px 18px 14px;vertical-align:top;">
-                  <p style="margin:0 0 6px;font-size:14px;font-weight:600;color:${INK};">Done for you</p>
-                  ${toolsUsed
-                    .map((t) => `<p style="margin:0 0 3px;font-size:13px;color:${BODY};">${t.success ? "" : "&#9888; "}${t.toolName.replace(/_/g, " ").toLowerCase()}</p>`)
-                    .join("")}
-                </td>
-              </tr>
-            </table>
-          </td></tr>`
-    : "";
+  const rows = [
+    section(letterhead({ agentName, roleLine: signatureRoleLine(agentRole) }), 30, 0),
 
-  const statsHtml = stats && stats.length > 0 ? `
-          <tr><td style="padding: 0 40px 20px 40px;">
-            <table role="presentation" style="width:100%;border-collapse:separate;border-spacing:8px 0;">
-              <tr>${stats.map((s) => `
-                <td style="padding:16px 12px;background:${CARD};border-radius:12px;text-align:center;">
-                  <p style="margin:0;font-size:22px;font-weight:600;color:${INK};">${s.value}</p>
-                  <p style="margin:4px 0 0;font-size:11px;color:${MUTE};">${s.label}</p>
-                  <p style="margin:3px 0 0;font-size:11px;color:${s.deltaType === "up" ? BRAND_DARK : "#c2410c"};">${s.delta}</p>
-                </td>`).join("")}
-              </tr>
-            </table>
-          </td></tr>` : "";
+    // The letter itself.
+    section(
+      `<div style="font-size:16px;line-height:1.62;color:${T.body};" class="dm-body">${renderMarkdown(responseBody)}</div>`,
+      22,
+      6
+    ),
 
-  const tableHtml = tableHeaders && tableRows && tableRows.length > 0 ? `
-          <tr><td style="padding: 0 40px 20px 40px;">
-            <table role="presentation" style="width:100%;border-collapse:collapse;font-size:13px;">
-              <tr>${tableHeaders.map((h) => `<th style="padding:9px 10px;text-align:left;border-bottom:2px solid ${BADGE};font-weight:600;color:${INK};font-size:11px;text-transform:uppercase;letter-spacing:0.5px;">${h}</th>`).join("")}</tr>
-              ${tableRows.map((row) => `<tr>${row.columns.map((col) => `<td style="padding:9px 10px;border-bottom:1px solid #eef1f0;color:${BODY};">${col}</td>`).join("")}</tr>`).join("")}
-            </table>
-          </td></tr>` : "";
+    hasStats ? section(statStrip(stats!), 6, 4) : "",
+    hasTable ? section(dataTable(tableHeaders!, tableRows!), 18, 6) : "",
 
-  // CTA / recommendation cards — soft-teal card, sparkle badge, solid-teal button.
-  const recsHtml = recommendations && recommendations.length > 0
-    ? recommendations.map((rec) => `
-          <tr><td style="padding: 0 40px 14px 40px;">
-            <table role="presentation" style="width:100%;background:${CARD};border-radius:14px;">
-              <tr>
-                <td style="width:38px;vertical-align:top;padding:18px 0 18px 18px;">${iconBadge("&#10022;", false)}</td>
-                <td style="padding:18px 14px;vertical-align:middle;">
-                  <p style="margin:0 0 4px;font-size:14px;font-weight:600;color:${INK};">${rec.title}</p>
-                  <p style="margin:0;font-size:13px;color:${BODY};line-height:1.55;">${rec.description}</p>
-                </td>
-                <td style="vertical-align:middle;padding:18px 18px 18px 8px;text-align:right;white-space:nowrap;">
-                  <a href="mailto:reply-${agentId}@ambitt.agency?subject=APPROVE ${rec.approveActionId}" style="display:inline-block;background:${BRAND};color:#ffffff;padding:10px 18px;border-radius:9px;font-size:13px;font-weight:600;text-decoration:none;">${rec.approveLabel} &#8250;</a>
-                </td>
-              </tr>
-            </table>
-          </td></tr>`).join("")
-    : "";
+    // The one ask.
+    hasRecs
+      ? recommendations!
+          .map((rec) =>
+            section(
+              decisionCard({
+                title: rec.title,
+                description: rec.description,
+                reasoning: rec.reasoning,
+                primaryLabel: rec.approveLabel,
+                primaryUrl: `mailto:reply-${agentId}@ambitt.agency?subject=APPROVE ${rec.approveActionId}`,
+              }),
+              18,
+              0
+            )
+          )
+          .join("")
+      : "",
 
-  const sourcesHtml = sourceLinks && sourceLinks.length > 0 ? `
-          <tr><td style="padding: 2px 40px 20px 40px;">
-            <p style="margin:0 0 8px;font-size:10px;font-weight:600;color:${MUTE};text-transform:uppercase;letter-spacing:1.2px;">Sources</p>
-            ${sourceLinks.map((l) => `<a href="${l.url}" style="display:inline-block;font-size:12px;color:${BRAND_DARK};margin-right:16px;text-decoration:none;border-bottom:1px solid ${BADGE};">${l.label}</a>`).join("")}
-          </td></tr>` : "";
+    hasInsights
+      ? section(
+          panel(
+            `<p class="dm-ink" style="margin:0 0 8px 0;font-size:15px;font-weight:600;color:${T.ink};">Worth knowing</p>` +
+              proactiveInsights!
+                .map(
+                  (i) =>
+                    `<p class="dm-body" style="margin:0 0 7px 0;font-size:14.5px;line-height:1.55;color:${T.body};">${i}</p>`
+                )
+                .join(""),
+            "attention"
+          ),
+          18,
+          0
+        )
+      : "",
 
-  const insightsHtml = proactiveInsights && proactiveInsights.length > 0 ? `
-          <tr><td style="padding: 0 40px 20px 40px;">
-            <div style="background:#fbf7ec;border-radius:12px;padding:16px 18px;">
-              <p style="margin:0 0 8px;font-size:10px;font-weight:600;color:#9a7b2e;text-transform:uppercase;letter-spacing:1.2px;">Worth your attention</p>
-              <ul style="margin:0;padding-left:18px;color:#6b5a2a;font-size:13px;line-height:1.6;">
-                ${proactiveInsights.map((i) => `<li style="margin:0 0 4px;">${i}</li>`).join("")}
-              </ul>
-            </div>
-          </td></tr>` : "";
+    hasSources ? section(sourceLinksBlock(sourceLinks!), 18, 0) : "",
 
-  return `<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /></head>
-<body style="margin:0;padding:0;background-color:#f4f6f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;">
-  <table role="presentation" width="100%" style="width:100%;border-collapse:collapse;background-color:#f4f6f5;">
-    <tr><td align="center" style="padding:40px 16px;">
-      <table role="presentation" width="560" align="center" style="width:560px;max-width:560px;margin:0 auto;background-color:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 1px 2px rgba(20,32,31,0.06);">
+    // The portal, offered. Only when there's something there worth seeing.
+    hasTable || hasStats
+      ? section(
+          portalInvite(
+            "Everything above is saved in your portal, with the working behind it.",
+            "Take a look",
+            portalLink(agentId, "overview")
+          ),
+          20,
+          0
+        )
+      : "",
 
-        <tr><td style="padding:28px 40px 0 40px;">
-          <img src="${AGENT_AVATAR_URL}" width="44" height="44" alt="${agentName}" style="display:block;width:44px;height:44px;border-radius:50%;" />
-        </td></tr>
+    // The receipt: which of their systems we were in. Quiet, near the sign-off,
+    // the way a colleague mentions where they looked rather than leading with it.
+    section(divider(26, 18) + (tools ? `${tools}<div style="height:16px;line-height:16px;font-size:0;">&nbsp;</div>` : "") + signature(agentName, agentRole), 0, 32),
+  ].join("");
 
-        <tr><td style="padding:18px 40px 8px 40px;color:${BODY};font-size:15px;line-height:1.7;">
-          ${bodyHtml}
-        </td></tr>
-
-        ${actionsHtml}
-        ${statsHtml}
-        ${tableHtml}
-        ${recsHtml}
-        ${sourcesHtml}
-        ${insightsHtml}
-
-        <tr><td style="padding:6px 40px 0 40px;"><div style="border-top:1px solid #eef1f0;"></div></td></tr>
-
-        <tr><td style="padding:18px 40px 6px 40px;">
-          <p style="margin:0;font-size:13px;color:${MUTE};">Just reply to this email to give me another task or ask a follow-up.</p>
-        </td></tr>
-
-        <tr><td style="padding:10px 40px 30px 40px;">
-          <table role="presentation"><tr>
-            <td style="vertical-align:middle;padding-right:11px;">
-              <img src="${AGENT_AVATAR_URL}" width="34" height="34" alt="${agentName}" style="display:block;width:34px;height:34px;border-radius:50%;" />
-            </td>
-            <td style="vertical-align:middle;">
-              <p style="margin:0;font-size:14px;font-weight:600;color:${INK};">${agentName}</p>
-              <p style="margin:1px 0 0;font-size:12px;color:${MUTE};">${agentRole} &middot; <span style="color:${BRAND_DARK};">Ambitt Agents</span></p>
-            </td>
-          </tr></table>
-        </td></tr>
-
-      </table>
-
-      <table role="presentation" width="560" align="center" style="width:560px;max-width:560px;margin:16px auto 0 auto;">
-        <tr><td style="text-align:center;color:${MUTE};font-size:11px;line-height:1.8;padding-bottom:6px;">${navFooterLinks(agentName, agentId)}</td></tr>
-        <tr><td style="text-align:center;color:#b9c1be;font-size:11px;"><p style="margin:0;">Powered by <a href="https://ambitt.agency" style="color:${MUTE};text-decoration:none;">Ambitt Agents</a></p></td></tr>
-      </table>
-    </td></tr>
-  </table>
-</body>
-</html>`;
+  return emailDocument({
+    preheader: previewFrom(responseBody),
+    tone: "brand",
+    rows,
+    outerRows: footerRows(agentName, agentId),
+  });
 }

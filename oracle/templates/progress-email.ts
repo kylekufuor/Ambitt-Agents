@@ -1,12 +1,32 @@
 import {
+  T,
   type BaseEmailProps,
-  emailWrapper,
-  headerBlock,
-  sectionLabel,
-  summaryBlock,
-  primaryCta,
-  footerBlock,
+  emailDocument,
+  section,
+  letterhead,
+  h2,
+  paragraph,
+  progressBar,
+  panel,
+  bullets,
+  portalInvite,
+  divider,
+  signature,
+  footerRows,
+  signatureRoleLine,
 } from "./_shared.js";
+import { portalLink } from "../../shared/portal-links.js";
+
+// ---------------------------------------------------------------------------
+// Progress — "here's where setup has got to"
+// ---------------------------------------------------------------------------
+// The old version used `display:flex` for its label/percentage rows, which
+// simply does not exist in Outlook, so the layout collapsed. Everything here is
+// nested tables via progressBar().
+//
+// "Needs from you" is the only part the client has to act on, so it's the only
+// part carrying colour.
+// ---------------------------------------------------------------------------
 
 export interface ProgressEmailProps extends BaseEmailProps {
   dayNumber: number;
@@ -15,56 +35,82 @@ export interface ProgressEmailProps extends BaseEmailProps {
   progressItems: Array<{ label: string; pct: number }>;
   needsFromClient: Array<{ item: string }>;
   ctaUrl: string;
+  agentRole?: string;
 }
 
 export function buildProgressEmail(props: ProgressEmailProps): string {
-  const { agentName, agentId, productName, dayNumber, totalDays, summary, progressItems, needsFromClient, ctaUrl } = props;
+  const {
+    agentName,
+    agentId,
+    dayNumber,
+    totalDays,
+    summary,
+    progressItems,
+    needsFromClient,
+    ctaUrl,
+    agentRole,
+  } = props;
 
   const overallPct = Math.round((dayNumber / totalDays) * 100);
 
-  const header = headerBlock(agentName, productName, `Day ${dayNumber} of ${totalDays}`, "active");
+  const rows = [
+    section(
+      letterhead({
+        agentName,
+        roleLine: signatureRoleLine(agentRole),
+        chipLabel: `Day ${dayNumber} of ${totalDays}`,
+      }),
+      30,
+      0
+    ),
 
-  const body = `
-    <!-- Overall Progress Bar -->
-    <div style="margin-bottom: 24px;">
-      <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
-        <p style="margin: 0; font-size: 12px; font-weight: 500; color: #18181b;">Overall Progress</p>
-        <p style="margin: 0; font-size: 12px; font-weight: 500; color: #18181b;">${overallPct}%</p>
-      </div>
-      <div style="background: #f4f4f5; border-radius: 4px; height: 8px; overflow: hidden;">
-        <div style="background: #16a34a; height: 8px; border-radius: 4px; width: ${overallPct}%;"></div>
-      </div>
-    </div>
+    section(paragraph(summary), 24, 4),
 
-    ${summaryBlock(summary)}
+    section(progressBar(overallPct, "Overall") , 8, 4),
 
-    ${progressItems.length > 0 ? `
-    ${sectionLabel("Progress Details")}
-    <div style="margin-bottom: 20px;">
-      ${progressItems.map((item) => `
-      <div style="margin-bottom: 12px;">
-        <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-          <p style="margin: 0; font-size: 13px; color: #52525b;">${item.label}</p>
-          <p style="margin: 0; font-size: 13px; font-weight: 500; color: #18181b;">${item.pct}%</p>
-        </div>
-        <div style="background: #f4f4f5; border-radius: 4px; height: 6px; overflow: hidden;">
-          <div style="background: ${item.pct >= 100 ? "#16a34a" : item.pct >= 50 ? "#3b82f6" : "#f59e0b"}; height: 6px; border-radius: 4px; width: ${Math.min(item.pct, 100)}%;"></div>
-        </div>
-      </div>`).join("")}
-    </div>` : ""}
+    progressItems.length > 0
+      ? section(
+          h2("Where each piece is") +
+            progressItems
+              .map(
+                (i) =>
+                  `<div style="margin:0 0 16px 0;">${progressBar(i.pct, i.label)}</div>`
+              )
+              .join(""),
+          22,
+          0
+        )
+      : "",
 
-    ${needsFromClient.length > 0 ? `
-    ${sectionLabel("Needs From You")}
-    <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
-      ${needsFromClient.map((n) => `
-      <div style="margin-bottom: 6px;">
-        <p style="margin: 0; font-size: 13px; color: #92400e;">&#9679; ${n.item}</p>
-      </div>`).join("")}
-    </div>` : ""}
+    needsFromClient.length > 0
+      ? section(
+          panel(
+            `<p class="dm-ink" style="margin:0 0 10px 0;font-size:16px;font-weight:600;color:${T.ink};">The only bits I need from you</p>` +
+              bullets(needsFromClient.map((n) => n.item)),
+            "attention"
+          ),
+          14,
+          0
+        )
+      : "",
 
-    ${primaryCta("View Full Progress", ctaUrl)}
-  `;
+    section(
+      portalInvite(
+        "You can watch this fill in from your portal as it goes.",
+        "Check on setup",
+        ctaUrl || portalLink(agentId, "overview")
+      ),
+      18,
+      0
+    ),
 
-  const footer = footerBlock(agentName, agentId);
-  return emailWrapper("default", header, body, footer);
+    section(divider(26, 22) + signature(agentName, agentRole), 0, 32),
+  ].join("");
+
+  return emailDocument({
+    preheader: `Day ${dayNumber} of ${totalDays}. ${summary.slice(0, 100)}`,
+    tone: "brand",
+    rows,
+    outerRows: footerRows(agentName, agentId),
+  });
 }
