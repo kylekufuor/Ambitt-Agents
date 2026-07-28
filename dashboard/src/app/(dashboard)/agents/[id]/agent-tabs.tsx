@@ -2,6 +2,7 @@
 
 import { useState, useRef } from "react";
 import { centsToUsd } from "@/lib/costs";
+import { publicOracleUrl } from "@/lib/oracle";
 
 interface TaskItem {
   id: string;
@@ -242,7 +243,7 @@ function DocumentsTab({
   const [uploadResult, setUploadResult] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const oracleUrl = process.env.NEXT_PUBLIC_ORACLE_URL ?? "https://ambitt-agents-production.up.railway.app";
+  const oracleUrl = publicOracleUrl();
 
   async function handleUpload() {
     const files = fileRef.current?.files;
@@ -413,7 +414,7 @@ function ConfigTab({ agentId, agentStatus, config }: { agentId: string; agentSta
   const [saveResult, setSaveResult] = useState<string | null>(null);
   const [showCustom, setShowCustom] = useState(false);
 
-  const oracleUrl = process.env.NEXT_PUBLIC_ORACLE_URL ?? "https://ambitt-agents-production.up.railway.app";
+  const oracleUrl = publicOracleUrl();
 
   async function updateSchedule(newSchedule: string) {
     setSaving(true);

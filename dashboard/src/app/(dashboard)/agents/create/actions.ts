@@ -1,9 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-
-const oracleUrl =
-  process.env.ORACLE_URL ?? "https://ambitt-agents-production.up.railway.app";
+import { oracleUrl } from "@/lib/oracle";
 
 // ---------------------------------------------------------------------------
 // Test a credential against an MCP server
@@ -27,7 +25,7 @@ export async function testCredentialAction(
   }
 
   try {
-    const res = await fetch(`${oracleUrl}/tools/test`, {
+    const res = await fetch(`${oracleUrl()}/tools/test`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ serverId, credential }),
@@ -100,7 +98,7 @@ export async function createAgentAction(
 
   try {
     // Scaffold the agent
-    const res = await fetch(`${oracleUrl}/agents/scaffold`, {
+    const res = await fetch(`${oracleUrl()}/agents/scaffold`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),

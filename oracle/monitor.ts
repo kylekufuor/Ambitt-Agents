@@ -2,6 +2,50 @@ import prisma from "../shared/db.js";
 import { sendKyleWhatsApp } from "../shared/whatsapp.js";
 import logger from "../shared/logger.js";
 
+// ---------------------------------------------------------------------------
+// Fleet health + budget enforcement. Runs hourly (startFleetHealthCron in
+// oracle/scheduler.ts) and on demand via GET /fleet + POST /cron/fleet-health.
+//
+// Every run writes a `fleet_health_check` OracleAction row — that row IS the
+// liveness signal the dashboard reads ("last health check …"), so an absent /
+// old row means the sweep is dead, not that the fleet is quiet.
+//
+// Repeat-alert suppression (added when the hourly cron was wired up): the stale
+// list re-reports the SAME agents every tick — a weekly-schedule agent is
+// legitimately ">25h since last run" six days out of seven — so an unchanged
+// alert set would page the operator every hour forever. An unchanged set is
+// re-sent at most once per FLEET_ALERT_REPEAT_MS; any change to the set (new
+// stale agent, new budget alert) pages immediately. Budget alerts are one-shot
+// by construction (budgetWarningAt latches, and auto-pause takes the agent out
+// of the active set), so this suppression is really about staleness.
+// ---------------------------------------------------------------------------
+
+export const FLEET_ALERT_REPEAT_MS = 24 * 60 * 60 * 1000;
+
+// Stable identity of an alert set: agent ids + what's wrong with each, order
+// independent, no volatile numbers (hours-since-run ticks up every hour and
+// would defeat the suppression). PURE.
+export function fleetAlertKey(parts: string[]): string {
+  return [...new Set(parts)].sort().join("|");
+}
+
+// PURE. `last` is the previously-sent alert (null = nothing sent this process).
+export function shouldSendFleetAlert(
+  key: string,
+  last: { key: string; atMs: number } | null,
+  nowMs: number,
+  repeatMs: number = FLEET_ALERT_REPEAT_MS,
+): boolean {
+  if (key === "") return false; // nothing wrong → nothing to send
+  if (last === null) return true;
+  if (last.key !== key) return true; // the set changed → page now
+  return nowMs - last.atMs >= repeatMs;
+}
+
+// In-process memory of the last alert we actually sent. A restart re-pages once
+// — acceptable, and it keeps this dedupe schema-free.
+let lastFleetAlert: { key: string; atMs: number } | null = null;
+
 interface AgentBudgetStatus {
   agentId: string;
   name: string;
@@ -51,6 +95,8 @@ export async function checkFleetHealth(): Promise<FleetStatus> {
 
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  // Identity of this run's alert set, for repeat suppression (see header).
+  const alertKeyParts: string[] = [];
 
   for (const agent of agents) {
     switch (agent.status) {
@@ -76,6 +122,7 @@ export async function checkFleetHealth(): Promise<FleetStatus> {
         status.stale.push(
           `${agent.name} (${agent.agentType}) — last ran ${Math.round(hoursSinceRun)}h ago`
         );
+        alertKeyParts.push(`stale:${agent.id}`);
       }
     }
 
@@ -118,6 +165,7 @@ export async function checkFleetHealth(): Promise<FleetStatus> {
           percentUsed,
           status: "exceeded",
         });
+        alertKeyParts.push(`budget-exceeded:${agent.id}`);
 
         logger.warn("Agent auto-paused — budget exceeded", {
           agentId: agent.id,
@@ -152,6 +200,7 @@ export async function checkFleetHealth(): Promise<FleetStatus> {
           percentUsed,
           status: "warning",
         });
+        alertKeyParts.push(`budget-warning:${agent.id}`);
 
         logger.info("Agent budget warning", {
           agentId: agent.id,
@@ -186,11 +235,15 @@ export async function checkFleetHealth(): Promise<FleetStatus> {
     );
   }
 
-  if (alerts.length > 0) {
+  const alertKey = fleetAlertKey(alertKeyParts);
+  const sendAlert = alerts.length > 0 && shouldSendFleetAlert(alertKey, lastFleetAlert, now.getTime());
+  if (sendAlert) {
     try {
       await sendKyleWhatsApp(
         `⚠️ Fleet Health\n\n${alerts.join("\n\n")}\n\nFleet: ${status.active} active / ${status.total} total`
       );
+      // Only latch on a successful send, so a failed send retries next tick.
+      lastFleetAlert = { key: alertKey, atMs: now.getTime() };
     } catch (error) {
       logger.error("Failed to send fleet health alert", { error });
     }
@@ -200,6 +253,7 @@ export async function checkFleetHealth(): Promise<FleetStatus> {
     active: status.active,
     stale: status.stale.length,
     budgetAlerts: status.budgetAlerts.length,
+    alerted: sendAlert,
   });
 
   return status;

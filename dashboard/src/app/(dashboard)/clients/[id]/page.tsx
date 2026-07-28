@@ -1,7 +1,9 @@
 import prisma from "@/lib/db";
-import { redirect, notFound } from "next/navigation";
+import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getClientEngagement, getClientChurnRisk } from "@/lib/health";
+import { agentActionRequest, postOracle, opErrorHref, readOpError } from "@/lib/oracle";
+import { OpErrorBanner } from "@/components/op-error-banner";
 
 export const dynamic = "force-dynamic";
 
@@ -23,19 +25,31 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
+// Same operator-action contract as the agent detail page: agentActionRequest
+// owns the endpoint + authority mapping (resume ≠ approve), and a failure comes
+// back as `?opError=` rather than a silent redirect.
 async function agentAction(formData: FormData) {
   "use server";
   const agentId = formData.get("agentId") as string;
   const action = formData.get("action") as string;
   const clientId = formData.get("clientId") as string;
-  const oracleUrl = process.env.ORACLE_URL ?? "https://ambitt-agents-production.up.railway.app";
-  await fetch(`${oracleUrl}/agents/${agentId}/${action}`, { method: "POST" });
+  const request = agentActionRequest(agentId, action);
+  const result = request
+    ? await postOracle(request)
+    : { ok: false, error: `Unsupported operator action "${action}"` };
   const { redirect } = await import("next/navigation");
-  redirect(`/clients/${clientId}`);
+  redirect(opErrorHref(`/clients/${clientId}`, result.error));
 }
 
-export default async function ClientDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function ClientDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
   const { id } = await params;
+  const opError = readOpError(await searchParams);
 
   const client = await prisma.client.findUnique({
     where: { id },
@@ -100,6 +114,8 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
         <span className="text-muted-foreground/40">/</span>
         <span className="text-foreground">{client.businessName}</span>
       </div>
+
+      <OpErrorBanner message={opError} />
 
       {/* Client Header */}
       <div className="flex items-start justify-between">
@@ -252,7 +268,9 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
                           <ActionBtn agentId={agent.id} clientId={client.id} action="pause" label="Pause" variant="amber" />
                         )}
                         {agent.status === "paused" && (
-                          <ActionBtn agentId={agent.id} clientId={client.id} action="approve" label="Resume" variant="green" />
+                          /* resume, NOT approve — approve re-runs first-time
+                             activation (welcome email, site scan, drip, dryRun off). */
+                          <ActionBtn agentId={agent.id} clientId={client.id} action="resume" label="Resume" variant="green" />
                         )}
                         {agent.status !== "killed" && (
                           <ActionBtn agentId={agent.id} clientId={client.id} action="kill" label="Kill" variant="red" />

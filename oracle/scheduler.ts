@@ -13,6 +13,7 @@ import {
 import logger from "../shared/logger.js";
 import { sendKyleWhatsApp } from "../shared/whatsapp.js";
 import { runIntegrationHealthcheck, formatHealthReport } from "../shared/health/integration-healthcheck.js";
+import { checkFleetHealth } from "./monitor.js";
 
 // ---------------------------------------------------------------------------
 // Agent Scheduler — manages cron jobs for all active agents
@@ -200,6 +201,7 @@ export async function initScheduler(): Promise<void> {
   startImprovementCrons();
   startHealthcheckCron();
   startSpikeMonitorCron();
+  startFleetHealthCron();
 
   logger.info("Scheduler initialized", {
     activeAgents: agents.length,
@@ -234,6 +236,10 @@ export function stopAll(): void {
   if (prdRetryCronTask) {
     prdRetryCronTask.stop();
     prdRetryCronTask = null;
+  }
+  if (fleetHealthCronTask) {
+    fleetHealthCronTask.stop();
+    fleetHealthCronTask = null;
   }
 }
 
@@ -609,12 +615,69 @@ export function startSpikeMonitorCron(): void {
     try {
       const { checkSpikes } = await import("./spike-monitor.js");
       const r = await checkSpikes();
-      if (r.spiking > 0 || r.autoPaused > 0) logger.warn("Spike monitor ran", r);
+      if (r.spiking > 0 || r.autoPaused > 0 || r.failed > 0) logger.warn("Spike monitor ran", r);
     } catch (e) {
       logger.error("Spike monitor threw", { error: e });
     }
   });
   logger.info("Spike-monitor cron started", { schedule: "*/15 * * * *" });
+}
+
+// ---------------------------------------------------------------------------
+// Fleet-health cron — hourly budget enforcement + stale-agent sweep.
+// ---------------------------------------------------------------------------
+// checkFleetHealth() (oracle/monitor.ts) is the 80%-warn / 100%-auto-pause
+// budget enforcer. It shipped as an on-demand HTTP path only — GET /fleet and
+// POST /cron/fleet-health, the latter commented "hit by Railway cron or
+// external scheduler" — and was never migrated when Oracle moved to internal
+// node-cron ("No external cron dependency" in CLAUDE.md). No external scheduler
+// was ever pointed at it, so unattended budget enforcement had not run since
+// the last manual invocation.
+//
+// Hourly because: budget overrun should be caught within the hour (the 15-min
+// spike monitor covers the fast burn), and the stale check's threshold is 25h
+// so a sub-daily cadence loses nothing. Runs at :30 to stay off the :00 slot
+// where the checkpoint + digest sweeps already pile up.
+//
+// Repeat-alert suppression lives in monitor.ts, so hourly does not spam.
+// ---------------------------------------------------------------------------
+
+let fleetHealthCronTask: ScheduledTask | null = null;
+
+// One tick. checkFleetHealth() writes the `fleet_health_check` OracleAction row
+// on success; this wrapper writes a `failed` one when it throws, so the row is
+// a true heartbeat — its ABSENCE means the cron itself is dead, which is the
+// state that went unnoticed for 100 days.
+export async function runFleetHealthTick(): Promise<void> {
+  try {
+    await checkFleetHealth();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    logger.error("Fleet-health cron tick failed", { error: message });
+    try {
+      await prisma.oracleAction.create({
+        data: {
+          actionType: "fleet_health_check",
+          description: `Fleet health check FAILED: ${message}`.slice(0, 500),
+          status: "failed",
+          result: message.slice(0, 2000),
+        },
+      });
+    } catch (writeError) {
+      // DB down is the likeliest cause of both failures — log and move on.
+      logger.error("Fleet-health failure heartbeat could not be written", {
+        error: writeError instanceof Error ? writeError.message : String(writeError),
+      });
+    }
+  }
+}
+
+export function startFleetHealthCron(): void {
+  if (fleetHealthCronTask) return; // idempotent
+  fleetHealthCronTask = cron.schedule("30 * * * *", () => {
+    void runFleetHealthTick();
+  });
+  logger.info("Fleet-health cron started", { schedule: "30 * * * *" });
 }
 
 // ---------------------------------------------------------------------------

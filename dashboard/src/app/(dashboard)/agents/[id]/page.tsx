@@ -4,6 +4,8 @@ import Link from "next/link";
 import { recalcCostCents, centsToUsd, projectMonthEnd, formatTokens, MODEL_PRICING } from "@/lib/costs";
 import { getAgentErrorRate } from "@/lib/health";
 import { decrypt } from "@/lib/encryption";
+import { agentActionRequest, postOracle, opErrorHref, readOpError } from "@/lib/oracle";
+import { OpErrorBanner } from "@/components/op-error-banner";
 import { AgentTabs } from "./agent-tabs";
 
 export const dynamic = "force-dynamic";
@@ -176,18 +178,33 @@ async function getAgentData(id: string) {
   };
 }
 
+// Operator actions. `action` is the form's action name, NOT a URL segment —
+// agentActionRequest owns the mapping (notably resume → /resume, never
+// /approve) and the operator-authority body. A failed call redirects back with
+// the message instead of pretending it worked. redirect() throws, so it stays
+// outside any try/catch (Next 16: "redirect should be called outside the try
+// block").
 async function agentAction(formData: FormData) {
   "use server";
   const agentId = formData.get("agentId") as string;
   const action = formData.get("action") as string;
-  const oracleUrl = process.env.ORACLE_URL ?? "https://ambitt-agents-production.up.railway.app";
-  await fetch(`${oracleUrl}/agents/${agentId}/${action}`, { method: "POST" });
+  const request = agentActionRequest(agentId, action);
+  const result = request
+    ? await postOracle(request)
+    : { ok: false, error: `Unsupported operator action "${action}"` };
   const { redirect } = await import("next/navigation");
-  redirect(`/agents/${agentId}`);
+  redirect(opErrorHref(`/agents/${agentId}`, result.error));
 }
 
-export default async function AgentDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function AgentDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
   const { id } = await params;
+  const opError = readOpError(await searchParams);
   const data = await getAgentData(id);
   if (!data) notFound();
 
@@ -210,6 +227,8 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
         <span className="text-muted-foreground/40">/</span>
         <span className="text-foreground">{agent.name}</span>
       </div>
+
+      <OpErrorBanner message={opError} />
 
       {/* Agent Header */}
       <div className="flex items-start justify-between">
@@ -245,9 +264,12 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
             </>
           )}
           {agent.status === "paused" && (
+            /* Resume lifts the pause and re-registers the schedule. It must NOT
+               go through approve — that re-runs first-time activation (welcome
+               email, site scan, onboarding drip, dryRun off). */
             <form action={agentAction}>
               <input type="hidden" name="agentId" value={agent.id} />
-              <input type="hidden" name="action" value="approve" />
+              <input type="hidden" name="action" value="resume" />
               <button className="text-[11px] font-semibold px-3 py-1.5 rounded-md bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 ring-1 ring-emerald-500/20 transition-colors">
                 Resume
               </button>

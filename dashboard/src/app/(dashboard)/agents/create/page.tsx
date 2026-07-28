@@ -1,13 +1,14 @@
 import Link from "next/link";
+import { oracleUrl } from "@/lib/oracle";
 import { CreateAgentForm, type ComposioApp } from "./create-agent-form";
 
 export const dynamic = "force-dynamic";
 
+// A miss here is non-fatal by design: the form falls back to its built-in tool
+// list, so an empty result is a degraded page, not a broken action.
 async function fetchComposioApps(): Promise<ComposioApp[]> {
-  const oracleUrl = process.env.ORACLE_URL ?? "https://ambitt-agents-production.up.railway.app";
-
   try {
-    const res = await fetch(`${oracleUrl}/composio/apps`, {
+    const res = await fetch(`${oracleUrl()}/composio/apps`, {
       next: { revalidate: 3600 }, // cache for 1 hour
     });
     if (!res.ok) return [];
