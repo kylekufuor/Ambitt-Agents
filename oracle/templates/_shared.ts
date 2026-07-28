@@ -339,6 +339,22 @@ export function eyebrow(text: string): string {
   return `<p class="dm-mute" style="margin:0 0 12px 0;font-size:11px;font-weight:600;color:${T.mute};text-transform:uppercase;letter-spacing:0.09em;">${text}</p>`;
 }
 
+/**
+ * Format a date for a client.
+ *
+ * `new Date("2026-07-28")` parses as UTC midnight, which in any negative-offset
+ * timezone renders as the 27th. That's how an email saying "closed this
+ * morning" ends up dated yesterday. A date-only string is a calendar date, not
+ * an instant, so pin it to local midnight before formatting. Full timestamps
+ * are left alone.
+ */
+export function formatDate(value: string): string {
+  const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(value.trim());
+  return new Date(dateOnly ? `${value.trim()}T00:00:00` : value).toLocaleDateString("en-US", {
+    dateStyle: "medium",
+  });
+}
+
 export function divider(mt = 24, mb = 24): string {
   return `<div class="dm-rule" style="border-top:1px solid ${T.rule};margin:${mt}px 0 ${mb}px 0;font-size:0;line-height:0;">&nbsp;</div>`;
 }

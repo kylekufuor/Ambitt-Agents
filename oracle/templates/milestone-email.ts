@@ -10,6 +10,7 @@ import {
   paragraph,
   statStrip,
   progressBar,
+  formatDate,
   decisionCard,
   portalInvite,
   divider,
@@ -56,7 +57,7 @@ export function buildMilestoneEmail(props: MilestoneEmailProps): string {
     agentRole,
   } = props;
 
-  const dateFormatted = new Date(milestoneDate).toLocaleDateString("en-US", { dateStyle: "medium" });
+  const dateFormatted = formatDate(milestoneDate);
 
   const rows = [
     section(
