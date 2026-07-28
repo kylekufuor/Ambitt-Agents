@@ -671,7 +671,7 @@ app.post("/agents/:id/resume", async (req: Request, res: Response) => {
     const id = param(req, "id");
     const agent = await prisma.agent.findUnique({
       where: { id },
-      select: { status: true, schedule: true },
+      select: { status: true, schedule: true, timezone: true },
     });
 
     if (!agent) {
@@ -693,7 +693,7 @@ app.post("/agents/:id/resume", async (req: Request, res: Response) => {
 
     if (r.status === "active" && agent.schedule && agent.schedule !== "manual") {
       const { registerAgent } = await import("./scheduler.js");
-      registerAgent(id, agent.schedule);
+      registerAgent(id, agent.schedule, agent.timezone);
     }
 
     logger.info("Agent resumed", { agentId: id, requester, noop: r.noop ?? false });
@@ -1306,9 +1306,12 @@ app.patch("/agents/:id/schedule", async (req: Request, res: Response) => {
     if (schedule === "manual") {
       unregisterAgent(id);
     } else {
-      const agent = await prisma.agent.findUnique({ where: { id }, select: { status: true } });
+      const agent = await prisma.agent.findUnique({
+        where: { id },
+        select: { status: true, timezone: true },
+      });
       if (agent?.status === "active") {
-        registerAgent(id, schedule);
+        registerAgent(id, schedule, agent.timezone);
       }
     }
 

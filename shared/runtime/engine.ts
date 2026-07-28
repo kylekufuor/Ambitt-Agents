@@ -25,6 +25,15 @@ import {
 import { sendAgentEmail } from "../../oracle/lib/emailRouter.js";
 import { relayMfaRequest } from "../mfa-relay.js";
 import { logUsage, CLIENT_MODEL, TRIAGE_MODEL } from "../claude.js";
+import {
+  budgetFor,
+  capToolResultContent,
+  contextOverflowMessage,
+  estimateMessagesTokens,
+  estimateTokens,
+  estimateToolsTokens,
+  trimMessagesToBudget,
+} from "./context-budget.js";
 import { stripEmDashes } from "../scrub-emdash.js";
 import type { EmailAttachment } from "../email.js";
 import prisma from "../db.js";
@@ -1187,10 +1196,30 @@ export async function runAgent(input: RuntimeInput): Promise<RuntimeOutput> {
       )
     : [];
 
+  // Step 3b: Size the prompt BEFORE we call anything. The scheduled-run
+  // blowout that killed Arthur's Monday brief (212,067 tokens > 200,000) was
+  // invisible until the API rejected it; these two numbers make the trend
+  // visible on every single run, in every log line, before it becomes a 400.
+  const systemTokens = estimateTokens(systemPrompt);
+  const toolsTokens = estimateToolsTokens(allClaudeTools);
+
   // Step 4: Build initial messages
-  const messages: Anthropic.Messages.MessageParam[] = [
+  let messages: Anthropic.Messages.MessageParam[] = [
     { role: "user", content: userMessage },
   ];
+
+  logger.info("Prompt assembled", {
+    agentId,
+    agentName: ctx.agentName,
+    channel,
+    systemChars: systemPrompt.length,
+    systemTokensEst: systemTokens,
+    toolCount: allClaudeTools.length,
+    toolsTokensEst: toolsTokens,
+    historyMessages: ctx.recentMessages.length,
+    userMessageTokensEst: estimateTokens(userMessage),
+    promptTokensEst: systemTokens + toolsTokens + estimateMessagesTokens(messages),
+  });
 
   // Step 5: Agentic loop with triage routing (Haiku → Sonnet escalation).
   // See TRIAGE_ENABLED comment for the pattern.
@@ -1221,6 +1250,51 @@ export async function runAgent(input: RuntimeInput): Promise<RuntimeOutput> {
 
   for (let i = 0; i < MAX_TOOL_LOOPS; i++) {
     loopCount = i + 1;
+
+    // --- Context budget gate -------------------------------------------------
+    // The ceiling belongs to the model we're ABOUT to call, and triage routing
+    // means that's usually Haiku (200K) rather than Sonnet (1M) — the exact
+    // reason Arthur's run 400'd. Trim the oldest tool results if we're over,
+    // and refuse with a readable error rather than sending a request we can
+    // already predict the API will reject.
+    const budget = budgetFor(currentModel, MAX_TOKENS);
+    const trim = trimMessagesToBudget(messages, {
+      promptCeiling: budget.promptCeiling,
+      fixedTokens: systemTokens + toolsTokens,
+    });
+    if (trim.trimmedBlocks > 0) {
+      messages = trim.messages;
+      logger.warn("Context over budget — trimmed older tool results", {
+        agentId,
+        model: currentModel,
+        loop: loopCount,
+        trimmedBlocks: trim.trimmedBlocks,
+        promptTokensEst: trim.estimatedTokens,
+        promptCeiling: budget.promptCeiling,
+      });
+    }
+    if (!trim.withinBudget) {
+      const detail = contextOverflowMessage({
+        model: currentModel,
+        budget,
+        estimatedTokens: trim.estimatedTokens,
+        systemTokens,
+        toolsTokens,
+        messagesTokens: estimateMessagesTokens(trim.messages),
+        toolCount: allClaudeTools.length,
+      });
+      logger.error("Refusing to call Claude — prompt exceeds the context budget", {
+        agentId,
+        agentName: ctx.agentName,
+        model: currentModel,
+        loop: loopCount,
+        detail,
+      });
+      await prisma.agent
+        .update({ where: { id: agentId }, data: { runningSince: null } })
+        .catch(() => {});
+      throw new Error(detail);
+    }
 
     const apiResponse = await client.messages.create(
       {
@@ -1335,18 +1409,30 @@ export async function runAgent(input: RuntimeInput): Promise<RuntimeOutput> {
       });
     }
 
-    // Combine all results in original order
+    // Combine all results in original order.
+    // Each result is capped on the way in: MCP/Composio results come back
+    // verbatim and unbounded (a big inbox listing or CSV read is easily 100K+
+    // chars), and ten unbounded results across the loop is exactly how a run
+    // walks past the model's window mid-flight.
     const allResults: Anthropic.Messages.ToolResultBlockParam[] = toolUseBlocks.map((block) => {
       const builtin = builtinResults.find((r) => r.tool_use_id === block.id);
-      if (builtin) return builtin;
-      const mcp = mcpResults.find((r) => r.tool_use_id === block.id);
-      if (mcp) return mcp;
-      return {
-        type: "tool_result" as const,
-        tool_use_id: block.id,
-        content: "Tool execution skipped",
-        is_error: true,
-      };
+      const mcp = builtin ? undefined : mcpResults.find((r) => r.tool_use_id === block.id);
+      const result: Anthropic.Messages.ToolResultBlockParam = builtin ??
+        mcp ?? {
+          type: "tool_result" as const,
+          tool_use_id: block.id,
+          content: "Tool execution skipped",
+          is_error: true,
+        };
+      if (typeof result.content !== "string") return result;
+      const capped = capToolResultContent(result.content);
+      if (!capped.truncated) return result;
+      logger.warn("Tool result truncated to fit the context window", {
+        agentId,
+        toolName: block.name,
+        originalChars: result.content.length,
+      });
+      return { ...result, content: capped.content };
     });
 
     // Add assistant response and tool results to messages for next loop

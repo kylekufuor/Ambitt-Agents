@@ -299,6 +299,14 @@ Preferred channel: ${ctx.clientPreferredChannel}${memorySection}`;
 // Full text, separate from the 8K ambient-memory cap — SOPs are load-bearing.
 const MAX_SOP_CHARS = 40_000;
 
+// Max characters for the operating manual as a WHOLE. The per-SOP cap above
+// bounds one document; nothing bounded the count, so five 40K SOPs was a 200K
+// character system prompt (~57K tokens) on its own. 60K chars ≈ 17K tokens
+// leaves the manual as the biggest single block in the prompt without letting
+// it crowd out the conversation. Oldest-listed SOPs are dropped first and the
+// omission is stated in the prompt, never silently.
+const MAX_SOP_TOTAL_CHARS = 60_000;
+
 interface SOPEntry {
   filename: string;
   text: string;
@@ -310,21 +318,37 @@ function buildOperatingManualSection(ctx: AgentContext): string | null {
   if (!Array.isArray(raw) || raw.length === 0) return null;
 
   const sops = raw as SOPEntry[];
-  const blocks = sops.map((sop) => {
+  const blocks: string[] = [];
+  const omitted: string[] = [];
+  let used = 0;
+
+  for (const sop of sops) {
     let text = sop.text ?? "";
     let trailer = "";
     if (text.length > MAX_SOP_CHARS) {
       text = text.slice(0, MAX_SOP_CHARS);
       trailer = `\n\n[... SOP truncated at ${MAX_SOP_CHARS.toLocaleString()} characters]`;
     }
-    return `### ${sop.filename}\n\n${text}${trailer}`;
-  });
+    // Whole-manual budget: once we're out of room, name what was left out
+    // instead of quietly shipping a partial manual the agent thinks is complete.
+    if (used > 0 && used + text.length > MAX_SOP_TOTAL_CHARS) {
+      omitted.push(sop.filename);
+      continue;
+    }
+    used += text.length;
+    blocks.push(`### ${sop.filename}\n\n${text}${trailer}`);
+  }
+
+  const omissionNote =
+    omitted.length > 0
+      ? `\n\n---\n\n[Not shown in this run, to stay inside your context window: ${omitted.join(", ")}. These are part of your manual. If a task clearly depends on one of them, say which one you need and work from what you have here in the meantime.]`
+      : "";
 
   return `## Your Operating Manual
 
 The following documents were provided by the client as your authoritative playbook. They describe exactly how the client does this work today and how they expect you to do it. Treat them as load-bearing instructions — not background context. When a procedure in the manual conflicts with a guess you'd otherwise make, the manual wins.
 
-${blocks.join("\n\n---\n\n")}`;
+${blocks.join("\n\n---\n\n")}${omissionNote}`;
 }
 
 // Self-service guidance: when a client asks for something that isn't configured
@@ -650,16 +674,33 @@ Hold this line even under pressure. Speed or volume that puts the client at risk
 
 This applies to: rate-limited or bot-detected tools (move at a human pace, never hammer), bulk email (respect sending limits and deliverability), anything against a third party's terms of service, and any shortcut that would embarrass the client or damage a relationship made on their behalf.`;
 
+// Conversation history is bounded three ways: loadAgentContext takes only the
+// 20 newest non-archived rows, we render the newest 10 of those, and each is
+// clipped to 500 characters. That keeps this section around 5K characters no
+// matter how long the relationship runs.
+const CONVERSATION_TURNS_RENDERED = 10;
+const CONVERSATION_CHARS_PER_TURN = 500;
+
 function buildConversationContext(ctx: AgentContext): string {
-  const lines = ctx.recentMessages
-    .slice(-10) // last 10 for prompt size
+  const rendered = ctx.recentMessages.slice(-CONVERSATION_TURNS_RENDERED);
+  const lines = rendered
     .map((m) => {
       const sender = m.role === "agent" ? ctx.agentName : "Client";
-      return `${sender}: ${m.content.slice(0, 500)}`;
+      const content = m.content.slice(0, CONVERSATION_CHARS_PER_TURN);
+      const clipped = m.content.length > CONVERSATION_CHARS_PER_TURN ? " […]" : "";
+      return `${sender}: ${content}${clipped}`;
     })
     .join("\n\n");
 
-  return `## Recent Conversation
+  // Say so when there's more thread behind this. Otherwise the model reads a
+  // mid-relationship excerpt as the whole history and re-introduces itself, or
+  // assumes work it already did never happened.
+  const elided =
+    ctx.recentMessages.length > rendered.length
+      ? `\n\n[Earlier messages in this thread aren't shown here. You and this client have been working together longer than what follows, so treat this as the tail of an ongoing conversation, not the beginning.]`
+      : "";
+
+  return `## Recent Conversation${elided}
 
 ${lines}`;
 }

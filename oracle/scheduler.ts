@@ -12,6 +12,7 @@ import {
 } from "./onboarding-content.js";
 import logger from "../shared/logger.js";
 import { sendKyleWhatsApp } from "../shared/whatsapp.js";
+import { alertOperator } from "../shared/alert-operator.js";
 import { runIntegrationHealthcheck, formatHealthReport } from "../shared/health/integration-healthcheck.js";
 import { checkFleetHealth } from "./monitor.js";
 
@@ -122,13 +123,192 @@ async function executeScheduledRun(agentId: string): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
+// Scheduled-run failure alerting
+// ---------------------------------------------------------------------------
+// A scheduled run that dies used to write a `failed` OracleAction row and stop
+// there — nobody was told. Arthur's 2026-07-06 Monday brief died on a
+// context-window overflow and the client silently missed four Mondays before
+// anyone looked at the table. Every other watchdog pages the operator; this one
+// does too now, through the same SMS-first/email-fallback channel
+// (shared/alert-operator.ts, never throws).
+//
+// Dedupe: keyed per agent on a NORMALIZED error signature (digits masked, so
+// "212067 tokens > 200000" and "213411 tokens > 200000" are the same fault).
+// The first failure always pages. An identical repeat is suppressed for 6h; a
+// DIFFERENT error pages immediately. 6h is chosen against real cadences: a
+// weekly agent (Arthur) is 7 days apart so it always pages, a daily agent pages
+// once per failure, and a 15-minute agent stuck in a loop pages at most 4×/day
+// instead of 96×. In-process memory, like the fleet-health suppression in
+// monitor.ts — a redeploy re-pages once, which is the safe direction.
+// ---------------------------------------------------------------------------
+
+export const SCHEDULED_FAILURE_ALERT_REPEAT_MS = 6 * 60 * 60 * 1000;
+
+/**
+ * Stable identity of "this agent failed this way". PURE.
+ * Digits are masked so a token count / timestamp / id inside the message
+ * doesn't make every repeat of the same fault look new.
+ */
+export function scheduledFailureKey(agentId: string, message: string): string {
+  const firstLine = (message.split("\n")[0] ?? "").trim();
+  const normalized = firstLine
+    .toLowerCase()
+    .replace(/\d+/g, "#")
+    .replace(/\s+/g, " ")
+    .slice(0, 160);
+  return `${agentId}|${normalized}`;
+}
+
+/** PURE. `last` is the previous alert for THIS agent (null = none this process). */
+export function shouldAlertScheduledFailure(
+  key: string,
+  last: { key: string; atMs: number } | null,
+  nowMs: number,
+  repeatMs: number = SCHEDULED_FAILURE_ALERT_REPEAT_MS,
+): boolean {
+  if (last === null) return true;
+  if (last.key !== key) return true; // a different fault → page now
+  return nowMs - last.atMs >= repeatMs;
+}
+
+// In-process memory of the last failure alert sent, per agent.
+const lastScheduledFailureAlert = new Map<string, { key: string; atMs: number }>();
+
+/** The text Kyle actually receives. PURE. */
+export function buildScheduledFailureAlert(input: {
+  who: string;
+  message: string;
+}): string {
+  const firstLine = (input.message.split("\n")[0] ?? input.message).trim().slice(0, 300);
+  return [
+    "SCHEDULED RUN FAILED",
+    input.who,
+    "The client did not get this run.",
+    firstLine,
+    "Agent is still active; it will try again on its next scheduled slot.",
+  ].join("\n");
+}
+
+/**
+ * Dedupe + send. `send` is injectable so tests can assert the alert fires
+ * without paging anyone (same pattern the platform tools use for their email
+ * senders). Returns what happened, for logging and tests.
+ */
+export async function dispatchScheduledFailureAlert(
+  agentId: string,
+  message: string,
+  who: string,
+  nowMs: number = Date.now(),
+  send: (text: string) => Promise<unknown> = alertOperator,
+): Promise<{ sent: boolean; suppressed: boolean; text: string }> {
+  const key = scheduledFailureKey(agentId, message);
+  const last = lastScheduledFailureAlert.get(agentId) ?? null;
+  const text = buildScheduledFailureAlert({ who, message });
+
+  if (!shouldAlertScheduledFailure(key, last, nowMs)) {
+    logger.info("Scheduled-run failure alert suppressed (same fault within window)", {
+      agentId,
+      windowHours: SCHEDULED_FAILURE_ALERT_REPEAT_MS / 3_600_000,
+    });
+    return { sent: false, suppressed: true, text };
+  }
+
+  await send(text);
+  lastScheduledFailureAlert.set(agentId, { key, atMs: nowMs });
+  return { sent: true, suppressed: false, text };
+}
+
+/**
+ * Record the failure and page the operator. Never throws — this runs inside the
+ * cron callback's catch, so anything it raises would be an unhandled rejection.
+ */
+async function reportScheduledRunFailure(agentId: string, error: unknown): Promise<void> {
+  const message = error instanceof Error ? error.message : String(error);
+  logger.error("Scheduled run failed", { agentId, error: message });
+
+  // Heartbeat row first, but never let a DB hiccup swallow the alert.
+  try {
+    await prisma.oracleAction.create({
+      data: {
+        actionType: "scheduled_run",
+        description: `Scheduled run FAILED for agent ${agentId}: ${message}`.slice(0, 500),
+        agentId,
+        status: "failed",
+        result: message.slice(0, 2000),
+      },
+    });
+  } catch (writeError) {
+    logger.error("Scheduled-run failure row could not be written", {
+      agentId,
+      error: writeError instanceof Error ? writeError.message : String(writeError),
+    });
+  }
+
+  try {
+    let who = agentId;
+    try {
+      const agent = await prisma.agent.findUnique({
+        where: { id: agentId },
+        select: { name: true, schedule: true, timezone: true, client: { select: { businessName: true } } },
+      });
+      if (agent) {
+        who = `${agent.name} (${agent.client?.businessName ?? "unknown client"}), schedule "${agent.schedule}" ${agent.timezone}`;
+      }
+    } catch {
+      /* identity is a nicety; the alert goes out either way */
+    }
+
+    await dispatchScheduledFailureAlert(agentId, message, who);
+  } catch (alertError) {
+    logger.error("Scheduled-run failure alert could not be sent", {
+      agentId,
+      error: alertError instanceof Error ? alertError.message : String(alertError),
+    });
+  }
+}
+
+/** Test seam: clear the in-process dedupe memory. */
+export function resetScheduledFailureAlerts(): void {
+  lastScheduledFailureAlert.clear();
+}
+
+// ---------------------------------------------------------------------------
 // Public API — called by Oracle when agent lifecycle changes
 // ---------------------------------------------------------------------------
 
 /**
- * Register a cron job for an agent. Call when an agent is activated.
+ * Resolve an agent's stored timezone into one node-cron will accept. PURE.
+ *
+ * node-cron THROWS ("Invalid time zone specified: …") when handed a bad IANA
+ * id, and registerAgent runs in a loop at boot — one typo'd Agent.timezone
+ * would take the whole scheduler (and every other cron it starts) down with it.
+ * Anything we can't validate falls back to UTC, which is what the process was
+ * already doing for every agent before timezones were threaded through.
  */
-export function registerAgent(agentId: string, schedule: string): void {
+export function resolveCronTimezone(
+  timezone: string | null | undefined,
+): { timezone: string; fellBack: boolean } {
+  const tz = (timezone ?? "").trim();
+  if (!tz) return { timezone: "UTC", fellBack: true };
+  try {
+    // Same check node-cron does internally: the runtime resolves the zone or
+    // throws RangeError. (V8 also accepts legacy aliases like "PST"; so does
+    // node-cron, so passing those through is correct, not a leak.)
+    new Intl.DateTimeFormat("en-US", { timeZone: tz });
+    return { timezone: tz, fellBack: false };
+  } catch {
+    return { timezone: "UTC", fellBack: true };
+  }
+}
+
+/**
+ * Register a cron job for an agent. Call when an agent is activated.
+ *
+ * `timezone` is the agent's IANA zone (Agent.timezone). Without it node-cron
+ * fires on the PROCESS timezone — UTC on Railway — so a client's "Monday 8am"
+ * brief landed at 3am their time. Always pass it.
+ */
+export function registerAgent(agentId: string, schedule: string, timezone?: string | null): void {
   // Skip if no schedule or manual-only
   if (!schedule || schedule === "manual") return;
 
@@ -141,27 +321,28 @@ export function registerAgent(agentId: string, schedule: string): void {
   // Unregister existing job if any
   unregisterAgent(agentId);
 
-  const task = cron.schedule(schedule, async () => {
-    try {
-      await executeScheduledRun(agentId);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      logger.error("Scheduled run failed", { agentId, error: message });
+  const tz = resolveCronTimezone(timezone);
+  if (tz.fellBack) {
+    logger.warn("Agent timezone missing or not a valid IANA zone — scheduling in UTC", {
+      agentId,
+      timezone: timezone ?? null,
+    });
+  }
 
-      await prisma.oracleAction.create({
-        data: {
-          actionType: "scheduled_run",
-          description: `Scheduled run FAILED for agent ${agentId}: ${message}`,
-          agentId,
-          status: "failed",
-          result: message,
-        },
-      });
-    }
-  });
+  const task = cron.schedule(
+    schedule,
+    async () => {
+      try {
+        await executeScheduledRun(agentId);
+      } catch (error) {
+        await reportScheduledRunFailure(agentId, error);
+      }
+    },
+    { timezone: tz.timezone },
+  );
 
   activeJobs.set(agentId, task);
-  logger.info("Agent scheduled", { agentId, schedule });
+  logger.info("Agent scheduled", { agentId, schedule, timezone: tz.timezone });
 }
 
 /**
@@ -183,13 +364,13 @@ export function unregisterAgent(agentId: string): void {
 export async function initScheduler(): Promise<void> {
   const agents = await prisma.agent.findMany({
     where: { status: "active" },
-    select: { id: true, schedule: true, name: true },
+    select: { id: true, schedule: true, name: true, timezone: true },
   });
 
   let registered = 0;
   for (const agent of agents) {
     if (agent.schedule && agent.schedule !== "manual") {
-      registerAgent(agent.id, agent.schedule);
+      registerAgent(agent.id, agent.schedule, agent.timezone);
       registered++;
     }
   }

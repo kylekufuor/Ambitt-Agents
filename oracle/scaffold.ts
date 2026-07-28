@@ -377,11 +377,11 @@ export async function approveAgent(
   try {
     const agentForSchedule = await prisma.agent.findUnique({
       where: { id: agentId },
-      select: { schedule: true },
+      select: { schedule: true, timezone: true },
     });
     if (agentForSchedule?.schedule) {
       const { registerAgent } = await import("./scheduler.js");
-      registerAgent(agentId, agentForSchedule.schedule);
+      registerAgent(agentId, agentForSchedule.schedule, agentForSchedule.timezone);
     }
   } catch (error) {
     logger.warn("Failed to register agent schedule", { agentId, error });
