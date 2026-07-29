@@ -155,9 +155,28 @@ Agents have a `schedule` field (cron string, e.g. `"0 8 * * 1"` for Monday 8am).
 ## Multi-model routing rules
 
 Task type | Model | Reason
-Oracle orchestration + improve cycle | claude-opus-4-7 | Strongest reasoning for meta-agent work
-Client-facing runtime synthesis | claude-sonnet-4-6 | Relationship-quality output
-Intermediate tool-selection loops | claude-haiku-4-5-20251001 | ~3× cheaper; escalates to Sonnet on end_turn with tools used (see `shared/runtime/engine.ts`). Kill switch: `DISABLE_TRIAGE_ROUTING=1`.
+Oracle orchestration + improve cycle | claude-opus-5 | Strongest reasoning for meta-agent work. Was Opus 4.7 at the identical $5/$25, so this tier was a free upgrade.
+Client-facing runtime synthesis | claude-opus-5 | Relationship-quality output. Moved up from Sonnet 4.6 ($3/$15 → $5/$25) on purpose: this is the turn a client reads.
+Intermediate tool-selection loops | claude-haiku-4-5-20251001 | ~5× cheaper than Opus; escalates to CLIENT_MODEL on end_turn with tools used (see `shared/runtime/engine.ts`). Kill switch: `DISABLE_TRIAGE_ROUTING=1`.
+
+> **Never send `temperature`/`top_p`/`top_k` to an Opus 4.7+ model.** They are
+> rejected with `400 invalid_request_error: temperature is deprecated for this
+> model`. `callClaude` sent temperature unconditionally, which meant the
+> orchestration tier was silently dead in prod — three retries against a
+> permanent 400 — while the client path stayed healthy because Sonnet 4.6 still
+> accepted it. Gated per-model by `acceptsSampling()` in `shared/claude.ts`; do
+> NOT "simplify" that back to an unconditional parameter. Haiku and Sonnet 4.6
+> still accept it, and `oracle/lib/intent-classify.ts` relies on
+> `temperature: 0` for a deterministic classifier.
+>
+> **Opus 5 thinks by default** (Opus 4.7/4.8 did not), and `max_tokens` caps
+> thinking *plus* response text. The `callClaude` default is 16000 for that
+> reason; lowering it risks truncating mid-answer.
+>
+> **`Agent.primaryModel` is not what the runtime reads.** `shared/runtime/engine.ts`
+> uses the `CLIENT_MODEL`/`TRIAGE_MODEL` constants directly, so the stored
+> per-agent value is currently decorative even though the dashboard presents it
+> as live. Fix or remove it before promising per-agent model choice to a client.
 Data analysis and summarization | Gemini | Speed and cost on large datasets
 Creative content and copywriting | GPT-4o | Strong creative output
 Fallback if any model fails | Claude | Always available
