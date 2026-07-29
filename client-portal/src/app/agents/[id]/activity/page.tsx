@@ -88,7 +88,7 @@ export default async function AgentActivityPage(
                 style={{ width: `${Math.max(2, capPct)}%` }}
               />
             </div>
-            <p className="text-[12px] text-[color:var(--text-4)] mt-2.5">
+            <p className="text-[12px] text-[color:var(--text-3)] mt-2.5">
               You can change this limit on{" "}
               <Link href={`/agents/${agent.id}`} className="text-[color:var(--brand-ink)] hover:underline">
                 {agent.name}&apos;s settings
@@ -135,11 +135,11 @@ export default async function AgentActivityPage(
                       </p>
                       <p className="text-[12.5px] text-[color:var(--text-3)] mt-0.5 truncate">
                         {s.isToClient ? (
-                          <span className="text-[color:var(--text-4)]">To you</span>
+                          <span className="text-[color:var(--text-3)]">To you</span>
                         ) : (
                           <>To {s.to}</>
                         )}
-                        <span className="text-[color:var(--text-4)]"> · {formatWhen(s.acceptedAt)}</span>
+                        <span className="text-[color:var(--text-3)]"> · {formatWhen(s.acceptedAt)}</span>
                       </p>
                     </div>
                     <span className={`pill ${status.pill} shrink-0`}>{status.label}</span>
@@ -167,11 +167,11 @@ function StatCard({
     <div className="card card-hover p-4 text-center">
       <div
         className="font-display text-[28px] leading-none"
-        style={{ color: value > 0 ? accent : "var(--text-4)" }}
+        style={{ color: value > 0 ? accent : "var(--text-3)" }}
       >
         {value.toLocaleString()}
       </div>
-      <p className="text-[11.5px] uppercase tracking-[0.07em] text-[color:var(--text-4)] mt-2">
+      <p className="text-[11.5px] uppercase tracking-[0.07em] text-[color:var(--text-3)] mt-2">
         {label}
       </p>
     </div>

@@ -58,6 +58,14 @@ the friendly read (red is the error colour in every UI convention) for nothing.
   clears 4.5:1 on `--surface-2`. Anything lighter fails. If you need another
   level of hierarchy, use size, weight or spacing — not a lighter gray.
 
+  **`--text-4` may never carry a word.** It is 3.0:1 — legal for separators
+  (`·`, `/`), placeholders, disabled fills, icon buttons and status dots,
+  because those are either exempt or only owe 3:1. It is not legal for help
+  text, timestamps, labels, empty-state copy or a stat value. Thirty usages
+  had drifted onto it; they are now `--text-3`. If you find yourself reaching
+  for `--text-4` to make something recede, the answer is smaller or further
+  away, not fainter.
+
 - **Status colours** — `--emerald #16713a`, `--amber #a34a07`, `--red #be123c`,
   `--blue #1d4ed8`. Each measured on every plane *and* on its own 10% tint
   (worst 4.82:1), and each sits **≥33 dE from the brand teal** so a status can

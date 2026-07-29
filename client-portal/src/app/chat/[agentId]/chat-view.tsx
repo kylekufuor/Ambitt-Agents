@@ -71,9 +71,9 @@ function renderMarkdown(md: string): string {
 
 function statusPresentation(status: string): { label: string; color: string; pulse: boolean } {
   if (status === "active") return { label: "Online", color: "var(--emerald)", pulse: true };
-  if (status === "paused") return { label: "Paused", color: "var(--text-4)", pulse: false };
+  if (status === "paused") return { label: "Paused", color: "var(--text-3)", pulse: false };
   if (status === "pending_approval") return { label: "Getting set up", color: "var(--blue)", pulse: true };
-  return { label: status.replace(/_/g, " "), color: "var(--text-4)", pulse: false };
+  return { label: status.replace(/_/g, " "), color: "var(--text-3)", pulse: false };
 }
 
 export function ChatView({
@@ -159,7 +159,7 @@ export function ChatView({
           <div className="flex-1 min-w-0">
             <h1 className="font-display-sm text-[15px] text-[color:var(--text)] leading-tight truncate">
               {agentName}
-              <span className="font-normal text-[color:var(--text-4)]"> · Ambitt Agents</span>
+              <span className="font-normal text-[color:var(--text-3)]"> · Ambitt Agents</span>
             </h1>
             <div className="flex items-center gap-1.5 mt-0.5">
               <span
@@ -272,7 +272,7 @@ export function ChatView({
               </svg>
             </button>
           </div>
-          <p className="text-[11px] text-[color:var(--text-4)] mt-2">
+          <p className="text-[11px] text-[color:var(--text-3)] mt-2">
             Enter to send · Shift + Enter for a new line
           </p>
         </div>
@@ -298,7 +298,7 @@ function MessageBubble({ message, agentName }: { message: ChatMessage; agentName
             style={{ background: "var(--surface)", color: "var(--text)", boxShadow: BUBBLE_SHADOW }}
             dangerouslySetInnerHTML={{ __html: renderMarkdown(message.content) }}
           />
-          <div className="flex items-center gap-2 mt-1.5 ml-1 text-[11px] text-[color:var(--text-4)]">
+          <div className="flex items-center gap-2 mt-1.5 ml-1 text-[11px] text-[color:var(--text-3)]">
             <span className="font-medium text-[color:var(--text-3)]">{agentName}</span>
             <span>·</span>
             <span>{timeLabel}</span>
@@ -318,7 +318,7 @@ function MessageBubble({ message, agentName }: { message: ChatMessage; agentName
         >
           {message.content}
         </div>
-        <div className="flex items-center gap-2 mt-1.5 mr-1 justify-end text-[11px] text-[color:var(--text-4)]">
+        <div className="flex items-center gap-2 mt-1.5 mr-1 justify-end text-[11px] text-[color:var(--text-3)]">
           <span className="font-medium text-[color:var(--text-3)]">You</span>
           <span>·</span>
           <span>{timeLabel}</span>

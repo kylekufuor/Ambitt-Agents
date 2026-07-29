@@ -96,7 +96,7 @@ export function ExampleEmails({
               <div className="h-3 w-full rounded bg-[color:var(--surface-2)] animate-pulse" />
             </div>
           ))}
-          <p className="text-[12px] text-[color:var(--text-4)]">
+          <p className="text-[12px] text-[color:var(--text-3)]">
             Putting together a few ideas for {agentName}…
           </p>
         </div>
@@ -128,7 +128,7 @@ export function ExampleEmails({
                   className={`text-[12.5px] font-medium transition-colors ${
                     copiedIdx === idx
                       ? "text-[color:var(--emerald)]"
-                      : "text-[color:var(--text-4)] hover:text-[color:var(--text-2)]"
+                      : "text-[color:var(--text-3)] hover:text-[color:var(--text-2)]"
                   }`}
                 >
                   {copiedIdx === idx ? "Copied ✓" : "Copy"}

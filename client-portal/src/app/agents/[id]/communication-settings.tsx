@@ -181,7 +181,7 @@ export function CommunicationSettings({ agentId, agentName }: { agentId: string;
         <div className="mb-3 flex flex-wrap items-center gap-1.5">
           {options.ownerEmail && (
             <span className="text-[12px] px-2 py-1 rounded-[8px] bg-[color:var(--surface-2)] border border-[color:var(--border)] text-[color:var(--text-2)]">
-              {options.ownerEmail} <span className="text-[color:var(--text-4)]">· you</span>
+              {options.ownerEmail} <span className="text-[color:var(--text-3)]">· you</span>
             </span>
           )}
         </div>

@@ -159,13 +159,13 @@ export function ConfigEditor({
               </>
             )}
             {agentTimezone && (
-              <span className="text-[color:var(--text-4)]"> · {agentTimezone}</span>
+              <span className="text-[color:var(--text-3)]"> · {agentTimezone}</span>
             )}
           </p>
 
           {/* Hour picker */}
           <div>
-            <p className="text-[11px] uppercase tracking-[0.08em] text-[color:var(--text-4)] mb-1.5">Hour</p>
+            <p className="text-[11px] uppercase tracking-[0.08em] text-[color:var(--text-3)] mb-1.5">Hour</p>
             <div className="grid grid-cols-6 sm:grid-cols-12 gap-1.5">
               {Array.from({ length: 24 }).map((_, h) => (
                 <button
@@ -186,7 +186,7 @@ export function ConfigEditor({
           {/* Day picker — only for weekly */}
           {frequency === "weekly_digest" && (
             <div>
-              <p className="text-[11px] uppercase tracking-[0.08em] text-[color:var(--text-4)] mb-1.5">Day of week</p>
+              <p className="text-[11px] uppercase tracking-[0.08em] text-[color:var(--text-3)] mb-1.5">Day of week</p>
               <div className="grid grid-cols-7 gap-1.5">
                 {DAY_OPTIONS.map((d) => (
                   <button

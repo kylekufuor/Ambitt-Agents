@@ -315,9 +315,9 @@ export function AgentSettings({
                   <span className="text-[color:var(--brand-ink)] font-medium">{DAY_LABELS[digestDay]}</span>
                 </>
               )}
-              {agentTimezone && <span className="text-[color:var(--text-4)]"> · {agentTimezone}</span>}
+              {agentTimezone && <span className="text-[color:var(--text-3)]"> · {agentTimezone}</span>}
             </p>
-            <p className="text-[11px] uppercase tracking-[0.08em] text-[color:var(--text-4)] mb-1.5">Hour</p>
+            <p className="text-[11px] uppercase tracking-[0.08em] text-[color:var(--text-3)] mb-1.5">Hour</p>
             <div className="grid grid-cols-6 sm:grid-cols-12 gap-1.5">
               {Array.from({ length: 24 }).map((_, h) => (
                 <button
@@ -337,7 +337,7 @@ export function AgentSettings({
             </div>
             {frequency === "weekly_digest" && (
               <>
-                <p className="text-[11px] uppercase tracking-[0.08em] text-[color:var(--text-4)] mt-3 mb-1.5">Day</p>
+                <p className="text-[11px] uppercase tracking-[0.08em] text-[color:var(--text-3)] mt-3 mb-1.5">Day</p>
                 <div className="grid grid-cols-7 gap-1.5">
                   {DAY_LABELS.map((d, i) => (
                     <button

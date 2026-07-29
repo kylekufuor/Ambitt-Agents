@@ -327,7 +327,7 @@ export default async function PortalPage() {
                 </div>
               </div>
 
-              <p className="text-[12.5px] text-[color:var(--text-4)] mb-4">
+              <p className="text-[12.5px] text-[color:var(--text-3)] mb-4">
                 The value of the work {oneAgent ? activeAgents[0].name : "your team"} has done
                 for you lately — outreach, leads sourced, research, and follow-ups.
               </p>
@@ -381,7 +381,7 @@ export default async function PortalPage() {
             <h2 className="font-display text-[24px] text-[color:var(--text)]">
               {oneAgent ? "Your agent" : "Your team"}
             </h2>
-            <span className="text-[12px] text-[color:var(--text-4)]">
+            <span className="text-[12px] text-[color:var(--text-3)]">
               {client.agents.length} {client.agents.length === 1 ? "agent" : "agents"}
             </span>
           </div>

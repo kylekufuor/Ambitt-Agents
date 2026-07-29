@@ -116,7 +116,7 @@ export function DocumentUpload({
           </span>
         )}
 
-        <p className="text-[12px] text-[color:var(--text-4)] mt-3">
+        <p className="text-[12px] text-[color:var(--text-3)] mt-3">
           Prefer email? Send {agentName}{" "}a message with the subject{" "}
           <strong className="text-[color:var(--text-3)] font-semibold">DOCS</strong> and attach your files.
         </p>
@@ -125,7 +125,7 @@ export function DocumentUpload({
       {/* Library — populated vs. warm empty state. */}
       {docs.length > 0 ? (
         <div>
-          <p className="text-[11px] uppercase tracking-[0.08em] text-[color:var(--text-4)] mb-2">
+          <p className="text-[11px] uppercase tracking-[0.08em] text-[color:var(--text-3)] mb-2">
             {docs.length} {docs.length === 1 ? "file" : "files"} in {agentName}&apos;s knowledge
           </p>
           <div className="space-y-1.5">

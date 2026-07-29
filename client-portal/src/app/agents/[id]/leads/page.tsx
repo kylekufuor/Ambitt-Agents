@@ -143,7 +143,7 @@ export default async function AgentLeadsPage(
           )}
         </section>
 
-        <p className="text-center text-[12px] text-[color:var(--text-4)] mt-10">
+        <p className="text-center text-[12px] text-[color:var(--text-3)] mt-10">
           Want these flowing into a Google Sheet automatically? Just reply to {agent.name}{" "}and
           ask.
         </p>
@@ -225,13 +225,13 @@ function LeadCard({ lead }: { lead: LeadRow }) {
               key={k}
               className="text-[11.5px] rounded-[7px] px-2 py-1 bg-[color:var(--surface-2)] text-[color:var(--text-2)]"
             >
-              <span className="text-[color:var(--text-4)]">{k}:</span> {String(v)}
+              <span className="text-[color:var(--text-3)]">{k}:</span> {String(v)}
             </span>
           ))}
         </div>
       )}
 
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-3.5 pt-3 border-t border-[color:var(--border)] text-[12px] text-[color:var(--text-4)]">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-3.5 pt-3 border-t border-[color:var(--border)] text-[12px] text-[color:var(--text-3)]">
         {lead.source && <span>{lead.source}</span>}
         {lead.source && <span>·</span>}
         <span>Added {fmtDate(lead.createdAt)}</span>

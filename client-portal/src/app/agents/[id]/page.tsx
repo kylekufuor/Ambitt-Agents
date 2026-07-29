@@ -119,7 +119,7 @@ export default async function AgentDetailPage(
             <p className="text-[15px] text-[color:var(--text-3)] mt-2.5 max-w-[600px]">
               {description}
             </p>
-            <p className="text-[12.5px] text-[color:var(--text-4)] mt-2">
+            <p className="text-[12.5px] text-[color:var(--text-3)] mt-2">
               {tier.label} plan
               {agent.totalTasksCompleted > 0 && ` · ${agent.totalTasksCompleted.toLocaleString()} tasks done`}
               {agent.lastRunAt

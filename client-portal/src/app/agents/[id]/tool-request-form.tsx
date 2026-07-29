@@ -165,7 +165,7 @@ export function ToolRequestForm({
                       <span className={`dot ${p.dot}`} />
                       {r.status}
                     </span>
-                    <span className="text-[12px] text-[color:var(--text-4)] whitespace-nowrap">
+                    <span className="text-[12px] text-[color:var(--text-3)] whitespace-nowrap">
                       {new Date(r.createdAt).toLocaleDateString()}
                     </span>
                   </div>

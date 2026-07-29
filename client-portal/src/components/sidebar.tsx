@@ -58,7 +58,7 @@ function SidebarBody({
 
         <p className="eyebrow px-3 mt-5 mb-1.5">Your agents</p>
         {agents.length === 0 ? (
-          <p className="px-3 py-1.5 text-[12.5px] text-[color:var(--text-4)]">No agents yet</p>
+          <p className="px-3 py-1.5 text-[12.5px] text-[color:var(--text-3)]">No agents yet</p>
         ) : (
           agents.map((a) => {
             const isActive = activeAgentId === a.id;
