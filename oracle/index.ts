@@ -782,6 +782,10 @@ app.post("/agents/:id/dry-run", async (req: Request, res: Response) => {
         threadId,
         senderEmail: "operator@dryrun.ambitt.agency",
         billable: false,
+        // The agent under test is normally NOT active — that is the point.
+        // Guarded on the engine side by a dryRun check, and we already
+        // refused above if dryRun is off.
+        allowInactive: true,
       });
       runResponse = run.response;
       toolsUsed = run.toolsUsed.length;
@@ -822,7 +826,11 @@ app.post("/agents/:id/dry-run", async (req: Request, res: Response) => {
     });
 
     res.json({
-      status: "completed",
+      // A run that threw is not "completed". Reporting it as such let a
+      // hard refusal render on the dashboard as a successful run with an
+      // empty response, which is how this endpoint looked healthy while it
+      // could not test a paused agent at all.
+      status: runError ? "errored" : "completed",
       scenarioLabel,
       response: runResponse,
       error: runError,

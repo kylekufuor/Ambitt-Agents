@@ -113,6 +113,13 @@ export interface RuntimeInput {
   // quota and bypasses overage enforcement. Used for system-initiated onboarding
   // and checkpoint emails ("on us"). API cost is still logged for accounting.
   billable?: boolean;
+  // Operator-initiated test runs only. Lets a non-active agent
+  // (pending_approval, building, paused) be exercised, which is the entire
+  // point of dry-run: you prove an agent out BEFORE it goes live, and you
+  // re-prove a paused one before lifting the hold. Still refuses unless the
+  // agent is actually in dry-run mode, so this can never un-gate a live agent
+  // — see the guard in processInboundMessage.
+  allowInactive?: boolean;
 }
 
 export interface RuntimeOutput {
@@ -1579,6 +1586,33 @@ export async function runAgent(input: RuntimeInput): Promise<RuntimeOutput> {
 }
 
 /**
+ * Decide whether a run may proceed. Returns null to allow, or the reason
+ * suffix to refuse with. Pure, so the policy is testable without a DB.
+ *
+ * The two rules, in order:
+ *   1. Real client traffic (inbound email, chat, scheduled runs) never passes
+ *      allowInactive, so anything not "active" stays silent to clients. This
+ *      is what makes a pause actually stop an agent.
+ *   2. An operator test path MAY reach a non-active agent, because proving an
+ *      agent out before it goes live (and re-proving a paused one before
+ *      lifting the hold) is the entire purpose of dry-run. But only while
+ *      dryRun is on, so every write is intercepted. Without rule 2's dryRun
+ *      check, allowInactive would be a way to make a stopped agent email a
+ *      real client.
+ */
+export function runRefusalReason(
+  agent: { status: string; dryRun: boolean },
+  opts: { allowInactive?: boolean } = {},
+): string | null {
+  if (agent.status === "active") return null;
+  if (!opts.allowInactive) return `is not active (status: ${agent.status})`;
+  if (!agent.dryRun) {
+    return `is ${agent.status} and not in dry-run mode; refusing to run it outside dry-run`;
+  }
+  return null;
+}
+
+/**
  * Process an inbound client message end-to-end:
  * log inbound → run agent → return response + attachments for sending.
  */
@@ -1588,11 +1622,12 @@ export async function processInboundMessage(input: RuntimeInput): Promise<Runtim
   // Log the inbound message
   const agent = await prisma.agent.findUnique({
     where: { id: agentId },
-    select: { clientId: true, status: true, name: true },
+    select: { clientId: true, status: true, name: true, dryRun: true },
   });
 
   if (!agent) throw new Error(`Agent not found: ${agentId}`);
-  if (agent.status !== "active") throw new Error(`Agent ${agentId} is not active (status: ${agent.status})`);
+  const refusal = runRefusalReason(agent, { allowInactive: input.allowInactive });
+  if (refusal) throw new Error(`Agent ${agentId} ${refusal}`);
 
   await prisma.conversationMessage.create({
     data: {

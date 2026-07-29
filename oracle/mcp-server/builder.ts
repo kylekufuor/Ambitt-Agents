@@ -391,6 +391,9 @@ async function handleRunDryRunScenario(args: z.infer<z.ZodObject<typeof RunDryRu
       threadId: `fable-${args.buildId}-${args.scenarioId}`,
       senderEmail: "fable@dryrun.ambitt.agency",
       billable: false,
+      // Candidate agents are created in pending_approval + dryRun, so every
+      // Fable tester scenario ran against a non-active agent and threw.
+      allowInactive: true,
     });
     runResponse = result.response;
   } catch (err) {
