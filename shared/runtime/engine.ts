@@ -99,6 +99,7 @@ const BUILTIN_TOOLS = new Set([
   "cost_summary",
   "browse",
   "log_lead",
+  "list_leads",
   "request_2fa_code",
   "send_mail_merge",
 ]);
@@ -287,6 +288,62 @@ const BUILTIN_CLAUDE_TOOLS: Anthropic.Messages.Tool[] = [
         },
       },
       required: ["name"],
+    },
+  },
+  // --- Read the lead tracker back ---
+  //
+  // log_lead shipped without a matching read, so agents could write to the
+  // tracker and never see it. That silently broke two things every sourcing
+  // agent is instructed to do: dedupe against what it already contacted, and
+  // follow up on day 3 and day 7. Arthur's operating manual asks for both, and
+  // Agent.followUpDays is injected into his prompt, but he had no way to learn
+  // which leads were due. He talked about follow-ups convincingly and could
+  // never act on one.
+  //
+  // The name matters: `list_` is in READ_VERB_PREFIXES (tool-bridge.ts), so
+  // this executes live during a dry-run instead of being stubbed. Renaming it
+  // to something like `leads_query` would silently break dry-run testing.
+  {
+    name: "list_leads",
+    description:
+      "Read back leads you have already logged for this client. Use this BEFORE sourcing new leads, to check whether you have already contacted someone and avoid contacting them twice. Also use it to find who is due a follow-up: filter by status 'contacted' plus contacted_at_least_days_ago to get the leads that went quiet. Returns a compact summary, newest activity first. This is a read; it changes nothing.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        search: {
+          type: "string",
+          description:
+            "Match against name, company, or email. Use this to check whether one specific prospect is already in the tracker before you reach out.",
+        },
+        status: {
+          type: "array",
+          items: {
+            type: "string",
+            enum: ["new", "contacted", "replied", "qualified", "won", "lost", "archived"],
+          },
+          description:
+            "Only these pipeline stages. For follow-ups you usually want ['contacted'], since a lead that already replied should be escalated to the client, not nudged again.",
+        },
+        contacted_at_least_days_ago: {
+          type: "number",
+          description:
+            "Only leads last contacted this many days ago or longer. Combine with status ['contacted'] to find who has gone quiet. Example: 3 for a day-3 follow-up.",
+        },
+        contacted_at_most_days_ago: {
+          type: "number",
+          description:
+            "Only leads last contacted within this many days. Pair with contacted_at_least_days_ago to target one window, e.g. 3 to 7 days.",
+        },
+        never_contacted: {
+          type: "boolean",
+          description: "Only leads you have never reached out to yet.",
+        },
+        limit: {
+          type: "number",
+          description: "How many to return. Defaults to 25, capped at 100.",
+        },
+      },
+      required: [],
     },
   },
   // --- Credential request (1Password-provisioned item) ---
@@ -800,6 +857,113 @@ async function executeBuiltinTool(
       });
       return {
         content: `Lead logged: "${name}". It's now in the client's portal Leads table.`,
+        isError: false,
+      };
+    }
+
+    if (toolName === "list_leads") {
+      const a = args as {
+        search?: string;
+        status?: string[];
+        contacted_at_least_days_ago?: number;
+        contacted_at_most_days_ago?: number;
+        never_contacted?: boolean;
+        limit?: number;
+      };
+
+      const VALID_STATUS = new Set(["new", "contacted", "replied", "qualified", "won", "lost", "archived"]);
+      const statuses = (a.status ?? []).filter((s) => VALID_STATUS.has(s));
+
+      // Bound the result set hard. This tool feeds straight into the message
+      // array, and an unbounded read is exactly the shape that killed Arthur's
+      // 2026-07-06 run at 212k tokens (see context-budget.ts). 25 is enough to
+      // decide on a follow-up batch; more than that, narrow the filter.
+      const limit = Math.min(Math.max(Math.round(a.limit ?? 25) || 25, 1), 100);
+
+      const daysAgo = (n: number) => new Date(Date.now() - n * 24 * 60 * 60 * 1000);
+      const contactedFilter: Record<string, Date> = {};
+      // "at least N days ago" is an UPPER bound on the timestamp: older than.
+      if (typeof a.contacted_at_least_days_ago === "number") {
+        contactedFilter.lte = daysAgo(a.contacted_at_least_days_ago);
+      }
+      if (typeof a.contacted_at_most_days_ago === "number") {
+        contactedFilter.gte = daysAgo(a.contacted_at_most_days_ago);
+      }
+
+      const search = a.search?.trim();
+      const where: Prisma.LeadWhereInput = {
+        // Scoped to this agent, matching log_lead's upsert key. If a client
+        // ever runs two agents that source the same market they will keep
+        // separate trackers; changing that is a product decision (agent-scoped
+        // vs client-scoped leads), not something to quietly switch here.
+        agentId,
+        ...(statuses.length > 0 ? { status: { in: statuses } } : {}),
+        ...(a.never_contacted ? { lastContactedAt: null } : {}),
+        ...(Object.keys(contactedFilter).length > 0 && !a.never_contacted
+          ? { lastContactedAt: contactedFilter }
+          : {}),
+        ...(search
+          ? {
+              OR: [
+                { name: { contains: search, mode: "insensitive" as const } },
+                { company: { contains: search, mode: "insensitive" as const } },
+                { email: { contains: search, mode: "insensitive" as const } },
+              ],
+            }
+          : {}),
+      };
+
+      const [rows, matching, total] = await Promise.all([
+        prisma.lead.findMany({
+          where,
+          orderBy: [{ lastContactedAt: "desc" }, { createdAt: "desc" }],
+          take: limit,
+          select: {
+            name: true, company: true, email: true, status: true,
+            valueUsd: true, lastContactedAt: true, createdAt: true, notes: true,
+          },
+        }),
+        prisma.lead.count({ where }),
+        prisma.lead.count({ where: { agentId } }),
+      ]);
+
+      if (rows.length === 0) {
+        // Distinguish "you have no leads at all" from "your filter matched
+        // nothing" — they call for completely different next actions, and an
+        // ambiguous empty result is how an agent talks itself into re-sourcing
+        // a list it already has.
+        return {
+          content:
+            total === 0
+              ? "No leads logged yet for this client. The tracker is empty, so nothing has been contacted."
+              : `No leads matched those filters. There are ${total} lead(s) in the tracker overall, so try widening the search.`,
+          isError: false,
+        };
+      }
+
+      const now = Date.now();
+      const lines = rows.map((l) => {
+        const age =
+          l.lastContactedAt == null
+            ? "never contacted"
+            : `last contacted ${Math.max(0, Math.floor((now - l.lastContactedAt.getTime()) / 86_400_000))}d ago`;
+        const bits = [
+          l.name,
+          l.company ? `(${l.company})` : null,
+          l.email || null,
+          `status: ${l.status}`,
+          age,
+          typeof l.valueUsd === "number" ? `est $${l.valueUsd.toLocaleString()}` : null,
+          // Notes are free text an agent wrote; a long one per row is how 25
+          // rows becomes an unreadable wall. One clause is enough to recognise.
+          l.notes ? `note: ${l.notes.slice(0, 90)}${l.notes.length > 90 ? "..." : ""}` : null,
+        ].filter(Boolean);
+        return `- ${bits.join(" | ")}`;
+      });
+
+      const shown = rows.length < matching ? `Showing ${rows.length} of ${matching} matching` : `${matching} matching`;
+      return {
+        content: `${shown} lead(s), most recently active first:\n${lines.join("\n")}`,
         isError: false,
       };
     }
