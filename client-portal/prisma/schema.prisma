@@ -122,7 +122,7 @@ model Agent {
   exampleEmails            Json?
   exampleEmailsGeneratedAt DateTime?
 
-  primaryModel   String @default("claude-sonnet-4-6")
+  primaryModel   String @default("claude-opus-5")
   analyticsModel String @default("gemini")
   creativeModel  String @default("gpt-4o")
 

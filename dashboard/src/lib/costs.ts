@@ -1,7 +1,11 @@
 // Pricing in cents per million tokens — keep in sync with shared/claude.ts, gemini.ts, openai.ts
 export const MODEL_PRICING: Record<string, { inputPerMillion: number; outputPerMillion: number; label: string }> = {
-  "claude-opus-4-7": { inputPerMillion: 1500, outputPerMillion: 7500, label: "Claude Opus" },
-  "claude-opus": { inputPerMillion: 1500, outputPerMillion: 7500, label: "Claude Opus" },
+  // Opus was carried at 1500/7500 ($15/$75) until 2026-07-29. Real Opus 4.7 and
+  // Opus 5 pricing is $5/$25, so every Opus figure on this dashboard read 3×
+  // high. Old model keys stay — historical ApiUsage rows still need a price.
+  "claude-opus-5": { inputPerMillion: 500, outputPerMillion: 2500, label: "Claude Opus" },
+  "claude-opus-4-7": { inputPerMillion: 500, outputPerMillion: 2500, label: "Claude Opus" },
+  "claude-opus": { inputPerMillion: 500, outputPerMillion: 2500, label: "Claude Opus" },
   "claude-sonnet-4-6": { inputPerMillion: 300, outputPerMillion: 1500, label: "Claude Sonnet" },
   "claude-sonnet": { inputPerMillion: 300, outputPerMillion: 1500, label: "Claude Sonnet" },
   "claude-haiku-4-5-20251001": { inputPerMillion: 100, outputPerMillion: 500, label: "Claude Haiku" },

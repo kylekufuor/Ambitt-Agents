@@ -135,7 +135,7 @@ model Agent {
   // tools (shared/mcp/channel-types.ts).
   communicationSettings Json?
 
-  primaryModel   String @default("claude-sonnet-4-6")
+  primaryModel   String @default("claude-opus-5")
   analyticsModel String @default("gemini")
   creativeModel  String @default("gpt-4o")
 

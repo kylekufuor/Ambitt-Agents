@@ -7,9 +7,11 @@ import type Anthropic from "@anthropic-ai/sdk";
 //   400 invalid_request_error: prompt is too long: 212067 tokens > 200000
 // and the run was never retried. 200,000 is HAIKU's window, not Sonnet's: the
 // engine's triage routing starts every loop on TRIAGE_MODEL (claude-haiku-4-5,
-// 200K) and only escalates to CLIENT_MODEL (claude-sonnet-4-6, 1M) for the
-// final synthesis. So the ceiling a run actually has to respect is whichever
-// model is about to be called — which is why the budget below is per-model.
+// 200K) and only escalates to CLIENT_MODEL (claude-opus-5 as of 2026-07-29,
+// 1M) for the final synthesis. So the ceiling a run actually has to respect is
+// whichever model is about to be called — which is why the budget below is
+// per-model. Haiku staying on triage is exactly what keeps this module load-
+// bearing: the tight 200K window is still the one most turns run against.
 //
 // What actually grew: NOT the system prompt. The assembler already caps memory
 // (8K chars), renders only the last 10 conversation turns at 500 chars each,
@@ -32,6 +34,7 @@ export const MODEL_CONTEXT_LIMITS: Record<string, number> = {
   "claude-haiku-4-5-20251001": 200_000,
   "claude-sonnet-4-6": 1_000_000,
   "claude-opus-4-7": 1_000_000,
+  "claude-opus-5": 1_000_000,
 };
 
 export const DEFAULT_CONTEXT_LIMIT = 200_000;

@@ -56,7 +56,9 @@ const CreateCandidateAgentInput = {
   personality: z.string().min(20),
   purpose: z.string().min(20),
   agentType: z.string().min(1),
-  primaryModel: z.enum(["claude-sonnet-4-6", "claude-haiku-4-5-20251001"]),
+  // Opus 5 added 2026-07-29. Sonnet 4.6 stays accepted so agents Fable already
+  // scaffolded against it still validate.
+  primaryModel: z.enum(["claude-opus-5", "claude-sonnet-4-6", "claude-haiku-4-5-20251001"]),
   schedule: z.string().default(""),
   autonomyLevel: z.enum(["supervised", "autonomous"]).default("supervised"),
   toolSlugs: z.array(z.string()).default([]),

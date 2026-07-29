@@ -41,8 +41,9 @@ function check(name: string, cond: boolean, detail?: string) {
 // ---------------------------------------------------------------------------
 check("haiku (triage model) is a 200K window", contextLimitFor("claude-haiku-4-5-20251001") === 200_000);
 check("haiku alias is a 200K window", contextLimitFor("claude-haiku-4-5") === 200_000);
-check("sonnet 4.6 (client model) is a 1M window", contextLimitFor("claude-sonnet-4-6") === 1_000_000);
+check("sonnet 4.6 is a 1M window", contextLimitFor("claude-sonnet-4-6") === 1_000_000);
 check("opus 4.7 is a 1M window", contextLimitFor("claude-opus-4-7") === 1_000_000);
+check("opus 5 (client model) is a 1M window", contextLimitFor("claude-opus-5") === 1_000_000);
 check(
   "an unknown model id gets the SMALLEST window, not the largest",
   contextLimitFor("claude-something-new") === DEFAULT_CONTEXT_LIMIT && DEFAULT_CONTEXT_LIMIT === 200_000

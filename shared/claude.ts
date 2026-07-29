@@ -25,13 +25,31 @@ interface ClaudeResponse {
 }
 
 // Model routing — keep in sync with dashboard/src/lib/costs.ts
-// Orchestration (Oracle meta-reasoning, agent scaffolding logic) uses the
-// strongest available model. Client-facing runtime uses the cheaper tier.
-// TRIAGE_MODEL runs intermediate tool-selection loops; the runtime engine
-// escalates to CLIENT_MODEL for the final client-facing synthesis.
-export const ORCHESTRATION_MODEL = "claude-opus-4-7";
-export const CLIENT_MODEL = "claude-sonnet-4-6";
+// Orchestration (Oracle meta-reasoning, agent scaffolding logic) and the
+// client-facing runtime both run Opus 5. Orchestration was Opus 4.7 at the
+// identical $5/$25, so that tier is a free upgrade; the client tier moved up
+// from Sonnet 4.6 ($3/$15) deliberately, because that turn is what a client
+// actually reads.
+// TRIAGE_MODEL stays Haiku: it runs intermediate tool-selection loops at
+// ~5× less than Opus and the engine escalates to CLIENT_MODEL for the final
+// client-facing synthesis, so the expensive model only runs on the turn that
+// reaches a human.
+export const ORCHESTRATION_MODEL = "claude-opus-5";
+export const CLIENT_MODEL = "claude-opus-5";
 export const TRIAGE_MODEL = "claude-haiku-4-5-20251001";
+
+// Opus 4.7 and later reject `temperature`/`top_p`/`top_k` outright — a request
+// carrying one comes back 400 "`temperature` is deprecated for this model".
+// This is not cosmetic: it is why every ORCHESTRATION_MODEL call was failing
+// before Opus 5 landed, since callClaude sent temperature unconditionally.
+// Haiku 4.5 and Sonnet 4.6 still accept it, and intent-classify deliberately
+// passes temperature: 0 for a deterministic classifier, so we send the
+// parameter per-model rather than dropping it fleet-wide.
+const SAMPLING_REJECTED = /^claude-(opus-(4-7|4-8|5)|sonnet-5|fable-5|mythos-5)/;
+
+export function acceptsSampling(model: string): boolean {
+  return !SAMPLING_REJECTED.test(model);
+}
 
 // Prompt cache is only worth writing above ~1024 tokens. Below this threshold
 // we skip cache_control to avoid paying the 1.25× cache-write premium for no hit.
@@ -45,7 +63,11 @@ export async function callClaude(
     systemPrompt,
     userMessage,
     model = CLIENT_MODEL,
-    maxTokens = 4096,
+    // Opus 5 thinks by default (Opus 4.7/4.8 did not), and max_tokens caps
+    // thinking PLUS response text together. The old 4096 default was sized for
+    // a no-thinking Sonnet turn and would now risk truncating mid-answer.
+    // Raising a cap costs nothing — billing is on tokens actually produced.
+    maxTokens = 16000,
     temperature = 0.7,
     cacheSystemPrompt = true,
   } = options;
@@ -60,7 +82,7 @@ export async function callClaude(
       const response = await getClient().messages.create({
         model,
         max_tokens: maxTokens,
-        temperature,
+        ...(acceptsSampling(model) ? { temperature } : {}),
         system: systemParam,
         messages: [{ role: "user", content: userMessage }],
       });
@@ -98,8 +120,14 @@ export async function callClaude(
 
 // Pricing in cents per million tokens — keep in sync with dashboard/src/lib/costs.ts
 // Cache write = 1.25× base input. Cache read = 0.10× base input.
+// Opus was carried at 1500/7500 ($15/$75) until 2026-07-29. Real Opus 4.7 and
+// Opus 5 pricing is $5/$25, so every Opus cost in the dashboard read 3× high
+// and budget enforcement tripped against spend that never happened. Sonnet and
+// Haiku were always correct. Old model rows stay — historical ApiUsage rows
+// still need a price to cost out.
 const CLAUDE_PRICING: Record<string, { input: number; output: number }> = {
-  "claude-opus-4-7": { input: 1500, output: 7500 },
+  "claude-opus-5": { input: 500, output: 2500 },
+  "claude-opus-4-7": { input: 500, output: 2500 },
   "claude-sonnet-4-6": { input: 300, output: 1500 },
   "claude-haiku-4-5-20251001": { input: 100, output: 500 },
   "claude-haiku-4-5": { input: 100, output: 500 },
