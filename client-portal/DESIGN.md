@@ -2,8 +2,16 @@
 
 Read this before styling ANY portal surface. Every screen must hold the same
 decisions so nothing drifts back to the "statistical average" that reads as
-AI-built. Direction: **premium, crafted product UI — HubSpot-grade structure
-with real depth and life, unmistakably human-designed.**
+AI-built. Direction: **premium, crafted product UI — Databricks-grade
+restraint with real depth and life, unmistakably human-designed.**
+
+**Updated 2026-07-28.** The structural system is now Databricks': their warm
+oat ground, their desaturated-navy ink, their hairline, their six-stop
+ink-tinted elevation, their button geometry and state behaviour. **The accent
+stays ours — teal `#00b3b3`, unchanged, and the logo is untouched.** The short
+version of why: their neutrals are the part that reads as expensive, and our
+teal is the part that reads as us. Taking their red as well would have cost us
+the friendly read (red is the error colour in every UI convention) for nothing.
 
 ## The AI-slop tells we REJECT (never ship these)
 1. **A flat gray 1px border around every card.** The #1 tell. Separate surfaces
@@ -30,13 +38,55 @@ with real depth and life, unmistakably human-designed.**
 - **Type:** **DM Sans** (display + body), one family. See "Type is one family,
   weight 500" below — it replaced Lexend on 2026-07-28 and the rules changed
   with it. No serif, no second face.
-- **Palette:** cool slate — `--text #33475b`, `--bg #f5f8fa`, surfaces white /
-  `--surface-2 #eaf0f6`. Accent **teal** — see the two-step rule below.
-  Section accent colors: teal, indigo `#4f46e5`, emerald `#00887a`,
-  amber `#b45309`, violet `#7c3aed`, rose `#e11d48` — used on icon chips + data.
-- **Radius:** 6/8/10px. **Depth:** layered shadows (`.card`), hover-lift
-  (`.card-hover` → translateY(-2px) + deeper shadow). Motion is minimal and
-  purposeful (no load-in fade cascade).
+- **Palette:** warm oat ground, Databricks neutrals. **Nothing pure black,
+  nothing pure white.**
+
+| Token | Value | Role | Worst measured pair |
+|---|---|---|---|
+| `--bg` | `#f9f7f4` | page ground (Databricks oat) | — |
+| `--surface` | `#fffdfb` | raised plane. **Not `#fff`** | — |
+| `--surface-2` | `#f1ede7` | recessed wash / inset panel | — |
+| `--text` | `#1b3139` | headings + body (Gable Green) | 11.66:1 |
+| `--text-2` | `#47606a` | secondary | 5.72:1 |
+| `--text-3` | `#5a6f77` | tertiary — **the AA floor** | 4.53:1 |
+| `--text-4` | `#78949f` | **decorative only** — placeholders, disabled | 3.01:1 |
+| `--border` | `#dce0e2` | hairline — **rows and rails, never a card outline** | — |
+| `--border-strong` | `#c6cfd2` | control boundaries | — |
+
+  **There is no fourth AA text step and you cannot invent one.** `--text-3` is
+  Databricks' own muted `#5A6F77` and it is the lightest value that still
+  clears 4.5:1 on `--surface-2`. Anything lighter fails. If you need another
+  level of hierarchy, use size, weight or spacing — not a lighter gray.
+
+- **Status colours** — `--emerald #16713a`, `--amber #a34a07`, `--red #be123c`,
+  `--blue #1d4ed8`. Each measured on every plane *and* on its own 10% tint
+  (worst 4.82:1), and each sits **≥33 dE from the brand teal** so a status can
+  never be mistaken for the accent. See "Teal is identity, never status".
+- **Radius:** 4px buttons, 6/8/10px surfaces. **Depth:** the six-stop
+  ink-tinted shadow ramp `--sh-1/2/3` (see below), hover-lift on `.card-hover`.
+  Motion is minimal and purposeful (no load-in fade cascade).
+
+### Elevation is a six-stop ink-tinted ramp
+Databricks' single best detail, and it's cheap to copy:
+
+```css
+0 2px 3px   rgba(27,49,57,.02)
+0 4px 8px   rgba(27,49,57,.025)
+0 9px 13px  rgba(27,49,57,.03)
+0 16px 24px rgba(27,49,57,.04)
+0 32px 40px rgba(27,49,57,.05)
+0 72px 104px rgba(27,49,57,.07)
+```
+
+Six descending stops, **tinted with the ink navy `27,49,57` — never black.**
+A black shadow on a warm ground turns the card gray at the edge and reads as a
+sticker; an ink-tinted one reads as an object sitting on paper. Two-stop
+shadows were the old approximation; don't go back to them.
+
+### No gradients
+Databricks ships none in its critical CSS and neither do we. The icon chips are
+flat tints. Accent is rationed to roughly one word per headline plus the primary
+CTA. If a surface needs interest, it gets it from type, spacing and elevation.
 
 ## Type is one family, weight 500 — read this before setting any text
 
@@ -69,8 +119,9 @@ drawn for. One 62 kB file is smaller than the three static weights it replaced.
 creeping the weight back up.** That creep is how this drifts back to bold-
 everything, one heading at a time.
 
-**Nothing pure black, nothing pure white.** Ink is `--text #33475b`, canvas is
-`--bg #f5f8fa`.
+**Nothing pure black, nothing pure white.** Ink is `--text #1b3139`, canvas is
+`--bg #f9f7f4`, and the raised plane is `--surface #fffdfb`. `#fff` survives
+only as reversed type and as a label on a saturated fill.
 
 ## Teal is two-step — read this before using any teal
 
@@ -104,6 +155,38 @@ this drifted. Text is `--brand-ink`; hover is `--brand-solid-hover`.
 This mirrors `oracle/templates/_shared.ts` (`teal` / `tealDeep` / `tealText`)
 one-for-one, deliberately: email and portal are one system, so the same hue
 does the same job in both.
+
+## Teal is identity, never status — read this before adding a status colour
+
+Teal is the brand. It is **not** "success", "info", or "on". The moment the
+accent also means a state, both meanings get weaker: the client stops reading
+teal as us, and starts reading it as the system talking.
+
+This was actually broken and is now fixed. `--emerald` was `#00bda5` and the
+email `good` token was `#00706a` — both sat **3 dE** from the brand teal, which
+is *the same colour* perceptually. An "active" pill and a brand chip were
+indistinguishable. Success is now a true green `#16713a`, 33 dE away.
+
+**The rule:** every status colour must sit **≥20 dE** from `--brand-ink`
+(measure it, don't judge it), and the brand accent never appears in a status
+pill. Status pills use green / amber / red / blue / muted only.
+
+| Meaning | Token | Never |
+|---|---|---|
+| identity, navigation, primary action | teal | a status pill |
+| success / active / done | `--emerald #16713a` | teal-green |
+| needs attention / pending | `--amber #a34a07` | — |
+| error / danger / halted | `--red #be123c` | the brand accent |
+| informational | `--blue #1d4ed8` | teal |
+
+**Danger stays visually distinct from the accent by hue, not by weight.** A
+destructive button is `--red` filled; a primary action is teal filled. They are
+96 dE apart, so no one clicks the wrong one. (This is also why we did not adopt
+Databricks' lava red as the brand: an accent that *is* the error colour makes
+every primary CTA look destructive, and there's no way to design around it.)
+
+Colour is never the only signal — every status also carries its text label and,
+where it matters, an icon.
 
 ## Depth & life (the premium bar)
 - Cards read via elevation + a faint tonal wash, not a gray outline.

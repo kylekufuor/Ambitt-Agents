@@ -23,7 +23,7 @@ const BRAND_INK = "#00706f"; // links + focus, 5.92:1 on white
 // Layered elevation — the same depth language as the portal's `.card`. Agent
 // bubbles read as raised white surfaces, not gray-outlined boxes.
 const BUBBLE_SHADOW =
-  "0 0 0 1px rgba(45,62,80,0.04), 0 1px 2px rgba(45,62,80,0.06), 0 6px 16px -6px rgba(45,62,80,0.14)";
+  "0 0 0 1px rgba(27,49,57,0.04), 0 1px 2px rgba(27,49,57,0.06), 0 6px 16px -6px rgba(27,49,57,0.14)";
 
 function oracleUrl(): string {
   return process.env.NEXT_PUBLIC_ORACLE_URL ?? "https://oracle-production-c0ff.up.railway.app";
@@ -151,7 +151,7 @@ export function ChatView({
         className="sticky top-0 z-10"
         style={{
           background: "var(--surface)",
-          boxShadow: "0 1px 2px rgba(45,62,80,0.06), 0 4px 16px -8px rgba(45,62,80,0.14)",
+          boxShadow: "0 1px 2px rgba(27,49,57,0.06), 0 4px 16px -8px rgba(27,49,57,0.14)",
         }}
       >
         <div className="max-w-3xl mx-auto px-4 sm:px-6 py-3 flex items-center gap-3">
@@ -219,7 +219,7 @@ export function ChatView({
       <footer
         style={{
           background: "var(--surface)",
-          boxShadow: "0 -1px 2px rgba(45,62,80,0.05), 0 -8px 24px -12px rgba(45,62,80,0.16)",
+          boxShadow: "0 -1px 2px rgba(27,49,57,0.05), 0 -8px 24px -12px rgba(27,49,57,0.16)",
         }}
       >
         <div className="max-w-3xl mx-auto px-4 sm:px-6 py-3.5">

@@ -160,11 +160,11 @@ export function MobileNav({ agents, email, displayName }: { agents: Agent[]; ema
       {open && (
         <div className="lg:hidden fixed inset-0 z-50">
           <div
-            className="absolute inset-0 bg-[rgba(45,62,80,0.35)]"
+            className="absolute inset-0 bg-[rgba(27,49,57,0.35)]"
             onClick={() => setOpen(false)}
             aria-hidden
           />
-          <aside className="absolute inset-y-0 left-0 w-[80%] max-w-[300px] flex flex-col bg-[color:var(--surface)] shadow-[0_20px_60px_rgba(45,62,80,0.35)] animate-[drawer_0.22s_ease]">
+          <aside className="absolute inset-y-0 left-0 w-[80%] max-w-[300px] flex flex-col bg-[color:var(--surface)] shadow-[0_20px_60px_rgba(27,49,57,0.35)] animate-[drawer_0.22s_ease]">
             <SidebarBody agents={agents} email={email} displayName={displayName} onNavigate={() => setOpen(false)} />
           </aside>
         </div>

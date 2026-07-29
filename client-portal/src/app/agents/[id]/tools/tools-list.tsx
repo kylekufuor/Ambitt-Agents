@@ -78,7 +78,7 @@ function Avatar({ name, logoUrl }: { name: string; logoUrl: string | null }) {
         src={logoUrl}
         alt=""
         className="w-9 h-9 rounded-[9px] object-contain bg-[color:var(--surface)]"
-        style={{ boxShadow: "inset 0 0 0 1px rgba(45,62,80,0.08), 0 1px 2px rgba(45,62,80,0.08)" }}
+        style={{ boxShadow: "inset 0 0 0 1px rgba(27,49,57,0.08), 0 1px 2px rgba(27,49,57,0.08)" }}
         onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
       />
     );
@@ -86,7 +86,7 @@ function Avatar({ name, logoUrl }: { name: string; logoUrl: string | null }) {
   return (
     <div
       className="w-9 h-9 rounded-[9px] bg-[color:var(--surface-2)] flex items-center justify-center text-sm font-semibold text-[color:var(--text-2)]"
-      style={{ boxShadow: "inset 0 0 0 1px rgba(45,62,80,0.06)" }}
+      style={{ boxShadow: "inset 0 0 0 1px rgba(27,49,57,0.06)" }}
     >
       {initial}
     </div>

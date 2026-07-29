@@ -55,14 +55,14 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0a0b] flex items-center justify-center px-4">
+    <div className="min-h-screen bg-[#121e23] flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
-          <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center mx-auto mb-4">
+          <div className="w-10 h-10 rounded-xl bg-[#fffdfb] flex items-center justify-center mx-auto mb-4">
             <span className="text-black font-semibold text-lg">A</span>
           </div>
           <h1 className="text-xl font-medium text-white">Ambitt Dashboard</h1>
-          <p className="text-zinc-500 text-sm mt-1">Admin access only</p>
+          <p className="text-[#93a7ac] text-sm mt-1">Admin access only</p>
         </div>
 
         {step === "email" ? (
@@ -73,21 +73,21 @@ export default function LoginPage() {
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@email.com"
               required
-              className="w-full bg-[#111113] border border-white/[0.06] rounded-lg px-4 py-3 text-white placeholder:text-zinc-600 focus:outline-none focus:border-white/[0.12] transition"
+              className="w-full bg-[#1c2e35] border border-white/[0.06] rounded-lg px-4 py-3 text-white placeholder:text-[#8a9ba1] focus:outline-none focus:border-white/[0.12] transition"
             />
             {error && <p className="text-red-400 text-sm">{error}</p>}
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-white text-black font-medium rounded-lg px-4 py-3 hover:bg-zinc-200 transition disabled:opacity-50"
+              className="w-full bg-[#e7ecec] text-[#16242a] font-medium rounded-lg px-4 py-3 hover:bg-[#fffdfb] transition disabled:opacity-50"
             >
               {loading ? "Sending..." : "Send Login Code"}
             </button>
           </form>
         ) : (
           <form onSubmit={handleVerifyCode} className="space-y-4">
-            <div className="bg-[#111113] border border-white/[0.06] rounded-lg p-4 text-center">
-              <p className="text-zinc-400 text-sm">
+            <div className="bg-[#1c2e35] border border-white/[0.06] rounded-lg p-4 text-center">
+              <p className="text-[#93a7ac] text-sm">
                 Code sent to <span className="text-white font-medium">{email}</span>
               </p>
             </div>
@@ -98,20 +98,20 @@ export default function LoginPage() {
               placeholder="Enter 6-digit code"
               required
               maxLength={6}
-              className="w-full bg-[#111113] border border-white/[0.06] rounded-lg px-4 py-3 text-white text-center text-2xl tracking-[0.5em] font-mono placeholder:text-zinc-600 placeholder:text-base placeholder:tracking-normal focus:outline-none focus:border-white/[0.12] transition"
+              className="w-full bg-[#1c2e35] border border-white/[0.06] rounded-lg px-4 py-3 text-white text-center text-2xl tracking-[0.5em] font-mono placeholder:text-[#8a9ba1] placeholder:text-base placeholder:tracking-normal focus:outline-none focus:border-white/[0.12] transition"
             />
             {error && <p className="text-red-400 text-sm">{error}</p>}
             <button
               type="submit"
               disabled={loading || token.length < 6}
-              className="w-full bg-white text-black font-medium rounded-lg px-4 py-3 hover:bg-zinc-200 transition disabled:opacity-50"
+              className="w-full bg-[#e7ecec] text-[#16242a] font-medium rounded-lg px-4 py-3 hover:bg-[#fffdfb] transition disabled:opacity-50"
             >
               {loading ? "Verifying..." : "Verify & Login"}
             </button>
             <button
               type="button"
               onClick={() => { setStep("email"); setToken(""); setError(""); }}
-              className="w-full text-zinc-500 text-sm hover:text-zinc-300 transition"
+              className="w-full text-[#93a7ac] text-sm hover:text-[#e7ecec] transition"
             >
               Use a different email
             </button>

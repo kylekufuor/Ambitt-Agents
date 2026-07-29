@@ -75,7 +75,7 @@ export default async function PRDPage({
         <iframe
           src={prdUrl}
           title="Agent PRD"
-          className="w-full border border-border rounded-xl bg-[#0a0a0a]"
+          className="w-full border border-border rounded-xl bg-[#efeae2]"
           style={{ height: "calc(100vh - 220px)", minHeight: 600 }}
         />
       ) : (

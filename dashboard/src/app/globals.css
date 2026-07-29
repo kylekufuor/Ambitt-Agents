@@ -48,75 +48,97 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/* ============================================================================
+   COLOUR (2026-07-28) — Databricks neutrals, Ambitt teal.
+
+   The neutrals here were pure achromatic gray (every token `oklch(L 0 0)`).
+   Chroma zero is what made this read as "a shadcn install" rather than as our
+   product: it shares no cast with the marketing site, the portal or the
+   emails, so an operator moving between them saw the temperature change.
+   Both modes now carry the ink-navy cast (Databricks Gable Green #1B3139) —
+   warm oat in light, navy-tinted charcoal in dark.
+
+   NOTHING PURE BLACK OR PURE WHITE in either mode.
+   Every pair below is measured; the worst light pair is 4.10:1 (a 3:1 ring)
+   and the worst dark text pair is 4.88:1.
+   ============================================================================ */
+
 /* Light mode */
 :root {
-  --background: oklch(0.985 0 0);       /* #F8F8F8 warm white */
-  --foreground: oklch(0.145 0 0);       /* #1A1A1A */
-  --card: oklch(1 0 0);                 /* #FFFFFF */
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.965 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.965 0 0);            /* #F0F0F0 */
-  --muted-foreground: oklch(0.46 0 0);  /* #6B6B6B */
-  --accent: oklch(0.965 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.91 0 0);            /* #E5E5E5 */
-  --input: oklch(0.91 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.696 0.17 162.48);
-  --chart-2: oklch(0.769 0.189 70.08);
-  --chart-3: oklch(0.637 0.237 25.33);
-  --chart-4: oklch(0.556 0 0);
-  --chart-5: oklch(0.371 0 0);
+  --background: #f9f7f4;                /* Databricks oat */
+  --foreground: #1b3139;                /* Gable Green — 12.7:1 */
+  --card: #fffdfb;                      /* warm near-white, not #fff */
+  --card-foreground: #1b3139;
+  --popover: #fffdfb;
+  --popover-foreground: #1b3139;
+  --primary: #1b3139;
+  --primary-foreground: #f9f7f4;
+  --secondary: #f1ede7;
+  --secondary-foreground: #1b3139;
+  --muted: #f1ede7;
+  --muted-foreground: #52676f;          /* 5.10:1 on the muted plane */
+  --accent: #f1ede7;
+  --accent-foreground: #1b3139;
+  --destructive: #be123c;               /* 5.39:1 worst plane */
+  --border: #dce0e2;                    /* Databricks hairline */
+  --input: #dce0e2;
+  --ring: #00807e;                      /* focus = brand solid step, 4.10:1 worst */
+  /* Charts — validated with the dataviz validator against surface #fffdfb:
+     lightness band, chroma floor, deutan/tritan CVD separation (worst adjacent
+     ΔE 22.5), normal-vision floor and 3:1 contrast all PASS. Fixed order,
+     never cycled. Status colours are NOT in this ramp. */
+  --chart-1: #00a39f;
+  --chart-2: #5346d8;
+  --chart-3: #c2621a;
+  --chart-4: #8b3fd9;
+  --chart-5: #1d7f4e;
   --radius: 0.625rem;
-  --sidebar: oklch(0.975 0 0);          /* #F4F4F4 */
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.95 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.91 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --sidebar: #f4f0ea;
+  --sidebar-foreground: #1b3139;
+  --sidebar-primary: #00807e;
+  --sidebar-primary-foreground: #fffdfb;
+  --sidebar-accent: #eae5dc;
+  --sidebar-accent-foreground: #1b3139;
+  --sidebar-border: #dce0e2;
+  --sidebar-ring: #00807e;
 }
 
-/* Dark mode — Railway-style softer dark */
+/* Dark mode — navy-tinted charcoal, the same ink family as light mode */
 .dark {
-  --background: oklch(0.17 0 0);        /* #1C1C1C page bg */
-  --foreground: oklch(0.93 0 0);        /* #ECECEC text */
-  --card: oklch(0.2 0 0);              /* #252525 card bg */
-  --card-foreground: oklch(0.93 0 0);
-  --popover: oklch(0.2 0 0);
-  --popover-foreground: oklch(0.93 0 0);
-  --primary: oklch(0.93 0 0);
-  --primary-foreground: oklch(0.17 0 0);
-  --secondary: oklch(0.25 0 0);
-  --secondary-foreground: oklch(0.93 0 0);
-  --muted: oklch(0.25 0 0);            /* #303030 subtle bg */
-  --muted-foreground: oklch(0.6 0 0);   /* #8A8A8A body text */
-  --accent: oklch(0.25 0 0);
-  --accent-foreground: oklch(0.93 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 8%);          /* softer borders */
-  --input: oklch(1 0 0 / 12%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.696 0.17 162.48);
-  --chart-2: oklch(0.769 0.189 70.08);
-  --chart-3: oklch(0.637 0.237 25.33);
-  --chart-4: oklch(0.556 0 0);
-  --chart-5: oklch(0.371 0 0);
-  --sidebar: oklch(0.155 0 0);          /* #1A1A1A slightly darker than page */
-  --sidebar-foreground: oklch(0.93 0 0);
-  --sidebar-primary: oklch(0.696 0.17 162.48);
-  --sidebar-primary-foreground: oklch(0.93 0 0);
-  --sidebar-accent: oklch(0.25 0 0);
-  --sidebar-accent-foreground: oklch(0.93 0 0);
-  --sidebar-border: oklch(1 0 0 / 8%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --background: #16242a;                /* page */
+  --foreground: #e7ecec;                /* 13.3:1 */
+  --card: #1c2e35;
+  --card-foreground: #e7ecec;
+  --popover: #1c2e35;
+  --popover-foreground: #e7ecec;
+  --primary: #e7ecec;
+  --primary-foreground: #16242a;
+  --secondary: #24383f;
+  --secondary-foreground: #e7ecec;
+  --muted: #24383f;
+  --muted-foreground: #93a7ac;          /* 4.88:1 on the muted plane */
+  --accent: #24383f;
+  --accent-foreground: #e7ecec;
+  --destructive: #ff8fa3;               /* 5.67:1 worst plane */
+  --border: rgba(255, 255, 255, 0.09);
+  --input: rgba(255, 255, 255, 0.13);
+  --ring: #4ed4d0;
+  /* Dark chart steps are SELECTED, not a flip of the light ones — validated
+     separately against surface #1c2e35 (band L 0.48–0.67, worst adjacent
+     deutan ΔE 18.4). */
+  --chart-1: #14a8a2;
+  --chart-2: #6f6ae8;
+  --chart-3: #cf7a2e;
+  --chart-4: #a768e8;
+  --chart-5: #35a862;
+  --sidebar: #121e23;
+  --sidebar-foreground: #e7ecec;
+  --sidebar-primary: #4ed4d0;           /* active nav = brand teal on dark, 9.43:1 */
+  --sidebar-primary-foreground: #121e23;
+  --sidebar-accent: #24383f;
+  --sidebar-accent-foreground: #e7ecec;
+  --sidebar-border: rgba(255, 255, 255, 0.09);
+  --sidebar-ring: #4ed4d0;
 }
 
 @layer base {

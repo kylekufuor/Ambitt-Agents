@@ -79,31 +79,35 @@ function assetBase(): string {
 export const AGENT_AVATAR_URL = `${assetBase()}/ambitt-agent-avatar.png`;
 
 export const T = {
-  // Surfaces: the tonal ladder that replaces borders.
-  page: "#eef2f6", // cool slate wash, kin to the portal's #f5f8fa
-  card: "#ffffff",
-  wash: "#f2f6f9", // inset panel, a ~4% step off the card
-  washBrand: "#e7f5f5", // teal-tinted panel
-  washAttention: "#fdf4e7",
-  washProblem: "#fdeef1",
-  washGood: "#e6f4f1",
+  // Surfaces: the tonal ladder that replaces borders. Databricks neutrals —
+  // warm oat family. NOTHING IS PURE WHITE, so the card is #fffdfb; an email
+  // opened next to a white Gmail chrome should still read as an object.
+  page: "#efeae2", // warm canvas, kin to the portal's --bg
+  card: "#fffdfb",
+  wash: "#f6f2ec", // inset panel, a ~4% step off the card
+  washBrand: "#e4f3f1", // teal-tinted panel
+  washAttention: "#f7efe6",
+  washProblem: "#f9e6e8",
+  washGood: "#e7efe8",
 
-  // Ink: nothing is pure black.
-  ink: "#1d2f40", // headings
-  body: "#33475b", // portal --text, matched exactly
-  mute: "#56697c", // 5.0:1 on the page wash, 5.2:1 on a panel
-  faint: "#728799", // separators only, never body text
-  rule: "#e2eaf1", // hairlines, for table rows only
+  // Ink: nothing is pure black. Databricks' desaturated navy.
+  ink: "#1b3139", // headings — 11.3:1 on the worst panel
+  body: "#3d545c", // portal --ink, matched exactly — 6.7:1 worst
+  mute: "#52676f", // 4.96:1 on the worst panel
+  faint: "#9aa9ad", // separators only, never body text
+  rule: "#dce0e2", // Databricks hairline, for table rows only
 
-  // Brand: one hue, two roles.
+  // Brand: one hue, two roles. UNCHANGED.
   teal: "#00b3b3", // marks, rules, fills. Never text.
   tealDeep: "#00807e", // button fill under white text (4.8:1)
   tealText: "#00706f", // teal on white (6.0:1)
 
-  // State: borrowed from the portal's section accents so the family reads.
-  attention: "#b45309",
+  // State. Each sits >=33 dE from the brand teal, so a client can never read
+  // a status chip as "brand" or the accent as "system". `good` was #00706a,
+  // which was 3 dE from tealText — success and brand were the same colour.
+  attention: "#a34a07",
   problem: "#be123c",
-  good: "#00706a",
+  good: "#16713a",
 
   // One typeface, top to bottom.
   font: "-apple-system,BlinkMacSystemFont,'Segoe UI Variable Text','Segoe UI',Roboto,'Helvetica Neue',Helvetica,Arial,sans-serif",
@@ -114,9 +118,9 @@ export type Tone = "brand" | "attention" | "problem" | "good";
 
 const TONE: Record<Tone, { rule: string; text: string; wash: string }> = {
   brand: { rule: T.teal, text: T.tealText, wash: T.washBrand },
-  attention: { rule: "#e8a33d", text: T.attention, wash: T.washAttention },
-  problem: { rule: "#e8536f", text: T.problem, wash: T.washProblem },
-  good: { rule: "#22b8a0", text: T.good, wash: T.washGood },
+  attention: { rule: "#e0932f", text: T.attention, wash: T.washAttention },
+  problem: { rule: "#e05070", text: T.problem, wash: T.washProblem },
+  good: { rule: "#3d9e63", text: T.good, wash: T.washGood },
 };
 
 // Legacy prop shapes. Templates still speak these; keep them stable.
@@ -204,19 +208,22 @@ export function emailDocument(opts: {
     .tbl th:first-child, .tbl td:first-child { padding-left:0 !important; }
   }
   @media (prefers-color-scheme: dark) {
-    .dm-page { background-color:#111c25 !important; }
-    .dm-card { background-color:#18242f !important; }
-    .dm-wash { background-color:#1f2d3a !important; }
-    .dm-ink, .dm-ink * { color:#eaf1f6 !important; }
-    .dm-body, .dm-body * { color:#c3d2de !important; }
-    .dm-mute, .dm-mute * { color:#93a7b8 !important; }
-    .dm-rule { border-color:#2a3b4a !important; }
+    .dm-page { background-color:#101c20 !important; }
+    .dm-card { background-color:#18282e !important; }
+    .dm-wash { background-color:#20323a !important; }
+    .dm-ink, .dm-ink * { color:#eceeed !important; }
+    .dm-body, .dm-body * { color:#c4d0d3 !important; }
+    .dm-mute, .dm-mute * { color:#98a9ad !important; }
+    .dm-rule { border-color:#2b3d43 !important; }
     /* Declared last on purpose. The blanket .dm-body/.dm-mute descendant rules
        above would otherwise flatten every semantic colour inside a table cell,
        so "Done" and "Needs you" would arrive in dark mode as the same grey.
        Equal specificity, later wins. */
     .dm-teal, .dm-teal * { color:#4ed4d0 !important; }
-    .dm-ok, .dm-ok * { color:#4ed4d0 !important; }
+    /* Success is GREEN, not the brand teal. These were the same value, so in
+       dark mode a "target hit" chip and the brand accent were indistinguishable
+       — the same collision the light palette had. 6.89:1 on the darkest panel. */
+    .dm-ok, .dm-ok * { color:#5fd08a !important; }
     .dm-warn, .dm-warn * { color:#f2ad63 !important; }
     .dm-bad, .dm-bad * { color:#ff8fa3 !important; }
   }
@@ -227,7 +234,7 @@ ${preheaderBlock(opts.preheader)}
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" class="dm-page" style="width:100%;border-collapse:collapse;background-color:${T.page};">
 <tr><td align="center" style="padding:32px 12px 40px 12px;">
 
-<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" align="center" class="card dm-card" style="width:100%;max-width:600px;background-color:${T.card};border-radius:14px;overflow:hidden;box-shadow:0 1px 2px rgba(29,47,64,0.04),0 8px 20px rgba(29,47,64,0.05),0 24px 48px rgba(29,47,64,0.05);">
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" align="center" class="card dm-card" style="width:100%;max-width:600px;background-color:${T.card};border-radius:14px;overflow:hidden;box-shadow:0 1px 2px rgba(27,49,57,0.03),0 4px 8px rgba(27,49,57,0.025),0 9px 13px rgba(27,49,57,0.03),0 16px 24px rgba(27,49,57,0.04),0 32px 40px rgba(27,49,57,0.05);">
   <tr><td height="3" bgcolor="${tone.rule}" style="height:3px;line-height:3px;font-size:0;background-color:${tone.rule};">&nbsp;</td></tr>
 ${opts.rows}
 </table>
@@ -253,11 +260,16 @@ export function section(html: string, pt = 0, pb = 0): string {
  * The agent's face, bulletproof. The `td` carries the teal disc via `bgcolor`
  * so a blocked image still reads as an avatar rather than a broken-image icon,
  * and the alt text is styled white/centred so it lands as the initial.
+ *
+ * The disc uses tealDeep, NOT the mark teal. Most clients block images, so the
+ * fallback is the common case, not the edge case — and a white initial on
+ * #00b3b3 is 2.59:1, which is unreadable. On #00807e it is 4.78:1. This is the
+ * one place the disc may not be the mark colour: a letterform sits on it.
  */
 export function avatar(agentName: string, size = 44): string {
   const initial = (agentName.trim().charAt(0) || "A").toUpperCase();
   return `<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
-<td width="${size}" height="${size}" bgcolor="${T.teal}" align="center" valign="middle" style="width:${size}px;height:${size}px;background-color:${T.teal};border-radius:${size}px;text-align:center;vertical-align:middle;">
+<td width="${size}" height="${size}" bgcolor="${T.tealDeep}" align="center" valign="middle" style="width:${size}px;height:${size}px;background-color:${T.tealDeep};border-radius:${size}px;text-align:center;vertical-align:middle;">
 <img src="${AGENT_AVATAR_URL}" width="${size}" height="${size}" alt="${initial}" style="display:block;width:${size}px;height:${size}px;border-radius:${size}px;border:0;outline:none;text-decoration:none;color:#ffffff;font-family:${T.font};font-size:${Math.round(size * 0.4)}px;font-weight:600;line-height:${size}px;text-align:center;" />
 </td></tr></table>`;
 }

@@ -74,10 +74,10 @@ export async function GET(
  */
 function simplePage(title: string, body: string): string {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light only"><title>${escapeHtml(title)} · Ambitt Agents</title><style>
-:root{--page:#eef2f6;--card:#fff;--ink:#1d2f40;--body:#33475b;--mute:#56697c;--teal:#00b3b3;--teal-text:#00706f}
+:root{--page:#efeae2;--card:#fffdfb;--ink:#1b3139;--body:#3d545c;--mute:#52676f;--teal:#00b3b3;--teal-text:#00706f}
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI Variable Text','Segoe UI',Roboto,'Helvetica Neue',Helvetica,Arial,sans-serif;background:var(--page);color:var(--body);-webkit-font-smoothing:antialiased;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px;line-height:1.62}
-main{max-width:520px;width:100%;background:var(--card);border-radius:16px;overflow:hidden;box-shadow:0 1px 2px rgba(29,47,64,.04),0 8px 20px rgba(29,47,64,.05),0 24px 48px rgba(29,47,64,.05)}
+main{max-width:520px;width:100%;background:var(--card);border-radius:16px;overflow:hidden;box-shadow:0 1px 2px rgba(27,49,57,.04),0 8px 20px rgba(27,49,57,.05),0 24px 48px rgba(27,49,57,.05)}
 main::before{content:"";display:block;height:3px;background:var(--teal)}
 .in{padding:40px 44px 36px}
 .lk{display:flex;align-items:center;gap:9px;margin-bottom:26px}
@@ -90,7 +90,7 @@ a{color:var(--teal-text);text-decoration:none;font-weight:600}
 a:hover{text-decoration:underline}
 @media(max-width:560px){.in{padding:30px 24px 28px}h1{font-size:22px}}
 </style></head><body><main><div class="in">
-<div class="lk"><svg viewBox="0 0 86 42" width="46" height="22" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><g transform="translate(43,22)"><g transform="translate(-28,0)"><rect x="-9" y="-2" width="18" height="18" rx="5" fill="#1d2f40"/><circle cx="0" cy="-11" r="6.5" fill="#1d2f40"/><rect x="-4" y="-12.25" width="8" height="2.5" rx="1.25" fill="#00b3b3"/></g><g><rect x="-9" y="-2" width="18" height="18" rx="5" fill="#1d2f40"/><circle cx="0" cy="-11" r="6.5" fill="#1d2f40"/><rect x="-4" y="-12.25" width="8" height="2.5" rx="1.25" fill="#00b3b3"/></g><g transform="translate(28,0)"><rect x="-9" y="-2" width="18" height="18" rx="5" fill="#1d2f40"/><circle cx="0" cy="-11" r="6.5" fill="#1d2f40"/><rect x="-4" y="-12.25" width="8" height="2.5" rx="1.25" fill="#00b3b3"/></g></g></svg><div class="wm">Ambitt <span>Agents</span></div></div>
+<div class="lk"><svg viewBox="0 0 86 42" width="46" height="22" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><g transform="translate(43,22)"><g transform="translate(-28,0)"><rect x="-9" y="-2" width="18" height="18" rx="5" fill="#1b3139"/><circle cx="0" cy="-11" r="6.5" fill="#1b3139"/><rect x="-4" y="-12.25" width="8" height="2.5" rx="1.25" fill="#00b3b3"/></g><g><rect x="-9" y="-2" width="18" height="18" rx="5" fill="#1b3139"/><circle cx="0" cy="-11" r="6.5" fill="#1b3139"/><rect x="-4" y="-12.25" width="8" height="2.5" rx="1.25" fill="#00b3b3"/></g><g transform="translate(28,0)"><rect x="-9" y="-2" width="18" height="18" rx="5" fill="#1b3139"/><circle cx="0" cy="-11" r="6.5" fill="#1b3139"/><rect x="-4" y="-12.25" width="8" height="2.5" rx="1.25" fill="#00b3b3"/></g></g></svg><div class="wm">Ambitt <span>Agents</span></div></div>
 <h1>${escapeHtml(title)}</h1><p>${escapeHtml(body)}</p>
 <p class="q">Questions? <a href="mailto:team@ambitt.agency">team@ambitt.agency</a></p>
 </div></main></body></html>`;

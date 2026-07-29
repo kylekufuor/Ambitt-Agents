@@ -44,7 +44,7 @@ export function PortalSkeleton({ children }: { children: React.ReactNode }) {
   return (
     <div className="page-wash min-h-screen">
       <SkStyles />
-      <header className="bg-[color:var(--surface)]/85 backdrop-blur sticky top-0 z-30 shadow-[0_1px_2px_rgba(45,62,80,0.06)]">
+      <header className="bg-[color:var(--surface)]/85 backdrop-blur sticky top-0 z-30 shadow-[0_1px_2px_rgba(27,49,57,0.06)]">
         <div className="max-w-[1200px] mx-auto px-4 sm:px-6 h-14 flex items-center gap-4">
           <Sk className="h-5 w-24" />
           <div className="ml-auto">

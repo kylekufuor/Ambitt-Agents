@@ -280,7 +280,7 @@ export default async function AgentDetailPage({
               <form action={agentAction}>
                 <input type="hidden" name="agentId" value={agent.id} />
                 <input type="hidden" name="action" value="send-tools-invite" />
-                <button className="text-[11px] font-semibold px-3 py-1.5 rounded-md bg-brand/10 text-[color:var(--brand-hover)] hover:bg-brand/20 ring-1 ring-brand/20 transition-colors" style={{ color: "#0d8a8a" }}>
+                <button className="text-[11px] font-semibold px-3 py-1.5 rounded-md bg-brand/10 hover:bg-brand/20 ring-1 ring-brand/20 transition-colors" style={{ color: "#4ed4d0" }}>
                   Send tools-invite
                 </button>
               </form>

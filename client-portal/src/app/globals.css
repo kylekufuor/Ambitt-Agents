@@ -2,12 +2,17 @@
 
 /* ============================================================================
    Ambitt Agents — design tokens.
-   Structure: HubSpot product UI — cool slate-gray neutrals on a light
-   blue-gray canvas, functional cards separated by elevation, minimal motion,
-   teal accent.
+   Structure: Databricks' NEUTRAL system — warm oat ground, desaturated navy
+   ink, their hairline, their six-stop ink-tinted elevation. Accent stays OUR
+   teal. Cards separate by elevation and tone, never by a gray outline.
    Type: ONE geometric sans, DM Sans, at weight 500 for headings — shared with
    the marketing site and the operator dashboard. See DESIGN.md before setting
    any text, and before using any teal.
+
+   Why a warm ground under a cyan accent: the teal now separates from the page
+   by TEMPERATURE as well as hue. On the old cool blue-gray canvas the accent
+   and the neutrals shared a cast, so teal kept reading as a system colour
+   rather than as us. Warm ground fixes that without touching the brand value.
    ============================================================================ */
 
 :root {
@@ -30,28 +35,54 @@
   --brand-ink: #00706f;         /* teal AS TEXT — 5.92:1 on white, 5.48:1 on --brand-tint */
   --brand-tint: rgba(0, 179, 179, 0.08);
   --brand-tint-strong: rgba(0, 179, 179, 0.14);
-  --brand-shadow: 0 1px 2px rgba(45, 62, 80, 0.08);
+  --brand-shadow: 0 1px 2px rgba(27, 49, 57, 0.08);
 
-  /* Cool slate neutrals (HubSpot) */
-  --bg: #f5f8fa;
-  --surface: #ffffff;
-  --surface-2: #eaf0f6;
-  --text: #33475b;          /* HubSpot slate — headings + body */
-  --text-2: #516f90;
-  --text-3: #7c98b6;
-  --text-4: #a4b8ce;
-  --border: #dfe3eb;
-  --border-strong: #cbd6e2;
+  /* ---------------------------------------------------------------------
+     NEUTRALS — Databricks. Nothing pure black, nothing pure white.
+     Every step below was measured against every plane it can land on
+     (--bg, --surface, --surface-2). The ones that look arbitrary aren't:
+     --text-3 is Databricks' own muted #5A6F77 and it is the LIGHTEST value
+     that still clears 4.5:1 on the wash. There is no room for a fourth AA
+     step under it, so --text-4 is explicitly decorative and must never
+     carry copy that matters.
+     --------------------------------------------------------------------- */
+  --bg: #f9f7f4;            /* Databricks oat — page ground */
+  --surface: #fffdfb;       /* raised plane. Warm near-white, NOT #fff */
+  --surface-2: #f1ede7;     /* recessed wash / inset panel */
+  --text: #1b3139;          /* Databricks Gable Green — headings + body, 13.4:1 */
+  --text-2: #47606a;        /* secondary — 6.6:1 */
+  --text-3: #5a6f77;        /* tertiary — 5.2:1 card, 4.5:1 wash. The AA floor. */
+  --text-4: #78949f;        /* DECORATIVE ONLY — placeholders, disabled. 3.2:1 */
+  --border: #dce0e2;        /* Databricks hairline — rows and rails, never card outlines */
+  --border-strong: #c6cfd2;
 
-  /* Status */
-  --emerald: #00bda5;       /* HubSpot aqua-green */
-  --emerald-tint: rgba(0, 189, 165, 0.1);
-  --amber: #f5a623;
-  --amber-tint: rgba(245, 166, 35, 0.12);
-  --red: #f2545b;           /* HubSpot red */
-  --red-tint: rgba(242, 84, 91, 0.1);
-  --blue: #425b76;
-  --blue-tint: rgba(66, 91, 118, 0.09);
+  /* ---------------------------------------------------------------------
+     STATUS — every one of these sits >=33 dE from --brand-ink, so a status
+     can never be mistaken for the brand accent, and the accent can never be
+     mistaken for a system state. That separation is the whole point: teal is
+     identity, these are meaning. Each is measured on --surface, --bg,
+     --surface-2 AND on its own 10% tint, worst case >=4.8:1.
+     --------------------------------------------------------------------- */
+  --emerald: #16713a;       /* TRUE GREEN. Was #00bda5, a teal-green that sat
+                               3 dE from the brand — "active" and "brand" were
+                               the same colour. Success is now unmistakably not us. */
+  --emerald-tint: rgba(22, 113, 58, 0.1);
+  --amber: #a34a07;
+  --amber-tint: rgba(163, 74, 7, 0.1);
+  --red: #be123c;
+  --red-tint: rgba(190, 18, 60, 0.1);
+  --blue: #1d4ed8;
+  --blue-tint: rgba(29, 78, 216, 0.1);
+
+  /* Elevation — Databricks' six-stop ramp tinted with the ink navy (27,49,57)
+     instead of black. Six descending stops is what makes a flat card read as
+     an object rather than a cut-out; two stops always looked like a sticker. */
+  --sh-1: 0 1px 2px rgba(27, 49, 57, 0.05), 0 1px 1px rgba(27, 49, 57, 0.03);
+  --sh-2: 0 2px 3px rgba(27, 49, 57, 0.02), 0 4px 8px rgba(27, 49, 57, 0.025),
+    0 9px 13px rgba(27, 49, 57, 0.03), 0 16px 24px -8px rgba(27, 49, 57, 0.04);
+  --sh-3: 0 2px 3px rgba(27, 49, 57, 0.02), 0 4px 8px rgba(27, 49, 57, 0.025),
+    0 9px 13px rgba(27, 49, 57, 0.035), 0 16px 24px rgba(27, 49, 57, 0.04),
+    0 32px 40px -12px rgba(27, 49, 57, 0.05);
 
   /* ---------------------------------------------------------------------
      TYPE — DM Sans throughout. One family, display through legal, shared with
@@ -157,42 +188,53 @@ body {
 
 /* Colored icon chips — each product area gets its own accent for scannable
    color + a bit of depth (soft gradient + ring). */
+/* Icon chips — flat tints, not gradients. Databricks ships no gradient in its
+   critical CSS and at 8-20% alpha over 38px the gradient was doing nothing a
+   solid tint doesn't. Each colour is the AA-measured value, so the glyph
+   inside is legible rather than approximately legible. */
 .chip-icon {
   width: 38px;
   height: 38px;
   border-radius: 11px;
   display: grid;
   place-items: center;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.6), 0 1px 2px rgba(45, 62, 80, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.6), 0 1px 2px rgba(27, 49, 57, 0.08);
 }
-.chip-teal   { background: linear-gradient(145deg, rgba(0,179,179,0.18), rgba(0,179,179,0.08));   color: #00706f; }
-.chip-indigo { background: linear-gradient(145deg, rgba(99,102,241,0.18), rgba(99,102,241,0.08)); color: #4f46e5; }
-.chip-emerald{ background: linear-gradient(145deg, rgba(0,189,165,0.20), rgba(0,189,165,0.08));    color: #00887a; }
-.chip-amber  { background: linear-gradient(145deg, rgba(245,166,35,0.22), rgba(245,166,35,0.10));  color: #b45309; }
-.chip-violet { background: linear-gradient(145deg, rgba(139,92,246,0.18), rgba(139,92,246,0.08));  color: #7c3aed; }
-.chip-rose   { background: linear-gradient(145deg, rgba(242,84,91,0.16), rgba(242,84,91,0.08));    color: #e11d48; }
+.chip-teal   { background: rgba(0, 179, 179, 0.12);  color: #00706f; }
+.chip-indigo { background: rgba(67, 56, 202, 0.12);  color: #4338ca; }
+.chip-emerald{ background: rgba(22, 113, 58, 0.12);  color: #16713a; }
+.chip-amber  { background: rgba(163, 74, 7, 0.12);   color: #a34a07; }
+.chip-violet { background: rgba(109, 40, 217, 0.12); color: #6d28d9; }
+.chip-rose   { background: rgba(190, 18, 60, 0.12);  color: #be123c; }
 
 /* Card — separated by ELEVATION, not a flat gray outline (the #1 AI-slop tell).
-   A whisper-thin tonal ring reads as depth, the layered shadow does the work. */
+   Databricks' six-stop ramp, tinted with the ink navy. The tonal ring is kept
+   but pushed to 3% so the shadow, not the ring, is what you read as depth. */
 .card {
   background: var(--surface);
   border-radius: var(--radius-lg);
   box-shadow:
-    0 0 0 1px rgba(45, 62, 80, 0.04),
-    0 1px 2px rgba(45, 62, 80, 0.06),
-    0 6px 16px -4px rgba(45, 62, 80, 0.10);
+    0 0 0 1px rgba(27, 49, 57, 0.03),
+    0 1px 2px rgba(27, 49, 57, 0.03),
+    0 2px 3px rgba(27, 49, 57, 0.02),
+    0 4px 8px rgba(27, 49, 57, 0.025),
+    0 9px 13px -4px rgba(27, 49, 57, 0.03),
+    0 16px 24px -10px rgba(27, 49, 57, 0.04);
 }
 
 /* Interactive cards lift on hover */
 .card-hover {
-  transition: box-shadow 0.2s ease, transform 0.18s ease;
+  transition: box-shadow 0.2s ease-in-out, transform 0.18s ease;
 }
 .card-hover:hover {
   transform: translateY(-3px);
   box-shadow:
     0 0 0 1px rgba(0, 179, 179, 0.18),
-    0 2px 4px rgba(45, 62, 80, 0.08),
-    0 18px 34px -6px rgba(45, 62, 80, 0.18);
+    0 2px 3px rgba(27, 49, 57, 0.02),
+    0 4px 8px rgba(27, 49, 57, 0.03),
+    0 9px 13px rgba(27, 49, 57, 0.035),
+    0 16px 24px rgba(27, 49, 57, 0.04),
+    0 32px 40px -12px rgba(27, 49, 57, 0.05);
 }
 
 /* Primary CTA */
@@ -201,17 +243,19 @@ body {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 12px 22px;
+  /* Databricks button geometry: squarer (4px), more generous horizontal
+     padding, and state carried by COLOUR over 200ms rather than by movement. */
+  padding: 12px 24px;
   /* Carries a white label, so it takes the solid step, not the mark. */
   background: var(--brand-solid);
   color: #ffffff;
-  border-radius: var(--radius);
+  border-radius: 4px;
   font-size: 14px;
   font-weight: 600;
   text-decoration: none;
   border: none;
   cursor: pointer;
-  transition: background 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
+  transition: background 0.2s ease-in-out, transform 0.1s ease;
   box-shadow: var(--brand-shadow);
 }
 .btn-primary:hover {
@@ -220,9 +264,11 @@ body {
 .btn-primary:active {
   transform: translateY(1px);
 }
+/* Disabled reads as inert, not as a light-gray button with an illegible white
+   label on it (white on --border-strong was 1.6:1 and looked broken). */
 .btn-primary:disabled {
-  background: var(--border-strong);
-  color: #fff;
+  background: var(--surface-2);
+  color: var(--text-4);
   cursor: not-allowed;
   box-shadow: none;
 }
@@ -237,7 +283,7 @@ body {
   background: var(--surface);
   color: var(--text-2);
   border: 1px solid var(--border-strong);
-  border-radius: var(--radius);
+  border-radius: 4px;
   font-size: 14px;
   font-weight: 500;
   text-decoration: none;
@@ -280,10 +326,10 @@ body {
   text-transform: uppercase;
 }
 .pill-brand    { background: var(--brand-tint);   color: var(--brand-ink); }
-.pill-emerald  { background: var(--emerald-tint); color: #047857; }
-.pill-amber    { background: var(--amber-tint);   color: #b45309; }
-.pill-red      { background: var(--red-tint);     color: #b91c1c; }
-.pill-blue     { background: var(--blue-tint);    color: #1d4ed8; }
+.pill-emerald  { background: var(--emerald-tint); color: var(--emerald); }
+.pill-amber    { background: var(--amber-tint);   color: var(--amber); }
+.pill-red      { background: var(--red-tint);     color: var(--red); }
+.pill-blue     { background: var(--blue-tint);    color: var(--blue); }
 .pill-muted    { background: var(--surface-2);    color: var(--text-3); }
 
 /* Selectable option card (Configure page knobs) */

@@ -191,7 +191,7 @@ export function QuoteEditor({ prospectId, quoteHtmlUrl, initialJson, alreadySent
           onChange={(e) => setJson(e.target.value)}
           disabled={locked}
           spellCheck={false}
-          className="w-full bg-[#0d0d0d] border border-border rounded-xl p-4 text-foreground font-mono text-[12.5px] leading-relaxed focus:outline-none focus:border-emerald-500/50 disabled:opacity-50"
+          className="w-full bg-[#16242a] border border-border rounded-xl p-4 text-foreground font-mono text-[12.5px] leading-relaxed focus:outline-none focus:border-emerald-500/50 disabled:opacity-50"
           style={{ minHeight: 480 }}
         />
       </div>

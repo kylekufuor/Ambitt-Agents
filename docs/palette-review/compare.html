@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ambitt — Databricks neutrals, Ambitt teal</title>
+<style>
+  :root{--page:#efeae2;--card:#fffdfb;--ink:#1b3139;--body:#3d545c;--mute:#52676f;--teal:#00b3b3;--teal-text:#00706f;--rule:#dce0e2}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--page);color:var(--body);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:16px;line-height:1.6}
+  header{padding:40px 32px 8px;max-width:1500px;margin:0 auto}
+  h1{font-size:26px;line-height:1.2;font-weight:600;color:var(--ink);letter-spacing:-.016em;margin:0 0 8px}
+  header p{margin:0 0 8px;max-width:78ch}
+  header .meta{color:var(--mute);font-size:14px}
+  main{max-width:1500px;margin:0 auto;padding:8px 32px 80px}
+  .toolbar{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:rgba(239,234,226,.94);backdrop-filter:blur(6px);padding:14px 32px;margin:0 -32px 20px;border-bottom:1px solid var(--rule)}
+  .toolbar span.lab{font-size:12px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--mute);margin-right:4px}
+  button.vp{font:inherit;font-size:14px;font-weight:600;padding:7px 15px;border-radius:4px;cursor:pointer;background:var(--card);color:var(--body);border:1px solid #c6cfd2}
+  button.vp[aria-pressed="true"]{background:var(--teal-text);border-color:var(--teal-text);color:#fff}
+  .row{background:var(--card);border-radius:14px;margin:0 0 24px;overflow:hidden;
+    box-shadow:0 2px 3px rgba(27,49,57,.02),0 4px 8px rgba(27,49,57,.025),0 9px 13px rgba(27,49,57,.03),0 16px 24px rgba(27,49,57,.04),0 32px 40px -8px rgba(27,49,57,.05)}
+  .row>.bar{border-top:3px solid var(--teal)}
+  .row h2{margin:0;padding:18px 24px 4px;font-size:19px;font-weight:600;color:var(--ink);letter-spacing:-.01em}
+  .row .note{margin:0;padding:0 24px 16px;font-size:14.5px;color:var(--mute);max-width:96ch}
+  .pair{padding:0 24px 24px}
+  .pair h3{font-size:14px;font-weight:600;color:var(--ink);margin:14px 0 8px;text-transform:none}
+  .cmp{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .cmp.m{grid-template-columns:390px 390px;justify-content:start}
+  figure{margin:0;background:var(--page);border-radius:8px;overflow:hidden}
+  figcaption{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--mute);padding:8px 10px 6px}
+  img{display:block;width:100%;height:auto;border-top:1px solid var(--rule)}
+  body[data-vp="d"] .cmp.m{display:none}
+  body[data-vp="m"] .cmp.d{display:none}
+  .swatches{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;padding:4px 24px 24px}
+  .sw{display:flex;align-items:center;gap:10px;font-size:13px;background:var(--page);border-radius:8px;padding:8px 10px}
+  .sw i{width:26px;height:26px;border-radius:6px;flex:none;box-shadow:inset 0 0 0 1px rgba(27,49,57,.10)}
+  .sw b{color:var(--ink);font-weight:600}
+  .sw code{font-family:ui-monospace,Menlo,monospace;font-size:11.5px;color:var(--mute)}
+  .sw span{color:var(--mute);font-size:11.5px;margin-left:auto;text-align:right}
+  table{border-collapse:collapse;width:calc(100% - 48px);margin:0 24px 24px;font-size:13.5px}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--rule)}
+  th{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--mute)}
+  td code{font-family:ui-monospace,Menlo,monospace;font-size:12px}
+  .pass{color:#16713a;font-weight:600}
+  .callout{margin:0 24px 24px;padding:14px 16px;background:#e4f3f1;border-left:3px solid var(--teal-text);border-radius:0 8px 8px 0;font-size:14.5px;color:var(--ink)}
+</style></head><body data-vp="d">
+<header>
+  <h1>Databricks neutrals, Ambitt teal</h1>
+  <p>Their structural system — warm oat ground, desaturated-navy ink, their hairline, their six-stop ink-tinted elevation, their button geometry. <b>Our accent and our logo, unchanged.</b></p>
+  <p class="meta">Rendered 2026-07-29 · desktop 1440 · mobile 390 · every colour pair measured, none eyeballed</p>
+</header>
+<div class="toolbar"><span class="lab">Viewport</span>
+  <button class="vp" data-v="d" aria-pressed="true">Desktop 1440</button>
+  <button class="vp" data-v="m" aria-pressed="false">Mobile 390</button>
+</div>
+<main>
+
+<section class="row"><div class="bar"></div><h2>The token set</h2>
+<p class="note">Nothing is pure black and nothing is pure white. The teal is untouched — it is the same three-step scale you approved.</p>
+<div class="swatches">
+<div class="sw"><i style="background:#f9f7f4"></i><b>--bg</b><code>#f9f7f4</code><span>oat ground</span></div>
+<div class="sw"><i style="background:#fffdfb"></i><b>--surface</b><code>#fffdfb</code><span>raised plane</span></div>
+<div class="sw"><i style="background:#f1ede7"></i><b>--surface-2</b><code>#f1ede7</code><span>recessed wash</span></div>
+<div class="sw"><i style="background:#dce0e2"></i><b>--border</b><code>#dce0e2</code><span>hairline, rows only</span></div>
+<div class="sw"><i style="background:#1b3139"></i><b>--text</b><code>#1b3139</code><span>ink · 12.7:1</span></div>
+<div class="sw"><i style="background:#47606a"></i><b>--text-2</b><code>#47606a</code><span>secondary · 6.2:1</span></div>
+<div class="sw"><i style="background:#5a6f77"></i><b>--text-3</b><code>#5a6f77</code><span>tertiary · the AA floor</span></div>
+<div class="sw"><i style="background:#78949f"></i><b>--text-4</b><code>#78949f</code><span>decorative only · 3.0:1</span></div>
+<div class="sw"><i style="background:#00b3b3"></i><b>--brand</b><code>#00b3b3</code><span>MARK ONLY — unchanged</span></div>
+<div class="sw"><i style="background:#00807e"></i><b>--brand-solid</b><code>#00807e</code><span>fill under white · 4.78:1</span></div>
+<div class="sw"><i style="background:#00706f"></i><b>--brand-ink</b><code>#00706f</code><span>teal as text · 5.5:1</span></div>
+<div class="sw"><i style="background:#16713a"></i><b>--emerald</b><code>#16713a</code><span>success — NOT teal</span></div>
+<div class="sw"><i style="background:#a34a07"></i><b>--amber</b><code>#a34a07</code><span>warning</span></div>
+<div class="sw"><i style="background:#be123c"></i><b>--red</b><code>#be123c</code><span>danger</span></div>
+<div class="sw"><i style="background:#1d4ed8"></i><b>--blue</b><code>#1d4ed8</code><span>info</span></div>
+</div>
+<div class="callout"><b>The one semantic bug this pass found and fixed.</b> Success was <code>#00bda5</code> in the portal and <code>#00706a</code> in the emails — both sit <b>3 dE</b> from the brand teal, i.e. perceptually the same colour. An "active" pill and a brand chip were indistinguishable. Success is now a true green at <b>33 dE</b> from the accent. Every status colour is now ≥33 dE from brand, so a status can never read as identity and the accent can never read as a system state.</div>
+</section>
+
+<section class="row" id="logo"><div class="bar"></div><h2>The logo — unchanged teal, one legible head</h2><p class="note">The mark and the brand teal #00b3b3 are exactly as they were. The only change: the portal lockup was still running three miniature heads, which you already ruled reads as a smudge; it now matches the marketing site at one legible head. Nothing was recoloured.</p><div class="pair"><h3>Portal sign-in (the lockup in place)</h3><div class="cmp d"><figure><figcaption>Before</figcaption><img loading="lazy" src="shots/portal-login-d-before.png" alt="Portal sign-in (the lockup in place) before, desktop"></figure><figure><figcaption>After</figcaption><img loading="lazy" src="shots/portal-login-d-after.png" alt="Portal sign-in (the lockup in place) after, desktop"></figure></div><div class="cmp m"><figure><figcaption>Before · 390</figcaption><img loading="lazy" src="shots/portal-login-m-before.png" alt="Portal sign-in (the lockup in place) before, mobile"></figure><figure><figcaption>After · 390</figcaption><img loading="lazy" src="shots/portal-login-m-after.png" alt="Portal sign-in (the lockup in place) after, mobile"></figure></div></div></section>
+<section class="row" id="web"><div class="bar"></div><h2>Marketing site</h2><p class="note">Warm oat ground replaces cool slate. Two teal radial gradients behind the hero are gone. Buttons are squarer (4px), flat, and change state by colour over 200ms instead of lifting on a teal glow.</p><div class="pair"><h3>Home — hero</h3><div class="cmp d"><figure><figcaption>Before</figcaption><img loading="lazy" src="shots/web-hero-d-before.png" alt="Home — hero before, desktop"></figure><figure><figcaption>After</figcaption><img loading="lazy" src="shots/web-hero-d-after.png" alt="Home — hero after, desktop"></figure></div><div class="cmp m"><figure><figcaption>Before · 390</figcaption><img loading="lazy" src="shots/web-hero-m-before.png" alt="Home — hero before, mobile"></figure><figure><figcaption>After · 390</figcaption><img loading="lazy" src="shots/web-hero-m-after.png" alt="Home — hero after, mobile"></figure></div></div><div class="pair"><h3>Home — full page</h3><div class="cmp d"><figure><figcaption>Before</figcaption><img loading="lazy" src="shots/web-home-d-before.png" alt="Home — full page before, desktop"></figure><figure><figcaption>After</figcaption><img loading="lazy" src="shots/web-home-d-after.png" alt="Home — full page after, desktop"></figure></div><div class="cmp m"><figure><figcaption>Before · 390</figcaption><img loading="lazy" src="shots/web-home-m-before.png" alt="Home — full page before, mobile"></figure><figure><figcaption>After · 390</figcaption><img loading="lazy" src="shots/web-home-m-after.png" alt="Home — full page after, mobile"></figure></div></div><div class="pair"><h3>Contact</h3><div class="cmp d"><figure><figcaption>Before</figcaption><img loading="lazy" src="shots/web-contact-d-before.png" alt="Contact before, desktop"></figure><figure><figcaption>After</figcaption><img loading="lazy" src="shots/web-contact-d-after.png" alt="Contact after, desktop"></figure></div><div class="cmp m"><figure><figcaption>Before · 390</figcaption><img loading="lazy" src="shots/web-contact-m-before.png" alt="Contact before, mobile"></figure><figure><figcaption>After · 390</figcaption><img loading="lazy" src="shots/web-contact-m-after.png" alt="Contact after, mobile"></figure></div></div></section>
+<section class="row" id="apps"><div class="bar"></div><h2>Portal and operator dashboard</h2><p class="note">Portal: oat ground, card floats on the six-stop ink-tinted shadow. Dashboard: the neutrals were pure achromatic gray (chroma 0) and pure black; both modes now carry the same ink-navy cast as everything else.</p><div class="pair"><h3>Client portal — sign in</h3><div class="cmp d"><figure><figcaption>Before</figcaption><img loading="lazy" src="shots/portal-login-d-before.png" alt="Client portal — sign in before, desktop"></figure><figure><figcaption>After</figcaption><img loading="lazy" src="shots/portal-login-d-after.png" alt="Client portal — sign in after, desktop"></figure></div><div class="cmp m"><figure><figcaption>Before · 390</figcaption><img loading="lazy" src="shots/portal-login-m-before.png" alt="Client portal — sign in before, mobile"></figure><figure><figcaption>After · 390</figcaption><img loading="lazy" src="shots/portal-login-m-after.png" alt="Client portal — sign in after, mobile"></figure></div></div><div class="pair"><h3>Operator dashboard — sign in</h3><div class="cmp d"><figure><figcaption>Before</figcaption><img loading="lazy" src="shots/dash-login-d-before.png" alt="Operator dashboard — sign in before, desktop"></figure><figure><figcaption>After</figcaption><img loading="lazy" src="shots/dash-login-d-after.png" alt="Operator dashboard — sign in after, desktop"></figure></div><div class="cmp m"><figure><figcaption>Before · 390</figcaption><img loading="lazy" src="shots/dash-login-m-before.png" alt="Operator dashboard — sign in before, mobile"></figure><figure><figcaption>After · 390</figcaption><img loading="lazy" src="shots/dash-login-m-after.png" alt="Operator dashboard — sign in after, mobile"></figure></div></div></section>
+
+<section class="row" id="funnel"><div class="bar"></div><h2>Pre-sale funnel documents</h2>
+<p class="note">The proposal, the quote and the status page. The PRD document was the outlier of the whole system: a near-black page with 1px gray card outlines, 700-weight headings, and a font-family of &lsquo;Inter&rsquo; with no @font-face behind it &mdash; so it silently fell back to a system face while naming a font we ban. It now runs the same warm document as its siblings.</p>
+<div class="pair"><h3>Proposal document</h3><div class="cmp d"><figure><figcaption>Before</figcaption><img loading="lazy" src="shots/funnel-proposal-doc-before.png" alt="Proposal document before"></figure><figure><figcaption>After</figcaption><img loading="lazy" src="shots/funnel-proposal-doc-after.png" alt="Proposal document after"></figure></div></div><div class="pair"><h3>Quote document</h3><div class="cmp d"><figure><figcaption>Before</figcaption><img loading="lazy" src="shots/funnel-quote-doc-before.png" alt="Quote document before"></figure><figure><figcaption>After</figcaption><img loading="lazy" src="shots/funnel-quote-doc-after.png" alt="Quote document after"></figure></div></div><div class="pair"><h3>Thanks email</h3><div class="cmp d"><figure><figcaption>Before</figcaption><img loading="lazy" src="shots/funnel-email-thanks-before.png" alt="Thanks email before"></figure><figure><figcaption>After</figcaption><img loading="lazy" src="shots/funnel-email-thanks-after.png" alt="Thanks email after"></figure></div></div><div class="pair"><h3>Status page</h3><div class="cmp d"><figure><figcaption>Before</figcaption><img loading="lazy" src="shots/funnel-status-page-before.png" alt="Status page before"></figure><figure><figcaption>After</figcaption><img loading="lazy" src="shots/funnel-status-page-after.png" alt="Status page after"></figure></div></div>
+</section>
+
+<section class="row" id="emails"><div class="bar"></div><h2>All 12 agent emails</h2>
+<p class="note">System font stack unchanged (Gmail and Outlook ignore webfonts). Colours only. The blocked-image avatar fallback moved from the mark teal to the solid step — a white initial on #00b3b3 was 2.59:1 and unreadable, and most clients block images, so that fallback is the common case rather than the edge case.</p>
+<div class="pair"><h3>welcome</h3><div class="cmp d"><figure><figcaption>Before</figcaption><img loading="lazy" src="shots/email-welcome-before.png" alt="welcome before"></figure><figure><figcaption>After</figcaption><img loading="lazy" src="shots/email-welcome-after.png" alt="welcome after"></figure></div></div><div class="pair"><h3>onboarding</h3><div class="cmp d"><figure><figcaption>Before</figcaption><img loading="lazy" src="shots/email-onboarding-before.png" alt="onboarding before"></figure><figure><figcaption>After</figcaption><img loading="lazy" src="shots/email-onboarding-after.png" alt="onboarding after"></figure></div></div><div class="pair"><h3>agent-response</h3><div class="cmp d"><figure><figcaption>Before</figcaption><img loading="lazy" src="shots/email-agent-response-before.png" alt="agent-response before"></figure><figure><figcaption>After</figcaption><img loading="lazy" src="shots/email-agent-response-after.png" alt="agent-response after"></figure></div></div><div class="pair"><h3>digest</h3><div class="cmp d"><figure><figcaption>Before</figcaption><img loading="lazy" src="shots/email-digest-before.png" alt="digest before"></figure><figure><figcaption>After</figcaption><img loading="lazy" src="shots/email-digest-after.png" alt="digest after"></figure></div></div><div class="pair"><h3>milestone</h3><div class="cmp d"><figure><figcaption>Before</figcaption><img loading="lazy" src="shots/email-milestone-before.png" alt="milestone before"></figure><figure><figcaption>After</figcaption><img loading="lazy" src="shots/email-milestone-after.png" alt="milestone after"></figure></div></div><div class="pair"><h3>action-required</h3><div class="cmp d"><figure><figcaption>Before</figcaption><img loading="lazy" src="shots/email-action-required-before.png" alt="action-required before"></figure><figure><figcaption>After</figcaption><img loading="lazy" src="shots/email-action-required-after.png" alt="action-required after"></figure></div></div><div class="pair"><h3>alert</h3><div class="cmp d"><figure><figcaption>Before</figcaption><img loading="lazy" src="shots/email-alert-before.png" alt="alert before"></figure><figure><figcaption>After</figcaption><img loading="lazy" src="shots/email-alert-after.png" alt="alert after"></figure></div></div><div class="pair"><h3>error</h3><div class="cmp d"><figure><figcaption>Before</figcaption><img loading="lazy" src="shots/email-error-before.png" alt="error before"></figure><figure><figcaption>After</figcaption><img loading="lazy" src="shots/email-error-after.png" alt="error after"></figure></div></div><div class="pair"><h3>permission</h3><div class="cmp d"><figure><figcaption>Before</figcaption><img loading="lazy" src="shots/email-permission-before.png" alt="permission before"></figure><figure><figcaption>After</figcaption><img loading="lazy" src="shots/email-permission-after.png" alt="permission after"></figure></div></div><div class="pair"><h3>progress</h3><div class="cmp d"><figure><figcaption>Before</figcaption><img loading="lazy" src="shots/email-progress-before.png" alt="progress before"></figure><figure><figcaption>After</figcaption><img loading="lazy" src="shots/email-progress-after.png" alt="progress after"></figure></div></div><div class="pair"><h3>checkpoint</h3><div class="cmp d"><figure><figcaption>Before</figcaption><img loading="lazy" src="shots/email-checkpoint-before.png" alt="checkpoint before"></figure><figure><figcaption>After</figcaption><img loading="lazy" src="shots/email-checkpoint-after.png" alt="checkpoint after"></figure></div></div><div class="pair"><h3>credential-request</h3><div class="cmp d"><figure><figcaption>Before</figcaption><img loading="lazy" src="shots/email-credential-request-before.png" alt="credential-request before"></figure><figure><figcaption>After</figcaption><img loading="lazy" src="shots/email-credential-request-after.png" alt="credential-request after"></figure></div></div>
+</section>
+
+<section class="row" id="measured"><div class="bar"></div><h2>Measured, not eyeballed</h2>
+<p class="note">Failures this pass caught that inspection would have missed.</p>
+<table>
+<tr><th>Where</th><th>What was wrong</th><th>Measured</th><th>Now</th></tr>
+<tr><td>Portal + email success colour</td><td>"success" was the brand teal</td><td><code>3 dE</code> from brand</td><td class="pass">33 dE — a true green</td></tr>
+<tr><td>Email avatar, images blocked</td><td>white initial on mark teal</td><td><code>2.59:1</code></td><td class="pass">4.78:1</td></tr>
+<tr><td>Website focus ring</td><td>ring used the mark teal</td><td><code>2.42:1</code> (needs 3)</td><td class="pass">4.47:1</td></tr>
+<tr><td>Dashboard login placeholder</td><td>zinc-600 on the new navy</td><td><code>1.82:1</code></td><td class="pass">4.88:1</td></tr>
+<tr><td>Dashboard login subtitle</td><td>zinc-500 body text</td><td><code>2.91:1</code></td><td class="pass">5.61:1</td></tr>
+<tr><td>Dashboard agent button</td><td>teal label on dark card</td><td><code>3.37:1</code></td><td class="pass">7.81:1</td></tr>
+<tr><td>PRD document risk callout</td><td>pale amber drawn for a black card</td><td><code>~1.3:1</code></td><td class="pass">5.06:1</td></tr>
+<tr><td>Portal <code>--text-3</code></td><td>candidate failed on the deepest wash</td><td><code>3.91:1</code></td><td class="pass">4.53:1</td></tr>
+<tr><td>Funnel control boundary</td><td>fine on the card, failed on the rail</td><td><code>2.68:1</code></td><td class="pass">3.28:1</td></tr>
+<tr><td>Email dark-mode "ok"</td><td>identical value to the brand teal</td><td><code>0 dE</code></td><td class="pass">36 dE</td></tr>
+</table>
+</section>
+
+</main>
+<script>
+  const b=document.body;
+  document.querySelectorAll('button.vp').forEach(btn=>btn.addEventListener('click',()=>{
+    b.dataset.vp=btn.dataset.v;
+    document.querySelectorAll('button.vp').forEach(x=>x.setAttribute('aria-pressed',String(x===btn)));
+  }));
+</script>
+</body></html>

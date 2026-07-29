@@ -1,8 +1,14 @@
 /**
  * Ambitt Agents brand marks — the friendly robot head, inline JSX so it
  * renders even when the CDN blips and recolors with brand tokens.
- *   <BrandLockup />   — three robots + wordmark, used in headers
+ *   <BrandLockup />   — ONE legible robot + wordmark, used in headers
  *   <AgentAvatar />   — single robot in a teal disc, used as a profile photo
+ *
+ * One head, not three (Kyle, 2026-07-23): at lockup scale three miniature
+ * heads read as an unidentifiable smudge. The head IS the identity, so it has
+ * to be big enough that a first-time viewer immediately clocks "that's a
+ * little agent". The marketing site made this change then; the portal had been
+ * left on the old three-head composition, so the two surfaces disagreed.
  */
 
 /** The robot glyph. Body uses `body`, the eyes use `eye`. */
@@ -37,21 +43,19 @@ function Robot({
 }
 
 export function BrandLockup({ height = 22, className = "" }: { height?: number; className?: string }) {
-  const robotW = Math.round(height * 1.18);
+  // One head, sized to the cap-height of the wordmark rather than shrunk to
+  // fit three across. Same ratio the marketing site's lockup uses.
+  const robotW = Math.round(height * 1.45);
   return (
-    <div className={`inline-flex items-center gap-2 ${className}`}>
-      <span className="inline-flex items-end" style={{ gap: Math.max(1, Math.round(height * 0.06)) }}>
-        <Robot width={robotW} />
-        <Robot width={robotW} />
-        <Robot width={robotW} />
-      </span>
+    <div className={`inline-flex items-center gap-2.5 ${className}`}>
+      <Robot width={robotW} />
       <span
         className="font-display tracking-tight font-semibold"
-        style={{ color: "var(--text)", fontSize: Math.round(height * 0.75) }}
+        style={{ color: "var(--text)", fontSize: Math.round(height * 0.85) }}
       >
         Ambitt
         {/* Live text, so it takes the ink step — same call the agent-email
-            footer makes. The robots beside it carry the logo teal itself. */}
+            footer makes. The robot beside it carries the logo teal itself. */}
         <span style={{ color: "var(--brand-ink)" }}> Agents</span>
       </span>
     </div>

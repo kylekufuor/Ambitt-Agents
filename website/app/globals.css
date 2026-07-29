@@ -2,7 +2,7 @@
 
 /* ===========================================================================
    Ambitt Agents — website design system
-   Light theme, brand teal, ONE typeface: DM Sans, 76px hero down to 10px legal.
+   Databricks structure, Ambitt accent. ONE typeface: DM Sans, hero to legal.
 
    TYPE DISCIPLINE (shared with the portal and the dashboard — see
    client-portal/DESIGN.md). The premium read comes from restraint, not weight:
@@ -12,42 +12,78 @@
        correction. Never on small text.
      - Small headings and UI labels (<20px) sit at 600, not 500 — optical
        compensation so structure still reads at size, not weight creep.
-     - Nothing pure black, nothing pure white.
    Fonts are self-hosted via next/font/local (see app/layout.tsx). No CDN.
+
+   COLOUR (2026-07-28). We took Databricks' NEUTRAL system and kept our teal.
+   The ground is warm oat, the ink is a desaturated navy, and the hairline is
+   theirs. What that buys: our teal is a cyan, and a cyan accent on a WARM
+   ground separates by temperature as well as by hue, so it reads as identity
+   rather than as a system colour. On the old cool-slate ground the teal and
+   the neutrals shared a cast and the accent kept dissolving into the page.
+
+   NOTHING IS PURE BLACK, NOTHING IS PURE WHITE. The page is oat, the raised
+   plane is a warm near-white. `#fff` survives only as reversed type and as a
+   label on a saturated fill. That one rule removes the "default browser" feel
+   faster than anything else here.
    =========================================================================== */
 
 :root {
-  --brand: #00b3b3;
-  --brand-strong: #00807f;
-  --brand-btn: #00807f;
-  --brand-btn-h: #006c6b;
-  --brand-ink: #0a6f72;
-  --link: #0a6f72;
-  --ink: #33475b;
-  --ink-strong: #1b2e40;
-  --ink-max: #12222f;
-  --muted: #5b7185;
-  --faint: #5f7082;
-  --bg: #f5f8fa;
-  --surface: #ffffff;
-  --surface-2: #eef3f8;
-  --surface-3: #e4ecf3;
-  --wash: #eef6f6;
-  --line: #dde6ee;
-  --line-soft: #e8eef4;
-  --dark: #0e2233;
-  --dark-2: #123049;
+  /* Brand — UNCHANGED. Two-step teal, see client-portal/DESIGN.md.
+     Values are identical to the portal and the agent emails on purpose:
+     one hue doing one job across all three surfaces. */
+  --brand: #00b3b3;        /* MARK ONLY — logo, rules, fills. Never text. */
+  --brand-strong: #00807e; /* fill under a white label — 4.78:1 */
+  --brand-btn: #00807e;
+  --brand-btn-h: #00706f;  /* hovered fill — 5.92:1 */
+  --brand-ink: #00706f;    /* teal AS TEXT — 5.54:1 on oat */
+  --link: #00706f;
+
+  /* Ink — Databricks' desaturated navy, never black. Every step measured
+     against oat / surface / surface-2 / surface-3 / wash. */
+  --ink: #3d545c;          /* body — worst plane 6.27:1 */
+  --ink-strong: #25383f;   /* worst 9.58:1 */
+  --ink-max: #1b3139;      /* Databricks Gable Green — worst 10.64:1 */
+  --muted: #52676f;        /* worst 4.66:1 — NOT #5a6f77, which fails on --surface-3 */
+  --faint: #52676f;
+
+  /* Ground — warm oat. The raised plane is warmer-than-white, not white. */
+  --bg: #f9f7f4;           /* Databricks oat */
+  --surface: #fffdfb;      /* raised plane. Elevation is carried by --sh-*, not by tone */
+  --surface-2: #f1ede7;
+  --surface-3: #e8e3db;
+  --wash: #e9f3f1;         /* the one teal-tinted ground */
+  --line: #dce0e2;         /* Databricks hairline */
+  --line-soft: #e7e4de;
+  --dark: #14262c;         /* reversed band */
+  --dark-2: #1b3139;
   --dark-line: rgba(255, 255, 255, 0.14);
-  --indigo: #4f46e5;
-  --teal-deep: #00887a;
-  --amber: #b45309;
-  --violet: #7c3aed;
-  --rose: #e11d48;
-  --good: #00887a;
-  --bad: #e11d48;
-  --sh-1: 0 1px 2px rgba(16, 42, 67, 0.06);
-  --sh-2: 0 2px 4px rgba(16, 42, 67, 0.05), 0 12px 28px -14px rgba(16, 42, 67, 0.2);
-  --sh-3: 0 4px 10px rgba(16, 42, 67, 0.06), 0 24px 48px -20px rgba(16, 42, 67, 0.28);
+
+  /* Categorical + state. Each measured on every plane AND on its own 10% chip.
+     Every one of these sits >=33 dE from --brand-ink, so a status can never be
+     mistaken for the brand. See the SEMANTIC COLOUR note below. */
+  --indigo: #4338ca;
+  --teal-deep: #00807e;
+  --amber: #a34a07;
+  --violet: #6d28d9;
+  --rose: #be123c;
+  --good: #16713a;         /* TRUE GREEN. Was #00887a, which sat 3 dE from the
+                              brand teal — "success" and "brand" were the same
+                              colour. Green is now unmistakably not the accent. */
+  --bad: #be123c;
+
+  /* Elevation — Databricks' six-stop ramp, tinted with the ink navy (27,49,57)
+     rather than black. Descending opacity, six stops, is what makes a flat card
+     read as a physical object instead of a cut-out. --sh-4 is their full hero
+     ramp; 1–3 are the same curve scaled for smaller surfaces. */
+  --sh-1: 0 1px 2px rgba(27, 49, 57, 0.05), 0 1px 1px rgba(27, 49, 57, 0.03);
+  --sh-2: 0 2px 3px rgba(27, 49, 57, 0.02), 0 4px 8px rgba(27, 49, 57, 0.025),
+    0 9px 13px rgba(27, 49, 57, 0.03), 0 16px 24px -8px rgba(27, 49, 57, 0.04);
+  --sh-3: 0 2px 3px rgba(27, 49, 57, 0.02), 0 4px 8px rgba(27, 49, 57, 0.025),
+    0 9px 13px rgba(27, 49, 57, 0.035), 0 16px 24px rgba(27, 49, 57, 0.04),
+    0 32px 40px -12px rgba(27, 49, 57, 0.05);
+  --sh-4: 0 2px 3px rgba(27, 49, 57, 0.02), 0 4px 8px rgba(27, 49, 57, 0.02),
+    0 9px 13px rgba(27, 49, 57, 0.035), 0 16px 24px rgba(27, 49, 57, 0.04),
+    0 32px 40px rgba(27, 49, 57, 0.05), 0 72px 104px rgba(27, 49, 57, 0.07);
   --r: 14px;
   /* One family. --font-disp is kept as an alias so the handful of `.disp`
      call-sites keep working — it is deliberately the SAME stack now. */
@@ -140,9 +176,14 @@ a {
   font-family: var(--font-disp);
 }
 
-/* Global visible focus ring (teal) — keyboard operability */
+/* Global visible focus ring — keyboard operability.
+   A focus ring is a STATE INDICATOR, so it has to clear 3:1 against the
+   surface behind it. The mark teal #00b3b3 is only 2.42:1 on oat and 2.59:1
+   on the raised plane, so it fails that test and always did. The solid step
+   (#00807e, 4.47:1 on oat) is the correct token here. Same call the portal
+   makes for its focus border. */
 :focus-visible {
-  outline: 2px solid var(--brand);
+  outline: 2px solid var(--brand-strong);
   outline-offset: 2px;
   border-radius: 4px;
 }
@@ -151,7 +192,7 @@ button:focus-visible,
 summary:focus-visible,
 .btn:focus-visible,
 details.qa summary:focus-visible {
-  outline: 2px solid var(--brand);
+  outline: 2px solid var(--brand-strong);
   outline-offset: 3px;
 }
 .on-dark a:focus-visible,
@@ -194,8 +235,10 @@ footer.ft :focus-visible {
   background: var(--violet);
   box-shadow: 0 0 0 4px rgba(124, 58, 237, 0.14);
 }
+/* A letterform, so it takes the INK step. #00807e is the FILL step and is
+   only 4.47:1 as 14px text on oat — axe caught it, the eye did not. */
 .eyebrow.c-emerald {
-  color: #00807f;
+  color: var(--brand-ink);
 }
 .eyebrow.c-emerald .tick {
   background: var(--teal-deep);
@@ -210,6 +253,13 @@ footer.ft :focus-visible {
 }
 
 /* buttons */
+/* Buttons — Databricks' shape and state behaviour, filled with our teal.
+   Their CTAs are squarer than ours were (9px read as a consumer app), sit on
+   a generous horizontal padding, and change state by COLOUR ALONE over 200ms.
+   No lift, no glow. The old teal drop-glow was the loudest non-Databricks
+   thing on the page and it made the button look like it was hovering off the
+   card. Confidence here comes from the fill being solid and the label being
+   set properly, not from elevation. */
 .btn {
   display: inline-flex;
   align-items: center;
@@ -220,34 +270,30 @@ footer.ft :focus-visible {
   font-weight: 600;
   font-size: 15px;
   line-height: 1;
-  padding: 13px 22px;
-  border-radius: 9px;
+  padding: 14px 26px;
+  border-radius: 4px;
   cursor: pointer;
   border: 1.5px solid transparent;
-  transition: transform 0.16s ease, box-shadow 0.16s ease, background 0.16s ease, border-color 0.16s ease;
+  transition: background 0.2s ease-in-out, border-color 0.2s ease-in-out, color 0.2s ease-in-out;
 }
 .btn-primary {
   background: var(--brand-btn);
   color: #fff;
-  box-shadow: 0 1px 2px rgba(0, 90, 90, 0.25), 0 10px 22px -12px rgba(0, 128, 127, 0.7);
 }
 .btn-primary:hover {
   background: var(--brand-btn-h);
-  transform: translateY(-1px);
-  box-shadow: 0 2px 4px rgba(0, 90, 90, 0.28), 0 16px 30px -12px rgba(0, 128, 127, 0.75);
 }
 .btn-ghost {
-  background: #fff;
+  background: transparent;
   color: var(--ink-strong);
-  border-color: #cfdde4;
+  border-color: var(--line);
 }
 .btn-ghost:hover {
-  border-color: var(--brand);
-  background: var(--wash);
-  transform: translateY(-1px);
+  border-color: var(--ink-strong);
+  background: transparent;
 }
 .btn-lg {
-  padding: 15px 26px;
+  padding: 16px 30px;
   font-size: 16px;
 }
 .btn .arw {
@@ -268,12 +314,12 @@ header.nav {
   position: sticky;
   top: 0;
   z-index: 40;
-  background: rgba(245, 248, 250, 0.92);
+  background: rgba(249, 247, 244, 0.92);
   border-bottom: 1px solid var(--line-soft);
 }
 @supports (backdrop-filter: blur(2px)) {
   header.nav {
-    background: rgba(245, 248, 250, 0.86);
+    background: rgba(249, 247, 244, 0.86);
   }
 }
 .nav-in {
@@ -359,14 +405,11 @@ section {
   position: relative;
   overflow: hidden;
 }
-.hero:before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  background: radial-gradient(120% 80% at 82% -8%, rgba(0, 179, 179, 0.1), transparent 55%),
-    radial-gradient(90% 70% at -6% 12%, rgba(0, 179, 179, 0.05), transparent 52%);
-}
+/* No hero wash. There were two teal radial gradients here and they were the
+   most generic thing on the page — the "atmospheric glow behind the headline"
+   is a template move, and it fought the flat oat ground. Databricks' hero is
+   one flat colour and lets the type and the product shot carry it. So does
+   ours now. */
 .hero-grid {
   position: relative;
   z-index: 1;
@@ -478,7 +521,7 @@ h1.hero-h1 .a {
   position: absolute;
   inset: 0;
   border-radius: 26px;
-  box-shadow: inset 0 0 0 1px rgba(16, 42, 67, 0.05);
+  box-shadow: inset 0 0 0 1px rgba(27, 49, 57, 0.05);
   pointer-events: none;
 }
 .thread-top {
@@ -550,10 +593,10 @@ h1.hero-h1 .a {
 }
 .bub-ag {
   align-self: flex-start;
-  background: #fff;
+  background: var(--surface);
   color: var(--ink);
   border-bottom-left-radius: 5px;
-  box-shadow: var(--sh-1), 0 0 0 1px rgba(16, 42, 67, 0.05);
+  box-shadow: var(--sh-1), 0 0 0 1px rgba(27, 49, 57, 0.05);
 }
 .bub-ag .aname {
   font-size: 11.5px;
@@ -583,8 +626,8 @@ h1.hero-h1 .a {
 }
 .typing {
   align-self: flex-start;
-  background: #fff;
-  box-shadow: var(--sh-1), 0 0 0 1px rgba(16, 42, 67, 0.05);
+  background: var(--surface);
+  box-shadow: var(--sh-1), 0 0 0 1px rgba(27, 49, 57, 0.05);
   padding: 12px 15px;
   border-radius: 16px;
   border-bottom-left-radius: 5px;
@@ -595,7 +638,7 @@ h1.hero-h1 .a {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #b7c4d0;
+  background: #c0c9cb;
   display: inline-block;
   animation: blink 1.3s infinite;
 }
@@ -703,7 +746,7 @@ h1.hero-h1 .a {
 }
 .tok {
   background: var(--surface);
-  box-shadow: var(--sh-1), 0 0 0 1px rgba(16, 42, 67, 0.05);
+  box-shadow: var(--sh-1), 0 0 0 1px rgba(27, 49, 57, 0.05);
   border-radius: 10px;
   padding: 11px 15px;
   font-size: 15px;
@@ -957,7 +1000,7 @@ h1.hero-h1 .a {
   color: var(--faint);
   font-weight: 600;
   font-size: 10.5px;
-  background: #fbfdfe;
+  background: #fffdfb;
 }
 .csv td {
   padding: 6px 9px;
@@ -1001,9 +1044,11 @@ h1.hero-h1 .a {
   border-radius: 20px;
   white-space: nowrap;
 }
+/* Chip label is text sitting on a tint, so: ink step, 5.13:1.
+   Was the fill step at 3.99:1. */
 .st-rep {
-  background: rgba(0, 136, 122, 0.13);
-  color: var(--teal-deep);
+  background: rgba(0, 179, 179, 0.13);
+  color: var(--brand-ink);
 }
 .st-drf {
   background: var(--surface-3);
@@ -1088,8 +1133,8 @@ h1.hero-h1 .a {
   width: 24px;
   height: 24px;
   border-radius: 8px;
-  background: #fff;
-  box-shadow: var(--sh-1), 0 0 0 1px rgba(16, 42, 67, 0.06);
+  background: var(--surface);
+  box-shadow: var(--sh-1), 0 0 0 1px rgba(27, 49, 57, 0.06);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1145,7 +1190,7 @@ h1.hero-h1 .a {
   flex: none;
 }
 .rcard.build {
-  background: linear-gradient(180deg, var(--wash), #fff);
+  background: var(--wash);
   align-items: center;
   text-align: left;
 }
@@ -1173,8 +1218,8 @@ h1.hero-h1 .a {
   width: 52px;
   height: 52px;
   border-radius: 14px;
-  background: #fff;
-  box-shadow: var(--sh-1), 0 0 0 1px rgba(16, 42, 67, 0.05);
+  background: var(--surface);
+  box-shadow: var(--sh-1), 0 0 0 1px rgba(27, 49, 57, 0.05);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1193,7 +1238,9 @@ h1.hero-h1 .a {
   top: 14px;
   bottom: 26px;
   width: 2px;
-  background: linear-gradient(var(--brand), rgba(0, 179, 179, 0.15));
+  /* A connector rule, so it's a hairline — Databricks uses #DCE0E2 exactly
+     this way for rows and rails. It was a fading teal gradient. */
+  background: var(--line);
   border-radius: 2px;
 }
 .step {
@@ -1209,7 +1256,7 @@ h1.hero-h1 .a {
   border-radius: 12px;
   background: var(--surface);
   z-index: 1;
-  box-shadow: var(--sh-1), 0 0 0 1px rgba(16, 42, 67, 0.06);
+  box-shadow: var(--sh-1), 0 0 0 1px rgba(27, 49, 57, 0.06);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1326,7 +1373,7 @@ h1.hero-h1 .a {
   font-weight: 600;
   color: var(--muted);
   background: var(--surface);
-  box-shadow: var(--sh-1), 0 0 0 1px rgba(16, 42, 67, 0.05);
+  box-shadow: var(--sh-1), 0 0 0 1px rgba(27, 49, 57, 0.05);
   padding: 8px 13px;
   border-radius: 9px;
 }
@@ -1398,7 +1445,7 @@ h1.hero-h1 .a {
   font-weight: 600;
 }
 .trust-item p {
-  color: #a9c0d2;
+  color: #b0c2c6;
   font-size: 15px;
   line-height: 1.55;
 }
@@ -1498,7 +1545,7 @@ h1.hero-h1 .a {
 details.qa {
   background: var(--surface);
   border-radius: 12px;
-  box-shadow: var(--sh-1), 0 0 0 1px rgba(16, 42, 67, 0.045);
+  box-shadow: var(--sh-1), 0 0 0 1px rgba(27, 49, 57, 0.045);
   overflow: hidden;
   transition: box-shadow 0.18s;
 }
@@ -1556,12 +1603,7 @@ details.qa[open] .chev {
   color: #fff;
   text-align: center;
 }
-.mission:before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(70% 120% at 50% -20%, rgba(0, 179, 179, 0.22), transparent 60%);
-}
+/* Flat dark band, no radial glow. Same reasoning as the hero. */
 .mission .wrap {
   position: relative;
   z-index: 1;
@@ -1573,7 +1615,7 @@ details.qa[open] .chev {
   margin: 0 auto;
 }
 .mission p {
-  color: #b6ccdd;
+  color: #bccdd1;
   font-size: 19px;
   max-width: 620px;
   margin: 20px auto 0;
@@ -1642,7 +1684,7 @@ details.qa[open] .chev {
 /* FOOTER */
 footer.ft {
   background: var(--dark);
-  color: #c3d4e2;
+  color: #c4d0d3;
 }
 .ft-top {
   display: grid;
@@ -1666,7 +1708,7 @@ footer.ft {
 }
 .ft-col a {
   display: block;
-  color: #a4bbcd;
+  color: #a7b8bc;
   font-size: 14.5px;
   padding: 5px 0;
 }
@@ -1684,16 +1726,16 @@ footer.ft {
 }
 .ft-copy {
   font-size: 13px;
-  color: #8ba2b5;
+  color: #93a7ac;
 }
 .ft-disc {
   font-size: 12px;
-  color: #7c93a6;
+  color: #8fa3a8;
   max-width: 640px;
   line-height: 1.5;
 }
 .ft-disc .flag {
-  color: #b3c6d5;
+  color: #bcccd0;
   font-weight: 600;
 }
 

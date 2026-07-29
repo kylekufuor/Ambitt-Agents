@@ -33,7 +33,7 @@ export default function PrivacyPage() {
 
             <Section title="2. How We Use Your Information">
               <p>We use the information we collect to:</p>
-              <ul className="list-disc pl-5 space-y-1.5 mt-3 text-muted-foreground/80">
+              <ul className="list-disc pl-5 space-y-1.5 mt-3 text-muted-foreground">
                 <li>Operate and maintain your AI agents and tool connections</li>
                 <li>Send agent communications (reports, alerts, digests) to your email</li>
                 <li>Send account and login-verification text messages to the mobile number you opted in with</li>

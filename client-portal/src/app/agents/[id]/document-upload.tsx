@@ -92,7 +92,7 @@ export function DocumentUpload({
             type="file"
             multiple
             accept=".pdf,.docx,.doc,.txt,.md,.csv,.json"
-            className="text-[13px] text-[color:var(--text-2)] file:mr-3 file:h-9 file:px-3.5 file:rounded-[8px] file:border-0 file:text-[13px] file:font-medium file:bg-[color:var(--surface)] file:text-[color:var(--text)] file:shadow-[0_1px_2px_rgba(45,62,80,0.12)] hover:file:bg-white file:cursor-pointer"
+            className="text-[13px] text-[color:var(--text-2)] file:mr-3 file:h-9 file:px-3.5 file:rounded-[8px] file:border-0 file:text-[13px] file:font-medium file:bg-[color:var(--surface)] file:text-[color:var(--text)] file:shadow-[0_1px_2px_rgba(27,49,57,0.12)] hover:file:bg-white file:cursor-pointer"
           />
           <button
             onClick={handleUpload}
