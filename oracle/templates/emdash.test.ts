@@ -36,6 +36,7 @@ import {
   buildQuoteTeaserEmail,
 } from "./funnel-emails.js";
 import { signatureRoleLine, footerBlock } from "./_shared.js";
+import { tokenizeHtml } from "../../shared/scrub-emdash.js";
 import { readFileSync } from "fs";
 import { dirname, join } from "path";
 import { fileURLToPath } from "url";
@@ -60,17 +61,89 @@ function ok(name: string, cond: boolean, detail?: string): void {
   }
 }
 
-/** Every line of the render that still carries a dash, for a useful failure. */
+// Attributes whose value a human READS. `alt` is what a mail client shows when
+// it blocks images, which is most of them on first open. Everything else in a
+// tag (href, src, style, class) is a machine string: the send-time scrub never
+// touches it, and neither does this test. Deliberately NOT matched inside a
+// comment or inside <style>/<script> contents.
+const VISIBLE_ATTR = /\b(alt|title|aria-label)\s*=\s*(?:"([^"]*)"|'([^']*)')/gi;
+
+function carriesDash(s: string): boolean {
+  return s.includes(EM_DASH) || EM_DASH_ENTITY.test(s);
+}
+
+/**
+ * Every place in the render that still carries a dash, for a useful failure.
+ *
+ * Scans TEXT NODES ONLY, via the same tokenizer stripEmDashesHtml uses, so this
+ * guard's idea of an offence is the enforcement boundary's idea of one. It used
+ * to be a naive line scan over the raw HTML, which flagged an em dash in a CSS
+ * comment inside <style> — copy no client can ever see, and copy the scrub
+ * skips on purpose — and buried all 17 templates in one line of noise. Two
+ * implementations of "what is copy" is how that happens, so there is now one.
+ *
+ * Attribute values are the deliberate exception: the scrub can't rewrite them
+ * (rewriting inside an href breaks the link), so for the three that render as
+ * text this test is the only thing standing there.
+ */
 function offendingLines(html: string): string[] {
-  return html
-    .split("\n")
-    .filter((l) => l.includes(EM_DASH) || EM_DASH_ENTITY.test(l))
-    .map((l) => l.trim().slice(0, 160));
+  const hits: string[] = [];
+
+  for (const seg of tokenizeHtml(html)) {
+    if (!seg.markup) {
+      if (carriesDash(seg.value)) hits.push(`text: ${seg.value.trim().slice(0, 160)}`);
+      continue;
+    }
+    // Markup. Only a tag can carry an attribute: skip comments, and skip the
+    // raw <style>/<script> bodies the tokenizer also hands back as markup.
+    if (!seg.value.startsWith("<") || seg.value.startsWith("<!--")) continue;
+    for (const m of seg.value.matchAll(VISIBLE_ATTR)) {
+      const value = m[2] ?? m[3] ?? "";
+      if (carriesDash(value)) {
+        hits.push(`${m[1].toLowerCase()}="${value.trim().slice(0, 160)}"`);
+      }
+    }
+  }
+
+  return hits;
 }
 
 function noEmDash(name: string, html: string): void {
   const hits = offendingLines(html);
   ok(`${name}: renders zero em dashes`, hits.length === 0, hits.join("\n        "));
+}
+
+// --- 0. The scanner itself -------------------------------------------------
+// A guard that can no longer detect anything is worse than a red one, and the
+// whole file is one assertion repeated, so the scanner gets its own fixture.
+// Each case below was checked by hand against the send-time scrub: caught here
+// iff shared/scrub-emdash.ts would rewrite it, with visible attributes the one
+// documented exception (the scrub can't reach them; nothing else can either).
+
+{
+  const scans = (name: string, html: string, want: number) =>
+    ok(
+      `scanner: ${name}`,
+      offendingLines(html).length === want,
+      `got ${offendingLines(html).length} hit(s), want ${want}: ${offendingLines(html).join(" | ")}`,
+    );
+
+  scans("catches a dash in visible copy", `<p>We shipped it — she signed off.</p>`, 1);
+  scans("catches the entity spelling in visible copy", `<p>We shipped it &mdash; done.</p>`, 1);
+  scans("catches a dash in a &lt;title&gt;", `<head><title>A — B</title></head>`, 1);
+  scans("catches a dash in alt text (shown when images are blocked)", `<img alt="Arthur — agent" />`, 1);
+  scans("catches a dash in a title attribute", `<a href="#" title="Open — portal">Open</a>`, 1);
+
+  scans("ignores a dash in a CSS comment inside style", `<style>/* teal — not green */</style>`, 0);
+  scans("ignores a dash in a CSS declaration", `<style>.x { font-family: "A — B"; }</style>`, 0);
+  scans("ignores a dash inside a script body", `<script>var s = "a — b";</script>`, 0);
+  scans("ignores a dash in an HTML comment", `<!-- reworded — see the design pass -->`, 0);
+  scans("ignores a dash in an href, as the scrub does", `<a href="https://x.test/a—b">Open</a>`, 0);
+  scans(
+    "still sees copy after a style block closes",
+    `<style>/* — */</style><p>Live copy — here.</p>`,
+    1,
+  );
 }
 
 // --- Shared props. Deliberately dash-free: anything in the output is ours. ---

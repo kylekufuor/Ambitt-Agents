@@ -190,7 +190,7 @@ function findTagEnd(html: string, start: number): number {
   return html.length;
 }
 
-interface Segment {
+export interface HtmlSegment {
   /** Markup segments are copied through byte-for-byte; text segments get scrubbed. */
   markup: boolean;
   value: string;
@@ -202,9 +202,15 @@ interface Segment {
  * Split an HTML string into markup and text segments. Tags (quote-aware, so a
  * ">" inside an attribute doesn't end one early), comments, and the raw
  * contents of <script>/<style> all come back as markup.
+ *
+ * Exported so the render-time guard in oracle/templates/emdash.test.ts asks
+ * exactly this function what counts as a text node. Two implementations of
+ * "what is copy" is how the guard and the enforcement drift apart, and a guard
+ * that flags markup the scrub deliberately skips (a dash in a CSS comment)
+ * drowns the real signal.
  */
-function tokenize(html: string): Segment[] {
-  const segments: Segment[] = [];
+export function tokenizeHtml(html: string): HtmlSegment[] {
+  const segments: HtmlSegment[] = [];
   let i = 0;
 
   while (i < html.length) {
@@ -255,7 +261,7 @@ function tokenize(html: string): Segment[] {
  * whitespace, nbsp entity) and undefined at the ends of the document.
  */
 function neighborChar(
-  segments: Segment[],
+  segments: HtmlSegment[],
   index: number,
   direction: 1 | -1
 ): string | undefined {
@@ -292,7 +298,7 @@ export function stripEmDashesHtml(html: string | null | undefined): ScrubResult 
     return { text: html, replaced: 0 };
   }
 
-  const segments = tokenize(html);
+  const segments = tokenizeHtml(html);
   let out = "";
   let replaced = 0;
 
