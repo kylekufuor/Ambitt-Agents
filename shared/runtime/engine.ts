@@ -823,11 +823,18 @@ async function executeBuiltinTool(
       // without ever having been contacted.
       const OUTREACH_IMPLIES_CONTACT = new Set(["contacted", "replied", "qualified", "won"]);
 
-      // Upsert by (agentId, case-insensitive name [+ email]) so re-logging the
-      // same lead advances it through the pipeline instead of duplicating.
+      // Upsert by (clientId, case-insensitive name [+ email]) so re-logging
+      // the same lead advances it through the pipeline instead of duplicating.
+      // Dedupe across the CLIENT, not the agent. Kyle's call, 2026-07-29: a
+      // lead belongs to Casey, not to Arthur. Scoping the upsert to agentId
+      // meant that the day a client hired a second agent they got two separate
+      // trackers, and two of their own agents could contact the same owner in
+      // the same week — the exact thing the operating manual's dedupe rule
+      // exists to prevent. The row still records agentId, so the ledger can
+      // always say which agent sourced it.
       const existing = await prisma.lead.findFirst({
         where: {
-          agentId,
+          clientId,
           name: { equals: name, mode: "insensitive" },
           ...(email ? { email } : {}),
         },
@@ -918,11 +925,11 @@ async function executeBuiltinTool(
 
       const search = a.search?.trim();
       const where: Prisma.LeadWhereInput = {
-        // Scoped to this agent, matching log_lead's upsert key. If a client
-        // ever runs two agents that source the same market they will keep
-        // separate trackers; changing that is a product decision (agent-scoped
-        // vs client-scoped leads), not something to quietly switch here.
-        agentId,
+        // Client-scoped, matching log_lead's upsert key (Kyle, 2026-07-29).
+        // An agent reading the tracker sees everything its CLIENT has, so it
+        // can avoid contacting someone a sibling agent already worked. This is
+        // the whole point of the dedupe rule in the operating manual.
+        clientId,
         ...(statuses.length > 0 ? { status: { in: statuses } } : {}),
         ...(a.never_contacted ? { lastContactedAt: null } : {}),
         ...(Object.keys(contactedFilter).length > 0 && !a.never_contacted
@@ -950,7 +957,9 @@ async function executeBuiltinTool(
           },
         }),
         prisma.lead.count({ where }),
-        prisma.lead.count({ where: { agentId } }),
+        // Total is client-scoped too, so "the tracker is empty" means the
+        // CLIENT has no leads — not merely that this agent has logged none.
+        prisma.lead.count({ where: { clientId } }),
       ]);
 
       if (rows.length === 0) {
