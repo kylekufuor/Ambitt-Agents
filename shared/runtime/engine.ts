@@ -24,7 +24,7 @@ import {
 } from "../platform-tools/ops-queries.js";
 import { sendAgentEmail } from "../../oracle/lib/emailRouter.js";
 import { relayMfaRequest } from "../mfa-relay.js";
-import { logUsage, CLIENT_MODEL, TRIAGE_MODEL } from "../claude.js";
+import { logUsage, CLIENT_MODEL, TRIAGE_MODEL, acceptsSampling } from "../claude.js";
 import {
   budgetFor,
   capToolResultContent,
@@ -1307,7 +1307,13 @@ export async function runAgent(input: RuntimeInput): Promise<RuntimeOutput> {
       {
         model: currentModel,
         max_tokens: MAX_TOKENS,
-        temperature: 0.7,
+        // This loop builds its own request rather than going through
+        // callClaude, so it needs the same per-model sampling gate. Opus 4.7+
+        // rejects `temperature` with a 400, and `currentModel` flips from
+        // TRIAGE_MODEL to CLIENT_MODEL mid-loop — so this is evaluated per
+        // call, not once per run. Missing this is what made every escalated
+        // client turn 400 the moment CLIENT_MODEL became Opus 5.
+        ...(acceptsSampling(currentModel) ? { temperature: 0.7 } : {}),
         system: systemParam,
         messages,
         tools: cachedTools.length > 0 ? cachedTools : undefined,
