@@ -12,9 +12,20 @@ import { ToolsIcon, LeadsIcon, ActivityIcon, ConfigureIcon, ChatIcon } from "@/c
 
 export const dynamic = "force-dynamic";
 
-// Client-facing usage markup: the dollar figure we show clients is the real
-// API/token cost times this. Display only — does not change billing.
-const USAGE_MARKUP = 15;
+// NO DOLLAR FIGURE ON THIS PAGE. Decided by Kyle 2026-07-28 and again
+// 2026-07-29 after it survived the first pass.
+//
+// This card used to show `real API cost × 15` labelled "the value of the work
+// your agent has done for you". Two things were wrong with that. It is a token
+// bill wearing a value badge — the multiplier was invented, so the number
+// measured how much compute the agent burned, not what it achieved. And it
+// reliably insults the client: Casey pays a Scale retainer and the card told
+// him he had received $27. A number that small next to a number that large
+// argues against us on our own home page.
+//
+// Value is now expressed as work delivered, in verbs, from rows that actually
+// exist. If you cannot count it from the database, it does not go on the card —
+// no "hours saved" either, which is the same unprovable trick in a nicer suit.
 
 /**
  * Portal home — the workforce view, built for NON-TECHNICAL clients.
@@ -137,10 +148,13 @@ export default async function PortalPage() {
   }
   const needsSetup = toolsNeedingSetup > 0;
 
-  // MRR = sum of active (running) agents' retainers; paused excluded.
-  const mrrCents = client.agents
-    .filter((a) => a.status === "active")
-    .reduce((sum, a) => sum + a.monthlyRetainerCents, 0);
+  // Retainer = every agent the client is contracted for, INCLUDING paused ones.
+  // Excluding paused agents meant a client whose only agent was on an operator
+  // hold saw "Monthly plan $0" — which is both wrong and the worst possible
+  // moment to imply they owe nothing. A pause is an operational state, not a
+  // cancellation; `killed` is the terminal one and is the only status excluded.
+  const contractedAgents = client.agents.filter((a) => a.status !== "killed");
+  const mrrCents = contractedAgents.reduce((sum, a) => sum + a.monthlyRetainerCents, 0);
 
   const usedThisCycle = activeAgents.reduce((s, a) => s + a.interactionCount, 0);
 
@@ -152,20 +166,29 @@ export default async function PortalPage() {
   const uncappedPlan = activeAgents.some((a) => a.interactionLimit <= 0);
   const overageThisCycle = activeAgents.reduce((s, a) => s + a.overageCount, 0);
 
-  // Usage in $$, over a rolling 30-day window. We take the real API/token cost
-  // (the authoritative figure logged per run) and mark it up for the client.
-  // DISPLAY ONLY — the retainer is what they actually pay; this just puts a
-  // dollar value on the work the agent did. A rolling window keeps the number
-  // live (a calendar month resets to $0 on the 1st, which reads as broken).
+  // Work delivered over a rolling 30-day window. A rolling window keeps the
+  // figures live; a calendar month resets to zero on the 1st, which reads as
+  // broken. Every count below is a real row — see the NO DOLLAR FIGURE note.
   const windowStart = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-  const usageAgg = await prisma.apiUsage.aggregate({
-    where: {
-      agentId: { in: client.agents.map((a) => a.id) },
-      createdAt: { gte: windowStart },
-    },
-    _sum: { costInCents: true },
-  });
-  const usageCents = (usageAgg._sum.costInCents ?? 0) * USAGE_MARKUP;
+  const agentIds = client.agents.map((a) => a.id);
+  const [leadsSourced, emailsSent, leadsWarm] = await Promise.all([
+    prisma.lead.count({ where: { agentId: { in: agentIds }, createdAt: { gte: windowStart } } }),
+    prisma.emailSend.count({ where: { agentId: { in: agentIds }, acceptedAt: { gte: windowStart } } }),
+    // "Warm" is the client's language for a lead that answered or progressed.
+    // Deliberately NOT a count of everything touched — the honest headline is
+    // the one Casey would repeat to a partner.
+    prisma.lead.count({
+      where: {
+        agentId: { in: agentIds },
+        status: { in: ["qualified", "won", "warm", "interested"] },
+      },
+    }),
+  ]);
+  const workLedger = [
+    { n: leadsSourced, label: leadsSourced === 1 ? "lead sourced" : "leads sourced" },
+    { n: emailsSent, label: emailsSent === 1 ? "email sent" : "emails sent" },
+    { n: leadsWarm, label: "warm" },
+  ].filter((c) => c.n > 0);
 
   const distinctTiers = Array.from(new Set(activeAgents.map((a) => a.pricingTier)));
   const tierLabel =
@@ -206,9 +229,9 @@ export default async function PortalPage() {
             {!primaryAgent
               ? "Your workforce is being set up. We'll email you the moment your first agent is live."
               : needsSetup
-                ? `${primaryAgent.name} needs a couple of things from you to get started — it only takes a minute.`
+                ? `${primaryAgent.name} needs a couple of things from you to get started. It only takes a minute.`
                 : !primaryIsLive
-                  ? `${primaryAgent.name} is being set up. You can connect tools and configure it now — it'll start once it's live.`
+                  ? `${primaryAgent.name} is being set up. You can connect tools and configure it now, and it'll start once it's live.`
                   : oneAgent
                     ? `${activeAgents[0].name} is on the clock. Here's how this month is going.`
                     : `Your ${activeAgents.length}-person team is on the clock.`}
@@ -239,7 +262,7 @@ export default async function PortalPage() {
                   </h2>
                   <p className="text-[14px] text-[color:var(--text-3)] mt-1.5 max-w-[520px]">
                     {primaryAgent.name} needs access to {toolsNeedingSetup === 1 ? "one tool" : `${toolsNeedingSetup} tools`} to
-                    start working — like your email and your tracker. It takes about a
+                    start working, like your email and your tracker. It takes about a
                     minute, and your passwords are never shared with us.
                   </p>
                 </div>
@@ -317,20 +340,31 @@ export default async function PortalPage() {
                 </div>
                 <div className="text-right shrink-0">
                   <div className="font-display text-[28px] text-[color:var(--brand-ink)] leading-none">
-                    {formatCents(usageCents)}
+                    {usedThisCycle > 0 ? usedThisCycle.toLocaleString() : "—"}
                   </div>
                   <div className="text-[12px] text-[color:var(--text-3)] mt-1">
-                    {usedThisCycle > 0
-                      ? `${usedThisCycle.toLocaleString()} task${usedThisCycle === 1 ? "" : "s"}`
-                      : "getting started"}
+                    {usedThisCycle === 1 ? "task done" : "tasks done"}
                   </div>
                 </div>
               </div>
 
-              <p className="text-[12.5px] text-[color:var(--text-3)] mb-4">
-                The value of the work {oneAgent ? activeAgents[0].name : "your team"} has done
-                for you lately — outreach, leads sourced, research, and follow-ups.
-              </p>
+              {workLedger.length > 0 ? (
+                <div className="flex flex-wrap items-baseline gap-x-6 gap-y-2 mb-4">
+                  {workLedger.map((cell) => (
+                    <span key={cell.label} className="inline-flex items-baseline gap-1.5">
+                      <span className="font-display text-[19px] text-[color:var(--text)] leading-none tabular-nums">
+                        {cell.n.toLocaleString()}
+                      </span>
+                      <span className="text-[12.5px] text-[color:var(--text-3)]">{cell.label}</span>
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-[12.5px] text-[color:var(--text-3)] mb-4">
+                  Nothing to show yet. Once {oneAgent ? activeAgents[0].name : "your team"} starts
+                  working, the leads and outreach land here.
+                </p>
+              )}
 
               <div className="flex flex-wrap items-center gap-x-6 gap-y-2 mt-2 text-[13px] text-[color:var(--text-3)]">
                 <span>
@@ -360,7 +394,7 @@ export default async function PortalPage() {
                   <ManageBillingButton />
                 ) : (
                   <p className="text-[12.5px] text-[color:var(--text-3)] leading-relaxed">
-                    Billed directly — no card on file. Questions about your plan? Reach us at{" "}
+                    Billed directly, no card on file. Questions about your plan? Reach us at{" "}
                     <a
                       href="mailto:support@ambitt.agency"
                       className="text-[color:var(--brand-ink)] hover:underline"
