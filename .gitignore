@@ -22,3 +22,11 @@ build/
 # (npx tsx scripts/shoot-emails.ts docs/email-review/after)
 docs/email-review/**/shots/
 docs/email-review/compare-top.png
+
+# Agent scratch probes: one-off prod investigation scripts dropped at the repo
+# root, e.g. _otis_smssend_check.ts. Root-anchored so real code like
+# shared/_internal.ts is unaffected. Anything worth keeping belongs in scripts/.
+/_*.ts
+/_*.mjs
+/_*.js
+/_*.cjs
