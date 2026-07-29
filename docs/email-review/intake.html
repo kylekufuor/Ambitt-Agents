@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>The intake form: before and after</title>
+<style>
+  :root {
+    --page: #eef2f6;
+    --card: #ffffff;
+    --ink: #1d2f40;
+    --body: #33475b;
+    --mute: #5f7488;
+    --teal: #00b3b3;
+    --teal-text: #00706f;
+    --rule: #e2eaf1;
+    --bad: #be123c;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--page); color: var(--body);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 16px; line-height: 1.6;
+  }
+  header { padding: 40px 32px 8px; max-width: 1500px; margin: 0 auto; }
+  h1 { font-size: 26px; line-height: 1.2; font-weight: 600; color: var(--ink); letter-spacing: -0.016em; margin: 0 0 8px; }
+  header p { margin: 0 0 8px; max-width: 82ch; }
+  header .meta { color: var(--mute); font-size: 14px; }
+  header a { color: var(--teal-text); font-weight: 600; }
+  main { max-width: 1500px; margin: 0 auto; padding: 16px 32px 80px; }
+
+  .callout {
+    background: var(--card); border-radius: 14px; padding: 22px 26px; margin: 20px 0 28px;
+    box-shadow: 0 1px 2px rgba(29,47,64,.04), 0 8px 20px rgba(29,47,64,.05);
+  }
+  .callout h3 { margin: 0 0 10px; font-size: 17px; font-weight: 600; color: var(--ink); }
+  .callout p { margin: 0 0 10px; max-width: 92ch; }
+  .callout p:last-child { margin-bottom: 0; }
+  .callout ol, .callout ul { margin: 0; padding-left: 20px; max-width: 92ch; }
+  .callout li { margin-bottom: 7px; }
+
+  table.ratios { border-collapse: collapse; width: 100%; max-width: 860px; margin-top: 14px; font-variant-numeric: tabular-nums; }
+  table.ratios th { text-align: left; font-size: 12px; font-weight: 600; color: var(--mute); text-transform: uppercase; letter-spacing: .07em; padding: 0 12px 8px 0; border-bottom: 1px solid var(--rule); }
+  table.ratios td { padding: 9px 12px 9px 0; border-bottom: 1px solid var(--rule); font-size: 14.5px; }
+  table.ratios td.n { text-align: right; white-space: nowrap; }
+  .fail { color: var(--bad); font-weight: 600; }
+  .pass { color: var(--teal-text); font-weight: 600; }
+  .sw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -1px; margin-right: 7px; }
+
+  .row {
+    background: var(--card); border-radius: 14px; margin: 0 0 24px; overflow: hidden;
+    box-shadow: 0 1px 2px rgba(29,47,64,.04), 0 8px 20px rgba(29,47,64,.05), 0 24px 48px rgba(29,47,64,.05);
+  }
+  .row > .bar { border-top: 3px solid var(--teal); }
+  .row h2 { margin: 0; padding: 18px 24px 4px; font-size: 19px; font-weight: 600; color: var(--ink); letter-spacing: -0.01em; }
+  .row .kind { padding: 0 24px; font-size: 12px; font-weight: 600; letter-spacing: .09em; text-transform: uppercase; color: var(--teal-text); }
+  .row .note { margin: 0; padding: 8px 24px 16px; font-size: 14.5px; color: var(--mute); max-width: 110ch; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--rule); }
+  .pane { background: var(--page); }
+  .pane .lbl {
+    display: flex; align-items: center; gap: 8px; padding: 10px 24px; background: var(--card);
+    font-size: 12px; font-weight: 600; letter-spacing: .09em; text-transform: uppercase; color: var(--mute);
+  }
+  .pane.after .lbl { color: var(--teal-text); }
+  .dot { width: 8px; height: 8px; border-radius: 8px; background: #b7c4d0; }
+  .pane.after .dot { background: var(--teal); }
+  .shot { max-height: 760px; overflow-y: auto; background: var(--page); }
+  .shot img { width: 100%; display: block; }
+  .mob { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--rule); }
+  .mob .shot { max-height: 700px; }
+  .mob img { width: 100%; max-width: 390px; margin: 0 auto; display: block; }
+  details { border-top: 1px solid var(--rule); background: var(--card); }
+  summary { padding: 12px 24px; cursor: pointer; font-size: 13.5px; font-weight: 600; color: var(--teal-text); }
+  @media (max-width: 1000px) { .pair, .mob { grid-template-columns: 1fr; } .shot { max-height: 520px; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Step 0: the prospect intake form, before and after</h1>
+  <p>The first surface a prospect ever touches, and the last one still running its own look after the rest of the funnel was rebuilt. Left is what shipped. Right is the new system. Same fixture as the rest of the review: Kwame, an outbound prospecting agent for Ambitt Media.</p>
+  <p class="meta">Every frame is the real React form driven end to end by a browser, with the AI question call stubbed so the tailored slides render the same way twice. Both columns were captured under identical conditions: the "before" column is served from a throwaway git worktree at the commit before this work, so the only difference between the two sides is this change. <a href="funnel.html">Back to the full funnel review</a>.</p>
+  <p class="meta">If the frames below are blank, the screenshots are missing: <code>docs/email-review/**/shots/</code> is gitignored on purpose, because the rendered pages are committed and the images are regenerable.</p>
+</header>
+<main>
+
+<section class="callout">
+  <h3>What was wrong</h3>
+  <p>The previous pass fixed this page's failing colours and deliberately left everything else, on the grounds that it is a form rather than a document. The result was that step 0 stayed in a different world from steps 1 to 6.</p>
+  <ol>
+    <li><strong>A different palette entirely.</strong> Warm neutral (<code>#fafaf8</code> page, <code>#171717</code> ink, <code>#737373</code> helper text) against the funnel's slate. Nothing about the two surfaces looked related.</li>
+    <li><strong>A near-black sidebar</strong> carrying an 84px chapter numeral and a decorative pull-quote attributed to Atlas. It was the only dark surface anywhere in the funnel, it was the warm black rather than the system's, and it spent the entire left column on ornament while the prospect's real question, "how much more of this is there", went unanswered.</li>
+    <li><strong>The primary button on two steps was invisible.</strong> <code>.fa-btn-primary</code> and <code>.fa-btn-secondary</code> were used on the domain-check, question and review slides and were <em>defined nowhere</em>. The stylesheet's own <code>:where(button)</code> reset stripped them to bare text, so "Looks right, keep going" and "Send it" rendered as unstyled words on the two screens that carry the conversion.</li>
+    <li><strong>The first screen promised a brief that does not exist.</strong> "The 7-chapter brief", listing The job deeper, How it works, Hard limits and Tools. Those four chapters were removed when the flow became adaptive: after the one-sentence answer, Atlas writes the rest of the questions. A prospect was being shown a contents page for a document they would never be given, and the header said "Step 1 of 3" while the sidebar said "Chapter 01 / 07" on the same screen.</li>
+    <li><strong>Progress disappeared exactly where it was needed.</strong> The tailored questions rendered in a bare centred column with no rail and no step indicator, which is the longest and least predictable stretch of the form.</li>
+    <li><strong>Contrast failures the previous pass missed</strong>, listed in the table below. They were in inline styles on the adaptive slides and in the shared helper colours, not in the class names that pass audited.</li>
+    <li><strong>A gradient button with a teal glow</strong>, a <code>135deg</code> gradient panel outlined in 1px <code>#00b3b3</code>, gray 1px card borders on the contents list, the review blocks and the timeline, an outline upload glyph, and <code>#00d4d4</code> still alive in the Atlas visor.</li>
+  </ol>
+</section>
+
+<section class="callout">
+  <h3>Contrast, measured</h3>
+  <p>Computed, not eyeballed, and then re-measured off the rendered DOM. 243 rendered text pairs across all nine slides now clear AA, and the automated sweep reports no em dash and no literal <code>{" "}</code> anywhere in the output.</p>
+  <table class="ratios">
+    <tr><th>Pair</th><th>Before</th><th>After</th><th>Needs</th></tr>
+    <tr><td>Domain-check panel labels (<code>#00b3b3</code> on its gradient)</td><td class="n fail">2.49:1</td><td class="n pass">5.18:1</td><td class="n">4.5:1</td></tr>
+    <tr><td>Scale button 1 to 5, white label on <code>#00b3b3</code></td><td class="n fail">2.59:1</td><td class="n pass">4.78:1</td><td class="n">4.5:1</td></tr>
+    <tr><td>Microcopy, placeholders, upload hint (<code>#a3a3a3</code>)</td><td class="n fail">2.52:1</td><td class="n pass">5.87:1</td><td class="n">4.5:1</td></tr>
+    <tr><td>"Takes about 10 seconds" (<code>#999</code>)</td><td class="n fail">2.73:1</td><td class="n pass">4.97:1</td><td class="n">4.5:1</td></tr>
+    <tr><td>Dark sidebar chapter total + attribution (<code>#525252</code>)</td><td class="n fail">2.29:1</td><td class="n pass">4.72:1</td><td class="n">4.5:1</td></tr>
+    <tr><td>Dark sidebar step label (<code>#737373</code>)</td><td class="n fail">3.78:1</td><td class="n pass">4.74:1</td><td class="n">4.5:1</td></tr>
+    <tr><td>Input / pill boundary (<code>#d4d4d4</code>), worst plane</td><td class="n fail">1.42:1</td><td class="n pass">3.28:1</td><td class="n">3:1</td></tr>
+    <tr><td>Domain-check panel outline on the page</td><td class="n fail">2.48:1</td><td class="n pass">n/a</td><td class="n">3:1</td></tr>
+    <tr><td>Progress fill on its track</td><td class="n pass">4.05:1</td><td class="n pass">3.60:1</td><td class="n">3:1</td></tr>
+    <tr><td>Body copy, worst plane</td><td class="n pass">9.92:1</td><td class="n pass">6.39:1</td><td class="n">4.5:1</td></tr>
+  </table>
+  <p style="margin-top:14px;">
+    <span class="sw" style="background:#00b3b3"></span><code>#00b3b3</code> marks, rules and fills only, never under or as a letterform &nbsp;
+    <span class="sw" style="background:#00807e"></span><code>#00807e</code> fill under a white label, and every state indicator &nbsp;
+    <span class="sw" style="background:#00706f"></span><code>#00706f</code> text
+  </p>
+  <p style="margin-top:10px;">Every colour was checked against <strong>all five</strong> surfaces it can land on (page, card, wash, rail, brand wash), not just the card. The rail is the plane that catches things: the control boundary looked fine at 3.32:1 on the card and was 2.68:1 on the rail. Worst shipping text pair in the new form: <strong class="pass">4.72:1</strong>.</p>
+</section>
+
+<section class="row"><div class="bar"></div>
+  <div class="kind">Slide 1 &middot; the first thing anyone sees</div>
+  <h2>Welcome</h2>
+  <p class="note">The contents list now describes the four steps that actually happen, and says so in Atlas's voice. The heading drops from 44px to 30px at weight 500, so hierarchy comes from size and space rather than bulk. The gradient-and-glow button is a flat fill that clears AA. "Progress saved automatically" was not true for the tailored answers, which are only saved on send, so it now says what is true: best done in one sitting.</p>
+  <div class="pair">
+    <div class="pane"><div class="lbl"><span class="dot"></span>Before</div><div class="shot"><img src="intake-before/shots/1-welcome--desktop.png" alt="Welcome, before"></div></div>
+    <div class="pane after"><div class="lbl"><span class="dot"></span>After</div><div class="shot"><img src="intake-after/shots/1-welcome--desktop.png" alt="Welcome, after"></div></div>
+  </div>
+  <details><summary>Mobile, 390px</summary>
+    <div class="mob">
+      <div class="pane"><div class="shot"><img src="intake-before/shots/1-welcome--mobile.png" alt="Welcome mobile, before"></div></div>
+      <div class="pane after"><div class="shot"><img src="intake-after/shots/1-welcome--mobile.png" alt="Welcome mobile, after"></div></div>
+    </div>
+  </details>
+</section>
+
+<section class="row"><div class="bar"></div>
+  <div class="kind">Slide 2 &middot; the longest screen in the flow</div>
+  <h2>About you</h2>
+  <p class="note">The biggest change. The dark slab becomes a tonal rail that answers where you are, how much is left, and who is asking. Ten fields is a lot to face, so the rail is the thing that keeps it from feeling endless. Fields are filled and outlined at a measured 3:1 boundary instead of the old 1.42:1 hairline, and go white on focus so the live one is obvious.</p>
+  <div class="pair">
+    <div class="pane"><div class="lbl"><span class="dot"></span>Before</div><div class="shot"><img src="intake-before/shots/2-chapter-about--desktop.png" alt="About you, before"></div></div>
+    <div class="pane after"><div class="lbl"><span class="dot"></span>After</div><div class="shot"><img src="intake-after/shots/2-chapter-about--desktop.png" alt="About you, after"></div></div>
+  </div>
+  <details><summary>Mobile, 390px</summary>
+    <div class="mob">
+      <div class="pane"><div class="shot"><img src="intake-before/shots/2-chapter-about--mobile.png" alt="About you mobile, before"></div></div>
+      <div class="pane after"><div class="shot"><img src="intake-after/shots/2-chapter-about--mobile.png" alt="About you mobile, after"></div></div>
+    </div>
+  </details>
+</section>
+
+<section class="row"><div class="bar"></div>
+  <div class="kind">Slide 3 &middot; the pivotal answer</div>
+  <h2>The one sentence</h2>
+  <p class="note">The single most important field in the funnel: everything Atlas writes downstream is built on it. It keeps its larger type and taller box, and the rail now shows step 1 completed so the prospect can see they are moving.</p>
+  <div class="pair">
+    <div class="pane"><div class="lbl"><span class="dot"></span>Before</div><div class="shot"><img src="intake-before/shots/3-anchor-question--desktop.png" alt="One sentence, before"></div></div>
+    <div class="pane after"><div class="lbl"><span class="dot"></span>After</div><div class="shot"><img src="intake-after/shots/3-anchor-question--desktop.png" alt="One sentence, after"></div></div>
+  </div>
+  <details><summary>Mobile, 390px</summary>
+    <div class="mob">
+      <div class="pane"><div class="shot"><img src="intake-before/shots/3-anchor-question--mobile.png" alt="One sentence mobile, before"></div></div>
+      <div class="pane after"><div class="shot"><img src="intake-after/shots/3-anchor-question--mobile.png" alt="One sentence mobile, after"></div></div>
+    </div>
+  </details>
+</section>
+
+<section class="row"><div class="bar"></div>
+  <div class="kind">Slide 4 &middot; the waiting state</div>
+  <h2>While Atlas reads it</h2>
+  <p class="note">Ten seconds of dead air while the questions are generated. An edge state gets the same care as the happy path: the spinner is on the system's own rule colour rather than a raw teal at 18% opacity, and the copy explains what is happening rather than announcing a process.</p>
+  <div class="pair">
+    <div class="pane"><div class="lbl"><span class="dot"></span>Before</div><div class="shot"><img src="intake-before/shots/4-tailoring--desktop.png" alt="Tailoring, before"></div></div>
+    <div class="pane after"><div class="lbl"><span class="dot"></span>After</div><div class="shot"><img src="intake-after/shots/4-tailoring--desktop.png" alt="Tailoring, after"></div></div>
+  </div>
+</section>
+
+<section class="row"><div class="bar"></div>
+  <div class="kind">Slide 5 &middot; where the primary button was invisible</div>
+  <h2>Quick check</h2>
+  <p class="note">Look at the two buttons on the left. "Not quite, let me clarify" and "Looks right, keep going" were bare text, because the classes they used were never written. This is the screen where the prospect confirms Atlas understood their business, and it had no visible call to action. The gradient panel outlined in 1px teal becomes a brand-tinted tonal panel, and its two labels move from 2.49:1 to 5.18:1.</p>
+  <div class="pair">
+    <div class="pane"><div class="lbl"><span class="dot"></span>Before</div><div class="shot"><img src="intake-before/shots/5-domain-check--desktop.png" alt="Domain check, before"></div></div>
+    <div class="pane after"><div class="lbl"><span class="dot"></span>After</div><div class="shot"><img src="intake-after/shots/5-domain-check--desktop.png" alt="Domain check, after"></div></div>
+  </div>
+  <details><summary>Mobile, 390px</summary>
+    <div class="mob">
+      <div class="pane"><div class="shot"><img src="intake-before/shots/5-domain-check--mobile.png" alt="Domain check mobile, before"></div></div>
+      <div class="pane after"><div class="shot"><img src="intake-after/shots/5-domain-check--mobile.png" alt="Domain check mobile, after"></div></div>
+    </div>
+  </details>
+</section>
+
+<section class="row"><div class="bar"></div>
+  <div class="kind">Slides 6 to 8 &middot; the tailored questions</div>
+  <h2>Your questions</h2>
+  <p class="note">These had no rail, no progress and an invisible Next button. They now use the same shell as every other question, so the step indicator survives through the part of the form whose length the prospect cannot predict. The rail sub-line counts the questions; the masthead counts the steps.</p>
+  <div class="pair">
+    <div class="pane"><div class="lbl"><span class="dot"></span>Before</div><div class="shot"><img src="intake-before/shots/7-question-choice--desktop.png" alt="Question, before"></div></div>
+    <div class="pane after"><div class="lbl"><span class="dot"></span>After</div><div class="shot"><img src="intake-after/shots/7-question-choice--desktop.png" alt="Question, after"></div></div>
+  </div>
+  <details><summary>Mobile, 390px &mdash; the rail collapses so the question stays above the fold</summary>
+    <div class="mob">
+      <div class="pane"><div class="shot"><img src="intake-before/shots/7-question-choice--mobile.png" alt="Question mobile, before"></div></div>
+      <div class="pane after"><div class="shot"><img src="intake-after/shots/7-question-choice--mobile.png" alt="Question mobile, after"></div></div>
+    </div>
+  </details>
+</section>
+
+<section class="row"><div class="bar"></div>
+  <div class="kind">Slide 9 &middot; the last thing before they commit</div>
+  <h2>Review and send</h2>
+  <p class="note">Three white cards outlined in gray become tonal panels. The tailored answers were rendering their full question as a 132px letterspaced uppercase key, which produced an unreadable ladder down the left edge, so they stack now. The section heading was the domain summary truncated at 60 characters and shouted in caps; it is a sentence, so it is set as one. "Send it" was the other bare-text button.</p>
+  <div class="pair">
+    <div class="pane"><div class="lbl"><span class="dot"></span>Before</div><div class="shot"><img src="intake-before/shots/8-review--desktop.png" alt="Review, before"></div></div>
+    <div class="pane after"><div class="lbl"><span class="dot"></span>After</div><div class="shot"><img src="intake-after/shots/8-review--desktop.png" alt="Review, after"></div></div>
+  </div>
+  <details><summary>Mobile, 390px</summary>
+    <div class="mob">
+      <div class="pane"><div class="shot"><img src="intake-before/shots/8-review--mobile.png" alt="Review mobile, before"></div></div>
+      <div class="pane after"><div class="shot"><img src="intake-after/shots/8-review--mobile.png" alt="Review mobile, after"></div></div>
+    </div>
+  </details>
+</section>
+
+<section class="row"><div class="bar"></div>
+  <div class="kind">Slide 10 &middot; handover to the thanks email</div>
+  <h2>Brief received</h2>
+  <p class="note">This screen hands straight over to the first email in the funnel, so the two now share a face, a palette and a voice. The timeline's completed marker is a tick rather than a number, and the sign-off speaks as Atlas throughout instead of switching to the third person halfway down.</p>
+  <div class="pair">
+    <div class="pane"><div class="lbl"><span class="dot"></span>Before</div><div class="shot"><img src="intake-before/shots/9-sent--desktop.png" alt="Sent, before"></div></div>
+    <div class="pane after"><div class="lbl"><span class="dot"></span>After</div><div class="shot"><img src="intake-after/shots/9-sent--desktop.png" alt="Sent, after"></div></div>
+  </div>
+  <details><summary>Mobile, 390px</summary>
+    <div class="mob">
+      <div class="pane"><div class="shot"><img src="intake-before/shots/9-sent--mobile.png" alt="Sent mobile, before"></div></div>
+      <div class="pane after"><div class="shot"><img src="intake-after/shots/9-sent--mobile.png" alt="Sent mobile, after"></div></div>
+    </div>
+  </details>
+</section>
+
+<section class="callout">
+  <h3>Two things worth your eye</h3>
+  <ul>
+    <li><strong>The dark sidebar is gone.</strong> That is the biggest judgement call here and the easiest one to disagree with. The reasoning: it was the only dark surface in the whole pre-sale funnel, it was warm black against a cool system, and the same treatment was removed from the proposal in the previous pass for reading like a system notice rather than a letter. If you want the drama back, the rail is one token change, but it would put step 0 back on its own island.</li>
+    <li><strong>The contents list now says four steps, not seven.</strong> This changes client-facing copy on the first screen, which was outside a pure styling brief. It was shipping a promise the product does not keep, so it seemed worse to leave it. The four steps match what the flow actually does.</li>
+  </ul>
+</section>
+
+</main>
+</body>
+</html>

@@ -123,6 +123,24 @@
 </section>
 
 <section class="row"><div class="bar"></div>
+  <div class="kind">Hosted page &middot; where every deal starts</div>
+  <h2>0. The intake form</h2>
+  <p class="note">Step 0, and the last surface still running its own look. It was left alone in the first pass on the grounds that a form is not a document, which meant the very first thing a prospect touches stayed in a different palette from everything after it. It now runs the same system. Three things beyond the re-skin: the primary button on the domain-check and review steps was <strong>rendering as bare text</strong>, because the two classes it used were never defined anywhere; the first screen promised a "7-chapter brief" whose last four chapters no longer exist; and the tailored questions had no progress indicator at all. Nine slides, desktop and mobile, in their own page because there are eighteen frames.</p>
+  <div class="links" style="padding-top:4px;">
+    <a href="intake.html" style="font-size:15px;">Open the intake before / after &rarr;</a>
+  </div>
+  <div class="pair">
+    <div class="pane"><div class="lbl"><span class="dot"></span>Before</div><div style="background:var(--page);max-height:900px;overflow-y:auto;"><img src="intake-before/shots/5-domain-check--desktop.png" style="width:100%;display:block;" alt="Intake domain check, before"></div></div>
+    <div class="pane after"><div class="lbl"><span class="dot"></span>After</div><div style="background:var(--page);max-height:900px;overflow-y:auto;"><img src="intake-after/shots/5-domain-check--desktop.png" style="width:100%;display:block;" alt="Intake domain check, after"></div></div>
+  </div>
+  <div class="links">
+    <a href="intake-after/shots/2-chapter-about--desktop.png">The long form</a>
+    <a href="intake-after/shots/7-question-choice--mobile.png">Mobile</a>
+    <a href="intake-after/shots/8-review--desktop.png">Review step</a>
+  </div>
+</section>
+
+<section class="row"><div class="bar"></div>
   <div class="kind">Email &middot; fires on form submit</div>
   <h2>1. Thanks for your brief</h2>
   <p class="note">The first thing anyone ever receives from us, and it was the plainest: a wordmark image, three grey paragraphs, and a sign-off at 2.52:1. It now opens with Atlas's face and role, so the prospect knows who they are talking to before they read a word, and the reassurance that there is nothing to do gets its own panel.</p>
@@ -215,7 +233,7 @@
 <section class="callout">
   <h3>What did not change</h3>
   <p>The data contracts. <code>ProposalEmailData</code> and <code>QuoteData</code> in <code>types.ts</code>, and the Zod schemas that mirror them, are untouched, so the Atlas prompts still emit exactly what they emitted before. Every Handlebars expression in both templates maps one to one onto the old ones, including the inline hooks Atlas writes into its own strings: <code>span.accent</code>, <code>em</code>, and the header-row types <code>link</code> / <code>subject</code> / <code>text</code>. The scope-item icons changed what they draw, not what they key off.</p>
-  <p>The intake form at <code>/onboard/[token]</code> was left on its own layout deliberately. It is an interactive form rather than a document, and re-theming it was not what this pass was for. Only its failing colour pairs were corrected, 37 of them.</p>
+  <p><strong>Update.</strong> The intake form at <code>/onboard/[token]</code> was left on its own layout in that pass, on the grounds that it is an interactive form rather than a document. It has since been brought onto the same system as step 0 of this review, above. Correcting its 37 failing colour pairs did not catch everything: the adaptive slides carried their failures in inline styles rather than in classes, so the domain-check panel labels (2.49:1), the scale buttons (2.59:1), the shared <code>#a3a3a3</code> microcopy (2.52:1) and every control boundary (1.42:1) were still shipping. Those are fixed too.</p>
 </section>
 
 </main>

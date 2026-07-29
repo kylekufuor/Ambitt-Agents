@@ -1,566 +1,665 @@
-/* ===========================================
-   AMBITT AGENTS — ONBOARDING FORM
-   Lifted verbatim from Kyle's mockup, with bare element selectors
-   (`*`, `body`, `a`, `input`, `textarea`, `button`) namespaced under
-   `.fa-onboard` so they don't leak into the rest of the portal.
+/* ===========================================================================
+   AMBITT AGENTS — PROSPECT INTAKE FORM  (/onboard and /onboard/[token])
 
-   Brand palette — TWO-STEP TEAL. #00b3b3 is 2.59:1 on white, so it fails as
-   text, as a button fill under a white label, and as a focus ring. It stays
-   what it is good at. Classify by asking: does it carry a letterform, or does
-   one sit on it?
+   Step 0 of the pre-sale funnel: the first surface a prospect ever touches.
+   It now runs the SAME design system as the rest of that funnel — the thanks
+   email, the proposal document, the quote document and the status pages
+   (oracle/templates/_shared.ts, funnel-emails.ts, proposal-email/, quote-email/).
+   Before this pass it was its own world: a warm-neutral palette (#fafaf8 page,
+   #171717 ink, #737373 mute) against the funnel's cool slate, a near-black
+   sidebar that appears on no other funnel surface, a gradient button, and
+   1px gray card borders.
 
-     #00b3b3   mark / decoration only, never under or as a letterform
-     #00807e   fill under a white label, and any state indicator (4.78:1)
-     #00706f   text, and hover fills (5.92:1)
-     #4ed4d0   teal on a dark surface only
+   WHAT THIS IS. A task, not a document. Someone is typing real answers about
+   their business and pasting SOPs in. Every decision below is weighed against
+   "does this make it easier to finish", because a prospect who abandons here
+   costs us the deal. Calm surfaces, visible progress, mobile first.
 
-   The accent cyan #00d4d4 that used to run alongside these is GONE. It was a
-   second teal nobody chose, and it does not appear anywhere else we ship.
+   PALETTE — identical tokens to the funnel documents. Databricks neutrals:
+   warm oat family, desaturated navy ink. Nothing pure white, nothing black.
+     --fa-page   #efeae2   canvas (deeper than the card so the document floats)
+     --fa-card   #fffdfb   the document — warm near-white, NOT #fff
+     --fa-wash   #f6f2ec   tonal panels + control fills
+     --fa-rail   #eae5dc   the chapter rail (one step deeper than wash so
+                           navigation chrome reads apart from content panels)
+     --fa-brand-wash #e4f3f1  brand-tinted panels and icon plates
+     --fa-ink    #1b3139   headings (Databricks Gable Green)
+     --fa-body   #3d545c   body copy       (worst plane 6.39:1)
+     --fa-mute   #52676f   helper text, placeholders  (worst plane 4.74:1)
+     --fa-rule   #dce0e2   hairlines (Databricks; decorative, never a card outline)
+     --fa-line   #6f8085   CONTROL boundaries only  (worst plane 3.28:1)
+   Every value above was measured against ALL FIVE planes, not just the card.
+   The rail is the plane that fails things — #7d8f95 looked fine on the card
+   at 3.32:1 and was 2.68:1 on the rail.
 
-     Page bg          #fafaf8
-     Card / muted bg  #ffffff / #f5f5f5
-     Text             #171717
-     Muted text       #737373
-     Border           #e5e5e5
-     Dark surface     #171717
-     Dark card        #2d2c2c
-   =========================================== */
+   TEAL IS TWO-STEP. #00b3b3 is 2.59:1 on white, so it cannot carry a
+   letterform and nothing white may sit on it. One question decides which
+   token: does this thing carry a letterform, or does one sit on it?
+     --fa-teal       #00b3b3  marks, rules, decorative fills. NEVER text.
+     --fa-teal-deep  #00807e  fills under a white label + every state
+                              indicator (focus, selected, progress)  4.78:1
+     --fa-teal-text  #00706f  teal as text: eyebrows, links, numerals  5.92:1
+   The old #00d4d4 accent is gone; it was a second teal nobody chose.
 
-/* Type comes from the app: DM Sans via --font-body, self-hosted in
-   public/fonts. There used to be a `@import url(fonts.googleapis.com…Inter)`
-   here, giving this one surface its own CDN-loaded typeface. It was the first
-   page a prospect ever sees, and it was the only place in the product that
-   (a) used Inter, (b) fetched a font from a third-party CDN — render-blocking,
-   and it hands the prospect's IP to Google on page load. One family, one
-   source, self-hosted. See client-portal/DESIGN.md. */
+   NO 1px GRAY CARD BORDERS. Surfaces separate by tone, then elevation. That
+   outline is the single loudest generic-AI tell and is banned in
+   client-portal/DESIGN.md. Controls are the exception and are required to
+   have a 3:1 boundary (WCAG 1.4.11) — that is what --fa-line is for, and it
+   is measured, not guessed.
+
+   TYPE. DM Sans via --font-body, self-hosted (see client-portal/DESIGN.md).
+   No font-family is set here on purpose: one family, declared once, in the
+   app layout. Display headings sit at 500 and the largest is 30px, so there
+   is no negative tracking anywhere on this page. Hierarchy is built from
+   size, spacing and colour. If it stops reading, fix it there, never by
+   creeping the weight back up.
+
+   Bare element selectors are namespaced under `.fa-onboard` so they cannot
+   leak into the rest of the portal. Shared with ../landing.tsx and
+   ./page.tsx, which import this file.
+   =========================================================================== */
+
+.fa-onboard {
+  /* Surfaces */
+  --fa-page: #efeae2;
+  --fa-card: #fffdfb;
+  --fa-wash: #f6f2ec;
+  --fa-rail: #eae5dc;
+  --fa-brand-wash: #e4f3f1;
+  /* Ink */
+  --fa-ink: #1b3139;
+  --fa-body: #3d545c;
+  --fa-mute: #52676f;
+  /* Lines */
+  --fa-rule: #dce0e2;
+  --fa-line: #6f8085;
+  /* Brand — unchanged */
+  --fa-teal: #00b3b3;
+  --fa-teal-deep: #00807e;
+  --fa-teal-text: #00706f;
+  --fa-halo: rgba(0, 179, 179, 0.16);
+  /* Status — the crimson the rest of the system uses, so "error" means the
+     same thing here as in the portal and the emails. */
+  --fa-danger: #be123c;
+  --fa-danger-wash: #f9e6e8;
+  /* Rhythm */
+  --fa-pad: 48px;
+  --fa-radius: 16px;
+  /* Databricks' six-stop ramp, ink-navy tinted. Shared with the proposal and
+     quote documents. */
+  --fa-lift:
+    0 2px 3px rgba(27, 49, 57, 0.02),
+    0 4px 8px rgba(27, 49, 57, 0.025),
+    0 9px 13px rgba(27, 49, 57, 0.03),
+    0 16px 24px rgba(27, 49, 57, 0.04),
+    0 32px 40px -8px rgba(27, 49, 57, 0.05),
+    0 72px 104px -24px rgba(27, 49, 57, 0.07);
+
+  color-scheme: light;
+  background: var(--fa-page);
+  color: var(--fa-body);
+  line-height: 1.6;
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+  padding: 32px 16px 64px;
+}
 
 .fa-onboard, .fa-onboard *, .fa-onboard *::before, .fa-onboard *::after {
   box-sizing: border-box;
 }
 
-.fa-onboard {
-  color-scheme: light;
-  font-family: var(--font-body);
-  background: #fafaf8;
-  color: #171717;
-  line-height: 1.6;
-  -webkit-font-smoothing: antialiased;
-  min-height: 100vh;
-}
-
-/* Resets wrapped in :where() so they contribute zero specificity. Otherwise
-   `.fa-onboard button` (specificity 0,1,1) would beat our `.fa-pill`,
-   `.fa-checkpill` etc. design classes (0,1,0) and the buttons would render
-   as plain unstyled elements. */
+/* Resets wrapped in :where() so they contribute zero specificity — otherwise
+   `.fa-onboard button` would outrank every design class below and the buttons
+   would render as unstyled text. (That is exactly what was happening to
+   .fa-btn-primary / .fa-btn-secondary, which were used in three slides and
+   defined nowhere: the primary CTA on the domain-check and review steps was
+   shipping as a bare text link.) */
 .fa-onboard :where(a) { color: inherit; text-decoration: none; }
+.fa-onboard :where(h1, h2, h3, p) { margin: 0; }
 .fa-onboard :where(input, textarea, select, button) {
   font-family: inherit;
   -webkit-appearance: none;
   appearance: none;
   color-scheme: light;
 }
-.fa-onboard :where(button) { background: none; border: none; color: inherit; cursor: pointer; padding: 0; margin: 0; }
+.fa-onboard :where(button) {
+  background: none; border: none; color: inherit;
+  cursor: pointer; padding: 0; margin: 0; font-size: inherit;
+}
 
-/* ============ PROGRESS + HEADER ============ */
-.fa-progress { height: 3px; background: #ececec; }
-.fa-progress-fill { height: 100%; background: #00807e; width: 0%; transition: width 0.4s ease; }
+/* Visible focus for keyboard users on every interactive thing. Inputs get
+   their own richer treatment further down. */
+.fa-onboard :where(button, a, label.fa-upload):focus-visible {
+  outline: 2px solid var(--fa-teal-deep);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
 
+/* ============ THE DOCUMENT ============
+   One card on a cool canvas, the same object the proposal and the quote are
+   drawn as. No `overflow: hidden` here: it would turn this into a scroll
+   container and silently kill the sticky chapter rail. The progress bar clips
+   its own top corners instead. */
+.fa-doc {
+  max-width: 1040px;
+  margin: 0 auto;
+  background: var(--fa-card);
+  border-radius: var(--fa-radius);
+  box-shadow: var(--fa-lift);
+}
+.fa-pad { padding-left: var(--fa-pad); padding-right: var(--fa-pad); }
+
+/* ============ PROGRESS ============
+   The document's 3px teal top rule IS the progress bar. The funnel documents
+   all carry that rule; here it fills as you work, so the one piece of chrome
+   that says "same family" is also the one that says "you're nearly done".
+   4.05:1 against its track — a state indicator, so it uses the deep step. */
+.fa-progress {
+  height: 3px;
+  background: var(--fa-rule);
+  border-radius: var(--fa-radius) var(--fa-radius) 0 0;
+  overflow: hidden;
+}
+.fa-progress-fill {
+  height: 100%;
+  background: var(--fa-teal-deep);
+  width: 0%;
+  min-width: 26px; /* Never fully empty: at 0% the document would lose the
+                      teal top rule that marks it as one of ours, on the one
+                      screen that most needs to say "same family". */
+  transition: width 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+}
+/* Pages with no progress to report (the landing, the paused-link notice) get
+   the plain full-width rule the proposal and quote documents carry. */
+.fa-progress.static { background: var(--fa-teal); }
+
+/* ============ MASTHEAD ============ */
 .fa-header {
-  padding: 22px 32px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  max-width: 1040px;
-  margin: 0 auto;
+  gap: 16px;
+  padding-top: 26px;
+  padding-bottom: 26px;
+  padding-left: var(--fa-pad);
+  padding-right: var(--fa-pad);
 }
 .fa-brand {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 12.5px;
+  font-size: 15px;
   font-weight: 600;
-  letter-spacing: 0.5px;
-  color: #171717;
+  color: var(--fa-ink);
 }
+.fa-brand .accent { color: var(--fa-teal-text); }
 .fa-step {
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 600;
-  letter-spacing: 1.6px;
-  color: #737373;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
+  color: var(--fa-mute);
+  white-space: nowrap;
 }
 .fa-header.welcome .fa-step,
-.fa-header.sent .fa-step { color: #00706f; }
+.fa-header.sent .fa-step { color: var(--fa-teal-text); }
 
 .fa-stage {
-  padding: 24px 32px 80px;
-  max-width: 1040px;
-  margin: 0 auto;
+  padding-left: var(--fa-pad);
+  padding-right: var(--fa-pad);
+  padding-bottom: 44px;
 }
 
-/* ============ SLIDE BASE ============ */
+/* ============ SLIDES ============
+   A step change is worth marking; nothing else on this page animates.
+   Honoured only when the reader hasn't asked us to stop. */
 .fa-slide { display: none; }
-.fa-slide.active { display: block; animation: fa-fade-in 0.4s ease; }
+.fa-slide.active { display: block; animation: fa-fade-in 0.22s ease-out; }
 @keyframes fa-fade-in {
-  from { opacity: 0; transform: translateY(8px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fa-slide.active { animation: none; }
+  .fa-progress-fill { transition: none; }
+  .fa-onboard *, .fa-onboard *::before, .fa-onboard *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
 }
 
-/* ============ HERO SLIDES (welcome, sent) ============ */
-.fa-hero {
-  max-width: 600px;
-  margin: 0 auto;
-  padding-top: 24px;
-  text-align: center;
-}
-.fa-hero-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 5px 12px;
-  border-radius: 999px;
-  background: rgba(0, 179, 179, 0.08);
-  color: #00706f;
-  font-size: 10.5px;
-  font-weight: 600;
-  letter-spacing: 1.6px;
-  text-transform: uppercase;
-  margin-bottom: 24px;
-}
-.fa-hero-pill-dot {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: #00b3b3;
-}
-.fa-agent-frame {
-  width: 96px;
-  height: 96px;
-  border-radius: 24px;
-  background: #171717;
+/* ============ TITLE BLOCK ============
+   Shared by every full-width slide. Left-aligned like the documents: a
+   centred hero with everything stacked under it is the layout this system
+   deliberately doesn't use. */
+.fa-solo { max-width: 660px; margin: 0 auto; }
+.fa-hero { max-width: 660px; margin: 0 auto; padding-top: 8px; }
+
+.fa-mark {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  background: var(--fa-brand-wash);
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 0 auto 32px;
-  position: relative;
+  margin-bottom: 22px;
 }
-.fa-agent-frame.success::after {
+/* The "done" state on the closing slide. Solid deep teal so the white tick
+   on it clears AA (4.78:1); the ring is the page, not a border. */
+.fa-mark.success { position: relative; }
+.fa-mark.success::after {
   content: '';
   position: absolute;
-  bottom: -2px;
-  right: -2px;
+  bottom: -5px;
+  right: -5px;
   width: 24px;
   height: 24px;
   border-radius: 50%;
-  background: #00807e;
-  border: 3px solid #fafaf8;
+  background: var(--fa-teal-deep);
+  box-shadow: 0 0 0 4px var(--fa-card);
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' d='M2.5 6L5 8.5L9.5 4'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: center;
 }
+
+.fa-eyebrow, .fa-content-tag, .fa-toc-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fa-teal-text);
+  margin-bottom: 9px;
+}
+
+/* 30px is the largest heading in the portal, which is why nothing here needs
+   negative tracking. Weight 500: medium at size reads as considered, bold
+   reads as template. */
 .fa-h-title {
-  font-size: 44px;
+  font-size: 30px;
   font-weight: 500;
-  letter-spacing: -0.8px;
-  line-height: 1.1;
-  color: #171717;
-  margin-bottom: 18px;
+  line-height: 1.16;
+  color: var(--fa-ink);
+  margin-bottom: 14px;
 }
 .fa-hero-body {
   font-size: 15.5px;
-  color: #404040;
-  line-height: 1.7;
-  margin-bottom: 14px;
-  max-width: 460px;
-  margin-left: auto;
-  margin-right: auto;
+  color: var(--fa-body);
+  line-height: 1.62;
+  margin-bottom: 12px;
 }
-.fa-hero-body strong { color: #171717; font-weight: 600; }
-.fa-meta {
-  font-size: 11.5px;
-  color: #737373;
-  margin-top: 28px;
-  letter-spacing: 0.3px;
-}
-.fa-meta .dot { color: #d4d4d4; margin: 0 8px; }
+.fa-hero-body strong { color: var(--fa-ink); font-weight: 600; }
+.fa-hero-body:last-of-type { margin-bottom: 0; }
 
-.fa-begin-wrap { margin-top: 32px; }
-.fa-begin {
-  background: linear-gradient(180deg, #00807e 0%, #00706f 100%) !important;
-  color: #ffffff !important;
-  padding: 18px 44px;
-  border-radius: 12px;
-  font-size: 16px;
+/* Teal as text, so the deep step. The paused-link page had this hard-coded to
+   #007373, a fourth teal that exists nowhere else in the system. */
+.fa-link {
+  color: var(--fa-teal-text);
   font-weight: 600;
-  letter-spacing: -0.2px;
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.18),
-    inset 0 -1px 0 rgba(0,0,0,0.08),
-    0 1px 2px rgba(0,0,0,0.06),
-    0 10px 28px rgba(0, 179, 179, 0.32);
-  transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-thickness: 1px;
+}
+.fa-link:hover { text-decoration-thickness: 2px; }
+
+.fa-meta {
+  font-size: 13px;
+  color: var(--fa-mute);
+  margin-top: 20px;
+}
+/* --fa-mute, not --fa-line: this middot is a rendered text node, and --fa-line
+   is a 3:1 boundary colour that measured 4.06:1 here. Line colours never carry
+   a glyph. */
+.fa-meta .dot { color: var(--fa-mute); margin: 0 8px; }
+
+/* Status pill (closing slide, paused-link page) */
+.fa-hero-pill {
   display: inline-flex;
   align-items: center;
-  gap: 12px;
-  position: relative;
-}
-.fa-begin .fa-begin-arrow { transition: transform 0.18s ease; display: inline-block; }
-.fa-begin:hover {
-  background: linear-gradient(180deg, #00706f 0%, #00605e 100%) !important;
-  transform: translateY(-2px);
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.22),
-    inset 0 -1px 0 rgba(0,0,0,0.1),
-    0 2px 4px rgba(0,0,0,0.08),
-    0 16px 40px rgba(0, 179, 179, 0.42);
-}
-.fa-begin:hover .fa-begin-arrow { transform: translateX(4px); }
-.fa-begin:active { transform: translateY(-1px); }
-.fa-begin:disabled {
-  background: #d4d4d4;
-  color: #ffffff;
-  cursor: not-allowed;
-  transform: none;
-  box-shadow: none;
-}
-.fa-begin:disabled:hover { transform: none; box-shadow: none; }
-
-/* Landing-only: name + email fields above the chapter ToC. Re-uses .fa-input
-   for the field styling itself; this just lays them out side-by-side on wide
-   screens and stacked on mobile. */
-.fa-landing-fields {
-  margin: 28px auto 0;
-  max-width: 460px;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 14px;
-  text-align: left;
-}
-.fa-landing-field { display: flex; flex-direction: column; gap: 6px; }
-.fa-landing-label {
-  font-family: var(--font-body);
+  gap: 7px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: var(--fa-brand-wash);
+  color: var(--fa-teal-text);
   font-size: 11px;
   font-weight: 600;
-  letter-spacing: 1.2px;
-  color: #737373;
+  letter-spacing: 0.09em;
   text-transform: uppercase;
+  margin-bottom: 16px;
 }
-.fa-landing-error {
-  max-width: 460px;
-  margin: 16px auto 0;
-  padding: 10px 14px;
-  background: rgba(220, 38, 38, 0.06);
-  border: 1px solid rgba(220, 38, 38, 0.22);
-  border-radius: 9px;
-  color: #b91c1c;
-  font-size: 13px;
-  font-weight: 500;
-  text-align: left;
-}
-@media (max-width: 600px) {
-  .fa-landing-fields { grid-template-columns: 1fr; }
-}
+.fa-hero-pill-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--fa-teal); }
 
-/* Chapter preview on welcome slide — vertical magazine TOC.
-   Carries the same editorial DNA as the chapter sidebars (big mono-styled
-   chapter numbers, names, descriptions, connecting teal rail) so the
-   visual language is established before Chapter 01. */
+/* ============ PRIMARY / SECONDARY BUTTONS ============
+   Flat deep teal under a white label. The old button was a vertical gradient
+   with a teal glow; gradients are decoration this system doesn't spend, and
+   the glow was doing the job the label should. */
+.fa-begin, .fa-continue, .fa-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  background: var(--fa-teal-deep);
+  color: #ffffff;
+  padding: 12px 24px;
+  border-radius: 9px;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.2;
+  box-shadow: 0 1px 2px rgba(27, 49, 57, 0.10);
+  transition: background 0.15s ease, transform 0.12s ease;
+}
+.fa-begin { padding: 14px 28px; font-size: 15.5px; }
+.fa-begin:hover, .fa-continue:hover, .fa-btn-primary:hover {
+  background: var(--fa-teal-text);
+}
+.fa-begin:active, .fa-continue:active, .fa-btn-primary:active { transform: translateY(1px); }
+.fa-begin:disabled, .fa-continue:disabled, .fa-btn-primary:disabled {
+  background: var(--fa-wash);
+  color: var(--fa-mute);
+  box-shadow: none;
+  cursor: not-allowed;
+  transform: none;
+}
+.fa-begin-wrap { margin-top: 28px; }
+.fa-send { padding: 13px 26px; }
+
+.fa-back, .fa-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--fa-mute);
+  padding: 11px 4px;
+  transition: color 0.15s ease;
+}
+.fa-btn-secondary { padding: 12px 18px; border-radius: 9px; }
+.fa-back:hover, .fa-btn-secondary:hover { color: var(--fa-ink); }
+.fa-back:disabled, .fa-btn-secondary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Chevrons are inline SVG at currentColor, so they inherit the label's colour
+   and can't render as a different glyph on a different OS. */
+.fa-chev { flex: 0 0 auto; display: block; }
+
+/* ============ WELCOME: WHAT I'LL ASK YOU ============
+   Was a white box with a 1px #ececec outline. Now hairline rows on a tonal
+   panel, the same treatment the quote document gives its scope list. */
 .fa-toc {
-  margin-top: 36px;
-  padding: 28px 32px;
-  background: #ffffff;
-  border: 1px solid #ececec;
-  border-radius: 14px;
-  text-align: left;
+  margin-top: 28px;
+  padding: 22px 24px;
+  background: var(--fa-wash);
+  border-radius: 12px;
 }
-.fa-toc-label {
-  font-family: var(--font-body);
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 1.6px;
-  color: #00706f;
-  text-transform: uppercase;
-  margin-bottom: 22px;
-}
-.fa-toc-list {
-  position: relative;
-  padding-left: 2px;
-}
-.fa-toc-list::before {
-  content: '';
-  position: absolute;
-  left: 17px;
-  top: 20px;
-  bottom: 20px;
-  width: 1.5px;
-  background: #00b3b3;
-  opacity: 0.32;
-}
+.fa-toc-label { margin-bottom: 4px; }
+.fa-toc-list { margin-top: 12px; }
 .fa-toc-row {
   display: flex;
-  gap: 24px;
-  padding: 10px 0;
+  gap: 16px;
+  padding: 13px 0;
+  border-top: 1px solid var(--fa-rule);
   align-items: baseline;
-  position: relative;
 }
+.fa-toc-row:first-child { border-top: none; padding-top: 4px; }
 .fa-toc-num {
-  font-family: var(--font-body);
-  font-size: 22px;
-  font-weight: 500;
-  color: #00706f;
-  width: 32px;
-  flex-shrink: 0;
-  letter-spacing: -1px;
-  line-height: 1;
-  text-align: center;
-  background: #ffffff;
-  position: relative;
-  z-index: 1;
-  padding: 2px 0;
+  flex: 0 0 auto;
+  width: 24px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--fa-teal-text);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.4;
 }
-.fa-toc-body { flex: 1; }
+.fa-toc-body { flex: 1 1 auto; min-width: 0; }
 .fa-toc-name {
   font-size: 15px;
   font-weight: 600;
-  color: #171717;
-  margin-bottom: 2px;
-  letter-spacing: -0.2px;
+  color: var(--fa-ink);
+  margin-bottom: 1px;
 }
-.fa-toc-desc {
-  font-size: 12.5px;
-  color: #737373;
-  line-height: 1.5;
+.fa-toc-desc { font-size: 13.5px; color: var(--fa-mute); line-height: 1.5; }
+
+/* Landing-only: name + email above the chapter list. */
+.fa-landing-fields {
+  margin: 26px 0 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.fa-landing-field { display: flex; flex-direction: column; gap: 6px; }
+.fa-landing-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fa-ink);
+}
+.fa-landing-error, .fa-error {
+  margin-top: 16px;
+  padding: 11px 14px;
+  background: var(--fa-danger-wash);
+  border-radius: 9px;
+  color: var(--fa-danger);
+  font-size: 13.5px;
+  font-weight: 500;
 }
 
-/* ============ GROUPED SLIDES (DARK SIDEBAR + LIGHT FIELDS) ============ */
+/* ============ CHAPTER SHELL: RAIL + CONTENT ============
+   Two columns. The left column used to be a 320px near-black slab carrying a
+   84px numeral and a decorative pull-quote — the only dark surface anywhere
+   in the funnel, and holding three measured contrast failures (#525252 at
+   2.29:1, the step label at 3.78:1). It is now a tonal rail that does real
+   work: who is asking, where you are, and how much is left. That is the
+   anxiety a long intake form actually creates. */
 .fa-cols {
   display: grid;
-  grid-template-columns: 320px 1fr;
-  gap: 48px;
+  grid-template-columns: 268px 1fr;
+  gap: 44px;
   align-items: start;
 }
 
-.fa-side-dark {
-  background: #171717;
-  background-image: radial-gradient(circle, rgba(255,255,255,0.05) 1px, transparent 1px);
-  background-size: 22px 22px;
-  border-radius: 16px;
-  padding: 36px 28px 40px;
-  color: #e5e5e5;
+.fa-rail {
+  background: var(--fa-rail);
+  border-radius: 14px;
+  padding: 24px 22px;
   position: sticky;
-  top: 24px;
-  overflow: hidden;
-  min-height: 520px;
-}
-.fa-side-dark::before {
-  content: '';
-  position: absolute;
-  right: 0;
-  top: 24%;
-  bottom: 24%;
-  width: 2px;
-  background: linear-gradient(180deg, transparent 0%, #00b3b3 50%, transparent 100%);
-  opacity: 0.7;
+  top: 20px;
 }
 
-.fa-side-atlas-frame {
-  width: 64px;
-  height: 64px;
-  border-radius: 16px;
-  background: #2d2c2c;
-  border: 1px solid #3d3c3c;
+.fa-rail-who { display: flex; align-items: center; gap: 11px; margin-bottom: 18px; }
+.fa-rail-avatar {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--fa-brand-wash);
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 32px;
-  position: relative;
 }
-.fa-side-atlas-frame::after {
+.fa-rail-name { font-size: 14.5px; font-weight: 600; color: var(--fa-ink); line-height: 1.25; }
+.fa-rail-role { font-size: 12.5px; color: var(--fa-mute); }
+
+.fa-rail-hr { height: 1px; background: var(--fa-rule); margin: 18px 0; }
+
+/* Step list. Marker states are carried by fill + a glyph, never by colour
+   alone, so they survive a colour-blind reader and a greyscale print. */
+.fa-rsteps { display: flex; flex-direction: column; }
+.fa-rstep {
+  display: flex;
+  gap: 12px;
+  padding: 7px 0;
+  position: relative;
+  align-items: flex-start;
+}
+.fa-rstep:not(:last-child)::before {
   content: '';
   position: absolute;
-  bottom: -4px;
-  right: -4px;
-  width: 12px;
-  height: 12px;
+  left: 10px;
+  top: 29px;
+  bottom: -1px;
+  width: 2px;
+  background: var(--fa-rule);
+}
+.fa-rstep.done:not(:last-child)::before { background: var(--fa-teal-deep); }
+.fa-rstep-dot {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
-  background: #00b3b3;
-  border: 3px solid #171717;
-  box-shadow: 0 0 8px rgba(0, 179, 179, 0.6);
-}
-
-.fa-side-step-label {
-  font-family: var(--font-body);
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 2px;
-  color: #737373;
-  text-transform: uppercase;
-  margin-bottom: 6px;
-}
-.fa-side-chapter-d {
-  font-family: var(--font-body);
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  margin-bottom: 16px;
-}
-.fa-side-num-d {
-  font-size: 84px;
-  font-weight: 500;
-  color: #ffffff;
-  line-height: 0.95;
-  letter-spacing: -4px;
-}
-.fa-side-of-d {
-  font-size: 18px;
-  font-weight: 500;
-  color: #525252;
-  letter-spacing: -0.5px;
-}
-.fa-side-name-d {
-  font-size: 26px;
-  font-weight: 600;
-  letter-spacing: -0.6px;
-  line-height: 1.15;
-  color: #ffffff;
-  margin-bottom: 24px;
-}
-.fa-side-name-d .accent { color: #4ed4d0; }
-
-.fa-side-divider {
-  height: 1px;
-  background: #3d3c3c;
-  margin-bottom: 20px;
-}
-.fa-side-quote {
-  font-size: 13.5px;
-  color: #a3a3a3;
-  line-height: 1.65;
-  font-style: italic;
-  margin-bottom: 14px;
-}
-.fa-side-attribution {
-  font-family: var(--font-body);
-  font-size: 9.5px;
-  font-weight: 500;
-  letter-spacing: 2px;
-  color: #525252;
-  text-transform: uppercase;
-}
-
-/* Content side (light) */
-.fa-content { min-width: 0; padding-top: 8px; }
-.fa-content-tag {
-  font-family: var(--font-body);
+  background: var(--fa-card);
+  box-shadow: inset 0 0 0 1.5px var(--fa-line);
+  color: var(--fa-mute);
   font-size: 11px;
-  font-weight: 500;
-  color: #00706f;
-  letter-spacing: 0.4px;
-  margin-bottom: 8px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  z-index: 1;
+  font-variant-numeric: tabular-nums;
 }
+.fa-rstep.done .fa-rstep-dot,
+.fa-rstep.now .fa-rstep-dot {
+  background: var(--fa-teal-deep);
+  box-shadow: none;
+  color: #ffffff;
+}
+/* These two are <span>s, so they need to be told to stack. Left inline they
+   ran together as "Your questionsQuestion 2 of 3". */
+.fa-rstep-body { min-width: 0; padding-top: 1px; display: block; }
+.fa-rstep-name { display: block; font-size: 14px; font-weight: 600; color: var(--fa-mute); line-height: 1.35; }
+.fa-rstep.now .fa-rstep-name { color: var(--fa-teal-text); }
+.fa-rstep.done .fa-rstep-name { color: var(--fa-ink); }
+.fa-rstep-sub { display: block; font-size: 12.5px; color: var(--fa-mute); line-height: 1.45; margin-top: 1px; }
+
+/* Atlas's line for this chapter. Was an italic pull-quote with an attribution;
+   it now just reads as someone talking to you, which is what it always was. */
+.fa-rail-note { font-size: 13.5px; color: var(--fa-body); line-height: 1.55; }
+.fa-rail-foot { font-size: 12.5px; color: var(--fa-mute); line-height: 1.5; }
+
+/* Content column */
+.fa-content { min-width: 0; }
 .fa-q-title {
-  font-size: 30px;
+  font-size: 24px;
   font-weight: 500;
-  line-height: 1.2;
-  color: #171717;
-  margin-bottom: 8px;
+  line-height: 1.24;
+  color: var(--fa-ink);
+  margin-bottom: 7px;
 }
+.fa-q-title.anchor { font-size: 28px; line-height: 1.2; }
 .fa-q-helper {
-  font-size: 14px;
-  color: #737373;
+  font-size: 14.5px;
+  color: var(--fa-mute);
   line-height: 1.6;
-  margin-bottom: 28px;
+  margin-bottom: 26px;
 }
+.fa-q-helper.anchor { font-size: 15px; margin-bottom: 28px; }
+.fa-req { color: var(--fa-danger); margin-left: 3px; }
 
-.fa-q-title.anchor {
-  font-size: 38px;
-  letter-spacing: -1.1px;
-  line-height: 1.15;
-}
-.fa-q-helper.anchor {
-  font-size: 15px;
-  margin-bottom: 32px;
-}
-.fa-textarea.anchor {
-  min-height: 140px;
-  padding: 18px;
-  font-size: 16px;
-  line-height: 1.5;
-}
-
-/* Standard form fields */
-.fa-field { margin-bottom: 22px; }
+/* ============ FIELDS ============
+   Controls are filled with --fa-wash and outlined in --fa-line. The fill is
+   what separates a field from the card; the outline is what satisfies the 3:1
+   boundary WCAG asks of every control. --fa-line was picked by measurement:
+   3.29:1 on the card and 3.03:1 on its own fill. The old #d4d4d4 was 1.48:1.
+   On focus the field goes white, which reads as "this one is live now". */
+.fa-field { margin-bottom: 20px; }
 .fa-field-label {
   display: block;
   font-size: 14px;
   font-weight: 600;
-  color: #171717;
-  margin-bottom: 4px;
-  letter-spacing: -0.1px;
+  color: var(--fa-ink);
+  margin-bottom: 3px;
 }
 .fa-field-helper {
-  font-size: 12.5px;
-  color: #737373;
+  font-size: 13px;
+  color: var(--fa-mute);
   margin-bottom: 8px;
   line-height: 1.5;
 }
 .fa-input, .fa-textarea {
   width: 100%;
-  padding: 12px 14px;
-  border: 1px solid #d4d4d4;
-  border-radius: 9px;
-  font-size: 14.5px;
-  color: #171717;
-  background: #ffffff;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  padding: 9px 12px;
+  background: var(--fa-wash);
+  border: 1px solid var(--fa-line);
+  border-radius: 8px;
+  font-size: 15px;
+  color: var(--fa-ink);
+  line-height: 1.5;
+  transition: border-color 0.14s ease, box-shadow 0.14s ease, background 0.14s ease;
   outline: none;
 }
-.fa-textarea { min-height: 100px; resize: vertical; line-height: 1.55; }
+.fa-textarea { min-height: 92px; padding: 10px 12px; resize: vertical; }
+.fa-textarea.anchor { min-height: 132px; padding: 14px 16px; font-size: 16px; }
+.fa-input:hover:not(:disabled), .fa-textarea:hover:not(:disabled) { border-color: var(--fa-mute); }
 .fa-input:focus, .fa-textarea:focus {
-  border-color: #00807e;
-  box-shadow: 0 0 0 3px rgba(0, 179, 179, 0.14);
+  background: var(--fa-card);
+  border-color: var(--fa-teal-deep);
+  box-shadow: 0 0 0 3px var(--fa-halo);
 }
-.fa-input::placeholder, .fa-textarea::placeholder { color: #a3a3a3; }
-.fa-input:disabled, .fa-textarea:disabled { background: #f5f5f5; color: #737373; }
+.fa-input::placeholder, .fa-textarea::placeholder { color: var(--fa-mute); opacity: 1; }
+.fa-input:disabled, .fa-textarea:disabled {
+  background: var(--fa-wash);
+  border-color: var(--fa-rule);
+  color: var(--fa-mute);
+  cursor: not-allowed;
+}
 
-/* Multi-select checkbox chips (each toggles independently) */
-.fa-checkpills { display: flex; flex-wrap: wrap; gap: 8px; }
-.fa-checkpill {
-  background: #ffffff;
-  border: 1px solid #d4d4d4;
-  padding: 8px 14px 8px 10px;
-  border-radius: 999px;
+.fa-optional-detail {
+  margin-top: 12px;
+  margin-bottom: 6px;
   font-size: 13px;
+  color: var(--fa-mute);
+}
+
+/* ============ PILLS (single select) ============ */
+.fa-pills, .fa-checkpills { display: flex; flex-wrap: wrap; gap: 8px; }
+.fa-pill, .fa-checkpill {
+  background: var(--fa-wash);
+  border: 1px solid var(--fa-line);
+  border-radius: 999px;
+  font-size: 13.5px;
   font-weight: 500;
-  color: #404040;
-  transition: all 0.15s;
+  color: var(--fa-body);
+  transition: background 0.14s ease, border-color 0.14s ease, color 0.14s ease;
+}
+.fa-pill { padding: 8px 15px; }
+.fa-pill:hover { border-color: var(--fa-teal-deep); color: var(--fa-ink); }
+.fa-pill.active {
+  background: var(--fa-teal-deep);
+  border-color: var(--fa-teal-deep);
+  color: #ffffff;
+  font-weight: 600;
+}
+
+/* Multi-select: a tick box, so "several of these are on" is legible without
+   relying on fill colour alone. */
+.fa-checkpill {
+  padding: 7px 14px 7px 9px;
   display: inline-flex;
   align-items: center;
   gap: 8px;
 }
-.fa-checkpill:hover { border-color: #00807e; color: #171717; }
+.fa-checkpill:hover { border-color: var(--fa-teal-deep); color: var(--fa-ink); }
 .fa-checkpill.active {
-  background: rgba(0, 179, 179, 0.08);
-  border-color: #00807e;
-  color: #00706f;
+  background: var(--fa-brand-wash);
+  border-color: var(--fa-teal-deep);
+  color: var(--fa-teal-text);
   font-weight: 600;
 }
 .fa-checkpill-box {
-  width: 14px;
-  height: 14px;
+  flex: 0 0 auto;
+  width: 15px;
+  height: 15px;
   border-radius: 4px;
-  border: 1.5px solid #d4d4d4;
+  border: 1.5px solid var(--fa-line);
+  background: var(--fa-card);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
-  background: #ffffff;
-  transition: all 0.15s;
   position: relative;
+  transition: background 0.14s ease, border-color 0.14s ease;
 }
 .fa-checkpill.active .fa-checkpill-box {
-  background: #00807e;
-  border-color: #00807e;
+  background: var(--fa-teal-deep);
+  border-color: var(--fa-teal-deep);
 }
 .fa-checkpill-box::after {
   content: '';
@@ -568,62 +667,102 @@
   width: 4px;
   height: 7px;
   border: solid #ffffff;
-  border-width: 0 1.5px 1.5px 0;
+  border-width: 0 1.6px 1.6px 0;
   transform: rotate(45deg);
   top: 1px;
   opacity: 0;
-  transition: opacity 0.15s;
+  transition: opacity 0.14s ease;
 }
 .fa-checkpill.active .fa-checkpill-box::after { opacity: 1; }
 
-.fa-optional-detail {
-  margin-top: 12px;
-  font-size: 12px;
-  color: #737373;
-  margin-bottom: 6px;
-  font-weight: 500;
+/* ============ OPTION CARDS (single select, with a description) ============ */
+.fa-cards { display: flex; flex-direction: column; gap: 8px; }
+.fa-card-opt {
+  background: var(--fa-wash);
+  border: 1px solid var(--fa-line);
+  padding: 13px 15px;
+  border-radius: 10px;
+  text-align: left;
+  transition: border-color 0.14s ease, background 0.14s ease, box-shadow 0.14s ease;
+}
+.fa-card-opt:hover { border-color: var(--fa-teal-deep); }
+.fa-card-opt.active {
+  background: var(--fa-brand-wash);
+  border-color: var(--fa-teal-deep);
+  box-shadow: inset 0 0 0 1px var(--fa-teal-deep);
+}
+.fa-card-title { font-size: 14.5px; font-weight: 600; color: var(--fa-ink); margin-bottom: 2px; }
+.fa-card-opt.active .fa-card-title { color: var(--fa-teal-text); }
+.fa-card-desc { font-size: 13px; color: var(--fa-mute); line-height: 1.5; }
+
+/* ============ SCALE (1 to 5) ============ */
+.fa-scale { display: flex; gap: 8px; }
+.fa-scale-btn {
+  flex: 1 1 0;
+  padding: 13px 0;
+  background: var(--fa-wash);
+  border: 1px solid var(--fa-line);
+  border-radius: 9px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--fa-body);
+  font-variant-numeric: tabular-nums;
+  transition: background 0.14s ease, border-color 0.14s ease, color 0.14s ease;
+}
+.fa-scale-btn:hover { border-color: var(--fa-teal-deep); color: var(--fa-ink); }
+.fa-scale-btn.active {
+  background: var(--fa-teal-deep);
+  border-color: var(--fa-teal-deep);
+  color: #ffffff;
 }
 
-/* ============ TOOL PICKER (Composio typeahead) ============ */
-.fa-tool-picker { position: relative; }
-.fa-tool-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: 8px;
+/* ============ SUGGESTION CHIPS ============ */
+.fa-suggestions { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.fa-tag-hint { font-size: 12.5px; color: var(--fa-mute); margin-right: 2px; }
+.fa-suggestion {
+  background: var(--fa-wash);
+  border: 1px solid var(--fa-line);
+  padding: 5px 10px;
+  border-radius: 6px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--fa-body);
+  transition: border-color 0.14s ease, color 0.14s ease;
 }
+.fa-suggestion:hover { border-color: var(--fa-teal-deep); color: var(--fa-ink); }
+
+/* ============ TOOL PICKER ============ */
+.fa-tool-picker { position: relative; }
+.fa-tool-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
 .fa-tool-tags:empty { display: none; }
 .fa-tool-tag {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  background: rgba(0, 179, 179, 0.08);
-  border: 1px solid #00807e;
-  color: #00706f;
-  padding: 5px 6px 5px 12px;
+  gap: 7px;
+  background: var(--fa-brand-wash);
+  border: 1px solid var(--fa-teal-deep);
+  color: var(--fa-teal-text);
+  padding: 4px 6px 4px 11px;
   border-radius: 999px;
   font-size: 13px;
   font-weight: 500;
 }
 .fa-tool-tag.custom {
-  background: #f5f5f5;
-  border-color: #d4d4d4;
-  color: #525252;
+  background: var(--fa-wash);
+  border-color: var(--fa-line);
+  color: var(--fa-body);
 }
 .fa-tool-tag-source {
   font-size: 9.5px;
   font-weight: 600;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #00706f;
-  background: rgba(0, 179, 179, 0.12);
+  color: var(--fa-teal-text);
+  background: var(--fa-card);
   padding: 1px 5px;
   border-radius: 4px;
 }
-.fa-tool-tag.custom .fa-tool-tag-source {
-  color: #737373;
-  background: #ececec;
-}
+.fa-tool-tag.custom .fa-tool-tag-source { color: var(--fa-mute); background: var(--fa-card); }
 .fa-tool-tag-x {
   display: inline-flex;
   align-items: center;
@@ -631,91 +770,69 @@
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  font-size: 14px;
-  line-height: 1;
-  color: inherit !important;
-  background: rgba(0, 0, 0, 0.04) !important;
+  color: inherit;
+  background: rgba(27, 49, 57, 0.06);
 }
-.fa-tool-tag-x:hover { background: rgba(0, 0, 0, 0.12) !important; }
+.fa-tool-tag-x:hover { background: rgba(27, 49, 57, 0.14); }
 .fa-tool-dropdown {
   position: absolute;
   left: 0;
   right: 0;
   top: 100%;
-  margin-top: 4px;
-  background: #ffffff;
-  border: 1px solid #d4d4d4;
-  border-radius: 9px;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.08);
+  margin-top: 5px;
+  background: var(--fa-card);
+  border-radius: 10px;
+  box-shadow:
+    0 0 0 1px var(--fa-rule),
+    0 8px 24px rgba(27, 49, 57, 0.12),
+    0 2px 6px rgba(27, 49, 57, 0.06);
   max-height: 280px;
   overflow-y: auto;
   z-index: 10;
+  padding: 4px;
 }
 .fa-tool-item {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 14px;
-  font-size: 13.5px;
-  color: #171717;
-  cursor: pointer;
-  border-bottom: 1px solid #f5f5f5;
-  background: #ffffff;
+  padding: 9px 12px;
+  font-size: 14px;
+  color: var(--fa-body);
+  border-radius: 7px;
   width: 100%;
   text-align: left;
 }
-.fa-tool-item:last-child { border-bottom: none; }
-.fa-tool-item:hover, .fa-tool-item.highlight { background: #f8fdfd; color: #00706f; }
-.fa-tool-item-name { flex: 1; }
-.fa-tool-item-cat {
-  font-size: 11px;
-  color: #a3a3a3;
-  font-weight: 500;
+.fa-tool-item:hover, .fa-tool-item.highlight {
+  background: var(--fa-brand-wash);
+  color: var(--fa-teal-text);
 }
-.fa-tool-item-custom { color: #525252; font-style: italic; }
-.fa-tool-empty {
-  padding: 14px;
-  font-size: 13px;
-  color: #a3a3a3;
-  text-align: center;
-  background: #ffffff;
-}
+.fa-tool-item-name { flex: 1 1 auto; min-width: 0; }
+.fa-tool-item-cat { font-size: 11.5px; color: var(--fa-mute); font-weight: 500; }
+.fa-tool-item-custom { color: var(--fa-body); }
+.fa-tool-empty { padding: 14px; font-size: 13px; color: var(--fa-mute); text-align: center; }
 
-/* File upload dropzone — `display: block` is critical because <label> is
-   inline by default and the dropzone would otherwise wrap inline with
-   surrounding helper text + textareas and render as overlapping fragments. */
+/* ============ UPLOAD ============
+   `display: block` is load-bearing: <label> is inline by default and the
+   dropzone would otherwise wrap with the helper text and render in pieces. */
 .fa-upload {
   display: block;
   width: 100%;
-  border: 1.5px dashed #d4d4d4;
+  border: 1.5px dashed var(--fa-line);
   border-radius: 10px;
   padding: 22px 18px;
   text-align: center;
-  background: #ffffff;
+  background: var(--fa-wash);
   cursor: pointer;
-  transition: all 0.15s;
+  transition: border-color 0.14s ease, background 0.14s ease;
   margin-bottom: 12px;
 }
 .fa-upload:hover, .fa-upload.dragover {
-  border-color: #00807e;
-  background: #f8fdfd;
+  border-color: var(--fa-teal-deep);
+  background: var(--fa-brand-wash);
 }
-.fa-upload-icon {
-  width: 32px;
-  height: 32px;
-  margin: 0 auto 8px;
-  color: #737373;
-}
-.fa-upload-text {
-  font-size: 13.5px;
-  color: #404040;
-  font-weight: 500;
-  margin-bottom: 2px;
-}
-.fa-upload-sub {
-  font-size: 11.5px;
-  color: #a3a3a3;
-}
+.fa-upload-icon { display: block; margin: 0 auto 9px; }
+.fa-upload-text { font-size: 14px; color: var(--fa-ink); font-weight: 600; margin-bottom: 2px; }
+.fa-upload-sub { font-size: 12.5px; color: var(--fa-mute); }
 .fa-upload input[type="file"] { display: none; }
 
 .fa-file-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
@@ -723,300 +840,227 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 12px;
-  background: #f5f5f5;
+  padding: 9px 12px;
+  background: var(--fa-wash);
   border-radius: 8px;
-  font-size: 12.5px;
+  font-size: 13px;
 }
-.fa-file-row.pending { color: #737373; }
-.fa-file-row.error { background: #fef2f2; color: #991b1b; }
-.fa-file-name { flex: 1; font-weight: 500; color: #171717; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.fa-file-meta { color: #737373; font-size: 11px; flex-shrink: 0; }
-.fa-file-remove {
-  color: #737373 !important;
-  font-size: 16px;
-  line-height: 1;
-  padding: 2px 6px !important;
-}
-.fa-file-remove:hover { color: #991b1b !important; }
-
-/* Pill buttons (single-select short option lists) */
-.fa-pills { display: flex; flex-wrap: wrap; gap: 8px; }
-.fa-pill {
-  background: #ffffff;
-  border: 1px solid #d4d4d4;
-  padding: 10px 16px;
-  border-radius: 999px;
-  font-size: 13.5px;
+.fa-file-row.pending { color: var(--fa-mute); }
+.fa-file-row.error { background: var(--fa-danger-wash); color: var(--fa-danger); }
+.fa-file-name {
+  flex: 1 1 auto;
   font-weight: 500;
-  color: #404040;
-  transition: all 0.15s;
+  color: var(--fa-ink);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.fa-pill:hover { border-color: #00807e; color: #171717; }
-.fa-pill.active {
-  background: #00807e !important;
-  border-color: #00807e;
-  color: #ffffff !important;
-  font-weight: 600;
-  box-shadow: 0 4px 12px rgba(0, 179, 179, 0.22);
-}
+.fa-file-meta { color: var(--fa-mute); font-size: 12px; flex-shrink: 0; }
+.fa-file-remove { color: var(--fa-mute); font-size: 16px; line-height: 1; padding: 2px 6px; }
+.fa-file-remove:hover { color: var(--fa-danger); }
 
-/* Selectable cards (single-select with descriptions) */
-.fa-cards { display: flex; flex-direction: column; gap: 8px; }
-.fa-card-opt {
-  background: #ffffff;
-  border: 1px solid #d4d4d4;
-  padding: 14px 16px;
-  border-radius: 10px;
-  text-align: left;
-  transition: all 0.15s;
-}
-.fa-card-opt:hover { border-color: #00807e; }
-.fa-card-opt.active {
-  border-color: #00807e;
-  box-shadow: 0 0 0 3px rgba(0, 179, 179, 0.1);
-  background: #f8fdfd;
-}
-.fa-card-title {
-  font-size: 14.5px;
-  font-weight: 600;
-  color: #171717;
-  margin-bottom: 2px;
-}
-.fa-card-opt.active .fa-card-title { color: #00706f; }
-.fa-card-desc {
-  font-size: 12.5px;
-  color: #737373;
-  line-height: 1.5;
-}
-
-/* Click-to-add suggestion chips */
-.fa-suggestions {
-  margin-top: 10px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  align-items: center;
-}
-.fa-tag-hint { font-size: 11.5px; color: #a3a3a3; margin-right: 4px; }
-.fa-suggestion {
-  background: #f5f5f5;
-  border: 1px solid transparent;
-  padding: 5px 10px;
-  border-radius: 6px;
-  font-size: 12px;
-  font-weight: 500;
-  color: #525252;
-  transition: all 0.15s;
-}
-.fa-suggestion:hover { background: #ececec; color: #171717; }
-
-/* ============ NAV (light) ============ */
+/* ============ NAV ============ */
 .fa-nav {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: 36px;
-  padding-top: 24px;
-  border-top: 1px solid #ececec;
+  gap: 16px;
+  margin-top: 32px;
+  padding-top: 20px;
+  border-top: 1px solid var(--fa-rule);
 }
-.fa-back {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 14px;
-  color: #737373 !important;
-  font-weight: 500;
-  background: none !important;
-  padding: 8px 4px;
-  transition: color 0.15s;
-}
-.fa-back:hover { color: #171717 !important; }
-
-.fa-continue {
-  background: #00807e !important;
-  color: #ffffff !important;
-  padding: 13px 26px;
-  border-radius: 9px;
-  font-size: 14px;
-  font-weight: 600;
-  letter-spacing: -0.1px;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.05), 0 4px 12px rgba(0, 179, 179, 0.25);
-  transition: all 0.15s;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-.fa-continue:hover {
-  background: #00706f !important;
-  transform: translateY(-1px);
-}
-.fa-continue:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  transform: none;
-}
-.fa-send { padding: 14px 30px; font-size: 15px; }
-
-.fa-microcopy {
-  font-size: 12px;
-  color: #a3a3a3;
-  margin-top: 14px;
-  text-align: right;
-}
+.fa-nav-end { display: flex; flex-direction: column; align-items: flex-end; gap: 7px; }
+.fa-microcopy { font-size: 12.5px; color: var(--fa-mute); text-align: right; }
 .fa-microcopy kbd {
   display: inline-block;
   padding: 1px 6px;
-  border: 1px solid #d4d4d4;
+  border: 1px solid var(--fa-line);
   border-bottom-width: 2px;
   border-radius: 4px;
-  font-family: var(--font-body);
-  font-size: 11px;
-  color: #525252;
-  background: #ffffff;
+  font-size: 11.5px;
+  color: var(--fa-body);
+  background: var(--fa-card);
   margin: 0 1px;
 }
+.fa-hint { font-size: 13px; color: var(--fa-mute); margin-bottom: 16px; }
 
-/* ============ REVIEW ============ */
-.fa-review { max-width: 720px; margin: 0 auto; padding-top: 16px; }
-.fa-review-block {
-  background: #ffffff;
-  border: 1px solid #ececec;
-  border-radius: 12px;
-  padding: 22px 24px;
-  margin-bottom: 14px;
-  transition: border-color 0.15s;
+/* ============ PANELS ============
+   The generic tonal surface that replaced every bordered card on this page. */
+.fa-panel { background: var(--fa-wash); border-radius: 12px; padding: 20px 22px; }
+.fa-panel.brand { background: var(--fa-brand-wash); }
+.fa-panel-k {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--fa-teal-text);
+  margin-bottom: 5px;
 }
-.fa-review-block:hover { border-color: #d4d4d4; }
+.fa-panel-v { font-size: 15.5px; color: var(--fa-ink); line-height: 1.55; }
+.fa-panel-v + .fa-panel-k { margin-top: 16px; }
+
+/* ============ REVIEW ============
+   Was three white cards each outlined in 1px gray, stacked. Same objection as
+   the quote document: surfaces separate by tone here too. */
+.fa-review { max-width: 720px; margin: 0 auto; }
+.fa-review-block {
+  background: var(--fa-wash);
+  border-radius: 12px;
+  padding: 18px 22px 20px;
+  margin-bottom: 12px;
+}
 .fa-review-head {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  margin-bottom: 14px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid #f5f5f5;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--fa-rule);
 }
-.fa-review-section-name {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 1.8px;
-  color: #171717;
-  text-transform: uppercase;
-}
-.fa-review-edit {
-  font-size: 12.5px;
-  color: #00706f !important;
-  font-weight: 500;
-  background: none !important;
-  padding: 0;
-}
+.fa-review-section-name { font-size: 15px; font-weight: 600; color: var(--fa-ink); }
+.fa-review-section-sub { font-size: 13px; color: var(--fa-mute); font-weight: 400; margin-top: 1px; }
+.fa-review-edit { font-size: 13.5px; color: var(--fa-teal-text); font-weight: 600; flex-shrink: 0; }
 .fa-review-edit:hover { text-decoration: underline; }
-.fa-review-row {
-  display: flex;
-  gap: 16px;
-  padding: 6px 0;
-  align-items: baseline;
-}
+.fa-review-row { display: flex; gap: 18px; padding: 6px 0; align-items: baseline; }
 .fa-review-key {
-  flex-shrink: 0;
-  width: 140px;
-  font-size: 11.5px;
+  flex: 0 0 132px;
+  font-size: 13px;
   font-weight: 500;
-  color: #737373;
-  letter-spacing: 0.3px;
-  text-transform: uppercase;
+  color: var(--fa-mute);
 }
-.fa-review-value {
-  font-size: 14px;
-  color: #171717;
-  line-height: 1.55;
-  flex: 1;
-}
-.fa-review-value.muted { color: #a3a3a3; font-style: italic; }
+.fa-review-value { flex: 1 1 auto; min-width: 0; font-size: 14.5px; color: var(--fa-ink); line-height: 1.55; }
+.fa-review-value.muted { color: var(--fa-mute); }
+/* Tailored questions carry a full sentence as their key. A 132px uppercase
+   column turned those into an unreadable ladder, so they stack instead. */
+.fa-review-row.stacked { flex-direction: column; gap: 3px; padding: 9px 0; }
+.fa-review-row.stacked + .fa-review-row.stacked { border-top: 1px solid var(--fa-rule); }
+.fa-review-row.stacked .fa-review-key { flex: 0 0 auto; font-size: 13px; line-height: 1.45; }
 
-/* ============ SENT TIMELINE ============ */
+/* ============ CLOSING TIMELINE ============ */
 .fa-timeline {
-  max-width: 420px;
-  margin: 32px auto 0;
-  text-align: left;
-  padding: 24px 24px 4px;
-  background: #ffffff;
-  border: 1px solid #ececec;
+  max-width: 460px;
+  margin: 28px 0 0;
+  padding: 20px 22px 8px;
+  background: var(--fa-wash);
   border-radius: 12px;
 }
 .fa-timeline-h {
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 600;
-  letter-spacing: 1.6px;
-  color: #737373;
+  letter-spacing: 0.09em;
   text-transform: uppercase;
-  margin-bottom: 16px;
-  text-align: center;
+  color: var(--fa-mute);
+  margin-bottom: 12px;
 }
-.fa-tl-row {
-  display: flex;
-  gap: 14px;
-  padding: 10px 0;
-  align-items: flex-start;
-  position: relative;
-}
+.fa-tl-row { display: flex; gap: 13px; padding: 9px 0; align-items: flex-start; position: relative; }
 .fa-tl-row:not(:last-child)::before {
   content: '';
   position: absolute;
   left: 10px;
-  top: 32px;
-  bottom: -4px;
+  top: 31px;
+  bottom: -3px;
   width: 2px;
-  background: #ececec;
+  background: var(--fa-rule);
 }
-.fa-tl-row.done:not(:last-child)::before { background: #00807e; }
+.fa-tl-row.done:not(:last-child)::before { background: var(--fa-teal-deep); }
 .fa-tl-num {
-  flex-shrink: 0;
+  flex: 0 0 auto;
   width: 22px;
   height: 22px;
   border-radius: 50%;
-  background: #f5f5f5;
-  color: #525252;
+  background: var(--fa-card);
+  box-shadow: inset 0 0 0 1.5px var(--fa-line);
+  color: var(--fa-mute);
   font-size: 11px;
   font-weight: 600;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-top: 2px;
+  margin-top: 1px;
   position: relative;
   z-index: 1;
 }
-.fa-tl-row.done .fa-tl-num { background: #00807e; color: #ffffff; }
-.fa-tl-body { flex: 1; }
-.fa-tl-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: #171717;
-  margin-bottom: 2px;
-}
-.fa-tl-sub { font-size: 12.5px; color: #737373; }
+.fa-tl-row.done .fa-tl-num { background: var(--fa-teal-deep); box-shadow: none; color: #ffffff; }
+.fa-tl-body { flex: 1 1 auto; min-width: 0; }
+.fa-tl-title { font-size: 14.5px; font-weight: 600; color: var(--fa-ink); margin-bottom: 1px; }
+.fa-tl-sub { font-size: 13px; color: var(--fa-mute); }
 
-/* ============ ERROR BANNER ============ */
-.fa-error {
-  background: #fef2f2;
-  border: 1px solid #fecaca;
-  color: #991b1b;
-  padding: 10px 14px;
-  border-radius: 8px;
-  font-size: 13px;
-  margin-top: 16px;
+/* ============ TAILORING (the one waiting state) ============
+   An edge state gets the same care as the happy path. */
+.fa-wait { padding: 40px 0 24px; text-align: center; }
+.fa-spinner {
+  width: 44px;
+  height: 44px;
+  margin: 0 auto 22px;
+  border-radius: 50%;
+  border: 3px solid var(--fa-rule);
+  border-top-color: var(--fa-teal-deep);
+  animation: fa-spin 0.9s linear infinite;
 }
+@keyframes fa-spin { to { transform: rotate(360deg); } }
+.fa-wait .fa-h-title { margin-bottom: 10px; }
+.fa-wait .fa-hero-body { max-width: 44ch; margin-left: auto; margin-right: auto; }
+.fa-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 24px; }
+.fa-actions.split { justify-content: space-between; }
 
-/* ============ RESPONSIVE ============ */
-@media (max-width: 800px) {
-  .fa-cols { grid-template-columns: 1fr; gap: 24px; }
-  .fa-side-dark { position: relative; top: 0; min-height: auto; padding: 28px 24px; }
-  .fa-side-num-d { font-size: 64px; }
-  .fa-side-atlas-frame { margin-bottom: 24px; }
-  .fa-h-title { font-size: 34px; letter-spacing: -1px; }
-  .fa-q-title { font-size: 24px; }
-  .fa-q-title.anchor { font-size: 28px; letter-spacing: -0.8px; }
-  .fa-header, .fa-stage { padding-left: 18px; padding-right: 18px; }
+/* ============ RESPONSIVE ============
+   Mobile first in behaviour if not in source order: the rail moves above the
+   questions and drops to a compact strip, because on a phone what matters is
+   "how much is left", not the whole map. */
+@media (max-width: 900px) {
+  .fa-onboard { --fa-pad: 24px; padding: 16px 12px 40px; }
+  .fa-doc { border-radius: 12px; }
+  .fa-progress { border-radius: 12px 12px 0 0; }
+  .fa-header { padding-top: 18px; padding-bottom: 18px; }
+  .fa-stage { padding-bottom: 32px; }
+
+  /* The rail collapses to a strip. On a phone a four-item map plus an avatar
+     plus a note pushed the actual question below the fold, which is the one
+     thing a task screen can't do. Only the step you're on survives; "how much
+     is left" is still legible from its sub-line ("Question 2 of 3") and from
+     the masthead ("Step 3 of 4"). */
+  .fa-cols { grid-template-columns: 1fr; gap: 20px; }
+  .fa-rail { position: static; padding: 16px 18px; }
+  .fa-rail-hr { margin: 13px 0; }
+  .fa-rail-foot { display: none; }
+  .fa-rail-who { margin-bottom: 14px; }
+  .fa-rstep:not(.now) { display: none; }
+  .fa-rstep { padding: 0; }
+  .fa-rstep::before, .fa-rstep:not(:last-child)::before { display: none; }
+
+  /* The wordmark must never wrap. */
+  .fa-brand { flex-shrink: 0; }
+  .fa-brand > span { white-space: nowrap; }
+  .fa-step { text-align: right; }
+
+  .fa-h-title { font-size: 25px; }
+  .fa-q-title { font-size: 21px; }
+  .fa-q-title.anchor { font-size: 23px; }
+  .fa-mark { width: 46px; height: 46px; border-radius: 13px; margin-bottom: 18px; }
+
+  .fa-landing-fields { grid-template-columns: 1fr; }
   .fa-review-row { flex-direction: column; gap: 2px; }
-  .fa-review-key { width: auto; }
+  .fa-review-key { flex-basis: auto; }
+  .fa-toc { padding: 18px; }
+
+  /* Thumb-reachable, full-width actions. A prospect finishing this on a phone
+     shouldn't have to aim. */
+  .fa-nav { flex-direction: column-reverse; align-items: stretch; gap: 10px; }
+  .fa-nav-end { align-items: stretch; }
+  .fa-microcopy { text-align: center; }
+  .fa-begin, .fa-continue, .fa-btn-primary, .fa-btn-secondary, .fa-back {
+    justify-content: center;
+    width: 100%;
+  }
+  .fa-actions, .fa-actions.split { flex-direction: column-reverse; }
+  .fa-timeline { max-width: none; }
+}
+
+@media (max-width: 400px) {
+  .fa-onboard { --fa-pad: 18px; }
+  .fa-h-title { font-size: 23px; }
+  .fa-brand { font-size: 14px; }
+  .fa-step { font-size: 10px; }
 }

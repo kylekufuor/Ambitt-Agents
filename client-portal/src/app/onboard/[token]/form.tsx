@@ -3,39 +3,80 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import "./form.css";
 
-// Brand mark — kept inline as JSX so the agent silhouette + visor render in
-// every browser regardless of CDN reachability. Sized variants reuse the same
-// viewBox so we only have one source of truth for the geometry.
+// Every mark on this page is inline SVG. Nothing here depends on an external
+// asset, so the first surface a prospect ever sees can't render half-drawn
+// because a CDN blinked. Same geometry as the proposal and quote documents.
+//
+// Two-step teal applies to the artwork too: #00b3b3 is the visor (a mark, no
+// letterform anywhere near it) and #00706f is used wherever a stroke needs to
+// read. The #00d4d4 that used to sit in the Atlas visor is gone; it was a
+// second teal nobody chose and it ships nowhere else.
 function AmbittMark({ width = 44, height = 22 }: { width?: number; height?: number }) {
   return (
-    <svg viewBox="0 0 86 42" width={width} height={height} xmlns="http://www.w3.org/2000/svg">
+    <svg viewBox="0 0 86 42" width={width} height={height} aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
       <g transform="translate(43, 22)">
-        <g transform="translate(-28, 0)">
-          <rect x={-9} y={-2} width={18} height={18} rx={5} fill="#171717" />
-          <circle cx={0} cy={-11} r={6.5} fill="#171717" />
-          <rect x={-4} y={-12.25} width={8} height={2.5} rx={1.25} fill="#00b3b3" />
-        </g>
-        <g>
-          <rect x={-9} y={-2} width={18} height={18} rx={5} fill="#171717" />
-          <circle cx={0} cy={-11} r={6.5} fill="#171717" />
-          <rect x={-4} y={-12.25} width={8} height={2.5} rx={1.25} fill="#00b3b3" />
-        </g>
-        <g transform="translate(28, 0)">
-          <rect x={-9} y={-2} width={18} height={18} rx={5} fill="#171717" />
-          <circle cx={0} cy={-11} r={6.5} fill="#171717" />
-          <rect x={-4} y={-12.25} width={8} height={2.5} rx={1.25} fill="#00b3b3" />
-        </g>
+        {[-28, 0, 28].map((tx) => (
+          <g key={tx} transform={`translate(${tx}, 0)`}>
+            <rect x={-9} y={-2} width={18} height={18} rx={5} fill="#1d2f40" />
+            <circle cx={0} cy={-11} r={6.5} fill="#1d2f40" />
+            <rect x={-4} y={-12.25} width={8} height={2.5} rx={1.25} fill="#00b3b3" />
+          </g>
+        ))}
       </g>
     </svg>
   );
 }
 
-function AtlasSingle({ width = 22, height = 32 }: { width?: number; height?: number }) {
+// Atlas, on a light brand-wash plate. Was white-on-near-black; there is no
+// near-black surface on this page any more.
+function AtlasFace({ width = 22, height = 32 }: { width?: number; height?: number }) {
   return (
-    <svg viewBox="0 0 28 40" width={width} height={height} xmlns="http://www.w3.org/2000/svg">
-      <rect x={5} y={19} width={18} height={18} rx={5} fill="#ffffff" />
-      <circle cx={14} cy={10} r={6.5} fill="#ffffff" />
-      <rect x={9.5} y={8.75} width={9} height={2.5} rx={1.25} fill="#00d4d4" />
+    <svg viewBox="0 0 28 40" width={width} height={height} aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+      <rect x={5} y={19} width={18} height={18} rx={5} fill="#1d2f40" />
+      <circle cx={14} cy={10} r={6.5} fill="#1d2f40" />
+      <rect x={9.5} y={8.75} width={9} height={2.5} rx={1.25} fill="#00b3b3" />
+    </svg>
+  );
+}
+
+// A verb does the work; the chevron is only punctuation. The old buttons put a
+// literal "→" in the label, which renders at a different size and weight on
+// every platform and gets read aloud by a screen reader.
+function Chev({ dir = "right" }: { dir?: "left" | "right" }) {
+  return (
+    <svg className="fa-chev" width={14} height={14} viewBox="0 0 16 16" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+      <path
+        d={dir === "right" ? "M6 3.4 10.6 8 6 12.6" : "M10 3.4 5.4 8 10 12.6"}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={1.9}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function TickGlyph() {
+  return (
+    <svg width={11} height={11} viewBox="0 0 12 12" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+      <path d="M2.4 6.2 4.8 8.6 9.6 3.7" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+// Duotone, drawn at one weight in two tones of one hue — the same icon
+// language as the quote document's scope list. Replaces a single-stroke
+// outline glyph of the kind this design system explicitly doesn't use.
+function UploadMark() {
+  return (
+    <svg className="fa-upload-icon" width={34} height={34} viewBox="0 0 32 32" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+      <circle cx={16} cy={16} r={16} fill="#c2e6e5" />
+      <g fill="none" stroke="#00706f" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+        <path d="M16 20.4V9.9" />
+        <path d="M11.9 14 16 9.9l4.1 4.1" />
+        <path d="M9.6 19.9v2.2a1.5 1.5 0 0 0 1.5 1.5h9.8a1.5 1.5 0 0 0 1.5-1.5v-2.2" />
+      </g>
     </svg>
   );
 }
@@ -117,6 +158,11 @@ interface ComposioApp {
   categories: string[];
 }
 
+// Empty review rows used to render a bare em dash. Client-facing copy on this
+// page never passes the send-time em-dash scrub, and "—" tells the reader
+// nothing anyway.
+const NOT_ANSWERED = "Not answered yet";
+
 function parseList(raw: string | undefined): string[] {
   if (!raw) return [];
   if (Array.isArray(raw)) return raw as unknown as string[];
@@ -164,6 +210,23 @@ interface DynamicIntakePayload {
   agentArchetype: string;
   questions: DynamicQuestion[];
 }
+
+// The rail, and the welcome page's contents list, both read from this.
+//
+// The old copy promised a "7-chapter brief" and listed Hard limits, Tools,
+// How it works and The job deeper. None of those chapters exist any more:
+// after "the one sentence" the flow hands over to Atlas, which writes a
+// handful of questions for this specific business. Telling a prospect on the
+// first screen that there are seven chapters, four of which they will never
+// see, is a worse first impression than any styling problem on this page.
+type RailKey = "about" | "sentence" | "questions" | "review";
+
+const RAIL_STEPS: Array<{ key: RailKey; name: string; desc: string }> = [
+  { key: "about", name: "About you", desc: "Who you are, and what the business actually does" },
+  { key: "sentence", name: "The one sentence", desc: "The agent's job, in your own words" },
+  { key: "questions", name: "Your questions", desc: "A handful, written for your business once I've read the first two" },
+  { key: "review", name: "Review and send", desc: "One last look, then it comes to me" },
+];
 
 export function OnboardForm({ token, prospectId: _prospectId, initial, status }: OnboardFormProps) {
   void _prospectId; // not consumed here today but kept on props for future use
@@ -313,17 +376,22 @@ export function OnboardForm({ token, prospectId: _prospectId, initial, status }:
   const actualSlide = slide === -1 ? SLIDE_SENT : slide === -2 ? SLIDE_REVIEW : slide;
 
   // Step label + progress percent computed off the actual slide + dynamicCount.
+  // The masthead label and the rail used to disagree with each other on the
+  // same screen: the header said "STEP 1 OF 3" while the sidebar said
+  // "CHAPTER 01 / 07". They now read off one model.
   const stepLabel = (() => {
-    if (actualSlide === SLIDE_WELCOME) return "WELCOME";
-    if (actualSlide === SLIDE_ABOUT_YOU) return "STEP 1 OF 3";
-    if (actualSlide === SLIDE_ONE_SENTENCE) return "STEP 2 OF 3";
-    if (actualSlide === SLIDE_LOADING_DYNAMIC) return "TAILORING…";
-    if (actualSlide === SLIDE_DOMAIN_CONFIRM) return "QUICK CHECK";
+    if (actualSlide === SLIDE_WELCOME) return "Your agent brief";
+    if (actualSlide === SLIDE_ABOUT_YOU) return "Step 1 of 4";
+    if (actualSlide === SLIDE_ONE_SENTENCE) return "Step 2 of 4";
+    if (actualSlide === SLIDE_LOADING_DYNAMIC) return "Tailoring";
+    if (actualSlide === SLIDE_DOMAIN_CONFIRM) return "Quick check";
+    // Just the step. The rail carries "Question 2 of 3" underneath the active
+    // step, and putting both here wrapped the wordmark onto two lines at 390px.
     if (actualSlide >= FIRST_DYNAMIC_SLIDE && actualSlide < FIRST_DYNAMIC_SLIDE + dynamicCount) {
-      return `QUESTION ${actualSlide - FIRST_DYNAMIC_SLIDE + 1} OF ${dynamicCount}`;
+      return "Step 3 of 4";
     }
-    if (actualSlide === SLIDE_REVIEW) return "REVIEW";
-    if (actualSlide === SLIDE_SENT) return "COMPLETE";
+    if (actualSlide === SLIDE_REVIEW) return "Step 4 of 4";
+    if (actualSlide === SLIDE_SENT) return "All done";
     return "";
   })();
   const stepPercent = (() => {
@@ -349,19 +417,30 @@ export function OnboardForm({ token, prospectId: _prospectId, initial, status }:
 
   return (
     <div className="fa-onboard">
-      <div className="fa-progress">
-        <div className="fa-progress-fill" style={{ width: `${stepPercent}%` }} />
-      </div>
-
-      <div className={headerClass}>
-        <div className="fa-brand">
-          <AmbittMark />
-          AMBITT AGENTS
+      <div className="fa-doc">
+        {/* The document's teal top rule doubles as the progress bar. */}
+        <div
+          className="fa-progress"
+          role="progressbar"
+          aria-label="Brief progress"
+          aria-valuenow={stepPercent}
+          aria-valuemin={0}
+          aria-valuemax={100}
+        >
+          <div className="fa-progress-fill" style={{ width: `${stepPercent}%` }} />
         </div>
-        <div className="fa-step">{stepLabel}</div>
-      </div>
 
-      <div className="fa-stage">
+        <div className={headerClass}>
+          <div className="fa-brand">
+            <AmbittMark />
+            <span>
+              Ambitt <span className="accent">Agents</span>
+            </span>
+          </div>
+          <div className="fa-step">{stepLabel}</div>
+        </div>
+
+        <div className="fa-stage">
         {actualSlide === SLIDE_WELCOME && <WelcomeSlide onBegin={next} />}
         {actualSlide === SLIDE_ABOUT_YOU && (
           <AboutYouSlide values={values} set={set} multi={multi} toggleMulti={toggleMulti} onNext={next} onBack={back} />
@@ -412,6 +491,7 @@ export function OnboardForm({ token, prospectId: _prospectId, initial, status }:
           />
         )}
         {actualSlide === SLIDE_SENT && <SentSlide email={initial.email ?? ""} />}
+        </div>
       </div>
     </div>
   );
@@ -425,127 +505,148 @@ function WelcomeSlide({ onBegin }: { onBegin: () => void }) {
   return (
     <div className="fa-slide active">
       <div className="fa-hero">
-        <div className="fa-agent-frame"><AtlasSingle width={50} height={72} /></div>
-        <div className="fa-h-title">Let&apos;s build<br />your agent.</div>
+        {/* No eyebrow here: the masthead on the same row already says "Your
+            agent brief", and printing it twice reads as a bug. */}
+        <div className="fa-mark"><AtlasFace width={30} height={43} /></div>
+        <h1 className="fa-h-title">Let&apos;s build your agent.</h1>
         <p className="fa-hero-body">
-          Hey there. I&apos;m <strong>Atlas</strong>{" "}— Ambitt Agents&apos; onboarding agent. The more detail you share here, the sharper the proposal I&apos;ll draft for you.
+          Hey, I&apos;m <strong>Atlas</strong>. I handle onboarding here. The more you tell me, the sharper
+          the proposal I&apos;ll write for you.
         </p>
         <p className="fa-hero-body">
-          Once you&apos;re done, I&apos;ll review everything and email back a tailored presentation of the agent we&apos;d build for you — usually within 30 minutes.
+          When you&apos;re done I&apos;ll read it all back, draft what we&apos;d build, and email it over.
+          Usually within 30 minutes.
         </p>
 
         <div className="fa-toc">
-          <div className="fa-toc-label">The 7-chapter brief</div>
+          <div className="fa-toc-label">What I&apos;ll ask you</div>
           <div className="fa-toc-list">
-            <div className="fa-toc-row">
-              <div className="fa-toc-num">01</div>
-              <div className="fa-toc-body">
-                <div className="fa-toc-name">About you</div>
-                <div className="fa-toc-desc">Quick facts so the proposal lands with the right person</div>
+            {RAIL_STEPS.map((step, i) => (
+              <div className="fa-toc-row" key={step.key}>
+                <div className="fa-toc-num">{String(i + 1).padStart(2, "0")}</div>
+                <div className="fa-toc-body">
+                  <div className="fa-toc-name">{step.name}</div>
+                  <div className="fa-toc-desc">{step.desc}</div>
+                </div>
               </div>
-            </div>
-            <div className="fa-toc-row">
-              <div className="fa-toc-num">02</div>
-              <div className="fa-toc-body">
-                <div className="fa-toc-name">The one sentence</div>
-                <div className="fa-toc-desc">The agent&apos;s core job, in your own words</div>
-              </div>
-            </div>
-            <div className="fa-toc-row">
-              <div className="fa-toc-num">03</div>
-              <div className="fa-toc-body">
-                <div className="fa-toc-name">The job, deeper</div>
-                <div className="fa-toc-desc">Success metrics, cadence, volume</div>
-              </div>
-            </div>
-            <div className="fa-toc-row">
-              <div className="fa-toc-num">04</div>
-              <div className="fa-toc-body">
-                <div className="fa-toc-name">How it works</div>
-                <div className="fa-toc-desc">Channel, autonomy, voice</div>
-              </div>
-            </div>
-            <div className="fa-toc-row">
-              <div className="fa-toc-num">05</div>
-              <div className="fa-toc-body">
-                <div className="fa-toc-name">Hard limits</div>
-                <div className="fa-toc-desc">Budget and what the agent should never do</div>
-              </div>
-            </div>
-            <div className="fa-toc-row">
-              <div className="fa-toc-num">06</div>
-              <div className="fa-toc-body">
-                <div className="fa-toc-name">Tools</div>
-                <div className="fa-toc-desc">What the agent needs access to</div>
-              </div>
-            </div>
-            <div className="fa-toc-row">
-              <div className="fa-toc-num">07</div>
-              <div className="fa-toc-body">
-                <div className="fa-toc-name">Review</div>
-                <div className="fa-toc-desc">Final check, then off to Atlas</div>
-              </div>
-            </div>
+            ))}
           </div>
         </div>
 
         <div className="fa-begin-wrap">
           <button type="button" className="fa-begin" onClick={onBegin}>
-            Let&apos;s begin
-            <span className="fa-begin-arrow" aria-hidden="true">→</span>
+            Start the brief
+            <Chev />
           </button>
         </div>
-        <div className="fa-meta">5–10 minutes<span className="dot">·</span>Progress saved automatically</div>
+        {/* "Progress saved automatically" was not true. The first two answers
+            are saved when Atlas tailors the questions; the tailored answers
+            are only saved on send. */}
+        <div className="fa-meta">About 5 minutes<span className="dot">·</span>Best done in one sitting</div>
       </div>
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Chapter shell — dark sidebar + content area shared across slides 1-6
+// Chapter shell — tonal rail + content area, used by EVERY question slide
 // ---------------------------------------------------------------------------
+//
+// The rail replaces a 320px near-black slab that carried an 84px numeral and a
+// decorative pull-quote attributed to Atlas. Three things were wrong with it:
+// it was the only dark surface anywhere in the pre-sale funnel, its palette
+// was warm (#171717) against a cool system, and it spent the whole left column
+// on ornament while the prospect's actual question ("how much more of this is
+// there?") went unanswered. It now shows who is asking and exactly where you
+// are, which is the reassurance a long intake form owes the person filling it.
+//
+// It is also on every question slide now. The tailored questions used to
+// render in a bare 620px column with no rail at all, so progress vanished at
+// exactly the point the form gets longest.
 
 interface ChapterShellProps {
-  num: string;
-  ofTotal?: string;
-  name: React.ReactNode;
-  quote: string;
-  contentTag: string;
+  active: RailKey;
+  /** e.g. "Question 2 of 3" under the active rail step. */
+  activeSub?: string;
+  /** Atlas's line for this step. Plain speech, not a pull-quote. */
+  note: string;
+  eyebrow: string;
   title: React.ReactNode;
-  helper: string;
+  helper?: string;
   anchor?: boolean;
   children: React.ReactNode;
   onBack: () => void;
   onNext: () => void;
+  backLabel?: string;
+  nextLabel?: string;
+  nextDisabled?: boolean;
+  /** Shown between the fields and the nav, e.g. a required-answer nudge. */
+  hint?: string;
+  busy?: boolean;
 }
 
-function ChapterShell({ num, ofTotal = "/ 07", name, quote, contentTag, title, helper, anchor, children, onBack, onNext }: ChapterShellProps) {
+function ChapterRail({ active, activeSub, note }: { active: RailKey; activeSub?: string; note: string }) {
+  const activeIndex = RAIL_STEPS.findIndex((s) => s.key === active);
+  return (
+    <aside className="fa-rail">
+      <div className="fa-rail-who">
+        <div className="fa-rail-avatar"><AtlasFace width={19} height={27} /></div>
+        <div>
+          <div className="fa-rail-name">Atlas</div>
+          <div className="fa-rail-role">Onboarding agent</div>
+        </div>
+      </div>
+
+      <ol className="fa-rsteps">
+        {RAIL_STEPS.map((step, i) => {
+          const state = i < activeIndex ? "done" : i === activeIndex ? "now" : "todo";
+          return (
+            <li className={`fa-rstep ${state}`} key={step.key} aria-current={state === "now" ? "step" : undefined}>
+              <span className="fa-rstep-dot">{state === "done" ? <TickGlyph /> : i + 1}</span>
+              <span className="fa-rstep-body">
+                <span className="fa-rstep-name">{step.name}</span>
+                {state === "now" && activeSub && <span className="fa-rstep-sub">{activeSub}</span>}
+              </span>
+            </li>
+          );
+        })}
+      </ol>
+
+      <div className="fa-rail-hr" />
+      <p className="fa-rail-note">{note}</p>
+      <div className="fa-rail-hr" />
+      <p className="fa-rail-foot">Nothing goes anywhere until you send it at the end.</p>
+    </aside>
+  );
+}
+
+function ChapterShell({
+  active, activeSub, note, eyebrow, title, helper, anchor, children,
+  onBack, onNext, backLabel = "Back", nextLabel = "Continue", nextDisabled, hint, busy,
+}: ChapterShellProps) {
   return (
     <div className="fa-slide active">
       <div className="fa-cols">
-        <div className="fa-side-dark">
-          <div className="fa-side-atlas-frame"><AtlasSingle /></div>
-          <div className="fa-side-step-label">CHAPTER</div>
-          <div className="fa-side-chapter-d">
-            <div className="fa-side-num-d">{num}</div>
-            <div className="fa-side-of-d">{ofTotal}</div>
-          </div>
-          <div className="fa-side-name-d">{name}</div>
-          <div className="fa-side-divider" />
-          <div className="fa-side-quote">&ldquo;{quote}&rdquo;</div>
-          <div className="fa-side-attribution">— Atlas</div>
-        </div>
+        <ChapterRail active={active} activeSub={activeSub} note={note} />
 
         <div className="fa-content">
-          <div className="fa-content-tag">{contentTag}</div>
-          <div className={`fa-q-title${anchor ? " anchor" : ""}`}>{title}</div>
-          <p className={`fa-q-helper${anchor ? " anchor" : ""}`}>{helper}</p>
+          <div className="fa-eyebrow">{eyebrow}</div>
+          <h1 className={`fa-q-title${anchor ? " anchor" : ""}`}>{title}</h1>
+          {helper && <p className={`fa-q-helper${anchor ? " anchor" : ""}`}>{helper}</p>}
 
           {children}
 
+          {hint && <p className="fa-hint">{hint}</p>}
+
           <div className="fa-nav">
-            <button type="button" className="fa-back" onClick={onBack}>← Back</button>
-            <button type="button" className="fa-continue" onClick={onNext}>Continue →</button>
+            <button type="button" className="fa-back" onClick={onBack} disabled={busy}>
+              <Chev dir="left" />
+              {backLabel}
+            </button>
+            <button type="button" className="fa-continue" onClick={onNext} disabled={nextDisabled || busy}>
+              {nextLabel}
+              <Chev />
+            </button>
           </div>
         </div>
       </div>
@@ -747,7 +848,7 @@ function ToolPicker({ tools, setTools }: { tools: ToolSelection[]; setTools: Rea
         onChange={(e) => { setQuery(e.target.value); setOpen(true); setHighlight(0); }}
         onFocus={() => setOpen(true)}
         onKeyDown={onKeyDown}
-        placeholder={catalog.length === 0 ? "Loading tool catalog…" : "Type a tool name — Gmail, Linear, your custom app…"}
+        placeholder={catalog.length === 0 ? "Loading tool catalog…" : "Type a tool name. Gmail, Linear, your own app…"}
       />
       {open && (matches.length > 0 || showCustomHint) && (
         <div className="fa-tool-dropdown" role="listbox">
@@ -823,12 +924,8 @@ function UploadDropzone({
           accept=".pdf,.doc,.docx,.md,.txt,.rtf,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown,application/rtf"
           onChange={handlePick}
         />
-        <svg className="fa-upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
-          <polyline points="17 8 12 3 7 8" />
-          <line x1="12" y1="3" x2="12" y2="15" />
-        </svg>
-        <div className="fa-upload-text">{uploading ? "Uploading…" : "Drop SOPs here or click to upload"}</div>
+        <UploadMark />
+        <div className="fa-upload-text">{uploading ? "Uploading…" : "Drop SOPs here, or click to upload"}</div>
         <div className="fa-upload-sub">PDF, Word, Markdown, or plain text · up to 15 MB each</div>
       </label>
       {files.length > 0 && (
@@ -862,12 +959,11 @@ function AboutYouSlide({
 }) {
   return (
     <ChapterShell
-      num="01"
-      name={<>About <span className="accent">you</span></>}
-      quote="Just the basics — so the proposal lands with the right person and gets built for the right business."
-      contentTag="CONTACT & BUSINESS"
+      active="about"
+      note="Just the basics here. This is what makes sure the proposal lands with the right person and gets built for the right business."
+      eyebrow="Contact and business"
       title="Tell me about you and your business."
-      helper="Quick facts so the proposal is addressed to the right person."
+      helper="Quick facts, so the proposal is addressed to the right person."
       onBack={onBack}
       onNext={onNext}
     >
@@ -886,24 +982,24 @@ function AboutYouSlide({
       <Field label="Website">
         <Input type="url" value={values.website ?? ""} onChange={(e) => set("website", e.target.value)} placeholder="https://yourcompany.com" />
       </Field>
-      <Field label="What does your business actually do?" helper="One paragraph. Industry + what you sell + who buys.">
-        <Textarea value={values.industry ?? ""} onChange={(e) => set("industry", e.target.value)} placeholder="We help [audience] do [job] by [solution] — keep it to a paragraph." />
+      <Field label="What does your business actually do?" helper="One paragraph. Industry, what you sell, who buys.">
+        <Textarea value={values.industry ?? ""} onChange={(e) => set("industry", e.target.value)} placeholder="We help [audience] do [job] by [solution]. A paragraph is plenty." />
       </Field>
-      <Field label="Who is your target audience?" helper="Pick all that apply — Atlas will tune the agent's voice and outputs to fit them.">
+      <Field label="Who is your target audience?" helper="Pick all that apply. I'll tune the agent's voice and outputs to fit them.">
         <CheckPills options={AUDIENCE_OPTIONS} selected={multi.audienceTags ?? []} onToggle={(v) => toggleMulti("audienceTags", v)} />
-        <OptionalDetail>Anything more specific? (industry, role, size)</OptionalDetail>
-        <Textarea value={values.audienceDetail ?? ""} onChange={(e) => set("audienceDetail", e.target.value)} placeholder={`e.g., "DTC e-commerce founders doing $1–10M/yr", "HR directors at 200+ employee SaaS companies"`} />
+        <OptionalDetail>Anything more specific? Industry, role, company size.</OptionalDetail>
+        <Textarea value={values.audienceDetail ?? ""} onChange={(e) => set("audienceDetail", e.target.value)} placeholder={`e.g. "DTC e-commerce founders doing $1–10M a year", "HR directors at 200+ employee SaaS companies"`} />
       </Field>
       <Field label="What should the agent call you?">
         <Input value={values.preferredName ?? ""} onChange={(e) => set("preferredName", e.target.value)} placeholder="First name" />
       </Field>
-      <Field label="What should we call your agent?" helper="Pick a name — Atlas, Bob, Iris, anything. Atlas will use it throughout the proposal.">
-        <Input value={values.agentName ?? ""} onChange={(e) => set("agentName", e.target.value)} placeholder="e.g., Bob" />
+      <Field label="What should we call your agent?" helper="Pick a name. Atlas, Bob, Iris, anything. I'll use it throughout the proposal.">
+        <Input value={values.agentName ?? ""} onChange={(e) => set("agentName", e.target.value)} placeholder="e.g. Bob" />
       </Field>
       <Field label="What's their role?" helper="Pick the closest match. If nothing fits, type your own below.">
         <Pills options={AGENT_ROLE_OPTIONS} value={values.agentRole ?? ""} onChange={(v) => set("agentRole", v)} />
         <OptionalDetail>Or describe it yourself:</OptionalDetail>
-        <Input value={values.agentRole ?? ""} onChange={(e) => set("agentRole", e.target.value)} placeholder="e.g., outbound SDR for yacht charters" />
+        <Input value={values.agentRole ?? ""} onChange={(e) => set("agentRole", e.target.value)} placeholder="e.g. outbound SDR for yacht charters" />
       </Field>
     </ChapterShell>
   );
@@ -917,18 +1013,17 @@ function OneSentenceSlide({ values, set, onBack, onNext }: { values: Record<stri
   const agentLabel = values.agentName?.trim() || "your agent";
   return (
     <ChapterShell
-      num="02"
-      name={<>The one <span className="accent">sentence</span></>}
-      quote="The most important question. Take a beat with it — I'll work with whatever you write."
-      contentTag="THE AGENT'S JOB"
-      title={`In one sentence — what should ${agentLabel} do for you?`}
-      helper="Don't overthink it. We'll refine together if anything's unclear."
+      active="sentence"
+      note="This is the one that matters most. Take a beat with it. I'll work with whatever you write."
+      eyebrow="The agent's job"
+      title={`In one sentence, what should ${agentLabel} do for you?`}
+      helper="Don't overthink it. If anything's unclear, we'll sort it out together."
       anchor
       onBack={onBack}
       onNext={onNext}
     >
       <Field>
-        <Textarea anchor value={values.agentPitch ?? ""} onChange={(e) => set("agentPitch", e.target.value)} placeholder="e.g., Reply to inbound support tickets within 5 minutes with a draft response for me to approve." />
+        <Textarea anchor value={values.agentPitch ?? ""} onChange={(e) => set("agentPitch", e.target.value)} placeholder="e.g. Reply to inbound support tickets within 5 minutes with a draft response for me to approve." />
       </Field>
     </ChapterShell>
   );
@@ -951,10 +1046,9 @@ function JobDeeperSlide({
   const agentLabel = values.agentName?.trim() || "your agent";
   return (
     <ChapterShell
-      num="03"
-      name={<>The <span className="accent">job</span>,<br />deeper</>}
-      quote={`What changes when ${agentLabel} shows up — and what 'good' looks like three months out.`}
-      contentTag="SUCCESS & CADENCE"
+      active="questions"
+      note={`What changes when ${agentLabel} shows up, and what good looks like three months out.`}
+      eyebrow="Success and cadence"
       title="Let's go deeper on the job."
       helper={`What changes when ${agentLabel} is in place, what success looks like, and how often it should run.`}
       onBack={onBack}
@@ -962,18 +1056,18 @@ function JobDeeperSlide({
     >
       <Field label="Today, who handles this work?">
         <Pills options={TODAY_HANDLER_OPTIONS} value={values.todayHandler ?? "I do it myself"} onChange={(v) => set("todayHandler", v)} />
-        <OptionalDetail>Want to add details? (how much time it takes, what&apos;s hard about it)</OptionalDetail>
+        <OptionalDetail>Want to add details? How much time it takes, what&apos;s hard about it.</OptionalDetail>
         <Textarea value={values.todayVsAgent ?? ""} onChange={(e) => set("todayVsAgent", e.target.value)} placeholder="What does the manual process look like today? How much time does it take?" />
       </Field>
-      <Field label="What does success look like 3 months from now?" helper="Pick all that apply — Atlas will use these as the proposal's success metrics.">
+      <Field label="What does success look like 3 months from now?" helper="Pick all that apply. I'll use these as the proposal's success metrics.">
         <CheckPills options={SUCCESS_OUTCOMES} selected={multi.successOutcomes ?? []} onToggle={(v) => toggleMulti("successOutcomes", v)} />
         <OptionalDetail>Add concrete numbers if you have them:</OptionalDetail>
-        <Textarea value={values.successCriteria ?? ""} onChange={(e) => set("successCriteria", e.target.value)} placeholder={`e.g., "3 new clients/month", "20 hours saved each week"`} />
+        <Textarea value={values.successCriteria ?? ""} onChange={(e) => set("successCriteria", e.target.value)} placeholder={`e.g. "3 new clients a month", "20 hours saved each week"`} />
       </Field>
-      <Field label="How does it run?" helper="Scheduled = fires at set times (daily morning, weekly Monday, etc.). Triggered = reacts to inbound events (a new email, a form fill, a webhook). Exact timing gets set in your portal after launch.">
+      <Field label="How does it run?" helper="Scheduled fires at set times (daily morning, weekly Monday). Triggered reacts to inbound events (a new email, a form fill, a webhook). Exact timing gets set in your portal after launch.">
         <Pills options={CADENCE_OPTIONS} value={values.cadence ?? "On a schedule"} onChange={(v) => set("cadence", v)} />
       </Field>
-      <Field label="Rough volume" helper={`Best guess. e.g., "10–20 emails per day", "500 listings reviewed per week".`}>
+      <Field label="Rough volume" helper={`Best guess. e.g. "10–20 emails per day", "500 listings reviewed per week".`}>
         <Input value={values.volume ?? ""} onChange={(e) => set("volume", e.target.value)} placeholder="Best guess on volume" />
       </Field>
     </ChapterShell>
@@ -997,10 +1091,9 @@ function HowItWorksSlide({
   const agentLabel = values.agentName?.trim() || "your agent";
   return (
     <ChapterShell
-      num="04"
-      name={<>How it <span className="accent">works</span></>}
-      quote={`Where ${agentLabel} shows up, how much rope it has, and how it should sound when it speaks for you.`}
-      contentTag="CHANNEL · AUTONOMY · VOICE"
+      active="questions"
+      note={`Where ${agentLabel} shows up, how much rope it has, and how it should sound when it speaks for you.`}
+      eyebrow="Channel, autonomy, voice"
       title={`How should ${agentLabel} operate?`}
       helper="Where it shows up, how much rope it has, and how it should sound."
       onBack={onBack}
@@ -1014,7 +1107,7 @@ function HowItWorksSlide({
       </Field>
       <Field label={`How should ${agentLabel} sound when it speaks for you?`} helper="Pick 2–3 that fit best.">
         <CheckPills options={TONE_OPTIONS} selected={multi.toneTags ?? []} onToggle={(v) => toggleMulti("toneTags", v)} />
-        <OptionalDetail>Or paste 2–3 samples of how you sound — {agentLabel} will mirror them:</OptionalDetail>
+        <OptionalDetail>Or paste 2–3 samples of how you sound, and {agentLabel} will mirror them:</OptionalDetail>
         <Textarea value={values.brandVoice ?? ""} onChange={(e) => set("brandVoice", e.target.value)} placeholder="An email, LinkedIn post, or internal memo…" />
       </Field>
     </ChapterShell>
@@ -1038,16 +1131,15 @@ function LimitsSlide({
   const agentLabel = values.agentName?.trim() || "your agent";
   return (
     <ChapterShell
-      num="05"
-      name={<>Hard <span className="accent">limits</span></>}
-      quote={`Anything that should be a hard 'no' for ${agentLabel}.`}
-      contentTag="GUARDRAILS"
+      active="questions"
+      note={`Anything that should be a hard no for ${agentLabel}.`}
+      eyebrow="Guardrails"
       title="Any hard limits?"
       helper={`Things ${agentLabel} should never do or topics it should stay out of.`}
       onBack={onBack}
       onNext={onNext}
     >
-      <Field label={`What should ${agentLabel} never do?`} helper="Common no-go&apos;s — pick all that apply.">
+      <Field label={`What should ${agentLabel} never do?`} helper="Common no-gos. Pick all that apply.">
         <CheckPills options={NEVER_DO_OPTIONS} selected={multi.neverDoTags ?? []} onToggle={(v) => toggleMulti("neverDoTags", v)} />
         <OptionalDetail>Anything else specific to your business?</OptionalDetail>
         <Textarea value={values.redLines ?? ""} onChange={(e) => set("redLines", e.target.value)} placeholder="Industry-specific rules, scope boundaries, words to avoid…" />
@@ -1077,27 +1169,26 @@ function ToolsSlide({
   const agentLabel = values.agentName?.trim() || "your agent";
   return (
     <ChapterShell
-      num="06"
-      name={<>Tools &amp;<br /><span className="accent">procedures</span></>}
-      quote={`What tools ${agentLabel} needs access to — and any process docs that describe how this work is done today.`}
-      contentTag="ACCESS & PLAYBOOKS"
-      title="Last thing — what should it connect to?"
+      active="questions"
+      note={`What tools ${agentLabel} needs access to, plus any process docs that describe how this work is done today.`}
+      eyebrow="Access and playbooks"
+      title="Last thing. What should it connect to?"
       helper={`Any tools, systems, or process docs ${agentLabel} should know about.`}
       onBack={onBack}
       onNext={onNext}
     >
       <Field
         label={`What tools will ${agentLabel} need access to?`}
-        helper="Start typing — we'll match against 250+ Composio integrations. Don't see your tool? Type it and press Enter to add it as a custom app."
+        helper="Start typing and we'll match against 250+ Composio integrations. Don't see your tool? Type it and press Enter to add it as a custom app."
       >
         <ToolPicker tools={tools} setTools={setTools} />
       </Field>
       <Field
         label="Got any SOPs, playbooks, or docs?"
-        helper={`SOPs = "Standard Operating Procedures" — your existing process docs, runbooks, or playbooks. Cookbook-style is best. Optional if you don't have any.`}
+        helper={`SOPs are your existing process docs, runbooks, or playbooks. Cookbook-style is best. Skip it if you don't have any.`}
       >
         <UploadDropzone files={files} onUpload={onUpload} onRemove={onRemoveFile} uploading={uploading} />
-        <OptionalDetail>Paste below or upload — whichever&apos;s easier.</OptionalDetail>
+        <OptionalDetail>Paste below or upload, whichever&apos;s easier.</OptionalDetail>
         <Textarea value={values.sops ?? ""} onChange={(e) => set("sops", e.target.value)} placeholder="Paste any process docs here, or leave blank…" />
       </Field>
     </ChapterShell>
@@ -1139,40 +1230,40 @@ function ReviewSlide({
       section: "01 · About you",
       editSlide: 1,
       rows: [
-        { key: "Name", value: values.contactName || "—", muted: !values.contactName },
+        { key: "Name", value: values.contactName || NOT_ANSWERED, muted: !values.contactName },
         { key: "Email", value: email },
-        { key: "Role", value: values.role || "—", muted: !values.role },
-        { key: "Business", value: [values.businessName, values.website].filter(Boolean).join(" · ") || "—", muted: !values.businessName && !values.website },
-        { key: "What you do", value: values.industry || "—", muted: !values.industry },
-        { key: "Audience", value: [audience, values.audienceDetail].filter(Boolean).join(" · ") || "—", muted: !audience && !values.audienceDetail },
-        { key: "Call you", value: values.preferredName || "—", muted: !values.preferredName },
-        { key: "Your agent", value: [values.agentName, values.agentRole].filter(Boolean).join(" · ") || "—", muted: !values.agentName && !values.agentRole },
+        { key: "Role", value: values.role || NOT_ANSWERED, muted: !values.role },
+        { key: "Business", value: [values.businessName, values.website].filter(Boolean).join(" · ") || NOT_ANSWERED, muted: !values.businessName && !values.website },
+        { key: "What you do", value: values.industry || NOT_ANSWERED, muted: !values.industry },
+        { key: "Audience", value: [audience, values.audienceDetail].filter(Boolean).join(" · ") || NOT_ANSWERED, muted: !audience && !values.audienceDetail },
+        { key: "Call you", value: values.preferredName || NOT_ANSWERED, muted: !values.preferredName },
+        { key: "Your agent", value: [values.agentName, values.agentRole].filter(Boolean).join(" · ") || NOT_ANSWERED, muted: !values.agentName && !values.agentRole },
       ],
     },
     {
       section: "02 · The agent's job",
       editSlide: 2,
       rows: [
-        { key: "One sentence", value: values.agentPitch || "—", muted: !values.agentPitch },
+        { key: "One sentence", value: values.agentPitch || NOT_ANSWERED, muted: !values.agentPitch },
       ],
     },
     {
       section: "03 · Success & cadence",
       editSlide: 3,
       rows: [
-        { key: "Today", value: [values.todayHandler, values.todayVsAgent].filter(Boolean).join(" · ") || "—", muted: !values.todayHandler && !values.todayVsAgent },
-        { key: "Outcomes", value: success || "—", muted: !success },
+        { key: "Today", value: [values.todayHandler, values.todayVsAgent].filter(Boolean).join(" · ") || NOT_ANSWERED, muted: !values.todayHandler && !values.todayVsAgent },
+        { key: "Outcomes", value: success || NOT_ANSWERED, muted: !success },
         { key: "Numbers", value: values.successCriteria || "Not specified", muted: !values.successCriteria },
-        { key: "Cadence", value: [values.cadence, values.volume].filter(Boolean).join(" · ") || "—", muted: !values.cadence && !values.volume },
+        { key: "Cadence", value: [values.cadence, values.volume].filter(Boolean).join(" · ") || NOT_ANSWERED, muted: !values.cadence && !values.volume },
       ],
     },
     {
       section: "04 · How it works",
       editSlide: 4,
       rows: [
-        { key: "Reach you", value: values.channel || "—", muted: !values.channel },
-        { key: "Autonomy", value: values.autonomy || "—", muted: !values.autonomy },
-        { key: "Tone", value: tone || "—", muted: !tone },
+        { key: "Reach you", value: values.channel || NOT_ANSWERED, muted: !values.channel },
+        { key: "Autonomy", value: values.autonomy || NOT_ANSWERED, muted: !values.autonomy },
+        { key: "Tone", value: tone || NOT_ANSWERED, muted: !tone },
         { key: "Voice samples", value: values.brandVoice || "Not provided", muted: !values.brandVoice },
       ],
     },
@@ -1180,7 +1271,7 @@ function ReviewSlide({
       section: "05 · Constraints",
       editSlide: 5,
       rows: [
-        { key: "Never do", value: neverDo || "—", muted: !neverDo },
+        { key: "Never do", value: neverDo || NOT_ANSWERED, muted: !neverDo },
         { key: "Other rules", value: values.redLines || "Nothing specified", muted: !values.redLines },
       ],
     },
@@ -1188,7 +1279,7 @@ function ReviewSlide({
       section: "06 · Tools & procedures",
       editSlide: 6,
       rows: [
-        { key: "Tools", value: toolList || "—", muted: !toolList },
+        { key: "Tools", value: toolList || NOT_ANSWERED, muted: !toolList },
         { key: "SOPs", value: sopSummary, muted: files.length === 0 && !values.sops },
       ],
     },
@@ -1197,10 +1288,11 @@ function ReviewSlide({
   return (
     <div className="fa-slide active">
       <div className="fa-review">
-        <div className="fa-content-tag" style={{ textAlign: "center" }}>07 / 07 · FINAL STEP</div>
-        <div className="fa-h-title" style={{ fontSize: 36, textAlign: "center", marginBottom: 12 }}>Here&apos;s what you&apos;ve told me.</div>
-        <p className="fa-hero-body" style={{ textAlign: "center", marginBottom: 36 }}>
-          Take one last look. Edit any section — I&apos;ll have your proposal in your inbox within 30 minutes.
+        <div className="fa-eyebrow">Final step</div>
+        <h1 className="fa-h-title">Here&apos;s what you&apos;ve told me.</h1>
+        <p className="fa-hero-body" style={{ marginBottom: 28 }}>
+          Take one last look. Edit any section you want, then send. Your proposal lands in your inbox
+          within 30 minutes.
         </p>
 
         {blocks.map((block) => (
@@ -1221,10 +1313,14 @@ function ReviewSlide({
         {error && <div className="fa-error">{error}</div>}
 
         <div className="fa-nav">
-          <button type="button" className="fa-back" onClick={onBack} disabled={submitting}>← Back</button>
-          <div>
+          <button type="button" className="fa-back" onClick={onBack} disabled={submitting}>
+            <Chev dir="left" />
+            Back
+          </button>
+          <div className="fa-nav-end">
             <button type="button" className="fa-continue fa-send" onClick={onSend} disabled={submitting}>
-              {submitting ? "Sending…" : "Send to Atlas →"}
+              {submitting ? "Sending…" : "Send it to Atlas"}
+              {!submitting && <Chev />}
             </button>
             <div className="fa-microcopy">Proposal in your inbox within 30 minutes</div>
           </div>
@@ -1242,11 +1338,11 @@ function SentSlide({ email }: { email: string }) {
   return (
     <div className="fa-slide active">
       <div className="fa-hero">
-        <div className="fa-agent-frame success"><AtlasSingle width={50} height={72} /></div>
+        <div className="fa-mark success"><AtlasFace width={30} height={43} /></div>
         <div className="fa-hero-pill"><span className="fa-hero-pill-dot" />Brief received</div>
-        <div className="fa-h-title">Your brief is in.</div>
+        <h1 className="fa-h-title">Your brief is in.</h1>
         <p className="fa-hero-body">
-          Atlas is reviewing your answers right now. I&apos;ll have your proposal in your inbox within <strong>30 minutes</strong>.
+          I&apos;m reading your answers now. Your proposal will be in your inbox within <strong>30 minutes</strong>.
         </p>
         {email && (
           <p className="fa-hero-body">
@@ -1257,7 +1353,7 @@ function SentSlide({ email }: { email: string }) {
         <div className="fa-timeline">
           <div className="fa-timeline-h">What happens next</div>
           <div className="fa-tl-row done">
-            <div className="fa-tl-num">1</div>
+            <div className="fa-tl-num"><TickGlyph /></div>
             <div className="fa-tl-body">
               <div className="fa-tl-title">Brief received</div>
               <div className="fa-tl-sub">Just now</div>
@@ -1266,14 +1362,14 @@ function SentSlide({ email }: { email: string }) {
           <div className="fa-tl-row">
             <div className="fa-tl-num">2</div>
             <div className="fa-tl-body">
-              <div className="fa-tl-title">Atlas drafts your proposal</div>
+              <div className="fa-tl-title">I draft your proposal</div>
               <div className="fa-tl-sub">Within 30 minutes</div>
             </div>
           </div>
           <div className="fa-tl-row">
             <div className="fa-tl-num">3</div>
             <div className="fa-tl-body">
-              <div className="fa-tl-title">Our team reviews scope and pricing</div>
+              <div className="fa-tl-title">Our team checks scope and pricing</div>
               <div className="fa-tl-sub">Same business day</div>
             </div>
           </div>
@@ -1281,7 +1377,7 @@ function SentSlide({ email }: { email: string }) {
             <div className="fa-tl-num">4</div>
             <div className="fa-tl-body">
               <div className="fa-tl-title">Proposal lands in your inbox</div>
-              <div className="fa-tl-sub">Approve, edit, or talk it through</div>
+              <div className="fa-tl-sub">Approve it, edit it, or talk it through</div>
             </div>
           </div>
         </div>
@@ -1309,56 +1405,36 @@ function LoadingDynamicSlide({
 }) {
   return (
     <div className="fa-slide active">
-      <div className="fa-chapter">
-        <div className="fa-chapter-content" style={{ maxWidth: 540, margin: "0 auto", textAlign: "center", paddingTop: 64 }}>
-          {!error && (
-            <>
-              <div style={{ marginBottom: 28 }}>
-                <div
-                  style={{
-                    width: 56,
-                    height: 56,
-                    margin: "0 auto",
-                    borderRadius: "50%",
-                    border: "3px solid rgba(0,179,179,0.18)",
-                    borderTopColor: "#00b3b3",
-                    animation: "fa-spin 0.9s linear infinite",
-                  }}
-                  aria-label="Tailoring your intake"
-                />
-                <style>{`@keyframes fa-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
-              </div>
-              <div className="fa-h-title" style={{ fontSize: 32, marginBottom: 16 }}>
-                {loading ? "Tailoring your intake…" : "Almost there"}
-              </div>
-              <p className="fa-hero-body" style={{ marginBottom: 8 }}>
-                Reading what you just told me so the rest of the questions are about
-                <em> your </em> business — not a one-size-fits-all form.
-              </p>
-              <p className="fa-hero-body" style={{ color: "#999", fontSize: 13 }}>
-                Takes about 10 seconds.
-              </p>
-            </>
-          )}
-          {error && (
-            <>
-              <div className="fa-h-title" style={{ fontSize: 28, marginBottom: 16 }}>
-                Hmm, that didn&apos;t work.
-              </div>
-              <p className="fa-hero-body" style={{ marginBottom: 24 }}>
-                {error}
-              </p>
-              <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
-                <button type="button" className="fa-btn-secondary" onClick={onBack}>
-                  ← Back
-                </button>
-                <button type="button" className="fa-btn-primary" onClick={onRetry}>
-                  Try again
-                </button>
-              </div>
-            </>
-          )}
-        </div>
+      <div className="fa-solo fa-wait">
+        {!error && (
+          <>
+            <div className="fa-spinner" role="status" aria-label="Tailoring your questions" />
+            <h1 className="fa-h-title">{loading ? "Reading what you sent." : "Almost there."}</h1>
+            <p className="fa-hero-body">
+              I&apos;m working out what your business actually needs, so the next few questions are
+              about <em>you</em> rather than a one-size-fits-all form.
+            </p>
+            <p className="fa-meta">About 10 seconds.</p>
+          </>
+        )}
+        {error && (
+          <>
+            <h1 className="fa-h-title">That didn&apos;t go through.</h1>
+            <p className="fa-hero-body">{error}</p>
+            <p className="fa-hero-body">
+              Your answers are safe. Try once more, or step back if you&apos;d rather change something first.
+            </p>
+            <div className="fa-actions">
+              <button type="button" className="fa-btn-secondary" onClick={onBack}>
+                <Chev dir="left" />
+                Back
+              </button>
+              <button type="button" className="fa-btn-primary" onClick={onRetry}>
+                Try again
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
@@ -1376,58 +1452,33 @@ function DomainConfirmationSlide({
   onBack: () => void;
   onNext: () => void;
 }) {
+  // Was a card with a 135deg gradient, a 1px #00b3b3 outline, and its two
+  // labels set in #00b3b3 at 2.49:1. Now a brand-tinted tonal panel with the
+  // labels on the teal text step at 5.29:1, which is also how the proposal and
+  // quote documents draw their key/value blocks.
   return (
-    <div className="fa-slide active">
-      <div className="fa-chapter">
-        <div className="fa-chapter-content" style={{ maxWidth: 620, margin: "0 auto", paddingTop: 32 }}>
-          <div className="fa-content-tag">QUICK CHECK</div>
-          <h2 className="fa-h-title" style={{ fontSize: 32, marginBottom: 20 }}>
-            Sound about right?
-          </h2>
-          <p className="fa-hero-body" style={{ marginBottom: 24 }}>
-            Based on what you told me, here&apos;s how I&apos;m thinking about your situation:
-          </p>
-
-          <div
-            style={{
-              background: "linear-gradient(135deg, #f0fdfd 0%, #ffffff 100%)",
-              border: "1px solid #00b3b3",
-              borderRadius: 12,
-              padding: 20,
-              marginBottom: 28,
-              boxShadow: "0 4px 14px rgba(0,179,179,0.10)",
-            }}
-          >
-            <div style={{ fontSize: 12, fontWeight: 600, color: "#00b3b3", marginBottom: 6, letterSpacing: 0.6 }}>
-              YOUR DOMAIN
-            </div>
-            <div style={{ fontSize: 16, color: "#171717", marginBottom: 16, lineHeight: 1.5, fontWeight: 500 }}>
-              {domainSummary}
-            </div>
-            <div style={{ fontSize: 12, fontWeight: 600, color: "#00b3b3", marginBottom: 6, letterSpacing: 0.6 }}>
-              AGENT TYPE
-            </div>
-            <div style={{ fontSize: 15, color: "#171717", lineHeight: 1.5 }}>
-              {agentArchetype}
-            </div>
-          </div>
-
-          <p className="fa-hero-body" style={{ fontSize: 13, color: "#737373", marginBottom: 24 }}>
-            If this is way off, hit back and tighten up your &quot;one sentence&quot; answer. The next few questions
-            are tailored to this read of your business.
-          </p>
-
-          <div style={{ display: "flex", gap: 12, justifyContent: "space-between" }}>
-            <button type="button" className="fa-btn-secondary" onClick={onBack}>
-              ← Not quite — let me clarify
-            </button>
-            <button type="button" className="fa-btn-primary" onClick={onNext}>
-              Looks right — keep going →
-            </button>
-          </div>
-        </div>
+    <ChapterShell
+      active="questions"
+      activeSub="Quick check first"
+      note="Worth thirty seconds. Everything I ask after this is built on this read, so it's cheaper to correct here than later."
+      eyebrow="Quick check"
+      title="Sound about right?"
+      helper="Here's how I'm reading your situation from what you've told me so far."
+      onBack={onBack}
+      onNext={onNext}
+      backLabel="Let me clarify"
+      nextLabel="Looks right"
+    >
+      <div className="fa-panel brand">
+        <div className="fa-panel-k">Your business</div>
+        <div className="fa-panel-v">{domainSummary}</div>
+        <div className="fa-panel-k">The agent</div>
+        <div className="fa-panel-v">{agentArchetype}</div>
       </div>
-    </div>
+      <p className="fa-hint" style={{ marginTop: 16, marginBottom: 0 }}>
+        If this is way off, go back and tighten up your one-sentence answer.
+      </p>
+    </ChapterShell>
   );
 }
 
@@ -1457,106 +1508,76 @@ function DynamicQuestionSlide({
     return true;
   })();
 
+  // These slides used to render in a bare centred column with no rail, so
+  // progress disappeared at exactly the point the form gets longest and the
+  // prospect most wants to know how much is left. They now use the same
+  // chapter shell as every other question.
   return (
-    <div className="fa-slide active">
-      <div className="fa-chapter">
-        <div className="fa-chapter-content" style={{ maxWidth: 620, margin: "0 auto", paddingTop: 32 }}>
-          <div className="fa-content-tag">
-            QUESTION {index + 1} OF {total}
-          </div>
-          <h2 className="fa-h-title" style={{ fontSize: 26, marginBottom: 22, lineHeight: 1.35 }}>
-            {question.label}
-            {question.required && <span style={{ color: "#dc2626", marginLeft: 4 }}>*</span>}
-          </h2>
-
-          <div style={{ marginBottom: 28 }}>
-            {question.type === "text" && (
-              <Input
-                value={(value as string) ?? ""}
-                onChange={(e) => onChange(e.target.value)}
-                placeholder={question.placeholder ?? ""}
-                autoFocus
-              />
-            )}
-            {question.type === "longText" && (
-              <Textarea
-                value={(value as string) ?? ""}
-                onChange={(e) => onChange(e.target.value)}
-                placeholder={question.placeholder ?? ""}
-                autoFocus
-              />
-            )}
-            {question.type === "select" && question.options && (
-              <Pills
-                options={question.options}
-                value={(value as string) ?? ""}
-                onChange={(v) => onChange(v)}
-              />
-            )}
-            {question.type === "multiSelect" && question.options && (
-              <CheckPills
-                options={question.options}
-                selected={(value as string[]) ?? []}
-                onToggle={(v) => {
-                  const cur = (value as string[]) ?? [];
-                  const nextArr = cur.includes(v) ? cur.filter((x) => x !== v) : [...cur, v];
-                  onChange(nextArr);
-                }}
-              />
-            )}
-            {question.type === "scale" && (
-              <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
-                {[1, 2, 3, 4, 5].map((n) => {
-                  const active = value === n;
-                  return (
-                    <button
-                      key={n}
-                      type="button"
-                      onClick={() => onChange(n)}
-                      style={{
-                        flex: 1,
-                        padding: "16px 0",
-                        background: active ? "#00b3b3" : "#ffffff",
-                        color: active ? "#ffffff" : "#404040",
-                        border: `1px solid ${active ? "#00b3b3" : "#e5e5e5"}`,
-                        borderRadius: 9,
-                        fontSize: 18,
-                        fontWeight: 600,
-                        cursor: "pointer",
-                        transition: "all 0.15s ease",
-                      }}
-                    >
-                      {n}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          {!isAnswered && question.required && (
-            <p style={{ fontSize: 12, color: "#737373", marginBottom: 20 }}>
-              This one matters for the proposal — pick or type an answer to continue.
-            </p>
-          )}
-
-          <div style={{ display: "flex", gap: 12, justifyContent: "space-between" }}>
-            <button type="button" className="fa-btn-secondary" onClick={onBack}>
-              ← Back
-            </button>
+    <ChapterShell
+      active="questions"
+      activeSub={`Question ${index + 1} of ${total}`}
+      note="These are written for your business, not pulled off a shelf. Short answers are completely fine."
+      eyebrow={`Question ${index + 1} of ${total}`}
+      title={
+        <>
+          {question.label}
+          {question.required && <span className="fa-req" aria-hidden="true">*</span>}
+        </>
+      }
+      helper={question.required ? undefined : "Optional. Skip it if nothing comes to mind."}
+      onBack={onBack}
+      onNext={onNext}
+      nextDisabled={!isAnswered}
+      nextLabel={index + 1 === total ? "Review your answers" : "Next"}
+      hint={!isAnswered && question.required ? "I need this one for the proposal. Pick or type an answer to keep going." : undefined}
+    >
+      {question.type === "text" && (
+        <Input
+          value={(value as string) ?? ""}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={question.placeholder ?? ""}
+          autoFocus
+        />
+      )}
+      {question.type === "longText" && (
+        <Textarea
+          anchor
+          value={(value as string) ?? ""}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={question.placeholder ?? ""}
+          autoFocus
+        />
+      )}
+      {question.type === "select" && question.options && (
+        <Pills options={question.options} value={(value as string) ?? ""} onChange={(v) => onChange(v)} />
+      )}
+      {question.type === "multiSelect" && question.options && (
+        <CheckPills
+          options={question.options}
+          selected={(value as string[]) ?? []}
+          onToggle={(v) => {
+            const cur = (value as string[]) ?? [];
+            const nextArr = cur.includes(v) ? cur.filter((x) => x !== v) : [...cur, v];
+            onChange(nextArr);
+          }}
+        />
+      )}
+      {question.type === "scale" && (
+        <div className="fa-scale">
+          {[1, 2, 3, 4, 5].map((n) => (
             <button
+              key={n}
               type="button"
-              className="fa-btn-primary"
-              onClick={onNext}
-              disabled={!isAnswered}
-              style={!isAnswered ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+              className={`fa-scale-btn${value === n ? " active" : ""}`}
+              aria-pressed={value === n}
+              onClick={() => onChange(n)}
             >
-              {index + 1 === total ? "Review your answers →" : "Next →"}
+              {n}
             </button>
-          </div>
+          ))}
         </div>
-      </div>
-    </div>
+      )}
+    </ChapterShell>
   );
 }
 
@@ -1580,29 +1601,27 @@ function AdaptiveReviewSlide({
   submitting: boolean;
   error: string | null;
 }) {
-  function renderAnswer(q: DynamicQuestion, ans: unknown): string {
-    if (ans === undefined || ans === null) return "—";
-    if (Array.isArray(ans)) return ans.length > 0 ? ans.join(", ") : "—";
-    if (typeof ans === "number") return String(ans);
-    if (typeof ans === "string") return ans.trim() || "—";
-    return String(ans);
+  function renderAnswer(ans: unknown): { text: string; muted: boolean } {
+    if (ans === undefined || ans === null) return { text: NOT_ANSWERED, muted: true };
+    if (Array.isArray(ans)) {
+      return ans.length > 0 ? { text: ans.join(", "), muted: false } : { text: NOT_ANSWERED, muted: true };
+    }
+    if (typeof ans === "number") return { text: String(ans), muted: false };
+    if (typeof ans === "string") {
+      const t = ans.trim();
+      return t ? { text: t, muted: false } : { text: NOT_ANSWERED, muted: true };
+    }
+    return { text: String(ans), muted: false };
   }
 
   return (
     <div className="fa-slide active">
       <div className="fa-review">
-        <div className="fa-content-tag" style={{ textAlign: "center" }}>FINAL STEP</div>
-        <div
-          className="fa-h-title"
-          style={{ fontSize: 36, textAlign: "center", marginBottom: 12 }}
-        >
-          Here&apos;s what you&apos;ve told me.
-        </div>
-        <p
-          className="fa-hero-body"
-          style={{ textAlign: "center", marginBottom: 36 }}
-        >
-          Quick scan, then submit — proposal lands in <strong>{email || "your inbox"}</strong> within 30 minutes.
+        <div className="fa-eyebrow">Final step</div>
+        <h1 className="fa-h-title">Here&apos;s what you&apos;ve told me.</h1>
+        <p className="fa-hero-body" style={{ marginBottom: 26 }}>
+          Quick scan, then send. Your proposal lands in <strong>{email || "your inbox"}</strong> within
+          30 minutes.
         </p>
 
         <div className="fa-review-block">
@@ -1611,15 +1630,15 @@ function AdaptiveReviewSlide({
           </div>
           <div className="fa-review-row">
             <div className="fa-review-key">Name</div>
-            <div className="fa-review-value">{values.contactName || "—"}</div>
+            <div className={`fa-review-value${values.contactName ? "" : " muted"}`}>{values.contactName || NOT_ANSWERED}</div>
           </div>
           <div className="fa-review-row">
             <div className="fa-review-key">Business</div>
-            <div className="fa-review-value">{values.businessName || "—"}</div>
+            <div className={`fa-review-value${values.businessName ? "" : " muted"}`}>{values.businessName || NOT_ANSWERED}</div>
           </div>
           <div className="fa-review-row">
             <div className="fa-review-key">Role</div>
-            <div className="fa-review-value">{values.role || "—"}</div>
+            <div className={`fa-review-value${values.role ? "" : " muted"}`}>{values.role || NOT_ANSWERED}</div>
           </div>
         </div>
 
@@ -1629,52 +1648,48 @@ function AdaptiveReviewSlide({
           </div>
           <div className="fa-review-row">
             <div className="fa-review-key">In one sentence</div>
-            <div className="fa-review-value">{values.agentPitch || "—"}</div>
+            <div className={`fa-review-value${values.agentPitch ? "" : " muted"}`}>{values.agentPitch || NOT_ANSWERED}</div>
           </div>
         </div>
 
         {dynamicQuestions && (
           <div className="fa-review-block">
+            {/* The section name used to be the domain summary truncated to 60
+                characters and set in letterspaced uppercase, which produced a
+                headline that read as a bug. The summary is a sentence, so it
+                is now set as one, underneath a real heading. */}
             <div className="fa-review-head">
-              <div className="fa-review-section-name">
-                Tailored to {dynamicQuestions.domainSummary.slice(0, 60)}
-                {dynamicQuestions.domainSummary.length > 60 ? "…" : ""}
+              <div>
+                <div className="fa-review-section-name">Tailored to your business</div>
+                <div className="fa-review-section-sub">{dynamicQuestions.domainSummary}</div>
               </div>
             </div>
-            {dynamicQuestions.questions.map((q) => (
-              <div className="fa-review-row" key={q.id}>
-                <div className="fa-review-key">{q.label.slice(0, 80)}{q.label.length > 80 ? "…" : ""}</div>
-                <div className="fa-review-value">{renderAnswer(q, dynamicAnswers[q.id])}</div>
-              </div>
-            ))}
+            {dynamicQuestions.questions.map((q) => {
+              const a = renderAnswer(dynamicAnswers[q.id]);
+              return (
+                <div className="fa-review-row stacked" key={q.id}>
+                  <div className="fa-review-key">{q.label}</div>
+                  <div className={`fa-review-value${a.muted ? " muted" : ""}`}>{a.text}</div>
+                </div>
+              );
+            })}
           </div>
         )}
 
-        {error && (
-          <p
-            style={{
-              color: "#dc2626",
-              fontSize: 14,
-              textAlign: "center",
-              marginBottom: 16,
-            }}
-          >
-            {error}
-          </p>
-        )}
+        {error && <div className="fa-error">{error}</div>}
 
-        <div style={{ display: "flex", gap: 12, justifyContent: "space-between", marginTop: 28 }}>
-          <button type="button" className="fa-btn-secondary" onClick={onBack} disabled={submitting}>
-            ← Back
+        <div className="fa-nav">
+          <button type="button" className="fa-back" onClick={onBack} disabled={submitting}>
+            <Chev dir="left" />
+            Back
           </button>
-          <button
-            type="button"
-            className="fa-btn-primary"
-            onClick={onSend}
-            disabled={submitting}
-          >
-            {submitting ? "Sending…" : "Send it →"}
-          </button>
+          <div className="fa-nav-end">
+            <button type="button" className="fa-continue fa-send" onClick={onSend} disabled={submitting}>
+              {submitting ? "Sending…" : "Send it to Atlas"}
+              {!submitting && <Chev />}
+            </button>
+            <div className="fa-microcopy">Proposal in your inbox within 30 minutes</div>
+          </div>
         </div>
       </div>
     </div>
