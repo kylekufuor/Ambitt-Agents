@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Ambitt pre-sale funnel: before and after</title>
+<style>
+  :root {
+    --page: #eef2f6;
+    --card: #ffffff;
+    --wash: #f2f6f9;
+    --ink: #1d2f40;
+    --body: #33475b;
+    --mute: #5f7488;
+    --teal: #00b3b3;
+    --teal-text: #00706f;
+    --rule: #e2eaf1;
+    --bad: #be123c;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--page);
+    color: var(--body);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+  }
+  header { padding: 40px 32px 8px; max-width: 1400px; margin: 0 auto; }
+  h1 { font-size: 26px; line-height: 1.2; font-weight: 600; color: var(--ink); letter-spacing: -0.016em; margin: 0 0 8px; }
+  header p { margin: 0 0 8px; max-width: 76ch; }
+  header .meta { color: var(--mute); font-size: 14px; }
+  main { max-width: 1400px; margin: 0 auto; padding: 16px 32px 80px; }
+
+  .callout {
+    background: var(--card); border-radius: 14px; padding: 22px 26px; margin: 20px 0 28px;
+    box-shadow: 0 1px 2px rgba(29,47,64,.04), 0 8px 20px rgba(29,47,64,.05);
+  }
+  .callout h3 { margin: 0 0 10px; font-size: 17px; font-weight: 600; color: var(--ink); }
+  .callout p { margin: 0 0 10px; max-width: 88ch; }
+  .callout p:last-child { margin-bottom: 0; }
+  .callout ol { margin: 0; padding-left: 20px; max-width: 88ch; }
+  .callout li { margin-bottom: 6px; }
+
+  table.ratios { border-collapse: collapse; width: 100%; max-width: 720px; margin-top: 14px; font-variant-numeric: tabular-nums; }
+  table.ratios th { text-align: left; font-size: 12px; font-weight: 600; color: var(--mute); text-transform: uppercase; letter-spacing: .07em; padding: 0 12px 8px 0; border-bottom: 1px solid var(--rule); }
+  table.ratios td { padding: 9px 12px 9px 0; border-bottom: 1px solid var(--rule); font-size: 14.5px; }
+  table.ratios td.n { text-align: right; }
+  .fail { color: var(--bad); font-weight: 600; }
+  .pass { color: var(--teal-text); font-weight: 600; }
+  .sw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -1px; margin-right: 7px; }
+
+  .row {
+    background: var(--card);
+    border-radius: 14px;
+    margin: 0 0 24px;
+    overflow: hidden;
+    box-shadow: 0 1px 2px rgba(29,47,64,.04), 0 8px 20px rgba(29,47,64,.05), 0 24px 48px rgba(29,47,64,.05);
+  }
+  .row > .bar { border-top: 3px solid var(--teal); }
+  .row h2 {
+    margin: 0; padding: 18px 24px 4px;
+    font-size: 19px; font-weight: 600; color: var(--ink); letter-spacing: -0.01em;
+  }
+  .row .kind { padding: 0 24px; font-size: 12px; font-weight: 600; letter-spacing: .09em; text-transform: uppercase; color: var(--teal-text); }
+  .row .note { margin: 0; padding: 8px 24px 16px; font-size: 14.5px; color: var(--mute); max-width: 100ch; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--rule); }
+  .pane { background: var(--page); padding: 0; }
+  .pane .lbl {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 24px; background: var(--card);
+    font-size: 12px; font-weight: 600; letter-spacing: .09em; text-transform: uppercase; color: var(--mute);
+  }
+  .pane.after .lbl { color: var(--teal-text); }
+  .dot { width: 8px; height: 8px; border-radius: 8px; background: #b7c4d0; }
+  .pane.after .dot { background: var(--teal); }
+  iframe { width: 100%; height: 900px; border: 0; display: block; background: var(--page); }
+  .links { padding: 12px 24px 18px; background: var(--card); font-size: 14px; }
+  .links a { color: var(--teal-text); text-decoration: none; font-weight: 600; margin-right: 18px; }
+  .links a:hover { text-decoration: underline; }
+  @media (max-width: 900px) { .pair { grid-template-columns: 1fr; } iframe { height: 620px; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>The pre-sale funnel, before and after</h1>
+  <p>Every surface a prospect sees before they are a client, in the order they meet them. Same content in both columns: Kwame, an outbound prospecting agent for Ambitt Media. Left is what we send today. Right is the new system.</p>
+  <p class="meta">Scroll inside each panel. Every render is a real file produced by the real template with the real fixture, not a mockup.</p>
+</header>
+<main>
+
+<section class="callout">
+  <h3>What was actually wrong</h3>
+  <p>Our post-sale emails were rebuilt on one design system. The pre-sale funnel was never touched, so the documents a prospect decides money on were running <strong>four</strong> unrelated looks, and two accessibility failures were shipping inside them.</p>
+  <ol>
+    <li><strong>A webfont that was never loaded.</strong> The proposal declared Geist over a CDN; the quote and all three emails just named <code>'Inter'</code> with nothing behind it. Gmail drops the first and has never had the second, so the typeface a prospect actually saw was whatever their client picked. Both now use the same system stack as every other Ambitt email, so what we design is what they read.</li>
+    <li><strong>A second teal nobody chose.</strong> <code>#00d4d4</code> ran alongside the brand <code>#00b3b3</code> in the proposal and the intake form. It is gone.</li>
+    <li><strong>Teal used as text and as a button fill.</strong> <code>#00b3b3</code> is 2.59:1 on white. It failed WCAG AA as link text, as a label on a button, and as a focus ring. Now it is a mark only, and text and buttons use the deep steps.</li>
+    <li><strong>Six stacked cards with 1px gray borders</strong> in the quote, which is the single loudest generic-AI tell and is banned in <code>client-portal/DESIGN.md</code>. Surfaces now separate by tone.</li>
+    <li><strong>Em dashes in hosted copy.</strong> Four client-facing strings on the portal status pages carried them. Those pages never pass through the send-time scrub, so they were shipping. Fixed at source, and the test now covers the quote.</li>
+  </ol>
+</section>
+
+<section class="callout">
+  <h3>Contrast, measured</h3>
+  <p>Every pair below was computed, not eyeballed. The teal rule is one question: does it carry a letterform, or does one sit on it?</p>
+  <table class="ratios">
+    <tr><th>Pair</th><th>Before</th><th>After</th><th>Needs</th></tr>
+    <tr><td>Button label on teal fill (all 3 emails, both documents)</td><td class="n fail">2.59:1</td><td class="n pass">4.78:1</td><td class="n">4.5:1</td></tr>
+    <tr><td>Teal link text on white</td><td class="n fail">2.59:1</td><td class="n pass">5.92:1</td><td class="n">4.5:1</td></tr>
+    <tr><td>Sign-off line <code>#a3a3a3</code> on white</td><td class="n fail">2.52:1</td><td class="n pass">5.66:1</td><td class="n">4.5:1</td></tr>
+    <tr><td>Intake form focus ring</td><td class="n fail">2.59:1</td><td class="n pass">4.78:1</td><td class="n">3:1</td></tr>
+    <tr><td>Intake progress bar on its track</td><td class="n fail">2.19:1</td><td class="n pass">4.05:1</td><td class="n">3:1</td></tr>
+    <tr><td>Intake "Begin" gradient, lightest stop</td><td class="n fail">2.21:1</td><td class="n pass">4.78:1</td><td class="n">4.5:1</td></tr>
+    <tr><td>Body text on card</td><td class="n pass">n/a</td><td class="n pass">9.58:1</td><td class="n">4.5:1</td></tr>
+  </table>
+  <p style="margin-top:14px;">
+    <span class="sw" style="background:#00b3b3"></span><code>#00b3b3</code> marks, rules and fills only, never under or as a letterform &nbsp;
+    <span class="sw" style="background:#00807e"></span><code>#00807e</code> fill under a white label, and state indicators &nbsp;
+    <span class="sw" style="background:#00706f"></span><code>#00706f</code> text
+  </p>
+  <p style="margin-top:10px;">Worst shipping text pair in the new system: <strong class="pass">4.61:1</strong>. Nothing client-facing is below AA.</p>
+</section>
+
+<section class="row"><div class="bar"></div>
+  <div class="kind">Email &middot; fires on form submit</div>
+  <h2>1. Thanks for your brief</h2>
+  <p class="note">The first thing anyone ever receives from us, and it was the plainest: a wordmark image, three grey paragraphs, and a sign-off at 2.52:1. It now opens with Atlas's face and role, so the prospect knows who they are talking to before they read a word, and the reassurance that there is nothing to do gets its own panel.</p>
+  <div class="pair">
+    <div class="pane"><div class="lbl"><span class="dot"></span>Before</div><iframe src="funnel-before/email-thanks.html"></iframe></div>
+    <div class="pane after"><div class="lbl"><span class="dot"></span>After</div><iframe src="funnel-after/email-thanks.html"></iframe></div>
+  </div>
+  <div class="links">
+    <a href="funnel-after/shots/email-thanks-mobile.png">Mobile</a>
+    <a href="funnel-after/shots/email-thanks-noimages.png">Images blocked</a>
+    <a href="funnel-after/shots/email-thanks-dark.png">Dark mode</a>
+  </div>
+</section>
+
+<section class="row"><div class="bar"></div>
+  <div class="kind">Email &middot; links to the proposal</div>
+  <h2>2. Your proposal is ready</h2>
+  <p class="note">A teal button at 2.59:1 with white text on it, and an arrow glyph doing the work a verb should. Now it is a real letterhead, a headline, the agent's name pulled through from the proposal itself, and one button that clears AA. The line about pricing coming later is kept, because it is the question everyone has at this point.</p>
+  <div class="pair">
+    <div class="pane"><div class="lbl"><span class="dot"></span>Before</div><iframe src="funnel-before/email-proposal-teaser.html"></iframe></div>
+    <div class="pane after"><div class="lbl"><span class="dot"></span>After</div><iframe src="funnel-after/email-proposal-teaser.html"></iframe></div>
+  </div>
+  <div class="links">
+    <a href="funnel-after/shots/email-proposal-teaser-mobile.png">Mobile</a>
+    <a href="funnel-after/shots/email-proposal-teaser-noimages.png">Images blocked</a>
+    <a href="funnel-after/shots/email-proposal-teaser-dark.png">Dark mode</a>
+  </div>
+</section>
+
+<section class="row"><div class="bar"></div>
+  <div class="kind">Hosted page &middot; the document they decide on</div>
+  <h2>3. The proposal</h2>
+  <p class="note">The biggest change. A full-bleed near-black slab ran across the top carrying cyan <code>#00d4d4</code>, which is the exact treatment we removed from the agent emails because it reads as a system notice rather than a letter. It is replaced by a document title block: mark, state chip, headline, and the specs as a proper spec sheet with tabular figures and hairline rows. That spec sheet is the one thing worth remembering here, and it says "this is the machine we are building for you" without a box around it. The sample email and the morning digest are now treated as quoted figures, because they depict a different surface. Nothing was cut: every field the data contract carries is still on the page.</p>
+  <div class="pair">
+    <div class="pane"><div class="lbl"><span class="dot"></span>Before</div><iframe src="funnel-before/proposal-doc.html"></iframe></div>
+    <div class="pane after"><div class="lbl"><span class="dot"></span>After</div><iframe src="funnel-after/proposal-doc.html"></iframe></div>
+  </div>
+  <div class="links">
+    <a href="funnel-after/shots/proposal-doc-mobile.png">Mobile</a>
+    <a href="funnel-after/shots/proposal-doc-noimages.png">Images blocked</a>
+    <a href="funnel-before/shots/proposal-doc-desktop.png">Before, full height</a>
+    <a href="funnel-after/shots/proposal-doc-desktop.png">After, full height</a>
+  </div>
+</section>
+
+<section class="row"><div class="bar"></div>
+  <div class="kind">Email &middot; links to the quote</div>
+  <h2>4. Your quote is ready</h2>
+  <p class="note">Same treatment as the proposal teaser. The copy now says what is in the quote and what each answer means, rather than instructing them to read carefully.</p>
+  <div class="pair">
+    <div class="pane"><div class="lbl"><span class="dot"></span>Before</div><iframe src="funnel-before/email-quote-teaser.html"></iframe></div>
+    <div class="pane after"><div class="lbl"><span class="dot"></span>After</div><iframe src="funnel-after/email-quote-teaser.html"></iframe></div>
+  </div>
+  <div class="links">
+    <a href="funnel-after/shots/email-quote-teaser-mobile.png">Mobile</a>
+    <a href="funnel-after/shots/email-quote-teaser-noimages.png">Images blocked</a>
+    <a href="funnel-after/shots/email-quote-teaser-dark.png">Dark mode</a>
+  </div>
+</section>
+
+<section class="row"><div class="bar"></div>
+  <div class="kind">Hosted page &middot; what they accept and pay against</div>
+  <h2>5. The quote</h2>
+  <p class="note">Before: six stacked white cards each outlined in 1px gray, a gradient on the pricing block, and emoji icons down the scope list that render at a different size and colour on every operating system. After: one document, sections separated by hairline and space, pricing in a tonal well with the two numbers given the room they deserve, and the scope list carrying small duotone marks drawn at one weight in two tones of one hue. The emoji are gone. This page is also the one that never passes the em-dash scrub, so it now has its own test.</p>
+  <div class="pair">
+    <div class="pane"><div class="lbl"><span class="dot"></span>Before</div><iframe src="funnel-before/quote-doc.html"></iframe></div>
+    <div class="pane after"><div class="lbl"><span class="dot"></span>After</div><iframe src="funnel-after/quote-doc.html"></iframe></div>
+  </div>
+  <div class="links">
+    <a href="funnel-after/shots/quote-doc-mobile.png">Mobile</a>
+    <a href="funnel-after/shots/quote-doc-noimages.png">Images blocked</a>
+    <a href="funnel-before/shots/quote-doc-desktop.png">Before, full height</a>
+    <a href="funnel-after/shots/quote-doc-desktop.png">After, full height</a>
+  </div>
+</section>
+
+<section class="row"><div class="bar"></div>
+  <div class="kind">Hosted page &middot; waiting, accepted, closed</div>
+  <h2>6. Status pages</h2>
+  <p class="note">Easy to forget, and one of them is the page a prospect lands on immediately after saying yes to a five-figure quote. It was centred text on a bare page with a link at 2.59:1. It now belongs to the same family as the document it stands in for. Three of its four copy strings also carried em dashes, on a surface the scrub never touches.</p>
+  <div class="pair">
+    <div class="pane"><div class="lbl"><span class="dot"></span>Before</div><iframe src="funnel-before/status-page.html"></iframe></div>
+    <div class="pane after"><div class="lbl"><span class="dot"></span>After</div><iframe src="funnel-after/status-page.html"></iframe></div>
+  </div>
+  <div class="links">
+    <a href="funnel-after/shots/status-page-mobile.png">Mobile</a>
+  </div>
+</section>
+
+<section class="callout">
+  <h3>What did not change</h3>
+  <p>The data contracts. <code>ProposalEmailData</code> and <code>QuoteData</code> in <code>types.ts</code>, and the Zod schemas that mirror them, are untouched, so the Atlas prompts still emit exactly what they emitted before. Every Handlebars expression in both templates maps one to one onto the old ones, including the inline hooks Atlas writes into its own strings: <code>span.accent</code>, <code>em</code>, and the header-row types <code>link</code> / <code>subject</code> / <code>text</code>. The scope-item icons changed what they draw, not what they key off.</p>
+  <p>The intake form at <code>/onboard/[token]</code> was left on its own layout deliberately. It is an interactive form rather than a document, and re-theming it was not what this pass was for. Only its failing colour pairs were corrected, 37 of them.</p>
+</section>
+
+</main>
+</body>
+</html>

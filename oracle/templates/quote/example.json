@@ -1,0 +1,103 @@
+{
+  "subject": "Your custom agent quote is ready",
+  "greeting": {
+    "name": "Kyle",
+    "body": "Here's the quote for Kwame, built from the scope you approved. Everything we discussed is priced below, along with what's included each month and what isn't."
+  },
+  "hero": {
+    "label": "YOUR CUSTOM AGENT QUOTE",
+    "title": "Kwame for Ambitt Media.",
+    "subtitle": "Outbound prospecting agent · supervised mode · daily mornings"
+  },
+  "pricing": {
+    "setupCents": 450000,
+    "monthlyCents": 149900,
+    "tierLabel": "Growth tier",
+    "summary": "The setup fee covers the build: research tooling, the Google Maps sourcing flow, your Gmail and Notion connections, and the voice tuning that makes Kwame's drafts sound like you wrote them. The monthly retainer keeps him running, supervised, and improving. For comparison, a junior SDR doing this work runs $4,500 to $6,000 a month once you load payroll."
+  },
+  "scopeOfWork": {
+    "intro": "Everything below is included in the setup fee. No surprises later.",
+    "items": [
+      {
+        "title": "Google Maps sourcing flow",
+        "description": "A custom search routine that finds businesses with review history and no linked website, filtered to your target categories and radius.",
+        "kind": "automation"
+      },
+      {
+        "title": "Contact discovery tool",
+        "description": "Custom code that locates a working contact address for each business from its listing, socials, or public records, and skips the ones it can't verify.",
+        "kind": "custom_code"
+      },
+      {
+        "title": "Gmail connection",
+        "description": "Kwame sends from your own Gmail account, so replies land in your inbox and your sending reputation stays yours.",
+        "kind": "integration"
+      },
+      {
+        "title": "Notion pipeline sync",
+        "description": "Every prospect, send, and reply is written to your Notion database automatically, so the pipeline is always current without anyone updating it.",
+        "kind": "integration"
+      },
+      {
+        "title": "Brand voice tuning",
+        "description": "We train Kwame on your existing emails and site copy until his drafts read like your team wrote them. Reviewed and adjusted until you sign off.",
+        "kind": "prompt"
+      },
+      {
+        "title": "Sample one-pager generator",
+        "description": "Each outreach email carries a personalised mockup of what that business's site could look like, generated on the fly and attached automatically.",
+        "kind": "custom_code"
+      },
+      {
+        "title": "Supervised approval flow",
+        "description": "Your morning digest with the day's drafts, an approve-all button, and per-email skip. Nothing leaves your account without your say-so.",
+        "kind": "automation"
+      },
+      {
+        "title": "Dry run and QA",
+        "description": "We run Kwame against real targets with sending disabled, review every draft, and fix what needs fixing before a single email goes out.",
+        "kind": "testing"
+      },
+      {
+        "title": "Launch and handover",
+        "description": "We turn him on, watch the first week closely, and walk you through how to steer him by replying in plain English.",
+        "kind": "launch"
+      }
+    ]
+  },
+  "monthlyIncludes": [
+    "Kwame running every weekday morning, sourcing and drafting up to 10 prospects a day",
+    "Unlimited steering by email. Tell him to change targets or tone and he adapts, at no extra cost",
+    "All model and platform costs for his normal workload",
+    "Monitoring, error recovery, and any fixes if a connected tool changes on us",
+    "Ongoing tuning as you learn what converts"
+  ],
+  "notIncluded": [
+    "Third-party costs billed to you directly, such as Google Workspace seats or paid data sources",
+    "New capabilities outside the scope above. Those get quoted as a change order first",
+    "Design or build work on the websites you sell. Kwame opens the door, your team does the work",
+    "A second agent. Adding one is a separate quote"
+  ],
+  "timeline": {
+    "buildWindow": "3 to 4 weeks",
+    "description": "We start the day the setup fee clears. You'll see a working dry run around week two, and we'll only go live once you've read Kwame's drafts and agreed they're good."
+  },
+  "terms": {
+    "validity": "30 days from send",
+    "paymentTerms": "Setup fee due at signature. Monthly retainer bills on the first of each month, starting at launch, not at signature.",
+    "cancellation": "Cancel anytime with 30 days notice. The setup fee is non-refundable once the build starts, and you keep every connection we set up in your own accounts."
+  },
+  "cta": {
+    "headline": "Ready to build this?",
+    "subtext": "Approving starts the build and sends your setup invoice. If the timing isn't right, say so and we'll close this out cleanly with no follow-up sequence.",
+    "approveLabel": "Approve and start",
+    "approveUrl": "https://portal.ambitt.agency/quotes/kwame-12af/approve",
+    "denyLabel": "Not right now",
+    "denyUrl": "https://portal.ambitt.agency/quotes/kwame-12af/deny"
+  },
+  "footer": {
+    "domain": "ambitt.agency",
+    "location": "Dallas, TX",
+    "note": "You're getting this because you approved the scope for Kwame on ambitt.agency."
+  }
+}

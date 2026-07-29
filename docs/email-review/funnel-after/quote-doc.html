@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light only">
+<title>Your custom agent quote is ready</title>
+<!--
+  Ambitt Agents: the quote document.
+
+  HOSTED PAGE, not an email. Rendered fresh from Prospect.quoteDraft by Oracle's
+  /onboarding/prospects/:id/quote-html and served at
+  portal.ambitt.agency/quotes/[token] (the portal proxies through), plus the
+  dashboard preview iframe. The email that announces it is a separate slim
+  teaser in oracle/templates/funnel-emails.ts.
+
+  This page never passes through the send-time em-dash scrub, so the copy
+  authored here is dash-free on purpose and the generation prompt bans them at
+  source (oracle/index.ts, buildAtlasQuotePrompt).
+
+  Shares its design language with proposal-email/template.html and
+  oracle/templates/_shared.ts: system font stack with no webfont, tonal
+  separation instead of the gray 1px card borders this template used to stack
+  six of, two-step teal (#00b3b3 marks only, #00706f text, #00807e buttons),
+  headings at 600.
+
+  The Handlebars contract (./types.ts) is UNCHANGED.
+-->
+<style>
+  :root {
+    --page:#eef2f6; --card:#ffffff; --wash:#f2f6f9; --wash-brand:#e7f5f5;
+    --ink:#1d2f40; --body:#33475b; --mute:#56697c; --faint:#728799; --rule:#e2eaf1;
+    --teal:#00b3b3; --teal-deep:#00807e; --teal-text:#00706f;
+    --font:-apple-system,BlinkMacSystemFont,'Segoe UI Variable Text','Segoe UI',Roboto,'Helvetica Neue',Helvetica,Arial,sans-serif;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body {
+    font-family:var(--font); background:var(--page); color:var(--body);
+    line-height:1.62; -webkit-font-smoothing:antialiased;
+    padding:40px 16px 64px; font-size:16px;
+  }
+  a { color:inherit; text-decoration:none; }
+
+  .doc {
+    max-width:720px; margin:0 auto; background:var(--card); border-radius:16px;
+    overflow:hidden;
+    box-shadow:0 1px 2px rgba(29,47,64,.04), 0 8px 20px rgba(29,47,64,.05), 0 24px 48px rgba(29,47,64,.05);
+  }
+  .doc::before { content:""; display:block; height:3px; background:var(--teal); }
+  .pad { padding-left:56px; padding-right:56px; }
+
+  /* Masthead ------------------------------------------------------------- */
+  .masthead { display:flex; align-items:center; justify-content:space-between; gap:16px; padding-top:30px; padding-bottom:30px; }
+  .lockup { display:flex; align-items:center; gap:10px; }
+  .lockup .wordmark { font-size:15px; font-weight:600; color:var(--ink); letter-spacing:-.005em; }
+  .lockup .wordmark span { color:var(--teal-text); }
+  .doctype { font-size:11px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--mute); }
+
+  /* Lede ----------------------------------------------------------------- */
+  .lede { padding-bottom:8px; }
+  .lede p { font-size:16px; line-height:1.62; color:var(--body); margin-bottom:14px; }
+  .lede p:last-child { margin-bottom:0; }
+  .lede .hi { color:var(--ink); font-weight:600; }
+
+  /* Title block ---------------------------------------------------------- */
+  .titleblock { padding-top:30px; padding-bottom:30px; }
+  /* Mark on its own row so the title always gets the full measure. */
+  .titletop { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:20px; }
+  .mark { flex:0 0 auto; width:56px; height:56px; border-radius:16px; background:var(--wash-brand); display:flex; align-items:center; justify-content:center; }
+  .eyebrow { font-size:11px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--teal-text); margin-bottom:9px; }
+  h1 { font-size:34px; line-height:1.14; font-weight:600; letter-spacing:-.02em; color:var(--ink); }
+  .subtitle { font-size:15.5px; color:var(--mute); margin-top:8px; }
+
+  /* Pricing. The number is the message, so it gets the room. -------------- */
+  .pricing { background:var(--wash); border-radius:14px; padding:26px 28px; margin-top:26px; }
+  .tier { display:inline-block; font-size:11px; font-weight:600; letter-spacing:.09em; text-transform:uppercase; padding:5px 12px; border-radius:20px; background:var(--wash-brand); color:var(--teal-text); margin-bottom:20px; }
+  .figures { display:flex; gap:16px; flex-wrap:wrap; }
+  .fig { flex:1 1 200px; background:var(--card); border-radius:11px; padding:18px 20px; }
+  .fig .k { font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--mute); margin-bottom:6px; }
+  .fig .v { font-size:36px; line-height:1.05; font-weight:600; letter-spacing:-.025em; color:var(--ink); font-variant-numeric:tabular-nums; }
+  .fig .s { font-size:13px; color:var(--mute); margin-top:5px; }
+  .pricing .summary { font-size:15px; line-height:1.62; color:var(--body); margin-top:20px; }
+
+  /* Sections ------------------------------------------------------------- */
+  .sec { padding-top:34px; padding-bottom:34px; }
+  .sec + .sec { border-top:1px solid var(--rule); }
+  h2 { font-size:22px; line-height:1.22; font-weight:600; letter-spacing:-.014em; color:var(--ink); margin-bottom:12px; }
+  .sec > p.intro { font-size:15.5px; line-height:1.6; color:var(--body); margin-bottom:6px; }
+
+  /* Scope. Hairline rows, duotone mark, no boxes, no emoji. */
+  .scope { margin-top:14px; }
+  .item { display:flex; gap:16px; padding:17px 0; border-top:1px solid var(--rule); }
+  .item:first-child { border-top:none; }
+  .item .ico { flex:0 0 auto; width:24px; height:24px; margin-top:1px; }
+  .item .ico svg { display:block; width:24px; height:24px; }
+  .item .b { flex:1 1 auto; min-width:0; }
+  .itemhead { display:flex; align-items:baseline; flex-wrap:wrap; gap:9px; margin-bottom:4px; }
+  .itemhead .t { font-size:16px; font-weight:600; color:var(--ink); }
+  .kind { font-size:10.5px; font-weight:600; letter-spacing:.07em; text-transform:uppercase; color:var(--mute); }
+  .item p { font-size:15px; line-height:1.58; color:var(--body); }
+
+  /* Included / not included --------------------------------------------- */
+  .cols { display:flex; gap:20px; flex-wrap:wrap; margin-top:16px; }
+  .col { flex:1 1 260px; background:var(--wash); border-radius:12px; padding:20px 22px; }
+  .col h3 { font-size:14px; font-weight:600; color:var(--ink); margin-bottom:12px; }
+  .col ul { list-style:none; }
+  .col li { display:flex; gap:10px; padding:6px 0; font-size:14.5px; line-height:1.55; color:var(--body); }
+  .col li svg { flex:0 0 auto; width:15px; height:15px; margin-top:4px; }
+
+  /* Timeline ------------------------------------------------------------- */
+  .timeline { display:flex; gap:22px; align-items:center; flex-wrap:wrap; margin-top:14px; background:var(--wash); border-radius:12px; padding:22px 24px; }
+  .window { flex:0 0 auto; }
+  .window .k { font-size:10.5px; font-weight:600; letter-spacing:.09em; text-transform:uppercase; color:var(--mute); margin-bottom:3px; }
+  .window .v { font-size:24px; font-weight:600; letter-spacing:-.018em; color:var(--teal-text); white-space:nowrap; }
+  .timeline p { flex:1 1 260px; font-size:15px; line-height:1.6; color:var(--body); }
+
+  /* Terms ---------------------------------------------------------------- */
+  .terms { margin-top:14px; border-top:1px solid var(--rule); }
+  .term { display:flex; gap:24px; padding:15px 0; border-bottom:1px solid var(--rule); }
+  .term dt { flex:0 0 132px; font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--mute); padding-top:3px; }
+  .term dd { flex:1 1 auto; font-size:15px; line-height:1.6; color:var(--body); }
+
+  /* Close ---------------------------------------------------------------- */
+  .close { background:var(--wash); padding-top:40px; padding-bottom:44px; text-align:center; }
+  .close h2 { font-size:26px; margin-bottom:10px; }
+  .close .sub { font-size:15px; line-height:1.6; color:var(--mute); margin:0 auto 26px; max-width:48ch; }
+  .actions { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; }
+  .btn { display:inline-block; padding:14px 30px; border-radius:9px; font-size:15px; font-weight:600; line-height:1.2; }
+  .btn-primary { background:var(--teal-deep); color:#fff; }
+  .btn-secondary { background:var(--card); color:var(--body); box-shadow:inset 0 0 0 1px var(--rule); }
+
+  /* Colophon ------------------------------------------------------------- */
+  .colophon { padding-top:22px; padding-bottom:26px; }
+  .colophon .who { font-size:13px; color:var(--mute); }
+  .colophon .who a { color:var(--teal-text); font-weight:600; }
+  /* --mute, not --faint: --faint is 3.7:1 and reserved for hairlines. */
+  .colophon .note { font-size:12.5px; color:var(--mute); margin-top:3px; max-width:52ch; }
+
+  @media (max-width:640px) {
+    body { padding:20px 12px 40px; }
+    .pad { padding-left:24px; padding-right:24px; }
+    .doc { border-radius:12px; }
+    h1 { font-size:27px; }
+    h2 { font-size:20px; }
+    .close h2 { font-size:22px; }
+    .titletop { margin-bottom:16px; }
+    .mark { width:46px; height:46px; border-radius:13px; }
+    .pricing { padding:20px; }
+    .fig .v { font-size:30px; }
+    .term { flex-direction:column; gap:4px; }
+    .term dt { flex-basis:auto; padding-top:0; }
+    .actions .btn { flex:1 1 auto; text-align:center; }
+  }
+</style>
+</head>
+<body>
+
+<article class="doc">
+
+  <header class="masthead pad">
+    <div class="lockup">
+      <svg viewBox="0 0 86 42" width="52" height="25" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+        <g transform="translate(43, 22)">
+          <g transform="translate(-28, 0)"><rect x="-9" y="-2" width="18" height="18" rx="5" fill="#1d2f40"/><circle cx="0" cy="-11" r="6.5" fill="#1d2f40"/><rect x="-4" y="-12.25" width="8" height="2.5" rx="1.25" fill="#00b3b3"/></g>
+          <g><rect x="-9" y="-2" width="18" height="18" rx="5" fill="#1d2f40"/><circle cx="0" cy="-11" r="6.5" fill="#1d2f40"/><rect x="-4" y="-12.25" width="8" height="2.5" rx="1.25" fill="#00b3b3"/></g>
+          <g transform="translate(28, 0)"><rect x="-9" y="-2" width="18" height="18" rx="5" fill="#1d2f40"/><circle cx="0" cy="-11" r="6.5" fill="#1d2f40"/><rect x="-4" y="-12.25" width="8" height="2.5" rx="1.25" fill="#00b3b3"/></g>
+        </g>
+      </svg>
+      <div class="wordmark">Ambitt <span>Agents</span></div>
+    </div>
+    <div class="doctype">Quote</div>
+  </header>
+
+  <div class="lede pad">
+    <p class="hi">Hi Kyle,</p>
+    <p>Here&#x27;s the quote for Kwame, built from the scope you approved. Everything we discussed is priced below, along with what&#x27;s included each month and what isn&#x27;t.</p>
+  </div>
+
+  <section class="titleblock pad">
+    <div class="titletop">
+      <div class="mark">
+        <svg viewBox="0 0 28 40" width="30" height="43" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+          <rect x="5" y="19" width="18" height="18" rx="5" fill="#1d2f40"/>
+          <circle cx="14" cy="10" r="6.5" fill="#1d2f40"/>
+          <rect x="9.5" y="8.75" width="9" height="2.5" rx="1.25" fill="#00b3b3"/>
+        </svg>
+      </div>
+    </div>
+    <div class="eyebrow">YOUR CUSTOM AGENT QUOTE</div>
+    <h1>Kwame for Ambitt Media.</h1>
+    <p class="subtitle">Outbound prospecting agent · supervised mode · daily mornings</p>
+
+    <div class="pricing">
+      <div class="tier">Growth tier</div>
+      <div class="figures">
+        <div class="fig">
+          <div class="k">Setup fee</div>
+          <div class="v">$4,500</div>
+          <div class="s">one-time, due at signature</div>
+        </div>
+        <div class="fig">
+          <div class="k">Monthly retainer</div>
+          <div class="v">$1,499</div>
+          <div class="s">billed monthly from launch</div>
+        </div>
+      </div>
+      <p class="summary">The setup fee covers the build: research tooling, the Google Maps sourcing flow, your Gmail and Notion connections, and the voice tuning that makes Kwame&#x27;s drafts sound like you wrote them. The monthly retainer keeps him running, supervised, and improving. For comparison, a junior SDR doing this work runs $4,500 to $6,000 a month once you load payroll.</p>
+    </div>
+  </section>
+
+  <section class="sec pad">
+    <h2>Scope of work</h2>
+    <p class="intro">Everything below is included in the setup fee. No surprises later.</p>
+    <div class="scope">
+      <div class="item">
+        <div class="ico"><svg viewBox="0 0 20 20" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="10" fill="#c2e6e5"/><path d="M14 8.6a4.4 4.4 0 1 0 .1 3.1" fill="none" stroke="#00706f" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M14.4 5.6v3.2h-3.2" fill="none" stroke="#00706f" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <div class="b">
+          <div class="itemhead"><span class="t">Google Maps sourcing flow</span><span class="kind">Automation</span></div>
+          <p>A custom search routine that finds businesses with review history and no linked website, filtered to your target categories and radius.</p>
+        </div>
+      </div>
+      <div class="item">
+        <div class="ico"><svg viewBox="0 0 20 20" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="10" fill="#c2e6e5"/><path d="M8.1 7.4 5.7 10l2.4 2.6M11.9 7.4 14.3 10l-2.4 2.6" fill="none" stroke="#00706f" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <div class="b">
+          <div class="itemhead"><span class="t">Contact discovery tool</span><span class="kind">Custom code</span></div>
+          <p>Custom code that locates a working contact address for each business from its listing, socials, or public records, and skips the ones it can&#x27;t verify.</p>
+        </div>
+      </div>
+      <div class="item">
+        <div class="ico"><svg viewBox="0 0 20 20" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="10" fill="#c2e6e5"/><path d="M7.6 10h4.8" fill="none" stroke="#00706f" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><circle cx="6.5" cy="10" r="2" fill="#00706f"/><circle cx="13.5" cy="10" r="2" fill="#00706f"/></svg></div>
+        <div class="b">
+          <div class="itemhead"><span class="t">Gmail connection</span><span class="kind">Integration</span></div>
+          <p>Kwame sends from your own Gmail account, so replies land in your inbox and your sending reputation stays yours.</p>
+        </div>
+      </div>
+      <div class="item">
+        <div class="ico"><svg viewBox="0 0 20 20" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="10" fill="#c2e6e5"/><path d="M7.6 10h4.8" fill="none" stroke="#00706f" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><circle cx="6.5" cy="10" r="2" fill="#00706f"/><circle cx="13.5" cy="10" r="2" fill="#00706f"/></svg></div>
+        <div class="b">
+          <div class="itemhead"><span class="t">Notion pipeline sync</span><span class="kind">Integration</span></div>
+          <p>Every prospect, send, and reply is written to your Notion database automatically, so the pipeline is always current without anyone updating it.</p>
+        </div>
+      </div>
+      <div class="item">
+        <div class="ico"><svg viewBox="0 0 20 20" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="10" fill="#c2e6e5"/><path d="M6.4 13.6 7.3 11l4.4-4.4a1.3 1.3 0 0 1 1.8 1.8L9.1 12.8z" fill="none" stroke="#00706f" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M6.4 13.6 9.1 12.8" fill="none" stroke="#00706f" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <div class="b">
+          <div class="itemhead"><span class="t">Brand voice tuning</span><span class="kind">Prompt engineering</span></div>
+          <p>We train Kwame on your existing emails and site copy until his drafts read like your team wrote them. Reviewed and adjusted until you sign off.</p>
+        </div>
+      </div>
+      <div class="item">
+        <div class="ico"><svg viewBox="0 0 20 20" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="10" fill="#c2e6e5"/><path d="M8.1 7.4 5.7 10l2.4 2.6M11.9 7.4 14.3 10l-2.4 2.6" fill="none" stroke="#00706f" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <div class="b">
+          <div class="itemhead"><span class="t">Sample one-pager generator</span><span class="kind">Custom code</span></div>
+          <p>Each outreach email carries a personalised mockup of what that business&#x27;s site could look like, generated on the fly and attached automatically.</p>
+        </div>
+      </div>
+      <div class="item">
+        <div class="ico"><svg viewBox="0 0 20 20" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="10" fill="#c2e6e5"/><path d="M14 8.6a4.4 4.4 0 1 0 .1 3.1" fill="none" stroke="#00706f" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M14.4 5.6v3.2h-3.2" fill="none" stroke="#00706f" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <div class="b">
+          <div class="itemhead"><span class="t">Supervised approval flow</span><span class="kind">Automation</span></div>
+          <p>Your morning digest with the day&#x27;s drafts, an approve-all button, and per-email skip. Nothing leaves your account without your say-so.</p>
+        </div>
+      </div>
+      <div class="item">
+        <div class="ico"><svg viewBox="0 0 20 20" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="10" fill="#c2e6e5"/><path d="M8.5 5.2v3.3l-2.4 4.6a1 1 0 0 0 .9 1.5h6a1 1 0 0 0 .9-1.5l-2.4-4.6V5.2" fill="none" stroke="#00706f" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M7.7 5.2h4.6" fill="none" stroke="#00706f" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <div class="b">
+          <div class="itemhead"><span class="t">Dry run and QA</span><span class="kind">Testing</span></div>
+          <p>We run Kwame against real targets with sending disabled, review every draft, and fix what needs fixing before a single email goes out.</p>
+        </div>
+      </div>
+      <div class="item">
+        <div class="ico"><svg viewBox="0 0 20 20" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="10" fill="#c2e6e5"/><path d="M10 14.2V6.4M6.9 9.5 10 6.3l3.1 3.2" fill="none" stroke="#00706f" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <div class="b">
+          <div class="itemhead"><span class="t">Launch and handover</span><span class="kind">Launch</span></div>
+          <p>We turn him on, watch the first week closely, and walk you through how to steer him by replying in plain English.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec pad">
+    <h2>What's included &amp; what's not</h2>
+    <div class="cols">
+      <div class="col">
+        <h3>Included in your monthly retainer</h3>
+        <ul>
+          <li><svg viewBox="0 0 16 16" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="8" r="8" fill="#c2e6e5"/><path d="M4.6 8.2 6.9 10.5 11.4 6" fill="none" stroke="#00706f" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Kwame running every weekday morning, sourcing and drafting up to 10 prospects a day</span></li>
+          <li><svg viewBox="0 0 16 16" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="8" r="8" fill="#c2e6e5"/><path d="M4.6 8.2 6.9 10.5 11.4 6" fill="none" stroke="#00706f" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Unlimited steering by email. Tell him to change targets or tone and he adapts, at no extra cost</span></li>
+          <li><svg viewBox="0 0 16 16" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="8" r="8" fill="#c2e6e5"/><path d="M4.6 8.2 6.9 10.5 11.4 6" fill="none" stroke="#00706f" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg><span>All model and platform costs for his normal workload</span></li>
+          <li><svg viewBox="0 0 16 16" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="8" r="8" fill="#c2e6e5"/><path d="M4.6 8.2 6.9 10.5 11.4 6" fill="none" stroke="#00706f" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Monitoring, error recovery, and any fixes if a connected tool changes on us</span></li>
+          <li><svg viewBox="0 0 16 16" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="8" r="8" fill="#c2e6e5"/><path d="M4.6 8.2 6.9 10.5 11.4 6" fill="none" stroke="#00706f" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Ongoing tuning as you learn what converts</span></li>
+        </ul>
+      </div>
+      <div class="col">
+        <h3>Not included</h3>
+        <ul>
+          <li><svg viewBox="0 0 16 16" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="8" r="8" fill="#dce4ec"/><path d="M5.2 8h5.6" fill="none" stroke="#56697c" stroke-width="1.9" stroke-linecap="round"/></svg><span>Third-party costs billed to you directly, such as Google Workspace seats or paid data sources</span></li>
+          <li><svg viewBox="0 0 16 16" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="8" r="8" fill="#dce4ec"/><path d="M5.2 8h5.6" fill="none" stroke="#56697c" stroke-width="1.9" stroke-linecap="round"/></svg><span>New capabilities outside the scope above. Those get quoted as a change order first</span></li>
+          <li><svg viewBox="0 0 16 16" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="8" r="8" fill="#dce4ec"/><path d="M5.2 8h5.6" fill="none" stroke="#56697c" stroke-width="1.9" stroke-linecap="round"/></svg><span>Design or build work on the websites you sell. Kwame opens the door, your team does the work</span></li>
+          <li><svg viewBox="0 0 16 16" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="8" r="8" fill="#dce4ec"/><path d="M5.2 8h5.6" fill="none" stroke="#56697c" stroke-width="1.9" stroke-linecap="round"/></svg><span>A second agent. Adding one is a separate quote</span></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec pad">
+    <h2>Timeline</h2>
+    <div class="timeline">
+      <div class="window">
+        <div class="k">Build</div>
+        <div class="v">3 to 4 weeks</div>
+      </div>
+      <p>We start the day the setup fee clears. You&#x27;ll see a working dry run around week two, and we&#x27;ll only go live once you&#x27;ve read Kwame&#x27;s drafts and agreed they&#x27;re good.</p>
+    </div>
+  </section>
+
+  <section class="sec pad">
+    <h2>Terms</h2>
+    <dl class="terms">
+      <div class="term"><dt>Quote valid</dt><dd>30 days from send</dd></div>
+      <div class="term"><dt>Payment</dt><dd>Setup fee due at signature. Monthly retainer bills on the first of each month, starting at launch, not at signature.</dd></div>
+      <div class="term"><dt>Cancellation</dt><dd>Cancel anytime with 30 days notice. The setup fee is non-refundable once the build starts, and you keep every connection we set up in your own accounts.</dd></div>
+    </dl>
+  </section>
+
+  <section class="close pad">
+    <h2>Ready to build this?</h2>
+    <p class="sub">Approving starts the build and sends your setup invoice. If the timing isn&#x27;t right, say so and we&#x27;ll close this out cleanly with no follow-up sequence.</p>
+    <div class="actions">
+      <a class="btn btn-primary" href="https://portal.ambitt.agency/quotes/kwame-12af/approve">Approve and start</a>
+      <a class="btn btn-secondary" href="https://portal.ambitt.agency/quotes/kwame-12af/deny">Not right now</a>
+    </div>
+  </section>
+
+  <footer class="colophon pad">
+    <div class="who"><a href="https://ambitt.agency">ambitt.agency</a> · Dallas, TX</div>
+    <div class="note">You&#x27;re getting this because you approved the scope for Kwame on ambitt.agency.</div>
+  </footer>
+
+</article>
+</body>
+</html>

@@ -8,10 +8,19 @@ const example = JSON.parse(readFileSync("./oracle/templates/proposal-email/examp
 console.log("--- renderProposalEmail(example.json) ---");
 try {
   const html = renderProposalEmail(example);
-  console.log("OK — rendered", html.length, "chars");
-  // Check the lockup/hero label rendered
-  console.log("contains AMBITT AGENTS:", html.includes("AMBITT AGENTS"));
+  console.log("OK, rendered", html.length, "chars");
+  // The masthead wordmark. Used to look for the uppercase "AMBITT AGENTS" that
+  // sat inside the old near-black hero slab; that slab is gone and the wordmark
+  // is now live sentence-case text at the top of the document.
+  console.log("contains masthead wordmark:", html.includes("Ambitt <span>Agents</span>"));
   console.log("contains hero title:", html.includes("Meet Kwame"));
+  // The two things this pass was meant to remove. Comments are stripped first:
+  // the template documents what it replaced, and naming Geist in a comment is
+  // not the same as loading it.
+  const doc = html.replace(/<!--[\s\S]*?-->/g, "");
+  console.log("no webfont at all:", !doc.includes("@font-face") && !doc.includes("@import"));
+  console.log("no second cyan #00d4d4:", !doc.includes("#00d4d4"));
+  console.log("teal never carries text:", !/color:\s*#00b3b3/i.test(doc));
 } catch (e) {
   if (e instanceof ProposalEmailValidationError) {
     console.error("validation issues:", JSON.stringify(e.issues, null, 2));

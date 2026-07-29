@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="x-apple-disable-message-reformatting">
 <meta name="color-scheme" content="light only">
-<title>{{subject}}</title>
+<title>Your custom agent proposal from Atlas</title>
 <!--
   Ambitt Agents: the proposal document.
 
@@ -212,8 +212,8 @@
   </header>
 
   <div class="lede pad">
-    <p class="hi">Hi {{greeting.name}},</p>
-    <p>{{greeting.body}}</p>
+    <p class="hi">Hi Kyle,</p>
+    <p>Based on your form, here&#x27;s the agent I&#x27;d build for you. Have a read. If it feels right, hit Approve. If anything&#x27;s off, hit Make changes and you can update your answers.</p>
   </div>
 
   <section class="titleblock pad">
@@ -225,107 +225,94 @@
           <rect x="9.5" y="8.75" width="9" height="2.5" rx="1.25" fill="#00b3b3"/>
         </svg>
       </div>
-      {{#if hero.status}}
-      <div class="chip {{hero.status.tone}}"><span class="dot"></span>{{hero.status.text}}</div>
-      {{/if}}
+      <div class="chip warn"><span class="dot"></span>Pending your review</div>
     </div>
-    <div class="eyebrow">{{hero.label}}</div>
-    <h1>{{{hero.title}}}</h1>
+    <div class="eyebrow">YOUR CUSTOM AGENT</div>
+    <h1>Meet Kwame,<br>your new lead-gen agent.</h1>
 
     <dl class="specs">
-      {{#each hero.specs}}
-      <div class="spec"><dt>{{label}}</dt><dd>{{{value}}}</dd></div>
-      {{/each}}
+      <div class="spec"><dt>Targets</dt><dd>Small businesses · No website yet</dd></div>
+      <div class="spec"><dt>Cadence</dt><dd>Daily mornings · <span class="accent">10 prospects/day</span></dd></div>
+      <div class="spec"><dt>Mode</dt><dd>Supervised · Approval before sending</dd></div>
+      <div class="spec"><dt>Voice</dt><dd>Ambitt Media tone · Brand-aligned</dd></div>
+      <div class="spec"><dt>Stack</dt><dd>Google Maps · Gmail · Notion</dd></div>
     </dl>
   </section>
 
-  {{#if introQuote}}
   <div class="pull pad">
-    <blockquote>{{{introQuote.text}}}</blockquote>
+    <blockquote>Every day, thousands of small businesses collect Google reviews and still don't have a website. They're already credible. They just haven't been asked yet. Kwame finds them, researches them, and sends a cold email that actually looks like it was written for <em>them</em>. Not a blast. A pitch.</blockquote>
   </div>
-  {{/if}}
 
   <section class="sec pad">
-    <div class="eyebrow">{{#if whatWeBuild.label}}{{whatWeBuild.label}}{{else}}01 · WHAT WE'D BUILD{{/if}}</div>
-    <h2>{{whatWeBuild.headline}}</h2>
-    {{#each whatWeBuild.paragraphs}}
-    <p>{{this}}</p>
-    {{/each}}
+    <div class="eyebrow">01 · WHAT WE'D BUILD</div>
+    <h2>The Prospect Hunter</h2>
+    <p>Kwame is a daily outbound agent. His one job: find small businesses with Google reviews but no website, locate a contact email, and send them a personalised cold email on Ambitt Media&#x27;s behalf, complete with a sample one-pager showing what their site could look like.</p>
+    <p>He runs every morning. By the time you start your day, 10 qualified prospects have already heard from you.</p>
   </section>
 
   <section class="sec pad">
-    <div class="eyebrow">{{#if flow.label}}{{flow.label}}{{else}}02 · HOW IT WORKS{{/if}}</div>
-    <h2>{{flow.headline}}</h2>
+    <div class="eyebrow">02 · HOW IT WORKS</div>
+    <h2>The daily flow</h2>
     <ol class="flow">
-      {{#each flow.steps}}
-      <li class="step"><div class="n">{{number}}</div><div><h3>{{title}}</h3><p>{{description}}</p></div></li>
-      {{/each}}
+      <li class="step"><div class="n">1</div><div><h3>Hunt</h3><p>Kwame searches Google Maps for businesses in your target categories (restaurants, salons, contractors, shops) that have reviews but no linked website. He pulls 10 per day.</p></div></li>
+      <li class="step"><div class="n">2</div><div><h3>Research</h3><p>For each business, he finds a contact email from Google, their social profiles, or their listing. He notes their category, location, review count, and rating so the email feels specific.</p></div></li>
+      <li class="step"><div class="n">3</div><div><h3>Draft</h3><p>He writes a short, personalised cold email in Ambitt Media&#x27;s voice, mentioning the business by name, referencing their reviews, and attaching a sample one-pager of what their site could look like. No price discussions, ever.</p></div></li>
+      <li class="step"><div class="n">4</div><div><h3>Your approval</h3><p>Because you&#x27;ve chosen supervised mode, Kwame sends you the 10 drafted emails each morning before anything goes out. You approve the batch, skip any you don&#x27;t like, and he sends the rest via Gmail.</p></div></li>
+      <li class="step"><div class="n">5</div><div><h3>Log &amp; track</h3><p>Every prospect, email sent, and reply gets logged in Notion automatically. You always know what&#x27;s in the pipeline, what&#x27;s been sent, and who&#x27;s responded.</p></div></li>
     </ol>
   </section>
 
-  {{#if sample}}
   <section class="sec pad">
-    <div class="eyebrow">{{#if sample.label}}{{sample.label}}{{else}}03 · SAMPLE OUTPUT{{/if}}</div>
-    <h2>{{sample.headline}}</h2>
-    <p>{{sample.introText}}</p>
+    <div class="eyebrow">03 · SAMPLE OUTPUT</div>
+    <h2>What an email looks like</h2>
+    <p>Here&#x27;s the kind of email Kwame would draft, based on a real business type: a local barbershop in Dallas with 87 Google reviews and no website.</p>
     <figure class="figure">
-      {{#if sample.card.headerRows}}
       <div class="figure-head">
-        {{#each sample.card.headerRows}}
-        <div class="row"><span class="label">{{label}}</span><span class="{{#if type}}{{type}}{{else}}text{{/if}}">{{value}}</span></div>
-        {{/each}}
+        <div class="row"><span class="label">From</span><span class="link">team@ambittmedia.com</span></div>
+        <div class="row"><span class="label">To</span><span class="link">owner@freshcutsbarber.com</span></div>
+        <div class="row"><span class="label">Subject</span><span class="subject">Fresh Cuts has 87 reviews but no website yet 👀</span></div>
       </div>
-      {{/if}}
       <div class="figure-body">
-        {{{sample.card.body}}}
-        {{#if sample.card.signature}}
-        <div class="sig">{{{sample.card.signature}}}</div>
-        {{/if}}
+        <p>Hey Fresh Cuts team,</p><p>I came across your shop on Google: 87 reviews and a 4.8 rating. That's a serious reputation. But when someone searches for you and wants to book or check your hours, there's no website to land on.</p><p>We put together a quick sample of what a site for Fresh Cuts could look like. Nothing generic, something built around your brand. It's attached.</p><p>We're Ambitt Media, a Dallas-based agency that's helped 200+ businesses get online and grow. We handle the whole thing: design, build, and ongoing support.</p><p>Worth a 15-minute call to see if it's a fit?</p>
+        <div class="sig">Ambitt Media Team<br><a href="https://ambittmedia.com">ambittmedia.com</a> · Dallas, TX</div>
       </div>
     </figure>
   </section>
-  {{/if}}
 
-  {{#if digest}}
   <section class="sec pad">
-    <div class="eyebrow">{{#if digest.label}}{{digest.label}}{{else}}04 · YOUR MORNING DIGEST{{/if}}</div>
-    <h2>{{digest.headline}}</h2>
-    <p>{{digest.introText}}</p>
+    <div class="eyebrow">04 · YOUR MORNING DIGEST</div>
+    <h2>What you&#x27;d see before approving</h2>
+    <p>Each morning, you&#x27;ll get a summary like this with all 10 drafts ready to review. Approve the batch, or click into any one to edit before it sends.</p>
     <figure class="figure">
       <div class="figure-title">
-        <div class="t">{{digest.cardTitle}}</div>
-        <div class="m">{{{digest.cardMeta}}}</div>
+        <div class="t">Kwame&#x27;s Daily Report</div>
+        <div class="m">Wednesday<span class="accent"> · 10 prospects ready</span></div>
       </div>
       <table class="data">
-        <thead><tr>{{#each digest.columns}}<th>{{label}}</th>{{/each}}</tr></thead>
+        <thead><tr><th>Business</th><th>Type</th><th>Reviews</th><th>Status</th></tr></thead>
         <tbody>
-          {{#each digest.rows}}
-          <tr>{{#each this}}<td>{{#if type}}<span class="pill">{{value}}</span>{{else}}{{value}}{{/if}}</td>{{/each}}</tr>
-          {{/each}}
+          <tr><td>Fresh Cuts Barber</td><td>Barbershop</td><td>87 ★ 4.8</td><td><span class="pill">Draft ready</span></td></tr>
+          <tr><td>Mama Cee&#x27;s Kitchen</td><td>Restaurant</td><td>142 ★ 4.6</td><td><span class="pill">Draft ready</span></td></tr>
+          <tr><td>Bloom Nail Studio</td><td>Nail salon</td><td>63 ★ 4.9</td><td><span class="pill">Draft ready</span></td></tr>
         </tbody>
       </table>
     </figure>
   </section>
-  {{/if}}
 
   <section class="close pad">
-    <h2>{{cta.headline}}</h2>
-    <p class="sub">{{cta.subtext}}</p>
+    <h2>If this feels right, approve it.</h2>
+    <p class="sub">Pricing comes after you approve scope. We&#x27;ll send a quote within the same business day. Builds typically run 2–8 weeks from quote acceptance depending on scope.</p>
     <div class="actions">
-      <a href="{{cta.primaryUrl}}" class="btn btn-primary">{{cta.primaryLabel}}</a>
-      <a href="{{cta.secondaryUrl}}" class="btn btn-secondary">{{cta.secondaryLabel}}</a>
+      <a href="https://ambitt.agency/approve/kwame-12af" class="btn btn-primary">Approve</a>
+      <a href="https://ambitt.agency/edit/kwame-12af" class="btn btn-secondary">Make changes</a>
     </div>
-    {{#if cta.tertiaryLabel}}
-    <div class="tertiary"><a href="{{cta.tertiaryUrl}}">{{cta.tertiaryLabel}} &rsaquo;</a></div>
-    {{/if}}
+    <div class="tertiary"><a href="https://ambitt.agency/contact">Talk to a human &rsaquo;</a></div>
   </section>
 
   <footer class="colophon pad">
     <div>
-      <div class="who"><a href="https://{{footer.domain}}">{{footer.domain}}</a> · {{footer.location}}</div>
-      {{#if footer.note}}
-      <div class="note">{{footer.note}}</div>
-      {{/if}}
+      <div class="who"><a href="https://ambitt.agency">ambitt.agency</a> · Dallas, TX</div>
+      <div class="note">You&#x27;re getting this because you submitted a form on ambitt.agency.</div>
     </div>
   </footer>
 

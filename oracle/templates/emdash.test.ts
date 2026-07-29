@@ -29,6 +29,12 @@ import { buildPermissionEmail } from "./permission-email.js";
 import { buildProgressEmail } from "./progress-email.js";
 import { buildCredentialRequestEmail } from "./credential-request-email.js";
 import { renderProposalEmail } from "./proposal-email/render.js";
+import { renderQuote } from "./quote/render.js";
+import {
+  buildThanksEmail,
+  buildProposalTeaserEmail,
+  buildQuoteTeaserEmail,
+} from "./funnel-emails.js";
 import { signatureRoleLine, footerBlock } from "./_shared.js";
 import { readFileSync } from "fs";
 import { dirname, join } from "path";
@@ -287,7 +293,59 @@ ok(
     readFileSync(join(__dirname, "proposal-email", "example.json"), "utf-8"),
   );
   noEmDash("proposal example.json (raw exemplar)", JSON.stringify(example, null, 2));
-  noEmDash("proposal email (rendered from example.json)", renderProposalEmail(example));
+  noEmDash("proposal document (rendered from example.json)", renderProposalEmail(example));
+}
+
+// --- 4b. The Atlas quote -----------------------------------------------------
+// This one matters more than the rest of the file. The hosted quote page renders
+// from stored JSON straight out of the database, so it NEVER passes through the
+// send-time scrub in shared/email.ts. A dash in this template's own chrome ships
+// to a paying prospect with nothing in the way of it.
+
+{
+  const example = JSON.parse(readFileSync(join(__dirname, "quote", "example.json"), "utf-8"));
+  noEmDash("quote example.json (raw exemplar)", JSON.stringify(example, null, 2));
+  noEmDash("quote document (rendered from example.json, NOT scrubbed at send)", renderQuote(example));
+}
+
+// --- 4c. The three pre-sale emails ------------------------------------------
+// The only emails a prospect gets before they are a client. Same rule: props in
+// are dash-free, so any dash out is ours.
+
+{
+  const prospect = {
+    contactName: "Casey Litsey",
+    businessName: "Litsey Creek Partners",
+    formData: { preferredName: "Casey" },
+  };
+
+  noEmDash("funnel: thanks", buildThanksEmail(prospect));
+  noEmDash(
+    "funnel: proposal teaser",
+    buildProposalTeaserEmail({
+      prospect,
+      proposalUrl: "https://portal.ambitt.agency/proposals/tok",
+      heroTitle: "Meet Hawk,<br>your industrial listing scout.",
+    }),
+  );
+  noEmDash(
+    "funnel: quote teaser",
+    buildQuoteTeaserEmail({ prospect, quoteUrl: "https://portal.ambitt.agency/quotes/tok" }),
+  );
+
+  // The teaser flattens hero.title into a preview line. A prospect with an
+  // apostrophe or an angle bracket in their business name must not be able to
+  // inject markup into an email we send.
+  const injected = buildProposalTeaserEmail({
+    prospect: { contactName: "Casey", businessName: `<script>alert(1)</script>` },
+    proposalUrl: "https://portal.ambitt.agency/proposals/tok",
+    heroTitle: `<img src=x onerror="alert(1)">Hawk`,
+  });
+  ok(
+    "funnel: prospect-supplied text is escaped, not injected",
+    !injected.includes("<script>") && !injected.includes("onerror"),
+    "raw markup survived into the rendered email",
+  );
 }
 
 // --- 5. signatureRoleLine --------------------------------------------------

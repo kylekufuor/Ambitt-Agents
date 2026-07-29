@@ -44,7 +44,7 @@ export async function GET(
     return new Response(
       simplePage(
         "Your proposal is being prepared",
-        `Hey ${first} — Atlas is still working on your custom agent proposal. This page will update as soon as it's ready. Usually within 30 minutes of your submission.`
+        `Hey ${first}, Atlas is still working on your custom agent proposal. This page updates as soon as it's ready, usually within 30 minutes of your submission.`
       ),
       { headers: { "Content-Type": "text/html; charset=utf-8" } }
     );
@@ -60,8 +60,40 @@ export async function GET(
   });
 }
 
+/**
+ * The waiting / closed states a prospect can land on instead of the proposal
+ * itself. Same design language as the proposal document it stands in for
+ * (oracle/templates/proposal-email/template.html): system font stack with no
+ * webfont, a card lifted by elevation under a 3px teal letterhead rule, and
+ * the two-step teal. The previous version named 'Inter' without loading it and
+ * linked in #00b3b3, which is 2.59:1 on white and fails WCAG AA.
+ *
+ * Kept inline rather than shared with /quotes: Railway builds each service from
+ * its own rootDirectory, so a cross-service import would mean mirroring the
+ * file anyway. The two copies are byte-identical on purpose.
+ */
 function simplePage(title: string, body: string): string {
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(title)} · Ambitt Agents</title><style>body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:#fafaf8;color:#171717;margin:0;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:32px}main{max-width:520px;text-align:center}h1{font-size:28px;font-weight:700;letter-spacing:-0.5px;margin:0 0 16px}p{font-size:15px;color:#404040;line-height:1.65;margin:0 0 12px}a{color:#00b3b3;text-decoration:none;font-weight:500}a:hover{text-decoration:underline}</style></head><body><main><h1>${escapeHtml(title)}</h1><p>${escapeHtml(body)}</p><p><a href="mailto:team@ambitt.agency">team@ambitt.agency</a></p></main></body></html>`;
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light only"><title>${escapeHtml(title)} · Ambitt Agents</title><style>
+:root{--page:#eef2f6;--card:#fff;--ink:#1d2f40;--body:#33475b;--mute:#56697c;--teal:#00b3b3;--teal-text:#00706f}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI Variable Text','Segoe UI',Roboto,'Helvetica Neue',Helvetica,Arial,sans-serif;background:var(--page);color:var(--body);-webkit-font-smoothing:antialiased;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px;line-height:1.62}
+main{max-width:520px;width:100%;background:var(--card);border-radius:16px;overflow:hidden;box-shadow:0 1px 2px rgba(29,47,64,.04),0 8px 20px rgba(29,47,64,.05),0 24px 48px rgba(29,47,64,.05)}
+main::before{content:"";display:block;height:3px;background:var(--teal)}
+.in{padding:40px 44px 36px}
+.lk{display:flex;align-items:center;gap:9px;margin-bottom:26px}
+.wm{font-size:14px;font-weight:600;color:var(--ink)}
+.wm span{color:var(--teal-text)}
+h1{font-size:25px;line-height:1.2;font-weight:600;letter-spacing:-.016em;color:var(--ink);margin-bottom:12px}
+p{font-size:16px;color:var(--body);margin-bottom:14px}
+p.q{font-size:14px;color:var(--mute);margin:0}
+a{color:var(--teal-text);text-decoration:none;font-weight:600}
+a:hover{text-decoration:underline}
+@media(max-width:560px){.in{padding:30px 24px 28px}h1{font-size:22px}}
+</style></head><body><main><div class="in">
+<div class="lk"><svg viewBox="0 0 86 42" width="46" height="22" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><g transform="translate(43,22)"><g transform="translate(-28,0)"><rect x="-9" y="-2" width="18" height="18" rx="5" fill="#1d2f40"/><circle cx="0" cy="-11" r="6.5" fill="#1d2f40"/><rect x="-4" y="-12.25" width="8" height="2.5" rx="1.25" fill="#00b3b3"/></g><g><rect x="-9" y="-2" width="18" height="18" rx="5" fill="#1d2f40"/><circle cx="0" cy="-11" r="6.5" fill="#1d2f40"/><rect x="-4" y="-12.25" width="8" height="2.5" rx="1.25" fill="#00b3b3"/></g><g transform="translate(28,0)"><rect x="-9" y="-2" width="18" height="18" rx="5" fill="#1d2f40"/><circle cx="0" cy="-11" r="6.5" fill="#1d2f40"/><rect x="-4" y="-12.25" width="8" height="2.5" rx="1.25" fill="#00b3b3"/></g></g></svg><div class="wm">Ambitt <span>Agents</span></div></div>
+<h1>${escapeHtml(title)}</h1><p>${escapeHtml(body)}</p>
+<p class="q">Questions? <a href="mailto:team@ambitt.agency">team@ambitt.agency</a></p>
+</div></main></body></html>`;
 }
 
 function escapeHtml(s: string): string {

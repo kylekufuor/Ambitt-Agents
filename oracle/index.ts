@@ -8,6 +8,11 @@ import { runImprovementCycle } from "./improve.js";
 import { handleStripeWebhook } from "./billing.js";
 import { onboardClient } from "./onboard.js";
 import { classifyAutomatedInbound } from "./lib/inbound-classify.js";
+import {
+  buildThanksEmail,
+  buildProposalTeaserEmail,
+  buildQuoteTeaserEmail,
+} from "./templates/funnel-emails.js";
 import { classifyControlIntent, isHaltIntent } from "./lib/intent-classify.js";
 import { haltAgent, resumeAgent, resolveControlRequester } from "./lib/pause-control.js";
 import { nextThrottledFrequency, throttleConfirmation } from "./lib/throttle.js";
@@ -2895,7 +2900,7 @@ app.post("/onboarding/prospects/:id/event", async (req: Request, res: Response) 
           agentName: atlas.name,
           to: prospect.email,
           subject: "Got your brief and your proposal is on the way",
-          html: renderThanksEmail(prospect, portalBase),
+          html: buildThanksEmail(prospect),
           replyToAgentId: atlas.id,
           prospectId: prospect.id,
           emailType: "thanks_email",
@@ -3067,7 +3072,7 @@ Re-emit the COMPLETE ProposalEmailData JSON matching this exact shape. Output ON
         agentName: atlas.name,
         to: prospect.email,
         subject,
-        html: renderProposalTeaserEmail(prospect, proposalUrl, heroTitle, portalBase),
+        html: buildProposalTeaserEmail({ prospect, proposalUrl, heroTitle }),
         replyToAgentId: atlas.id,
         prospectId: prospect.id,
         emailType: "proposal_teaser",
@@ -3722,7 +3727,7 @@ app.post("/onboarding/prospects/:id/quote-send", async (req: Request, res: Respo
       agentName: atlas.name,
       to: prospect.email,
       subject,
-      html: renderQuoteTeaserEmail(prospect, quoteUrl, portalBase),
+      html: buildQuoteTeaserEmail({ prospect, quoteUrl }),
       replyToAgentId: atlas.id,
       prospectId: prospect.id,
       emailType: "quote_teaser",
@@ -4281,31 +4286,6 @@ function renderQuoteDraftReadyNotice(
   <div style="margin: 0 0 18px;">
     <a href="${quoteUrl}" style="display: inline-block; padding: 12px 22px; background: #00b3b3; color: #ffffff; text-decoration: none; border-radius: 9px; font-size: 14px; font-weight: 600;">Review quote →</a>
   </div>
-</div>`;
-}
-
-function renderQuoteTeaserEmail(
-  prospect: { contactName: string | null; businessName: string | null },
-  quoteUrl: string,
-  portalBase: string
-): string {
-  const firstName = (prospect.contactName ?? "").trim().split(/\s+/)[0] || "there";
-  const businessLine = prospect.businessName ? ` for ${prospect.businessName}` : "";
-  return `<div style="font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; max-width: 560px; margin: 0 auto; padding: 32px 24px; background: #ffffff; color: #171717;">
-  <div style="margin-bottom: 28px;">
-    <img src="${portalBase}/brand/ambitt-agents-lockup.svg" alt="Ambitt Agents" width="220" height="27" style="display: block; max-width: 220px; height: auto;" />
-  </div>
-  <p style="font-size: 15px; color: #404040; margin: 0 0 16px; line-height: 1.6;">Hey ${firstName},</p>
-  <p style="font-size: 15px; color: #404040; margin: 0 0 24px; line-height: 1.6;">
-    Your custom agent quote${businessLine} is ready. It covers everything we're building, what's included monthly, the timeline, and terms.
-  </p>
-  <p style="font-size: 15px; color: #404040; margin: 0 0 28px; line-height: 1.6;">
-    Read it carefully. If it works for you, hit Approve and we'll get started. If not, hit "Not right now" and we'll close out cleanly.
-  </p>
-  <div style="margin: 0 0 32px;">
-    <a href="${quoteUrl}" style="display: inline-block; padding: 14px 30px; background: #00b3b3; color: #ffffff; text-decoration: none; border-radius: 9px; font-size: 15px; font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,0.05), 0 4px 12px rgba(0, 179, 179, 0.28);">View your quote →</a>
-  </div>
-  <p style="font-size: 13px; color: #a3a3a3; margin: 32px 0 0;">Atlas<br />Your onboarding agent at Ambitt Agents</p>
 </div>`;
 }
 
@@ -4886,60 +4866,6 @@ function renderGenericAutoResponse(firstName: string, onboardLandingUrl: string,
     Not a fit for onboarding? Email <a href="mailto:team@ambitt.agency" style="color: #00b3b3; text-decoration: none;">team@ambitt.agency</a> and a human will get back to you.
   </p>
   <p style="font-size: 13px; color: #a3a3a3; margin: 24px 0 0;">Atlas<br />Your onboarding agent at Ambitt Agents</p>
-</div>`;
-}
-
-function renderProposalTeaserEmail(
-  prospect: { contactName: string | null; businessName: string | null },
-  proposalUrl: string,
-  heroTitle: string,
-  portalBase: string
-): string {
-  const firstName = (prospect.contactName ?? "").trim().split(/\s+/)[0] || "there";
-  // hero.title may contain <br> — strip for the email preview line.
-  const previewTitle = heroTitle.replace(/<br\s*\/?>/gi, " ").replace(/<[^>]+>/g, "").trim();
-  const businessLine = prospect.businessName ? ` for ${prospect.businessName}` : "";
-  return `<div style="font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; max-width: 560px; margin: 0 auto; padding: 32px 24px; background: #ffffff; color: #171717;">
-  <div style="margin-bottom: 28px;">
-    <img src="${portalBase}/brand/ambitt-agents-lockup.svg" alt="Ambitt Agents" width="220" height="27" style="display: block; max-width: 220px; height: auto;" />
-  </div>
-  <p style="font-size: 15px; color: #404040; margin: 0 0 16px; line-height: 1.6;">Hey ${firstName},</p>
-  <p style="font-size: 15px; color: #404040; margin: 0 0 24px; line-height: 1.6;">
-    Your custom agent proposal${businessLine} is ready. ${previewTitle ? `<strong style="color: #171717;">${previewTitle}</strong>` : ""}
-  </p>
-  <p style="font-size: 15px; color: #404040; margin: 0 0 28px; line-height: 1.6;">
-    Take a few minutes to read through it. If it feels right, you can approve right on the page. If anything's off, hit Make changes and update your answers.
-  </p>
-  <div style="margin: 0 0 32px;">
-    <a href="${proposalUrl}" style="display: inline-block; padding: 14px 30px; background: #00b3b3; color: #ffffff; text-decoration: none; border-radius: 9px; font-size: 15px; font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,0.05), 0 4px 12px rgba(0, 179, 179, 0.28);">View your proposal →</a>
-  </div>
-  <p style="font-size: 13px; color: #737373; margin: 0 0 8px; line-height: 1.6;">
-    Pricing and timeline come after you approve scope. We'll handle those next.
-  </p>
-  <p style="font-size: 13px; color: #a3a3a3; margin: 32px 0 0;">Atlas<br />Your onboarding agent at Ambitt Agents</p>
-</div>`;
-}
-
-function renderThanksEmail(
-  prospect: { contactName: string | null; email: string; businessName: string | null; formData: unknown },
-  portalBase: string
-): string {
-  const fd = (prospect.formData ?? {}) as Record<string, unknown>;
-  const preferred = typeof fd.preferredName === "string" ? fd.preferredName : "";
-  const firstName = (prospect.contactName ?? "").trim().split(/\s+/)[0] || preferred || "there";
-  const business = prospect.businessName ? ` for ${prospect.businessName}` : "";
-  return `<div style="font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; max-width: 560px; margin: 0 auto; padding: 32px 24px; background: #ffffff; color: #171717;">
-  <div style="margin-bottom: 28px;">
-    <img src="${portalBase}/brand/ambitt-agents-lockup.svg" alt="Ambitt Agents" width="220" height="27" style="display: block; max-width: 220px; height: auto;" />
-  </div>
-  <p style="font-size: 15px; color: #404040; margin: 0 0 16px; line-height: 1.6;">Hey ${firstName},</p>
-  <p style="font-size: 15px; color: #404040; margin: 0 0 16px; line-height: 1.6;">
-    Got your brief${business}. Thanks for laying it all out. I'm reading through your answers now.
-  </p>
-  <p style="font-size: 15px; color: #404040; margin: 0 0 24px; line-height: 1.6;">
-    Your proposal will land in this inbox within <strong style="color: #171717;">30 minutes</strong>. When it does, you'll be able to approve the scope or ask for changes. Pricing comes after.
-  </p>
-  <p style="font-size: 13px; color: #a3a3a3; margin: 32px 0 0;">Atlas<br />Your onboarding agent at Ambitt Agents</p>
 </div>`;
 }
 

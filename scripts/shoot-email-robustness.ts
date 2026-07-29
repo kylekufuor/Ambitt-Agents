@@ -9,6 +9,12 @@
 //   narrow      most of these are read on a phone
 //
 //   npx tsx scripts/shoot-email-robustness.ts docs/email-review/after
+//
+// A second argument overrides which renders to check, so the same harness
+// covers the pre-sale funnel:
+//
+//   npx tsx scripts/shoot-email-robustness.ts docs/email-review/funnel-after \
+//     proposal-doc,quote-doc,email-thanks
 // ---------------------------------------------------------------------------
 
 import { mkdirSync } from "node:fs";
@@ -19,7 +25,10 @@ const dir = resolve(process.cwd(), process.argv[2] ?? "docs/email-review/after")
 const out = resolve(dir, "shots");
 mkdirSync(out, { recursive: true });
 
-const TARGETS = ["agent-response", "welcome", "action-required", "digest"];
+const TARGETS = (process.argv[3] ?? "agent-response,welcome,action-required,digest")
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
 
 async function main() {
   const browser = await puppeteer.launch({ args: ["--no-sandbox"] });

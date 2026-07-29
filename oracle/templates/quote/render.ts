@@ -83,18 +83,59 @@ Handlebars.registerHelper("dollars", (cents: unknown) => {
   return `$${(cents / 100).toLocaleString()}`;
 });
 
-// Map kind → icon character + accent (kept simple inline). Easier than SVG icons.
-Handlebars.registerHelper("kindIcon", (kind: unknown) => {
-  const map: Record<string, string> = {
-    integration: "🔌",
-    custom_code: "⚙️",
-    automation: "🔁",
-    prompt: "✍️",
-    testing: "🧪",
-    launch: "🚀",
-  };
-  return typeof kind === "string" ? map[kind] ?? "•" : "•";
-});
+// Map kind → a duotone mark. These used to be emoji (🔌 ⚙️ 🔁 ✍️ 🧪 🚀), which
+// render at a different size, weight and colour on every OS, put a stray hue in
+// a one-accent document, and are one of the loudest AI-slop tells going. The
+// replacements are the portal's duotone convention: a pale teal disc carrying a
+// deep teal detail. Two tones of one hue, drawn at one weight.
+//
+// Marks only, so the pale disc is not held to a text contrast ratio. The deep
+// stroke is #00706f, which clears AA on white anyway.
+//
+// This changes only what the helper RETURNS. `ScopeItem.kind` stays the same
+// six-value enum, so the Atlas prompt and the Zod schema are untouched.
+const ICON_BACK = "#c2e6e5";
+const ICON_FORE = "#00706f";
+
+function duotone(inner: string): Handlebars.SafeString {
+  return new Handlebars.SafeString(
+    `<svg viewBox="0 0 20 20" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">` +
+      `<circle cx="10" cy="10" r="10" fill="${ICON_BACK}"/>${inner}</svg>`
+  );
+}
+
+const STROKE = `fill="none" stroke="${ICON_FORE}" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"`;
+
+const KIND_ICONS: Record<string, Handlebars.SafeString> = {
+  // Two nodes joined: something of theirs wired to something of ours.
+  integration: duotone(
+    `<path d="M7.6 10h4.8" ${STROKE}/><circle cx="6.5" cy="10" r="2" fill="${ICON_FORE}"/><circle cx="13.5" cy="10" r="2" fill="${ICON_FORE}"/>`
+  ),
+  // Angle brackets: code we write for them specifically.
+  custom_code: duotone(`<path d="M8.1 7.4 5.7 10l2.4 2.6M11.9 7.4 14.3 10l-2.4 2.6" ${STROKE}/>`),
+  // A loop that closes: it runs again tomorrow without anyone asking.
+  automation: duotone(
+    `<path d="M14 8.6a4.4 4.4 0 1 0 .1 3.1" ${STROKE}/><path d="M14.4 5.6v3.2h-3.2" ${STROKE}/>`
+  ),
+  // A nib: the voice work.
+  prompt: duotone(
+    `<path d="M6.4 13.6 7.3 11l4.4-4.4a1.3 1.3 0 0 1 1.8 1.8L9.1 12.8z" ${STROKE}/><path d="M6.4 13.6 9.1 12.8" ${STROKE}/>`
+  ),
+  // A beaker: we try it before they do.
+  testing: duotone(
+    `<path d="M8.5 5.2v3.3l-2.4 4.6a1 1 0 0 0 .9 1.5h6a1 1 0 0 0 .9-1.5l-2.4-4.6V5.2" ${STROKE}/><path d="M7.7 5.2h4.6" ${STROKE}/>`
+  ),
+  // An arrow leaving: go-live.
+  launch: duotone(`<path d="M10 14.2V6.4M6.9 9.5 10 6.3l3.1 3.2" ${STROKE}/>`),
+};
+
+// Falls back to a plain disc rather than a bullet character, so an unknown kind
+// degrades to something that still belongs in the row rhythm.
+const KIND_ICON_FALLBACK = duotone(`<circle cx="10" cy="10" r="3" fill="${ICON_FORE}"/>`);
+
+Handlebars.registerHelper("kindIcon", (kind: unknown) =>
+  typeof kind === "string" ? KIND_ICONS[kind] ?? KIND_ICON_FALLBACK : KIND_ICON_FALLBACK
+);
 
 Handlebars.registerHelper("kindLabel", (kind: unknown) => {
   const map: Record<string, string> = {

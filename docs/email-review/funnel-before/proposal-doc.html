@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="x-apple-disable-message-reformatting">
+<title>Your custom agent proposal from Atlas</title>
+<style>
+  @font-face { font-family: 'Geist'; font-style: normal; font-weight: 400; src: url('https://cdn.jsdelivr.net/npm/@fontsource/geist/files/geist-latin-400-normal.woff2') format('woff2'); font-display: swap; }
+  @font-face { font-family: 'Geist'; font-style: normal; font-weight: 500; src: url('https://cdn.jsdelivr.net/npm/@fontsource/geist/files/geist-latin-500-normal.woff2') format('woff2'); font-display: swap; }
+  @font-face { font-family: 'Geist'; font-style: normal; font-weight: 600; src: url('https://cdn.jsdelivr.net/npm/@fontsource/geist/files/geist-latin-600-normal.woff2') format('woff2'); font-display: swap; }
+  @font-face { font-family: 'Geist'; font-style: normal; font-weight: 700; src: url('https://cdn.jsdelivr.net/npm/@fontsource/geist/files/geist-latin-700-normal.woff2') format('woff2'); font-display: swap; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Geist', 'Inter', system-ui, -apple-system, sans-serif; background: #f5f5f5; padding: 32px 16px; line-height: 1.6; -webkit-font-smoothing: antialiased; color: #171717; }
+  a { color: inherit; text-decoration: none; }
+  .aa-card { max-width: 640px; margin: 0 auto; background: #ffffff; border-radius: 14px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 12px 32px rgba(0,0,0,0.06); }
+  .aa-greeting { padding: 36px 40px 8px; }
+  .aa-greeting p { font-size: 15px; color: #404040; line-height: 1.65; margin-bottom: 12px; }
+  .aa-greeting p:last-child { margin-bottom: 0; }
+  .aa-hero { background: #171717; color: #ffffff; padding: 36px 40px 40px; margin-top: 24px; }
+  .aa-hero-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+  .aa-hero-brand { font-size: 10.5px; font-weight: 600; letter-spacing: 2px; color: rgba(255,255,255,0.45); }
+  .aa-status { display: inline-flex; align-items: center; gap: 7px; font-size: 10.5px; font-weight: 600; letter-spacing: 1.2px; color: rgba(255,255,255,0.6); text-transform: uppercase; }
+  .aa-status-dot { width: 7px; height: 7px; border-radius: 50%; }
+  .aa-status-dot.info { background: #00d4d4; box-shadow: 0 0 0 3px rgba(0,212,212,0.18); }
+  .aa-status-dot.warn { background: #f59e0b; box-shadow: 0 0 0 3px rgba(245,158,11,0.18); }
+  .aa-status-dot.success { background: #22c55e; box-shadow: 0 0 0 3px rgba(34,197,94,0.18); }
+  .aa-status-dot.neutral { background: #737373; box-shadow: 0 0 0 3px rgba(115,115,115,0.18); }
+  .aa-agent-frame { width: 80px; height: 80px; border-radius: 20px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center; margin-bottom: 22px; }
+  .aa-hero-label { font-size: 11px; font-weight: 600; letter-spacing: 2px; color: #00d4d4; margin-bottom: 10px; }
+  .aa-hero-title { font-size: 36px; font-weight: 700; letter-spacing: -1.2px; line-height: 1.1; margin-bottom: 4px; }
+  .aa-specs { margin-top: 28px; padding-top: 24px; border-top: 1px solid rgba(255,255,255,0.1); display: flex; flex-direction: column; gap: 11px; }
+  .aa-spec { display: flex; gap: 18px; align-items: baseline; }
+  .aa-spec-k { flex-shrink: 0; width: 76px; color: rgba(255,255,255,0.4); font-weight: 600; letter-spacing: 1.3px; text-transform: uppercase; font-size: 10px; }
+  .aa-spec-v { color: rgba(255,255,255,0.9); font-weight: 500; font-size: 13.5px; line-height: 1.5; }
+  .aa-spec-v .accent { color: #00d4d4; font-weight: 600; }
+  .aa-intro { padding: 32px 40px 0; }
+  .aa-quote { border-left: 3px solid #00b3b3; padding: 4px 0 4px 18px; font-size: 15px; color: #404040; line-height: 1.65; }
+  .aa-quote em { color: #00b3b3; font-style: italic; font-weight: 500; }
+  .aa-section { padding: 32px 40px; }
+  .aa-section + .aa-section { border-top: 1px solid #f0f0f0; }
+  .aa-label { font-size: 11px; font-weight: 600; letter-spacing: 1.8px; color: #00b3b3; margin-bottom: 12px; }
+  .aa-h2 { font-size: 26px; font-weight: 700; letter-spacing: -0.5px; margin-bottom: 16px; color: #171717; line-height: 1.25; }
+  .aa-section p { font-size: 14.5px; color: #404040; margin-bottom: 12px; line-height: 1.65; }
+  .aa-section p:last-child { margin-bottom: 0; }
+  .aa-flow { list-style: none; margin-top: 20px; }
+  .aa-step { display: flex; gap: 18px; padding: 18px 0; border-top: 1px solid #f0f0f0; }
+  .aa-step:first-child { border-top: none; padding-top: 6px; }
+  .aa-step-num { flex-shrink: 0; width: 28px; height: 28px; border-radius: 50%; background: #00b3b3; color: #ffffff; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; margin-top: 1px; }
+  .aa-step-body h3 { font-size: 15px; font-weight: 700; margin-bottom: 4px; color: #171717; letter-spacing: -0.2px; }
+  .aa-step-body p { font-size: 14px; color: #525252; margin: 0; line-height: 1.6; }
+  .aa-card-art { margin-top: 18px; border: 1px solid #e5e5e5; border-radius: 10px; overflow: hidden; }
+  .aa-card-art-h { background: #fafafa; padding: 14px 20px; border-bottom: 1px solid #e5e5e5; }
+  .aa-card-art-h .row { font-size: 12.5px; color: #404040; margin-bottom: 4px; line-height: 1.6; }
+  .aa-card-art-h .row:last-child { margin-bottom: 0; }
+  .aa-card-art-h .label { display: inline-block; width: 72px; color: #737373; font-weight: 500; }
+  .aa-card-art-h .link { color: #00b3b3; }
+  .aa-card-art-h .subject { font-weight: 600; color: #171717; }
+  .aa-card-art-b { padding: 20px 22px; font-size: 14px; color: #171717; line-height: 1.65; background: #ffffff; }
+  .aa-card-art-b p { margin-bottom: 12px; font-size: 14px; color: #171717; }
+  .aa-card-art-b p:last-child { margin-bottom: 0; }
+  .aa-sig { color: #525252; border-top: 1px solid #f0f0f0; padding-top: 10px; margin-top: 14px; font-size: 13.5px; }
+  .aa-sig a { color: #00b3b3; }
+  .aa-digest { margin-top: 18px; border: 1px solid #e5e5e5; border-radius: 10px; overflow: hidden; }
+  .aa-digest-h { padding: 16px 22px; background: #171717; color: #ffffff; }
+  .aa-digest-h .title { font-size: 13.5px; font-weight: 700; letter-spacing: -0.2px; margin-bottom: 3px; }
+  .aa-digest-h .meta { font-size: 12px; color: rgba(255,255,255,0.55); }
+  .aa-digest-h .meta .accent { color: #00d4d4; font-weight: 600; }
+  .aa-table { width: 100%; border-collapse: collapse; }
+  .aa-table th { text-align: left; font-size: 10.5px; font-weight: 600; letter-spacing: 0.8px; text-transform: uppercase; color: #737373; padding: 12px 22px 10px; border-bottom: 1px solid #e5e5e5; background: #fafafa; }
+  .aa-table td { padding: 13px 22px; font-size: 13.5px; color: #171717; border-bottom: 1px solid #f0f0f0; }
+  .aa-table tr:last-child td { border-bottom: none; }
+  .aa-table td:first-child { font-weight: 600; }
+  .aa-pill { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 11.5px; font-weight: 600; background: rgba(0,179,179,0.1); color: #007373; }
+  .aa-digest-f { padding: 12px 22px; text-align: center; color: #d4d4d4; font-size: 14px; background: #fafafa; letter-spacing: 6px; }
+  .aa-cta { background: #fafaf8; padding: 36px 40px 44px; text-align: center; border-top: 1px solid #f0f0f0; }
+  .aa-cta-t { font-size: 22px; font-weight: 700; letter-spacing: -0.4px; margin-bottom: 8px; color: #171717; }
+  .aa-cta-s { font-size: 13px; color: #737373; margin-bottom: 22px; line-height: 1.55; }
+  .aa-buttons { display: flex; gap: 12px; justify-content: center; margin-bottom: 14px; flex-wrap: wrap; }
+  .aa-btn { padding: 13px 26px; border-radius: 9px; font-size: 14px; font-weight: 600; letter-spacing: -0.1px; display: inline-block; line-height: 1.2; }
+  .aa-btn-p { background: #00b3b3; color: #ffffff; box-shadow: 0 1px 2px rgba(0,0,0,0.05), 0 4px 12px rgba(0,179,179,0.25); }
+  .aa-btn-s { background: #ffffff; color: #171717; border: 1px solid #d4d4d4; }
+  .aa-tertiary { font-size: 13px; color: #737373; }
+  .aa-tertiary a { color: #00b3b3; font-weight: 500; }
+  .aa-foot { padding: 24px 40px 28px; background: #ffffff; border-top: 1px solid #f0f0f0; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+  .aa-foot-text { text-align: right; font-size: 11.5px; color: #737373; line-height: 1.6; }
+  .aa-foot-text a { color: #00b3b3; }
+  .aa-foot-meta { color: #a3a3a3; margin-top: 2px; max-width: 320px; }
+  @media (max-width: 600px) {
+    .aa-greeting, .aa-hero, .aa-intro, .aa-section, .aa-cta, .aa-foot { padding-left: 24px; padding-right: 24px; }
+    .aa-hero-title { font-size: 30px; letter-spacing: -0.8px; }
+    .aa-h2, .aa-cta-t { font-size: 22px; }
+    .aa-buttons .aa-btn { flex: 1; min-width: 0; }
+    .aa-spec-k { width: 64px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="aa-card">
+
+<div class="aa-greeting">
+<p>Hi Kyle,</p>
+<p>Based on your form, here&#x27;s the agent I&#x27;d build for you. Have a read. If it feels right, hit Approve. If anything&#x27;s off, hit Make changes and you can update your answers.</p>
+</div>
+
+<div class="aa-hero">
+<div class="aa-hero-top">
+<div class="aa-hero-brand">AMBITT AGENTS</div>
+<div class="aa-status"><div class="aa-status-dot warn"></div>Pending your review</div>
+</div>
+
+<div class="aa-agent-frame">
+<svg viewBox="0 0 28 40" width="48" height="68" xmlns="http://www.w3.org/2000/svg">
+<rect x="5" y="19" width="18" height="18" rx="5" fill="#ffffff"/>
+<circle cx="14" cy="10" r="6.5" fill="#ffffff"/>
+<rect x="9.5" y="8.75" width="9" height="2.5" rx="1.25" fill="#00d4d4"/>
+</svg>
+</div>
+
+<div class="aa-hero-label">YOUR CUSTOM AGENT</div>
+<div class="aa-hero-title">Meet Kwame,<br>your new lead-gen agent.</div>
+
+<div class="aa-specs">
+<div class="aa-spec"><div class="aa-spec-k">Targets</div><div class="aa-spec-v">Small businesses · No website yet</div></div>
+<div class="aa-spec"><div class="aa-spec-k">Cadence</div><div class="aa-spec-v">Daily mornings · <span class="accent">10 prospects/day</span></div></div>
+<div class="aa-spec"><div class="aa-spec-k">Mode</div><div class="aa-spec-v">Supervised · Approval before sending</div></div>
+<div class="aa-spec"><div class="aa-spec-k">Voice</div><div class="aa-spec-v">Ambitt Media tone · Brand-aligned</div></div>
+<div class="aa-spec"><div class="aa-spec-k">Stack</div><div class="aa-spec-v">Google Maps · Gmail · Notion</div></div>
+</div>
+</div>
+
+<div class="aa-intro">
+<div class="aa-quote">Every day, thousands of small businesses collect Google reviews and still don't have a website. They're already credible. They just haven't been asked yet. Kwame finds them, researches them, and sends a cold email that actually looks like it was written for <em>them</em>. Not a blast. A pitch.</div>
+</div>
+
+<div class="aa-section">
+<div class="aa-label">01 · WHAT WE'D BUILD</div>
+<div class="aa-h2">The Prospect Hunter</div>
+<p>Kwame is a daily outbound agent. His one job: find small businesses with Google reviews but no website, locate a contact email, and send them a personalised cold email on Ambitt Media&#x27;s behalf, complete with a sample one-pager showing what their site could look like.</p>
+<p>He runs every morning. By the time you start your day, 10 qualified prospects have already heard from you.</p>
+</div>
+
+<div class="aa-section">
+<div class="aa-label">02 · HOW IT WORKS</div>
+<div class="aa-h2">The daily flow</div>
+<ol class="aa-flow">
+<li class="aa-step"><div class="aa-step-num">1</div><div class="aa-step-body"><h3>Hunt</h3><p>Kwame searches Google Maps for businesses in your target categories (restaurants, salons, contractors, shops) that have reviews but no linked website. He pulls 10 per day.</p></div></li>
+<li class="aa-step"><div class="aa-step-num">2</div><div class="aa-step-body"><h3>Research</h3><p>For each business, he finds a contact email from Google, their social profiles, or their listing. He notes their category, location, review count, and rating so the email feels specific.</p></div></li>
+<li class="aa-step"><div class="aa-step-num">3</div><div class="aa-step-body"><h3>Draft</h3><p>He writes a short, personalised cold email in Ambitt Media&#x27;s voice, mentioning the business by name, referencing their reviews, and attaching a sample one-pager of what their site could look like. No price discussions, ever.</p></div></li>
+<li class="aa-step"><div class="aa-step-num">4</div><div class="aa-step-body"><h3>Your approval</h3><p>Because you&#x27;ve chosen supervised mode, Kwame sends you the 10 drafted emails each morning before anything goes out. You approve the batch, skip any you don&#x27;t like, and he sends the rest via Gmail.</p></div></li>
+<li class="aa-step"><div class="aa-step-num">5</div><div class="aa-step-body"><h3>Log &amp; track</h3><p>Every prospect, email sent, and reply gets logged in Notion automatically. You always know what&#x27;s in the pipeline, what&#x27;s been sent, and who&#x27;s responded.</p></div></li>
+</ol>
+</div>
+
+<div class="aa-section">
+<div class="aa-label">03 · SAMPLE OUTPUT</div>
+<div class="aa-h2">What an email looks like</div>
+<p>Here&#x27;s the kind of email Kwame would draft, based on a real business type: a local barbershop in Dallas with 87 Google reviews and no website.</p>
+<div class="aa-card-art">
+<div class="aa-card-art-h">
+<div class="row"><span class="label">From</span><span class="link">team@ambittmedia.com</span></div>
+<div class="row"><span class="label">To</span><span class="link">owner@freshcutsbarber.com</span></div>
+<div class="row"><span class="label">Subject</span><span class="subject">Fresh Cuts has 87 reviews but no website yet 👀</span></div>
+</div>
+<div class="aa-card-art-b">
+<p>Hey Fresh Cuts team,</p><p>I came across your shop on Google: 87 reviews and a 4.8 rating. That's a serious reputation. But when someone searches for you and wants to book or check your hours, there's no website to land on.</p><p>We put together a quick sample of what a site for Fresh Cuts could look like. Nothing generic, something built around your brand. It's attached.</p><p>We're Ambitt Media, a Dallas-based agency that's helped 200+ businesses get online and grow. We handle the whole thing: design, build, and ongoing support.</p><p>Worth a 15-minute call to see if it's a fit?</p>
+<div class="aa-sig">Ambitt Media Team<br><a href="https://ambittmedia.com">ambittmedia.com</a> · Dallas, TX</div>
+</div>
+</div>
+</div>
+
+<div class="aa-section">
+<div class="aa-label">04 · YOUR MORNING DIGEST</div>
+<div class="aa-h2">What you&#x27;d see before approving</div>
+<p>Each morning, you&#x27;ll get a summary like this with all 10 drafts ready to review. Approve the batch, or click into any one to edit before it sends.</p>
+<div class="aa-digest">
+<div class="aa-digest-h">
+<div class="title">Kwame&#x27;s Daily Report</div>
+<div class="meta">Wednesday<span class="accent"> · 10 prospects ready</span></div>
+</div>
+<table class="aa-table">
+<thead><tr><th>Business</th><th>Type</th><th>Reviews</th><th>Status</th></tr></thead>
+<tbody>
+<tr><td>Fresh Cuts Barber</td><td>Barbershop</td><td>87 ★ 4.8</td><td><span class="aa-pill">Draft ready</span></td></tr>
+<tr><td>Mama Cee&#x27;s Kitchen</td><td>Restaurant</td><td>142 ★ 4.6</td><td><span class="aa-pill">Draft ready</span></td></tr>
+<tr><td>Bloom Nail Studio</td><td>Nail salon</td><td>63 ★ 4.9</td><td><span class="aa-pill">Draft ready</span></td></tr>
+</tbody>
+</table>
+<div class="aa-digest-f">···</div>
+</div>
+</div>
+
+<div class="aa-cta">
+<div class="aa-cta-t">If this feels right, approve it.</div>
+<div class="aa-cta-s">Pricing comes after you approve scope. We&#x27;ll send a quote within the same business day. Builds typically run 2–8 weeks from quote acceptance depending on scope.</div>
+<div class="aa-buttons">
+<a href="https://ambitt.agency/approve/kwame-12af" class="aa-btn aa-btn-p">Approve</a>
+<a href="https://ambitt.agency/edit/kwame-12af" class="aa-btn aa-btn-s">Make changes</a>
+</div>
+<div class="aa-tertiary"><a href="https://ambitt.agency/contact">Talk to a human →</a></div>
+</div>
+
+<div class="aa-foot">
+<svg viewBox="0 0 86 42" width="62" height="30" xmlns="http://www.w3.org/2000/svg">
+<g transform="translate(43, 22)">
+<g transform="translate(-28, 0)"><rect x="-9" y="-2" width="18" height="18" rx="5" fill="#171717"/><circle cx="0" cy="-11" r="6.5" fill="#171717"/><rect x="-4" y="-12.25" width="8" height="2.5" rx="1.25" fill="#00b3b3"/></g>
+<g><rect x="-9" y="-2" width="18" height="18" rx="5" fill="#171717"/><circle cx="0" cy="-11" r="6.5" fill="#171717"/><rect x="-4" y="-12.25" width="8" height="2.5" rx="1.25" fill="#00b3b3"/></g>
+<g transform="translate(28, 0)"><rect x="-9" y="-2" width="18" height="18" rx="5" fill="#171717"/><circle cx="0" cy="-11" r="6.5" fill="#171717"/><rect x="-4" y="-12.25" width="8" height="2.5" rx="1.25" fill="#00b3b3"/></g>
+</g>
+</svg>
+<div class="aa-foot-text">
+<a href="https://ambitt.agency">ambitt.agency</a> · Dallas, TX
+<div class="aa-foot-meta">You&#x27;re getting this because you submitted a form on ambitt.agency.</div>
+</div>
+</div>
+
+</div>
+
+</body>
+</html>
