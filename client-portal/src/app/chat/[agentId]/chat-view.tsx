@@ -11,11 +11,14 @@ export interface ChatMessage {
   createdAt: string | Date;
 }
 
-// Teal used for the client's own bubbles + markdown links. Aligned with the
-// portal brand tokens (var(--brand) / var(--brand-hover)); kept as literals so
-// they resolve inside the dangerouslySetInnerHTML markdown string too.
-const BRAND = "#00a4bd";
-const BRAND_HOVER = "#0091a8";
+// Teal used for the client's own bubbles + markdown links. TWO-STEP TEAL, same
+// rule as globals.css and the agent emails: the logo teal #00b3b3 is only
+// 2.59:1 on white, so it never carries text and never sits under a white label.
+// Both of these uses do, so both take a deeper step of the same hue.
+// Kept as literals (not var()) because they also have to resolve inside the
+// markdown string we inject via dangerouslySetInnerHTML.
+const BRAND_SOLID = "#00807e"; // client's own bubble — white text on it, 4.78:1
+const BRAND_INK = "#00706f"; // links + focus, 5.92:1 on white
 
 // Layered elevation — the same depth language as the portal's `.card`. Agent
 // bubbles read as raised white surfaces, not gray-outlined boxes.
@@ -37,7 +40,7 @@ function inline(s: string): string {
     .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
     .replace(
       /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g,
-      `<a href="$2" target="_blank" rel="noopener noreferrer" style="color:${BRAND_HOVER};text-decoration:underline;font-weight:500;">$1</a>`
+      `<a href="$2" target="_blank" rel="noopener noreferrer" style="color:${BRAND_INK};text-decoration:underline;font-weight:500;">$1</a>`
     );
 }
 function renderMarkdown(md: string): string {
@@ -171,7 +174,7 @@ export function ChatView({
           </div>
           <a
             href="https://portal.ambitt.agency/"
-            className="text-[13px] font-medium text-[color:var(--text-3)] hover:text-[color:var(--brand-hover)] transition-colors"
+            className="text-[13px] font-medium text-[color:var(--text-3)] hover:text-[color:var(--brand-ink)] transition-colors"
           >
             Portal
           </a>
@@ -247,7 +250,7 @@ export function ChatView({
                 borderRadius: "var(--radius-lg)",
               }}
               onFocus={(e) => {
-                e.currentTarget.style.borderColor = BRAND;
+                e.currentTarget.style.borderColor = BRAND_SOLID;
                 e.currentTarget.style.boxShadow = "0 0 0 3px var(--brand-tint-strong)";
               }}
               onBlur={(e) => {
@@ -311,7 +314,7 @@ function MessageBubble({ message, agentName }: { message: ChatMessage; agentName
       <div className="max-w-[82%]">
         <div
           className="px-4 py-3 rounded-2xl rounded-tr-md text-[15px] text-white leading-relaxed whitespace-pre-wrap break-words"
-          style={{ background: BRAND, boxShadow: "0 2px 10px -2px rgba(0,164,189,0.4)" }}
+          style={{ background: BRAND_SOLID, boxShadow: "0 2px 10px -2px rgba(0,128,126,0.38)" }}
         >
           {message.content}
         </div>

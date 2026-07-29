@@ -202,7 +202,7 @@ function LeadCard({ lead }: { lead: LeadRow }) {
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {value && (
-            <span className="font-display text-[16px] text-[color:var(--brand-hover)]">{value}</span>
+            <span className="font-display text-[16px] text-[color:var(--brand-ink)]">{value}</span>
           )}
           <span className={`pill ${status.pill}`}>{status.label}</span>
         </div>

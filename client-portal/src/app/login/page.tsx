@@ -161,7 +161,7 @@ export default function LoginPage() {
 
         <p className="text-center text-[12px] text-[color:var(--text-4)] mt-6">
           Your AI workforce, run by us. Questions?{" "}
-          <a href="mailto:support@ambitt.agency" className="text-[color:var(--brand-hover)] hover:underline">
+          <a href="mailto:support@ambitt.agency" className="text-[color:var(--brand-ink)] hover:underline">
             support@ambitt.agency
           </a>
         </p>

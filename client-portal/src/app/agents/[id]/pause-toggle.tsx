@@ -83,7 +83,7 @@ export function PauseToggle({ agentId, status }: { agentId: string; status: stri
         disabled={working}
         className={`inline-flex items-center gap-2 h-9 px-4 rounded-[var(--radius)] text-[13.5px] font-medium transition disabled:opacity-60 disabled:cursor-not-allowed ${
           isPaused
-            ? "text-white bg-[color:var(--brand)] hover:bg-[color:var(--brand-hover)] shadow-[var(--brand-shadow)]"
+            ? "text-white bg-[color:var(--brand-solid)] hover:bg-[color:var(--brand-solid-hover)] shadow-[var(--brand-shadow)]"
             : "bg-[color:var(--surface)] text-[color:var(--text-2)] border border-[color:var(--border-strong)] hover:border-[color:var(--text-3)] hover:text-[color:var(--text)]"
         }`}
       >

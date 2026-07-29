@@ -97,7 +97,7 @@ export function WhatsAppCard({
               <span className="text-[14px] text-[color:var(--text)] font-semibold">{initial.whatsappNumber}</span>
               <button
                 onClick={() => setEditing(true)}
-                className="text-[13px] font-medium text-[color:var(--brand-hover)] hover:underline"
+                className="text-[13px] font-medium text-[color:var(--brand-ink)] hover:underline"
               >
                 Change
               </button>
@@ -129,15 +129,15 @@ export function WhatsAppCard({
                   type="checkbox"
                   checked={consent}
                   onChange={(e) => setConsent(e.target.checked)}
-                  className="mt-0.5 accent-[color:var(--brand)] w-4 h-4 shrink-0"
+                  className="mt-0.5 accent-[color:var(--brand-solid)] w-4 h-4 shrink-0"
                 />
                 <span>
                   I agree to receive account and login-verification text messages from Ambitt Agents
                   (Kufgroup LLC) at this number. Message frequency varies and message &amp; data rates
                   may apply. Reply STOP to opt out, HELP for help. See our{" "}
-                  <a href={PRIVACY_URL} target="_blank" rel="noreferrer" className="text-[color:var(--brand-hover)] font-medium hover:underline">Privacy Policy</a>{" "}
+                  <a href={PRIVACY_URL} target="_blank" rel="noreferrer" className="text-[color:var(--brand-ink)] font-medium hover:underline">Privacy Policy</a>{" "}
                   and{" "}
-                  <a href={TERMS_URL} target="_blank" rel="noreferrer" className="text-[color:var(--brand-hover)] font-medium hover:underline">Terms</a>.
+                  <a href={TERMS_URL} target="_blank" rel="noreferrer" className="text-[color:var(--brand-ink)] font-medium hover:underline">Terms</a>.
                 </span>
               </label>
 

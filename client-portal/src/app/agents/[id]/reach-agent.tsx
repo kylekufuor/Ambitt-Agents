@@ -50,14 +50,14 @@ export function ReachAgent({
           className="group flex items-center gap-2.5 min-w-0 text-left"
         >
           <span
-            className="truncate font-mono text-[16px] md:text-[17px] text-[color:var(--text)] group-hover:text-[color:var(--brand-hover)] transition-colors"
+            className="truncate font-mono text-[16px] md:text-[17px] text-[color:var(--text)] group-hover:text-[color:var(--brand-ink)] transition-colors"
             style={{ fontFamily: "var(--font-mono)" }}
           >
             {agentEmail}
           </span>
           <span
             className={`shrink-0 text-[11px] font-medium tabular-nums transition-colors ${
-              copied ? "text-[color:var(--emerald)]" : "text-[color:var(--text-4)] group-hover:text-[color:var(--brand-hover)]"
+              copied ? "text-[color:var(--emerald)]" : "text-[color:var(--text-4)] group-hover:text-[color:var(--brand-ink)]"
             }`}
           >
             {copied ? "Copied ✓" : "Copy"}

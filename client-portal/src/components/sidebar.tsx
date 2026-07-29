@@ -70,7 +70,7 @@ function SidebarBody({
                   onClick={onNavigate}
                   className={`flex items-center gap-2.5 px-3 py-2 rounded-[var(--radius)] text-[13.5px] transition ${
                     isActive
-                      ? "bg-[color:var(--brand-tint)] text-[color:var(--brand-hover)] font-medium"
+                      ? "bg-[color:var(--brand-tint)] text-[color:var(--brand-ink)] font-medium"
                       : "text-[color:var(--text-2)] hover:bg-[color:var(--surface-2)]"
                   }`}
                 >
@@ -192,7 +192,7 @@ function NavLink({
       onClick={onNavigate}
       className={`flex items-center gap-2.5 px-3 py-2 rounded-[var(--radius)] text-[13.5px] transition ${
         active
-          ? "bg-[color:var(--brand-tint)] text-[color:var(--brand-hover)] font-medium"
+          ? "bg-[color:var(--brand-tint)] text-[color:var(--brand-ink)] font-medium"
           : "text-[color:var(--text-2)] hover:bg-[color:var(--surface-2)]"
       }`}
     >
@@ -219,7 +219,7 @@ function SubItem({
       onClick={onNavigate}
       className={`px-3 py-1.5 rounded-[var(--radius)] text-[12.5px] transition ${
         active
-          ? "text-[color:var(--brand-hover)] font-medium"
+          ? "text-[color:var(--brand-ink)] font-medium"
           : "text-[color:var(--text-3)] hover:text-[color:var(--text)] hover:bg-[color:var(--surface-2)]"
       }`}
     >

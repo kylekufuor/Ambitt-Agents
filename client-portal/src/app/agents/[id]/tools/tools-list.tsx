@@ -309,7 +309,7 @@ function ToolItem({
               onClick={() => handleConnect(true)}
               disabled={connecting}
               title="Connect another Gmail inbox"
-              className="text-[13px] font-medium text-[color:var(--brand-hover)] hover:underline rounded-md px-2 py-1.5 disabled:opacity-50"
+              className="text-[13px] font-medium text-[color:var(--brand-ink)] hover:underline rounded-md px-2 py-1.5 disabled:opacity-50"
             >
               {connecting ? "…" : "+ Add another"}
             </button>

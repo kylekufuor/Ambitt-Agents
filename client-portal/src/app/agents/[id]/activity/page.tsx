@@ -66,7 +66,7 @@ export default async function AgentActivityPage(
 
         {/* Summary */}
         <section className="grid grid-cols-3 gap-3 mb-8 reveal" style={{ ["--i" as never]: 1 }}>
-          <StatCard label="Sent today" value={stats.today} accent="var(--brand-hover)" />
+          <StatCard label="Sent today" value={stats.today} accent="var(--brand-ink)" />
           <StatCard label="This week" value={stats.week} accent="#4f46e5" />
           <StatCard label="Last 30 days" value={stats.month} accent="#00887a" />
         </section>
@@ -90,7 +90,7 @@ export default async function AgentActivityPage(
             </div>
             <p className="text-[12px] text-[color:var(--text-4)] mt-2.5">
               You can change this limit on{" "}
-              <Link href={`/agents/${agent.id}`} className="text-[color:var(--brand-hover)] hover:underline">
+              <Link href={`/agents/${agent.id}`} className="text-[color:var(--brand-ink)] hover:underline">
                 {agent.name}&apos;s settings
               </Link>
               .

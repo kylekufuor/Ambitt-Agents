@@ -62,7 +62,7 @@ export function ScheduleEditor({ agentId, initial }: { agentId: string; initial:
                 : "opt hover:-translate-y-px"
             }`}
           >
-            <p className={`text-[13.5px] font-medium ${schedule === preset.value ? "text-[color:var(--brand-hover)]" : "text-[color:var(--text)]"}`}>
+            <p className={`text-[13.5px] font-medium ${schedule === preset.value ? "text-[color:var(--brand-ink)]" : "text-[color:var(--text)]"}`}>
               {preset.label}
             </p>
             <p className="text-[12px] text-[color:var(--text-3)] mt-0.5 leading-snug">{preset.description}</p>
@@ -110,7 +110,7 @@ export function ScheduleEditor({ agentId, initial }: { agentId: string; initial:
             className={`inline-flex items-center gap-1.5 text-[11.5px] font-medium px-2.5 py-1 rounded-full ${
               isError
                 ? "bg-[color:var(--red-tint)] text-[color:var(--red)]"
-                : "bg-[color:var(--brand-tint)] text-[color:var(--brand-hover)]"
+                : "bg-[color:var(--brand-tint)] text-[color:var(--brand-ink)]"
             }`}
           >
             {isError ? result : "✓ Saved"}

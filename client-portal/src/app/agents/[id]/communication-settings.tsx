@@ -163,7 +163,7 @@ export function CommunicationSettings({ agentId, agentName }: { agentId: string;
             className={`inline-flex items-center gap-1.5 text-[11.5px] font-medium px-2.5 py-1 rounded-full ${
               flash.err
                 ? "bg-[color:var(--red-tint)] text-[color:var(--red)]"
-                : "bg-[color:var(--brand-tint)] text-[color:var(--brand-hover)]"
+                : "bg-[color:var(--brand-tint)] text-[color:var(--brand-ink)]"
             }`}
           >
             {flash.err ? flash.msg : "✓ Saved"}
@@ -265,7 +265,7 @@ export function CommunicationSettings({ agentId, agentName }: { agentId: string;
         {options.outboundAccounts.length === 1 && (
           <p className="text-[12px] text-[color:var(--text-3)] mt-3">
             Want to send from your own address? Connect a Gmail on your{" "}
-            <a href={`/agents/${agentId}/tools`} className="text-[color:var(--brand-hover)] hover:underline">
+            <a href={`/agents/${agentId}/tools`} className="text-[color:var(--brand-ink)] hover:underline">
               Tools page
             </a>{" "}
             — add as many inboxes as you like.
@@ -397,7 +397,7 @@ function EmailList({
               add();
             }
           }}
-          className="flex-1 max-w-sm text-[13px] rounded-[10px] border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[color:var(--brand)]/25 focus:border-[color:var(--brand)]"
+          className="flex-1 max-w-sm text-[13px] rounded-[10px] border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[color:var(--brand)]/25 focus:border-[color:var(--brand-solid)]"
         />
         <button
           onClick={add}
@@ -442,7 +442,7 @@ function TextArea({
       onBlur={() => {
         if (draft.trim() !== (value ?? "").trim()) onSave(draft.trim());
       }}
-      className="w-full text-[13px] leading-relaxed rounded-[10px] border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2.5 font-mono focus:outline-none focus:ring-2 focus:ring-[color:var(--brand)]/25 focus:border-[color:var(--brand)] resize-y"
+      className="w-full text-[13px] leading-relaxed rounded-[10px] border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2.5 font-mono focus:outline-none focus:ring-2 focus:ring-[color:var(--brand)]/25 focus:border-[color:var(--brand-solid)] resize-y"
     />
   );
 }
@@ -513,7 +513,7 @@ function Opt({
     >
       <p
         className={`text-[13.5px] font-medium truncate ${
-          selected ? "text-[color:var(--brand-hover)]" : "text-[color:var(--text)]"
+          selected ? "text-[color:var(--brand-ink)]" : "text-[color:var(--text)]"
         }`}
       >
         {label}

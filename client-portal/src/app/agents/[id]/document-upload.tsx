@@ -108,7 +108,7 @@ export function DocumentUpload({
             className={`inline-flex items-center gap-1.5 text-[11.5px] font-medium px-2.5 py-1 rounded-full mt-3 ${
               isError
                 ? "bg-[color:var(--red-tint)] text-[color:var(--red)]"
-                : "bg-[color:var(--brand-tint)] text-[color:var(--brand-hover)]"
+                : "bg-[color:var(--brand-tint)] text-[color:var(--brand-ink)]"
             }`}
           >
             {!isError && "✓ "}

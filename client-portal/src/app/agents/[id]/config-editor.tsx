@@ -149,11 +149,11 @@ export function ConfigEditor({
         <div className="rounded-[12px] bg-[color:var(--surface-2)] px-4 py-3.5 space-y-4">
           <p className="text-[13px] text-[color:var(--text-2)]">
             Digest sent at{" "}
-            <span className="text-[color:var(--brand-hover)] font-medium">{formatHour(digestHour)}</span>
+            <span className="text-[color:var(--brand-ink)] font-medium">{formatHour(digestHour)}</span>
             {frequency === "weekly_digest" && (
               <>
                 {" "}on{" "}
-                <span className="text-[color:var(--brand-hover)] font-medium">
+                <span className="text-[color:var(--brand-ink)] font-medium">
                   {DAY_OPTIONS.find((d) => d.value === digestDayOfWeek)?.label ?? "—"}
                 </span>
               </>
@@ -211,7 +211,7 @@ export function ConfigEditor({
           className={`inline-flex items-center gap-1.5 text-[11.5px] font-medium px-2.5 py-1 rounded-full ${
             isError
               ? "bg-[color:var(--red-tint)] text-[color:var(--red)]"
-              : "bg-[color:var(--brand-tint)] text-[color:var(--brand-hover)]"
+              : "bg-[color:var(--brand-tint)] text-[color:var(--brand-ink)]"
           }`}
         >
           {isError ? result : "✓ Saved"}
@@ -259,7 +259,7 @@ function Opt({
           : "opt hover:-translate-y-px"
       }`}
     >
-      <p className={`text-[13.5px] font-medium ${selected ? "text-[color:var(--brand-hover)]" : "text-[color:var(--text)]"}`}>
+      <p className={`text-[13.5px] font-medium ${selected ? "text-[color:var(--brand-ink)]" : "text-[color:var(--text)]"}`}>
         {label}
       </p>
       <p className="text-[12px] text-[color:var(--text-3)] mt-0.5 leading-snug">{desc}</p>

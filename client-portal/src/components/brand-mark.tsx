@@ -50,7 +50,9 @@ export function BrandLockup({ height = 22, className = "" }: { height?: number; 
         style={{ color: "var(--text)", fontSize: Math.round(height * 0.75) }}
       >
         Ambitt
-        <span style={{ color: "var(--brand)" }}> Agents</span>
+        {/* Live text, so it takes the ink step — same call the agent-email
+            footer makes. The robots beside it carry the logo teal itself. */}
+        <span style={{ color: "var(--brand-ink)" }}> Agents</span>
       </span>
     </div>
   );

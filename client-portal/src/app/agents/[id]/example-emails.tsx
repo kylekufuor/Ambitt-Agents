@@ -118,7 +118,7 @@ export function ExampleEmails({
               <div className="flex items-center gap-4 mt-3.5">
                 <a
                   href={mailto(agentEmail, ex.subject, ex.body)}
-                  className="text-[12.5px] font-medium text-[color:var(--brand-hover)] hover:underline"
+                  className="text-[12.5px] font-medium text-[color:var(--brand-ink)] hover:underline"
                 >
                   Send this →
                 </a>

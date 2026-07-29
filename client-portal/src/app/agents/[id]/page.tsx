@@ -156,7 +156,7 @@ export default async function AgentDetailPage(
             </div>
             <Link
               href={`/agents/${agent.id}/activity`}
-              className="text-[12.5px] text-[color:var(--brand-hover)] hover:underline shrink-0"
+              className="text-[12.5px] text-[color:var(--brand-ink)] hover:underline shrink-0"
             >
               View activity →
             </Link>
@@ -222,7 +222,7 @@ export default async function AgentDetailPage(
           Questions about {agent.name}? Reply to any of its emails or write to{" "}
           <a
             href="mailto:support@ambitt.agency"
-            className="text-[color:var(--text-2)] hover:text-[color:var(--brand-hover)] transition-colors"
+            className="text-[color:var(--text-2)] hover:text-[color:var(--brand-ink)] transition-colors"
           >
             support@ambitt.agency
           </a>

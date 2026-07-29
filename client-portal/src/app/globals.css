@@ -9,12 +9,25 @@
    ============================================================================ */
 
 :root {
-  /* Brand — teal (HubSpot's palette includes a near-identical teal) */
-  --brand: #00a4bd;
-  --brand-hover: #0091a8;
-  --brand-bright: #00b3b3;
-  --brand-tint: rgba(0, 164, 189, 0.08);
-  --brand-tint-strong: rgba(0, 164, 189, 0.14);
+  /* ---------------------------------------------------------------------
+     BRAND — TWO-STEP TEAL. Read this before using any teal.
+
+     #00b3b3 is the logo teal and the ONLY canonical brand value. It is also
+     just 2.59:1 on white, so it cannot carry text and cannot sit under a
+     white label. It stays what it's good at: marks, rules, decorative fills,
+     and the tints. Anything that carries meaning — text, buttons, focus and
+     selected states, data fills — uses a deeper step of the same hue.
+
+     One hue, three roles, nothing muddied. Same discipline as the agent
+     emails (oracle/templates/_shared.ts), so email → portal reads as one
+     system rather than a near-miss.
+     --------------------------------------------------------------------- */
+  --brand: #00b3b3;             /* MARK ONLY. Fills, rules, tints. Never text. */
+  --brand-solid: #00807e;       /* fill under a white label + focus/selected — 4.78:1 */
+  --brand-solid-hover: #00706f; /* that fill, hovered — 5.92:1 on white */
+  --brand-ink: #00706f;         /* teal AS TEXT — 5.92:1 on white, 5.48:1 on --brand-tint */
+  --brand-tint: rgba(0, 179, 179, 0.08);
+  --brand-tint-strong: rgba(0, 179, 179, 0.14);
   --brand-shadow: 0 1px 2px rgba(45, 62, 80, 0.08);
 
   /* Cool slate neutrals (HubSpot) */
@@ -54,7 +67,8 @@
   --color-background: var(--bg);
   --color-foreground: var(--text);
   --color-brand: var(--brand);
-  --color-brand-hover: var(--brand-hover);
+  --color-brand-solid: var(--brand-solid);
+  --color-brand-ink: var(--brand-ink);
   --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);
   --color-text: var(--text);
@@ -101,13 +115,14 @@ body {
   letter-spacing: -0.011em;
 }
 
-/* Tiny uppercase section labels — teal for a pop of brand color */
+/* Tiny uppercase section labels — teal for a pop of brand color. Small + caps,
+   so it takes the ink step, never the mark. */
 .eyebrow {
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--brand-hover);
+  color: var(--brand-ink);
 }
 
 /* Colored icon chips — each product area gets its own accent for scannable
@@ -120,7 +135,7 @@ body {
   place-items: center;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.6), 0 1px 2px rgba(45, 62, 80, 0.08);
 }
-.chip-teal   { background: linear-gradient(145deg, rgba(0,164,189,0.18), rgba(0,164,189,0.08));   color: #0091a8; }
+.chip-teal   { background: linear-gradient(145deg, rgba(0,179,179,0.18), rgba(0,179,179,0.08));   color: #00706f; }
 .chip-indigo { background: linear-gradient(145deg, rgba(99,102,241,0.18), rgba(99,102,241,0.08)); color: #4f46e5; }
 .chip-emerald{ background: linear-gradient(145deg, rgba(0,189,165,0.20), rgba(0,189,165,0.08));    color: #00887a; }
 .chip-amber  { background: linear-gradient(145deg, rgba(245,166,35,0.22), rgba(245,166,35,0.10));  color: #b45309; }
@@ -145,7 +160,7 @@ body {
 .card-hover:hover {
   transform: translateY(-3px);
   box-shadow:
-    0 0 0 1px rgba(0, 164, 189, 0.14),
+    0 0 0 1px rgba(0, 179, 179, 0.18),
     0 2px 4px rgba(45, 62, 80, 0.08),
     0 18px 34px -6px rgba(45, 62, 80, 0.18);
 }
@@ -157,7 +172,8 @@ body {
   justify-content: center;
   gap: 8px;
   padding: 12px 22px;
-  background: var(--brand);
+  /* Carries a white label, so it takes the solid step, not the mark. */
+  background: var(--brand-solid);
   color: #ffffff;
   border-radius: var(--radius);
   font-size: 14px;
@@ -169,7 +185,7 @@ body {
   box-shadow: var(--brand-shadow);
 }
 .btn-primary:hover {
-  background: var(--brand-hover);
+  background: var(--brand-solid-hover);
 }
 .btn-primary:active {
   transform: translateY(1px);
@@ -233,7 +249,7 @@ body {
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
-.pill-brand    { background: var(--brand-tint);   color: var(--brand-hover); }
+.pill-brand    { background: var(--brand-tint);   color: var(--brand-ink); }
 .pill-emerald  { background: var(--emerald-tint); color: #047857; }
 .pill-amber    { background: var(--amber-tint);   color: #b45309; }
 .pill-red      { background: var(--red-tint);     color: #b91c1c; }
@@ -250,8 +266,10 @@ body {
 }
 .opt-selected {
   background: var(--brand-tint);
-  border-color: color-mix(in srgb, var(--brand) 45%, var(--border));
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--brand) 30%, transparent);
+  /* 80% is the floor that keeps this selected-state border >=3:1 on both a
+     white card (3.65:1) and the tinted fill (3.37:1). Don't soften it below. */
+  border-color: color-mix(in srgb, var(--brand-solid) 80%, var(--border));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--brand-solid) 34%, transparent);
 }
 
 /* Compact selectable chip (hour / day pickers) */
@@ -265,8 +283,10 @@ body {
 }
 .chip-selected {
   background: var(--brand-tint);
-  border-color: color-mix(in srgb, var(--brand) 45%, var(--border));
-  color: var(--brand-hover);
+  /* 80% is the floor that keeps this selected-state border >=3:1 on both a
+     white card (3.65:1) and the tinted fill (3.37:1). Don't soften it below. */
+  border-color: color-mix(in srgb, var(--brand-solid) 80%, var(--border));
+  color: var(--brand-ink);
   font-weight: 500;
 }
 
@@ -316,8 +336,10 @@ select {
   outline: none;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
+/* Focus is a state indicator, so the ring border must clear 3:1 — the mark
+   teal doesn't (2.59:1). Solid step for the border, mark teal for the halo. */
 .field:focus {
-  border-color: var(--brand);
+  border-color: var(--brand-solid);
   box-shadow: 0 0 0 3px var(--brand-tint-strong);
 }
 .field:disabled {
@@ -372,7 +394,8 @@ select {
 }
 .tab.active {
   color: var(--text);
-  border-bottom-color: var(--brand);
+  /* The underline is the state indicator — solid step so it clears 3:1. */
+  border-bottom-color: var(--brand-solid);
 }
 .tab .count {
   display: inline-flex;
@@ -383,7 +406,7 @@ select {
   height: 18px;
   padding: 0 6px;
   background: var(--brand-tint);
-  color: var(--brand-hover);
+  color: var(--brand-ink);
   border-radius: 999px;
   font-size: 10.5px;
   font-weight: 700;
@@ -403,9 +426,10 @@ select {
   border-radius: 999px;
   overflow: hidden;
 }
+/* The fill IS the data — it has to read against the track, so solid step. */
 .bar-fill {
   height: 100%;
-  background: var(--brand);
+  background: var(--brand-solid);
   border-radius: 999px;
   transition: width 0.3s ease;
 }
@@ -428,7 +452,9 @@ select {
    Kept as a no-op class so existing `reveal`/`--i` markup renders solid. */
 
 /* Accent stripe — decorative left-edge on cards. Differentiates active vs.
-   pending vs. paused agents at a glance. */
+   pending vs. paused agents at a glance (status is always also stated in the
+   pill text, so this is decoration, not the sole signal). One of the few
+   places the mark teal gets to be itself at full saturation. */
 .accent-stripe {
   position: absolute;
   top: 0;
@@ -474,9 +500,10 @@ select {
   justify-content: center;
   z-index: 1;
 }
+/* A white check sits on this disc, so it takes the solid step. */
 .tl-marker.done {
-  background: var(--brand);
-  border-color: var(--brand);
+  background: var(--brand-solid);
+  border-color: var(--brand-solid);
 }
 .tl-marker.done::after {
   content: "";
@@ -487,7 +514,7 @@ select {
   transform: rotate(-45deg) translate(1px, -1px);
 }
 .tl-marker.active {
-  border-color: var(--brand);
+  border-color: var(--brand-solid);
   background: var(--surface);
 }
 .tl-marker.active::after {
@@ -495,7 +522,7 @@ select {
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: var(--brand);
+  background: var(--brand-solid);
   animation: pulse-dot 2s ease-in-out infinite;
 }
 @keyframes pulse-dot {

@@ -105,7 +105,7 @@ function ErrorScreen({ title, body }: { title: string; body: string }) {
             Still stuck? We&apos;ll sort it out — write to{" "}
             <a
               href="mailto:support@ambitt.agency"
-              className="font-medium text-[color:var(--brand-hover)] hover:underline"
+              className="font-medium text-[color:var(--brand-ink)] hover:underline"
             >
               support@ambitt.agency
             </a>

@@ -71,7 +71,7 @@ export default async function PortalPage() {
             If you believe this is a mistake, reach out to{" "}
             <a
               href="mailto:support@ambitt.agency"
-              className="text-[color:var(--brand-hover)] hover:underline"
+              className="text-[color:var(--brand-ink)] hover:underline"
             >
               support@ambitt.agency
             </a>
@@ -80,7 +80,7 @@ export default async function PortalPage() {
           <form action={signOut} className="mt-6">
             <button
               type="submit"
-              className="inline-block rounded-[10px] bg-[color:var(--brand)] text-white text-[13.5px] font-medium px-5 py-2.5 hover:bg-[color:var(--brand-hover)] transition"
+              className="inline-block rounded-[10px] bg-[color:var(--brand-solid)] text-white text-[13.5px] font-medium px-5 py-2.5 hover:bg-[color:var(--brand-solid-hover)] transition"
             >
               Sign in with a different email
             </button>
@@ -231,7 +231,7 @@ export default async function PortalPage() {
                   <ToolsIcon size={22} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="eyebrow mb-1.5" style={{ color: "var(--brand-hover)" }}>
+                  <p className="eyebrow mb-1.5" style={{ color: "var(--brand-ink)" }}>
                     One step to go
                   </p>
                   <h2 className="font-display text-[22px] text-[color:var(--text)] leading-tight">
@@ -316,7 +316,7 @@ export default async function PortalPage() {
                   </h2>
                 </div>
                 <div className="text-right shrink-0">
-                  <div className="font-display text-[28px] text-[color:var(--brand-hover)] leading-none">
+                  <div className="font-display text-[28px] text-[color:var(--brand-ink)] leading-none">
                     {formatCents(usageCents)}
                   </div>
                   <div className="text-[12px] text-[color:var(--text-3)] mt-1">
@@ -363,7 +363,7 @@ export default async function PortalPage() {
                     Billed directly — no card on file. Questions about your plan? Reach us at{" "}
                     <a
                       href="mailto:support@ambitt.agency"
-                      className="text-[color:var(--brand-hover)] hover:underline"
+                      className="text-[color:var(--brand-ink)] hover:underline"
                     >
                       support@ambitt.agency
                     </a>
@@ -396,7 +396,7 @@ export default async function PortalPage() {
                 feel right, hit us at{" "}
                 <a
                   href="mailto:support@ambitt.agency"
-                  className="text-[color:var(--brand-hover)] hover:underline"
+                  className="text-[color:var(--brand-ink)] hover:underline"
                 >
                   support@ambitt.agency
                 </a>
@@ -417,7 +417,7 @@ export default async function PortalPage() {
           Anything off? Reply to any agent email or write to{" "}
           <a
             href="mailto:support@ambitt.agency"
-            className="text-[color:var(--text-2)] hover:text-[color:var(--brand-hover)] transition-colors"
+            className="text-[color:var(--text-2)] hover:text-[color:var(--brand-ink)] transition-colors"
           >
             support@ambitt.agency
           </a>
@@ -562,7 +562,7 @@ function AgentCard({ agent }: AgentCardProps) {
         <span>{tier.label}</span>
         <span className="text-[color:var(--text-4)]">·</span>
         {isWorking ? (
-          <span className="inline-flex items-center gap-1.5 text-[color:var(--brand-hover)] font-medium">
+          <span className="inline-flex items-center gap-1.5 text-[color:var(--brand-ink)] font-medium">
             <span className="dot dot-emerald dot-pulse" />
             Working now
           </span>

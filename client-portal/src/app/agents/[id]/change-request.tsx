@@ -124,7 +124,7 @@ export function ChangeRequest({ agentId, agentName }: { agentId: string; agentNa
           className={`inline-flex items-center gap-1.5 text-[12px] font-medium px-2.5 py-1 rounded-full mt-3 ${
             result.err
               ? "bg-[color:var(--red-tint)] text-[color:var(--red)]"
-              : "bg-[color:var(--brand-tint)] text-[color:var(--brand-hover)]"
+              : "bg-[color:var(--brand-tint)] text-[color:var(--brand-ink)]"
           }`}
         >
           {!result.err && "✓ "}

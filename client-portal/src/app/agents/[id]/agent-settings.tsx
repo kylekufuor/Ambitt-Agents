@@ -308,11 +308,11 @@ export function AgentSettings({
         {showCadence && (
           <div className="mt-4 rounded-[12px] border border-[color:var(--border)] bg-[color:var(--surface-2)] px-4 py-3.5">
             <p className="text-[13px] text-[color:var(--text-2)] mb-3">
-              Sent at <span className="text-[color:var(--brand-hover)] font-medium">{formatHour(digestHour)}</span>
+              Sent at <span className="text-[color:var(--brand-ink)] font-medium">{formatHour(digestHour)}</span>
               {frequency === "weekly_digest" && (
                 <>
                   {" "}on{" "}
-                  <span className="text-[color:var(--brand-hover)] font-medium">{DAY_LABELS[digestDay]}</span>
+                  <span className="text-[color:var(--brand-ink)] font-medium">{DAY_LABELS[digestDay]}</span>
                 </>
               )}
               {agentTimezone && <span className="text-[color:var(--text-4)]"> · {agentTimezone}</span>}
@@ -405,7 +405,7 @@ function SettingCard({
             className={`shrink-0 mt-0.5 inline-flex items-center gap-1.5 text-[11.5px] font-medium px-2.5 py-1 rounded-full ${
               flash.err
                 ? "bg-[color:var(--red-tint)] text-[color:var(--red)]"
-                : "bg-[color:var(--brand-tint)] text-[color:var(--brand-hover)]"
+                : "bg-[color:var(--brand-tint)] text-[color:var(--brand-ink)]"
             }`}
           >
             {flash.err ? flash.msg : "✓ Saved"}
@@ -427,7 +427,9 @@ function CheckDot() {
   return (
     <svg width={14} height={14} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="shrink-0">
       <circle cx="12" cy="12" r="10" fill="var(--brand)" opacity="0.16" />
-      <circle cx="12" cy="12" r="10" fill="var(--brand)" opacity="0.9" />
+      {/* Full opacity, not 0.9 — fading it toward white drops the white
+          checkmark on top to 4.03:1, under AA. At 1 it's 4.78:1. */}
+      <circle cx="12" cy="12" r="10" fill="var(--brand-solid)" />
       <path d="m8 12 2.6 2.6L16 9" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
     </svg>
   );
@@ -508,7 +510,7 @@ function Opt({
       }`}
     >
       <p className="flex items-center gap-1.5 text-[13.5px] font-medium">
-        <span className={selected ? "text-[color:var(--brand-hover)]" : "text-[color:var(--text)]"}>{label}</span>
+        <span className={selected ? "text-[color:var(--brand-ink)]" : "text-[color:var(--text)]"}>{label}</span>
         {selected && <CheckDot />}
       </p>
       <p className="text-[12px] text-[color:var(--text-3)] mt-0.5 leading-snug">{desc}</p>

@@ -32,7 +32,7 @@ export default function ChatLanding() {
             Can&apos;t find it? We&apos;re a quick note away at{" "}
             <a
               href="mailto:support@ambitt.agency"
-              className="font-medium text-[color:var(--brand-hover)] hover:underline"
+              className="font-medium text-[color:var(--brand-ink)] hover:underline"
             >
               support@ambitt.agency
             </a>
