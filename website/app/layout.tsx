@@ -50,7 +50,7 @@ const dmSans = localFont({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://ambitt.agency"),
+  metadataBase: new URL("https://www.ambitt.agency"),
   title: "Ambitt Agents — named AI agents that do the work in your tools",
   description:
     "Hire a named AI agent that works inside the tools you already use and emails you the finished work. You ask in plain English. It does the job. You never have to log in.",
@@ -64,7 +64,7 @@ export const metadata: Metadata = {
     title: "Ambitt Agents — named AI agents that do the work in your tools",
     description:
       "You ask in plain English. It does the job inside the tools you already use, and emails you the finished work. You never have to log in.",
-    url: "https://ambitt.agency",
+    url: "https://www.ambitt.agency",
     siteName: "Ambitt Agents",
     type: "website",
   },

@@ -122,7 +122,16 @@ Templates are dumb renderers — all content is AI-generated and passed in as pr
 
 1. Agent sends email from `noreply@ambitt.agency` with Reply-To `reply-{agentId}@ambitt.agency`
 2. Client replies naturally in their email client
-3. Resend receives at `ambitt.agency` (MX → `inbound.resend.com`)
+3. Resend receives at `ambitt.agency` (MX → **`inbound-smtp.us-east-1.amazonaws.com`**)
+
+   > **Do not "correct" this to `inbound.resend.com`.** Resend runs inbound on AWS SES, so the
+   > SES hostname *is* Resend's receiving endpoint for this account. Changing it to
+   > `inbound.resend.com` on 2026-07-01 silently killed all inbound mail for 8 days — client
+   > replies never reached Oracle and no webhook ever fired. Restored and proven on 2026-07-09
+   > (test mail to `atlas@ambitt.agency` round-tripped in ~14s). Verify with
+   > `dig +short MX ambitt.agency`; the SES hostname is the correct answer. The separate
+   > `send.ambitt.agency → feedback-smtp.*.amazonses.com` MX is SES *sending* feedback — leave it.
+
 4. Resend fires `email.received` webhook to `/webhooks/email-inbound`
 5. Oracle extracts agentId from recipient address, fetches full email + attachments via Resend API
 6. Attachments parsed (PDF, DOCX, text) and appended to message as context
