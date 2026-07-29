@@ -68,7 +68,7 @@ export default async function ImprovementsPage({
           </Link>{" "}
           · Improvements
         </div>
-        <h1 className="text-2xl font-bold text-foreground">
+        <h1 className="text-2xl font-medium text-foreground">
           {agent.name}
           <span className="text-muted-foreground font-normal"> · self-improvement</span>
         </h1>

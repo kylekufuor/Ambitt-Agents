@@ -193,7 +193,7 @@ function LeadCard({ lead }: { lead: LeadRow }) {
       <span className={`accent-stripe ${stripe}`} />
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h3 className="text-[15.5px] font-medium text-[color:var(--text)] leading-tight">
+          <h3 className="text-[15.5px] font-semibold text-[color:var(--text)] leading-tight">
             {lead.name}
           </h3>
           {lead.company && (
@@ -202,7 +202,7 @@ function LeadCard({ lead }: { lead: LeadRow }) {
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {value && (
-            <span className="font-display text-[16px] text-[color:var(--brand-ink)]">{value}</span>
+            <span className="font-display-sm text-[16px] text-[color:var(--brand-ink)]">{value}</span>
           )}
           <span className={`pill ${status.pill}`}>{status.label}</span>
         </div>

@@ -83,7 +83,7 @@ export default async function QuotePage({
           <div className="text-muted-foreground text-xs uppercase tracking-wider mb-1">
             <Link href="/prospects" className="hover:text-foreground">Prospects</Link> · Quote
           </div>
-          <h1 className="text-2xl font-bold text-foreground">
+          <h1 className="text-2xl font-medium text-foreground">
             {prospect.contactName ?? "(no name)"}
             {prospect.businessName && (
               <span className="text-muted-foreground font-normal"> · {prospect.businessName}</span>

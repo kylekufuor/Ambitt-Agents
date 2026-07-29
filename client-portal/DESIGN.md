@@ -27,8 +27,9 @@ with real depth and life, unmistakably human-designed.**
    "leverage/robust/seamless."
 
 ## Tokens (locked — in `app/globals.css`)
-- **Type:** Lexend (display + body), semibold headings, `-0.011em` display
-  tracking. No serif.
+- **Type:** **DM Sans** (display + body), one family. See "Type is one family,
+  weight 500" below — it replaced Lexend on 2026-07-28 and the rules changed
+  with it. No serif, no second face.
 - **Palette:** cool slate — `--text #33475b`, `--bg #f5f8fa`, surfaces white /
   `--surface-2 #eaf0f6`. Accent **teal** — see the two-step rule below.
   Section accent colors: teal, indigo `#4f46e5`, emerald `#00887a`,
@@ -36,6 +37,40 @@ with real depth and life, unmistakably human-designed.**
 - **Radius:** 6/8/10px. **Depth:** layered shadows (`.card`), hover-lift
   (`.card-hover` → translateY(-2px) + deeper shadow). Motion is minimal and
   purposeful (no load-in fade cascade).
+
+## Type is one family, weight 500 — read this before setting any text
+
+**DM Sans, everywhere, 76px down to 10px.** No display/body pairing — the
+cohesion comes from one family used with discipline, not from a second face.
+`DM Mono` where a mono face is genuinely needed (agent addresses, cron strings,
+the login code). Same family in the marketing site and the operator dashboard,
+so a client moving website → email → portal never sees the letterforms change.
+
+**Self-hosted woff2, always.** `next/font/local`, files in `public/fonts/`,
+licence text beside them. Never a CDN `<link>`, never `next/font/google`. A
+silent fallback to a system face is exactly the failure this system exists to
+prevent, and it fails invisibly — nobody files a bug, the product just quietly
+looks cheap. The file is the variable cut carrying both axes (opsz 9–40,
+wght 100–1000), so `font-optical-sizing: auto` gives each size the cut it was
+drawn for. One 62 kB file is smaller than the three static weights it replaced.
+
+| Rule | Value | Why |
+|---|---|---|
+| **Display headings (≥20px)** | **500** | The single biggest lever on how expensive this looks. Medium weight at size reads as money; bold reads as template. Was 600. |
+| **Small headings / UI labels (<20px)** | **600** (`.font-display-sm`) | Below 20px there is no size left to spend, so weight is the only thing left to build structure with. Optical compensation — the ONE place weight may go up. |
+| **Body** | 400 | |
+| **Numerals at display size** | 600 | Figures have no ascender/descender silhouette, so they need a touch more weight than letterforms to read with equal presence. |
+| **Heading leading** | 1.1–1.2 | 110% is the display value. Product titles sit a hair looser. |
+| **Body leading** | 1.5–1.6 | |
+| **Negative letter-spacing** | **only above ~40px** | It is an optical correction at display size and a tic everywhere else. **The portal's largest heading is 30px, so the portal has NO negative tracking at all.** The old `-0.011em` on `.font-display` is gone. |
+| **Positive tracking** | uppercase micro-labels only | `.eyebrow` at 11px. Opposite adjustment, correct at that size. |
+
+**If hierarchy stops reading, fix it with size, spacing and colour — never by
+creeping the weight back up.** That creep is how this drifts back to bold-
+everything, one heading at a time.
+
+**Nothing pure black, nothing pure white.** Ink is `--text #33475b`, canvas is
+`--bg #f5f8fa`.
 
 ## Teal is two-step — read this before using any teal
 

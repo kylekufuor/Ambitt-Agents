@@ -26,9 +26,13 @@
      Dark card        #2d2c2c
    =========================================== */
 
-/* Inter — form-only typeface. Loaded just for this surface so the rest
-   of the portal keeps Geist. */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+/* Type comes from the app: DM Sans via --font-body, self-hosted in
+   public/fonts. There used to be a `@import url(fonts.googleapis.com…Inter)`
+   here, giving this one surface its own CDN-loaded typeface. It was the first
+   page a prospect ever sees, and it was the only place in the product that
+   (a) used Inter, (b) fetched a font from a third-party CDN — render-blocking,
+   and it hands the prospect's IP to Google on page load. One family, one
+   source, self-hosted. See client-portal/DESIGN.md. */
 
 .fa-onboard, .fa-onboard *, .fa-onboard *::before, .fa-onboard *::after {
   box-sizing: border-box;
@@ -36,7 +40,7 @@
 
 .fa-onboard {
   color-scheme: light;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: var(--font-body);
   background: #fafaf8;
   color: #171717;
   line-height: 1.6;
@@ -74,7 +78,7 @@
   align-items: center;
   gap: 10px;
   font-size: 12.5px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.5px;
   color: #171717;
 }
@@ -156,9 +160,9 @@
 }
 .fa-h-title {
   font-size: 44px;
-  font-weight: 700;
-  letter-spacing: -1.5px;
-  line-height: 1.05;
+  font-weight: 500;
+  letter-spacing: -0.8px;
+  line-height: 1.1;
   color: #171717;
   margin-bottom: 18px;
 }
@@ -234,7 +238,7 @@
 }
 .fa-landing-field { display: flex; flex-direction: column; gap: 6px; }
 .fa-landing-label {
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: var(--font-body);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 1.2px;
@@ -270,7 +274,7 @@
   text-align: left;
 }
 .fa-toc-label {
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: var(--font-body);
   font-size: 11px;
   font-weight: 500;
   letter-spacing: 1.6px;
@@ -300,7 +304,7 @@
   position: relative;
 }
 .fa-toc-num {
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: var(--font-body);
   font-size: 22px;
   font-weight: 500;
   color: #00706f;
@@ -385,7 +389,7 @@
 }
 
 .fa-side-step-label {
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: var(--font-body);
   font-size: 10px;
   font-weight: 500;
   letter-spacing: 2px;
@@ -394,7 +398,7 @@
   margin-bottom: 6px;
 }
 .fa-side-chapter-d {
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: var(--font-body);
   display: flex;
   align-items: baseline;
   gap: 6px;
@@ -436,7 +440,7 @@
   margin-bottom: 14px;
 }
 .fa-side-attribution {
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: var(--font-body);
   font-size: 9.5px;
   font-weight: 500;
   letter-spacing: 2px;
@@ -447,7 +451,7 @@
 /* Content side (light) */
 .fa-content { min-width: 0; padding-top: 8px; }
 .fa-content-tag {
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: var(--font-body);
   font-size: 11px;
   font-weight: 500;
   color: #00706f;
@@ -456,8 +460,7 @@
 }
 .fa-q-title {
   font-size: 30px;
-  font-weight: 700;
-  letter-spacing: -0.7px;
+  font-weight: 500;
   line-height: 1.2;
   color: #171717;
   margin-bottom: 8px;
@@ -867,7 +870,7 @@
   border: 1px solid #d4d4d4;
   border-bottom-width: 2px;
   border-radius: 4px;
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: var(--font-body);
   font-size: 11px;
   color: #525252;
   background: #ffffff;

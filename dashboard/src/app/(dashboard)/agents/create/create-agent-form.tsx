@@ -389,7 +389,7 @@ export function CreateAgentForm({ composioApps }: { composioApps: ComposioApp[] 
                     : "text-muted-foreground/40 cursor-default"
               }`}
             >
-              <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+              <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold ${
                 i === step
                   ? "bg-background text-foreground"
                   : i < step

@@ -106,7 +106,7 @@ export function ToolsList({ agentId, agentName, initialData }: ToolsListProps) {
             <span className="chip-icon chip-teal mx-auto mb-4">
               <ToolsIcon size={20} />
             </span>
-            <p className="font-display text-[17px] text-[color:var(--text)]">
+            <p className="font-display-sm text-[17px] text-[color:var(--text)]">
               Nothing to connect yet
             </p>
             <p className="text-[13.5px] text-[color:var(--text-3)] mt-1.5 max-w-sm mx-auto leading-relaxed">

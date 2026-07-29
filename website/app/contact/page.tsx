@@ -17,7 +17,7 @@ export default function ContactPage() {
       <section className="relative pt-16 pb-16 px-6">
         <div className="relative z-10 max-w-3xl mx-auto text-center">
           <div className="label-pill mb-6">Contact</div>
-          <h1 className="text-4xl md:text-6xl font-bold tracking-tight mb-4">Reach us anytime.</h1>
+          <h1 className="text-4xl md:text-6xl font-medium tracking-tight mb-4">Reach us anytime.</h1>
           <p className="text-muted-foreground text-lg max-w-xl mx-auto leading-relaxed">
             Have a question, want a demo, or ready to get started? We&apos;d love to hear from you.
           </p>
@@ -61,7 +61,7 @@ export default function ContactPage() {
       <section className="relative section-glow pb-28 px-6 pt-28">
         <div className="max-w-3xl mx-auto">
           <div className="label-pill mb-6">FAQ</div>
-          <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-16">Common questions.</h2>
+          <h2 className="text-3xl md:text-5xl font-medium tracking-tight mb-16">Common questions.</h2>
 
           <div className="space-y-3">
             {faqs.map((f) => (

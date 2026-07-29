@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Ambitt type system — Bricolage/Lexend/Geist → DM Sans</title>
+<style>
+  :root {
+    --page: #eef2f6;
+    --card: #ffffff;
+    --ink: #1d2f40;
+    --body: #33475b;
+    --mute: #5f7488;
+    --teal: #00b3b3;
+    --teal-text: #00706f;
+    --rule: #e2eaf1;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--page);
+    color: var(--body);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+  }
+  header { padding: 40px 32px 8px; max-width: 1500px; margin: 0 auto; }
+  h1 { font-size: 26px; line-height: 1.2; font-weight: 600; color: var(--ink); letter-spacing: -0.016em; margin: 0 0 8px; }
+  header p { margin: 0 0 8px; max-width: 78ch; }
+  header .meta { color: var(--mute); font-size: 14px; }
+  main { max-width: 1500px; margin: 0 auto; padding: 8px 32px 80px; }
+
+  .toolbar {
+    position: sticky; top: 0; z-index: 20;
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    background: rgba(238,242,246,.93); backdrop-filter: blur(6px);
+    padding: 14px 32px; margin: 0 -32px 20px; border-bottom: 1px solid var(--rule);
+  }
+  .toolbar span.lab { font-size: 12px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; color: var(--mute); margin-right: 4px; }
+  button.vp {
+    font: inherit; font-size: 14px; font-weight: 600;
+    padding: 7px 15px; border-radius: 8px; cursor: pointer;
+    background: var(--card); color: var(--body);
+    border: 1px solid #cfdae4;
+  }
+  button.vp[aria-pressed="true"] { background: var(--teal-text); border-color: var(--teal-text); color: #fff; }
+
+  .row {
+    background: var(--card);
+    border-radius: 14px;
+    margin: 0 0 24px;
+    overflow: hidden;
+    box-shadow: 0 1px 2px rgba(29,47,64,.04), 0 8px 20px rgba(29,47,64,.05), 0 24px 48px rgba(29,47,64,.05);
+  }
+  .row > .bar { border-top: 3px solid var(--teal); }
+  .row h2 {
+    margin: 0; padding: 18px 24px 4px;
+    font-size: 19px; font-weight: 600; color: var(--ink); letter-spacing: -0.01em;
+  }
+  .row .note { margin: 0; padding: 0 24px 16px; font-size: 14.5px; color: var(--mute); max-width: 96ch; }
+  .row .note b { color: var(--body); font-weight: 600; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--rule); }
+  .pane { background: var(--page); display: flex; flex-direction: column; }
+  .pane .lbl {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 24px; background: var(--card);
+    font-size: 12px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; color: var(--mute);
+  }
+  .pane.after .lbl { color: var(--teal-text); }
+  .dot { width: 8px; height: 8px; border-radius: 8px; background: #b7c4d0; }
+  .pane.after .dot { background: var(--teal); }
+  .shot { padding: 16px; overflow: auto; max-height: 860px; }
+  .shot img { width: 100%; height: auto; display: block; border-radius: 8px; box-shadow: 0 1px 2px rgba(29,47,64,.10), 0 10px 24px rgba(29,47,64,.10); }
+  .mobile .shot img { max-width: 390px; margin: 0 auto; }
+
+  table { border-collapse: collapse; width: 100%; font-size: 14.5px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  th { font-size: 11.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--mute); font-weight: 700; }
+  td.k { color: var(--ink); font-weight: 600; white-space: nowrap; }
+  td.was { color: #9aa9b8; }
+  .tblwrap { padding: 4px 24px 20px; }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; background: #f1f5f9; padding: 1px 5px; border-radius: 4px; }
+  .callout { margin: 0 24px 20px; padding: 14px 18px; border-radius: 10px; background: #f0f8f8; border-left: 3px solid var(--teal); font-size: 14.5px; }
+  .callout.warn { background: #fff8ec; border-left-color: #d08700; }
+  .callout p { margin: 0 0 6px; }
+  .callout p:last-child { margin: 0; }
+  @media (max-width: 1000px) { .pair { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>One typeface, everywhere: DM Sans</h1>
+  <p>
+    The marketing site drops <b>Bricolage Grotesque + Lexend</b>, the client portal drops <b>Lexend</b>,
+    and the operator dashboard drops <b>Geist</b>. All three now run a single family, self-hosted, with
+    the same weight discipline. Agent emails are deliberately untouched — they keep the system font
+    stack, because Gmail and Outlook ignore webfonts and would pick an arbitrary fallback instead.
+  </p>
+  <p class="meta">
+    Desktop 1440 &middot; mobile 390 &middot; captured from local dev &middot; the biggest single lever is
+    headings at weight 500 instead of 700/800.
+  </p>
+</header>
+
+<div class="toolbar">
+  <span class="lab">Viewport</span>
+  <button class="vp" data-vp="desktop" aria-pressed="true">Desktop 1440</button>
+  <button class="vp" data-vp="mobile" aria-pressed="false">Mobile 390</button>
+</div>
+
+<main>
+
+  <!-- ============ WEBSITE ============ -->
+  <section class="row">
+    <div class="bar"></div>
+    <h2>Website — hero</h2>
+    <p class="note">
+      The whole argument for the change. The headline was <b>Bricolage Grotesque 800 at -0.03em, leading 1.0</b>;
+      it is now <b>DM Sans 500 at 110%</b>, sized up 60&nbsp;&rarr;&nbsp;68px to buy back the presence lost to weight.
+      Nothing was gained by shouting — the quiet version reads more expensive and the sub-head is easier to enter.
+    </p>
+    <div class="pair" data-shot="website-hero"></div>
+  </section>
+
+  <section class="row">
+    <div class="bar"></div>
+    <h2>Website — hero, one-accent-word variant <span style="font-weight:500;color:#9aa9b8">(needs your call)</span></h2>
+    <p class="note">
+      The reference system says <b>one accent word per headline, not a whole coloured line</b>. Our hero is a
+      call-and-response — the client's request in ink, the outcome in teal — so colouring the whole answer is a
+      deliberate device, not the antipattern. Left is what I shipped (whole response teal). Right shows the strict
+      rule: only <b>&ldquo;Handled&rdquo;</b> carries the accent. The strict version puts the brand on the single most
+      important word instead of diffusing it across five. <b>I did not ship the right-hand version</b> — it changes
+      the hero's meaning, not just its type, so it is your call.
+    </p>
+    <div class="pair">
+      <div class="pane"><div class="lbl"><span class="dot"></span>Shipped — whole response in teal</div>
+        <div class="shot"><img src="after/website-hero--desktop.png" alt="Hero as shipped"></div></div>
+      <div class="pane after"><div class="lbl"><span class="dot"></span>Variant — one accent word</div>
+        <div class="shot"><img src="after/website-hero-ACCENTVARIANT--desktop.png" alt="Hero, one accent word"></div></div>
+    </div>
+  </section>
+
+  <section class="row">
+    <div class="bar"></div>
+    <h2>Website — job section</h2>
+    <p class="note">
+      Also fixes two things the font swap exposed: the attachment chip used to sit on its own line only
+      <em>because the old font happened to fill the last line</em> — DM Sans is narrower, the chip slid up beside
+      the word &ldquo;attached.&rdquo; It is now deterministically its own block. And the missing space in
+      &ldquo;Nadia&middot; reply&rdquo; (a Turbopack JSX whitespace bug) was there before and is now fixed.
+    </p>
+    <div class="pair" data-shot="website-jobs"></div>
+  </section>
+
+  <section class="row">
+    <div class="bar"></div>
+    <h2>Website — pricing</h2>
+    <p class="note">The 52px price figure is the one place negative tracking survives, because it is genuinely display size.</p>
+    <div class="pair" data-shot="website-pricing"></div>
+  </section>
+
+  <!-- ============ PORTAL ============ -->
+  <section class="row">
+    <div class="bar"></div>
+    <h2>Client portal — home</h2>
+    <p class="note">
+      Headings drop 600&nbsp;&rarr;&nbsp;500 and lose the old <code>-0.011em</code> tracking entirely: the portal's
+      largest heading is 30px, nowhere near the ~40px where tightening is a correction rather than a tic.
+      Hierarchy now comes from the size step and from <code>--text</code> vs <code>--text-2</code>.
+    </p>
+    <div class="pair" data-shot="portal-home"></div>
+  </section>
+
+  <section class="row">
+    <div class="bar"></div>
+    <h2>Client portal — agent page</h2>
+    <p class="note">
+      Watch the settings-row labels: at 15px there is no size left to spend, so those went <b>up</b> to 600
+      (<code>.font-display-sm</code>). That is the one place weight is allowed to increase, and it is why the
+      lighter display weight does not flatten the page.
+    </p>
+    <div class="pair" data-shot="portal-agent"></div>
+  </section>
+
+  <section class="row">
+    <div class="bar"></div>
+    <h2>Prospect onboarding form <span style="font-weight:500;color:#c2410c">— this one was worse than a font swap</span></h2>
+    <p class="note">
+      This surface was pulling <b>Inter from the Google Fonts CDN</b> via a render-blocking
+      <code>@import</code> in its own stylesheet — the only place in the product doing either. It is the first
+      page a prospect ever sees. That import is gone; the form now uses the same self-hosted DM Sans as
+      everything else. The 44px hero also came down from <b>700 at -1.5px tracking</b> to <b>500 at -0.8px</b>,
+      and the missing space in &ldquo;Atlas&mdash;&nbsp;Ambitt&rdquo; is fixed.
+    </p>
+    <div class="pair" data-shot="onboard-form"></div>
+  </section>
+
+  <!-- ============ DASHBOARD ============ -->
+  <section class="row">
+    <div class="bar"></div>
+    <h2>Operator dashboard — agents</h2>
+    <p class="note">
+      Page titles were 24px/<b>700</b>. On a dark surface light-on-dark already blooms about half a weight step,
+      so 700 was reading heavy twice over — they are now 24px/<b>500</b>. KPI numerals sit at 600, because figures
+      have no ascender/descender silhouette and need slightly more weight than letters to hold the same presence.
+      Mono is now DM Mono.
+    </p>
+    <div class="pair" data-shot="dashboard-agents"></div>
+  </section>
+
+  <section class="row">
+    <div class="bar"></div>
+    <h2>Operator dashboard — clients</h2>
+    <p class="note">Density is unchanged: 11px uppercase table labels keep their positive tracking, which is the correct adjustment at that size.</p>
+    <div class="pair" data-shot="dashboard-clients"></div>
+  </section>
+
+  <!-- ============ SPEC ============ -->
+  <section class="row">
+    <div class="bar"></div>
+    <h2>The scale I landed on</h2>
+    <p class="note">Three surfaces do not share a scale — a marketing hero, a client portal and a dense operator dashboard have different jobs. They share the <b>family</b> and the <b>weight discipline</b>.</p>
+    <div class="tblwrap">
+      <table>
+        <thead><tr><th>Surface / role</th><th>Was</th><th>Now</th><th>Why</th></tr></thead>
+        <tbody>
+          <tr><td class="k">Website h1 (hero)</td><td class="was">60px / 800 / -0.03em / lh 1.0</td><td>68px / <b>500</b> / -0.018em &ge;900px / lh 1.1</td><td>Size buys back what weight gave up</td></tr>
+          <tr><td class="k">Website h2 (section)</td><td class="was">36–46px / 700–800</td><td>40–50px / <b>500</b> / lh 1.1</td><td>Same trade, one step down</td></tr>
+          <tr><td class="k">Website h3</td><td class="was">18–21px / 700</td><td>18–21px / <b>600</b> / lh 1.25</td><td>Under 20px, weight is the only lever left</td></tr>
+          <tr><td class="k">Website body / lede</td><td class="was">17px / lh 1.62</td><td>17px / 400 / lh 1.6</td><td>Unchanged in size</td></tr>
+          <tr><td class="k">Website micro-labels</td><td class="was">9.5–13px / 700–800</td><td>9.5–13px / <b>600</b></td><td>Nothing on the site is heavier than 600 now</td></tr>
+          <tr><td class="k">Portal h1</td><td class="was">23–30px / 600 / -0.011em</td><td>23–30px / <b>500</b> / no tracking / lh 1.18</td><td>Never reaches display size, so never tightens</td></tr>
+          <tr><td class="k">Portal h2 / card titles</td><td class="was">20–28px / 600</td><td>20–28px / <b>500</b></td><td></td></tr>
+          <tr><td class="k">Portal small headings</td><td class="was">15–19px / 500–600</td><td>15–19px / <b>600</b> (<code>.font-display-sm</code>)</td><td>Deliberate step <em>up</em> — stops hierarchy collapsing</td></tr>
+          <tr><td class="k">Portal body / eyebrow</td><td class="was">15px / 11px caps</td><td>15px 400 lh 1.55 / 11px 600 +0.08em</td><td>Positive tracking on caps is correct</td></tr>
+          <tr><td class="k">Dashboard h1</td><td class="was">24px / 700</td><td>24px / <b>500</b> / lh 1.15</td><td>Dark-mode bloom already adds weight</td></tr>
+          <tr><td class="k">Dashboard h2 (section)</td><td class="was">15px / 600</td><td>15px / <b>600</b> / lh 1.25</td><td>Unchanged — already correct for its size</td></tr>
+          <tr><td class="k">Dashboard KPI numerals</td><td class="was">30px / 700</td><td>30px / <b>600</b> + tabular</td><td>Figures need a touch more than letters</td></tr>
+          <tr><td class="k">Dashboard table labels</td><td class="was">11px caps <code>tracking-wider</code></td><td>unchanged</td><td>Positive tracking, correct at 11px</td></tr>
+          <tr><td class="k">Mono (portal + dashboard)</td><td class="was">Geist Mono</td><td><b>DM Mono 400</b></td><td>Same foundry family as the sans</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout">
+      <p><b>Licence — cleared.</b> DM Sans and DM Mono are <b>SIL Open Font License 1.1</b>. The OFL grants permission
+      to &ldquo;use, study, copy, merge, <b>embed</b>, modify, redistribute&rdquo; including in commercial products;
+      the only conditions are that the fonts are not sold on their own, that the copyright notice and licence ship
+      with them, and that a <em>modified</em> font may not reuse the reserved name. We ship them unmodified, so the
+      full licence text sits next to the files at <code>&lt;app&gt;/public/fonts/DM-Sans-OFL.txt</code> and
+      <code>DM-Mono-OFL.txt</code>. Self-hosting is explicitly permitted.</p>
+    </div>
+    <div class="callout">
+      <p><b>Self-hosted, no CDN.</b> <code>next/font/local</code> in all three apps, files in <code>public/fonts/</code>.
+      One 62 kB variable file carries <em>both</em> axes (optical size 9–40, weight 100–1000), so
+      <code>font-optical-sizing: auto</code> gives the 68px hero a real display cut and 11px labels a text cut —
+      and it is smaller than the three static weights it replaces. latin-ext is a separate 31 kB file behind a
+      <code>unicode-range</code>, so it only downloads when a client or agent name actually needs it.</p>
+    </div>
+    <div class="callout warn">
+      <p><b>One thing for your eye.</b></p>
+      <p><b>The website's teal tokens are near-misses</b> of the canonical values —
+      <code>--brand-ink #0a6f72</code> vs the canonical <code>#00706f</code>, and
+      <code>--brand-strong #00807f</code> vs <code>#00807e</code>. I did <em>not</em> re-theme them: shifting colour
+      during a font review makes the before/after unreadable, and the portal's teal pass was landing in parallel.
+      Worth a follow-up so the website matches the portal and the emails exactly.</p>
+      <p>I did fix the one that was an actual failure: the nav wordmark set &ldquo;Agents&rdquo; in the
+      <em>mark-only</em> <code>#00b3b3</code> at <b>2.43:1</b> — live text in a colour that is decoration-only.
+      It now uses the text step <code>#00706f</code>, the same call the portal brand-mark already made.</p>
+    </div>
+  </section>
+
+</main>
+
+<script>
+  const SHOTS = document.querySelectorAll('.pair[data-shot]');
+  function render(vp) {
+    SHOTS.forEach(p => {
+      const n = p.dataset.shot;
+      p.parentElement.classList.toggle('mobile', vp === 'mobile');
+      p.innerHTML =
+        '<div class="pane"><div class="lbl"><span class="dot"></span>Before</div>' +
+        '<div class="shot"><img loading="lazy" src="before/' + n + '--' + vp + '.png" alt="' + n + ' before"></div></div>' +
+        '<div class="pane after"><div class="lbl"><span class="dot"></span>After — DM Sans</div>' +
+        '<div class="shot"><img loading="lazy" src="after/' + n + '--' + vp + '.png" alt="' + n + ' after"></div></div>';
+    });
+  }
+  document.querySelectorAll('button.vp').forEach(b => {
+    b.addEventListener('click', () => {
+      document.querySelectorAll('button.vp').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+      render(b.dataset.vp);
+    });
+  });
+  render('desktop');
+</script>
+</body>
+</html>

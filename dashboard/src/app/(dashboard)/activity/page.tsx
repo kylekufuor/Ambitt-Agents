@@ -77,7 +77,7 @@ export default async function ActivityPage() {
     <div className="p-6 space-y-6 max-w-7xl">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Activity</h1>
+          <h1 className="text-2xl font-medium text-foreground">Activity</h1>
           <p className="text-muted-foreground text-sm mt-1">
             Global event feed · last health check{" "}
             {lastHealthCheck ? timeAgo(lastHealthCheck.createdAt) : "never"}

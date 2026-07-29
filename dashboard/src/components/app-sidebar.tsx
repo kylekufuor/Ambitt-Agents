@@ -51,7 +51,7 @@ export function AppSidebar({ pendingCount }: { pendingCount?: number }) {
       <SidebarHeader className="px-4 py-4">
         <Link href="/" className="flex items-center gap-3">
           <div className="w-7 h-7 rounded-lg bg-foreground flex items-center justify-center shrink-0">
-            <span className="text-background font-bold text-sm">A</span>
+            <span className="text-background font-semibold text-sm">A</span>
           </div>
           <span className="font-semibold text-[15px] text-foreground group-data-[collapsible=icon]:hidden">
             Ambitt

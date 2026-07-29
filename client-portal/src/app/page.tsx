@@ -528,7 +528,7 @@ function AgentCard({ agent }: AgentCardProps) {
 
       <div className="flex items-start justify-between gap-3 mb-1">
         <div className="min-w-0">
-          <h3 className="font-display text-[19px] text-[color:var(--text)] truncate leading-tight">
+          <h3 className="font-display-sm text-[19px] text-[color:var(--text)] truncate leading-tight">
             {agent.name}
           </h3>
           <p className="text-[13px] text-[color:var(--text-3)] mt-0.5 line-clamp-2">

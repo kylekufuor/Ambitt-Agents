@@ -157,7 +157,7 @@ export function ChatView({
         <div className="max-w-3xl mx-auto px-4 sm:px-6 py-3 flex items-center gap-3">
           <AgentAvatar size={40} />
           <div className="flex-1 min-w-0">
-            <h1 className="font-display text-[15px] text-[color:var(--text)] leading-tight truncate">
+            <h1 className="font-display-sm text-[15px] text-[color:var(--text)] leading-tight truncate">
               {agentName}
               <span className="font-normal text-[color:var(--text-4)]"> · Ambitt Agents</span>
             </h1>

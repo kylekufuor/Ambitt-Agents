@@ -2,10 +2,12 @@
 
 /* ============================================================================
    Ambitt Agents — design tokens.
-   Reference: HubSpot product UI. One geometric sans (Lexend), semibold
-   headings, cool slate-gray neutrals on a light blue-gray canvas, tight
-   functional cards with subtle borders, minimal motion. Teal accent (aligns
-   with HubSpot's own teal secondary).
+   Structure: HubSpot product UI — cool slate-gray neutrals on a light
+   blue-gray canvas, functional cards separated by elevation, minimal motion,
+   teal accent.
+   Type: ONE geometric sans, DM Sans, at weight 500 for headings — shared with
+   the marketing site and the operator dashboard. See DESIGN.md before setting
+   any text, and before using any teal.
    ============================================================================ */
 
 :root {
@@ -51,10 +53,21 @@
   --blue: #425b76;
   --blue-tint: rgba(66, 91, 118, 0.09);
 
-  /* Typography — Lexend throughout */
-  --font-display: var(--font-lexend), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-body: var(--font-lexend), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-mono: var(--font-geist-mono), "SF Mono", Menlo, monospace;
+  /* ---------------------------------------------------------------------
+     TYPE — DM Sans throughout. One family, display through legal, shared with
+     the marketing site and the operator dashboard. --font-display is kept as
+     an alias for the ~12 `.font-display` call-sites; it is the SAME stack.
+     Weight and tracking rules live in DESIGN.md — the short version:
+       - Display headings (>=20px) are 500. Never 700/800.
+       - Small headings / UI labels (<20px) are 600 — optical compensation.
+       - Negative tracking only above ~40px. The portal never gets there, so
+         the portal has NO negative tracking at all.
+       - Heading leading 1.1–1.2, body 1.5–1.6.
+     --------------------------------------------------------------------- */
+  --font-body: var(--font-dm-sans), var(--font-dm-sans-ext), -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+  --font-display: var(--font-body);
+  --font-mono: var(--font-dm-mono), "SF Mono", Menlo, monospace;
 
   /* Layout — tighter, squarer (HubSpot) */
   --radius-sm: 3px;
@@ -105,14 +118,31 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family: var(--font-body);
+  line-height: 1.55;
+  /* DM Sans carries an optical-size axis — let the browser use it so a 30px
+     page title and an 11px eyebrow each get the cut they were drawn for. */
+  font-optical-sizing: auto;
 }
 
-/* Display headers — Lexend semibold, the HubSpot product-heading look. No serif,
-   no editorial flourish: functional, confident, slightly tightened. */
+/* Display headers — DM Sans at 500, not 600. A product page title does not
+   need to shout to be a title; the size step from 15px body to 22–30px does
+   the work, and colour (--text vs --text-2) finishes it.
+   No negative tracking: the portal's largest heading is 30px, well under the
+   ~40px threshold where tightening stops being a correction and starts being
+   a tic. */
 .font-display {
   font-family: var(--font-display);
+  font-weight: 500;
+  line-height: 1.18;
+}
+
+/* ...except below 20px, where there is no size left to spend. A 15px sidebar
+   title has to earn its structure with weight. Optical compensation, applied
+   deliberately and only here. */
+.font-display-sm {
+  font-family: var(--font-display);
   font-weight: 600;
-  letter-spacing: -0.011em;
+  line-height: 1.25;
 }
 
 /* Tiny uppercase section labels — teal for a pop of brand color. Small + caps,

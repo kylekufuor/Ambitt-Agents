@@ -32,7 +32,7 @@ export default async function CreateAgentPage() {
       </div>
 
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Create Agent</h1>
+        <h1 className="text-2xl font-medium text-foreground">Create Agent</h1>
         <p className="text-muted-foreground text-sm mt-1">
           Set up a new AI agent in under 60 seconds. Connect to {apps.length > 0 ? `${apps.length}+` : "850+"} business tools.
         </p>

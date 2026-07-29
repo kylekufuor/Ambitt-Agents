@@ -75,7 +75,7 @@ export default async function ProspectsPage() {
     <div className="p-6 space-y-6 max-w-7xl">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Prospects</h1>
+          <h1 className="text-2xl font-medium text-foreground">Prospects</h1>
           <p className="text-muted-foreground text-sm mt-1">
             {prospects.length} total
             {buckets.inFlight > 0 && <> · <span className="text-amber-400">{buckets.inFlight} active</span></>}

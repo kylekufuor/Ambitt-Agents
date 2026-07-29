@@ -21,7 +21,7 @@ export function OpErrorBanner({ message }: { message: string | null }) {
     >
       <span
         aria-hidden
-        className="mt-[3px] flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-red-500/15 text-[10px] font-bold text-red-400"
+        className="mt-[3px] flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-red-500/15 text-[10px] font-semibold text-red-400"
       >
         !
       </span>

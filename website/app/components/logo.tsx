@@ -40,6 +40,7 @@ export function AmbittLogo({
   const light = variant === "light";
   return (
     <span className="lockup">
+      {/* The robot head is a MARK, so it carries the logo teal #00b3b3 itself. */}
       <AgentHead
         size={size}
         body={light ? "#00b3b3" : "#ffffff"}
@@ -49,7 +50,11 @@ export function AmbittLogo({
         className="lockup-word"
         style={
           light
-            ? ({ "--am": "#1b2e40", "--ag": "#00b3b3" } as React.CSSProperties)
+            ? // "Agents" is a LETTERFORM, not a mark, so it takes the ink step.
+              // #00b3b3 as text is 2.43:1 on our canvas — it failed AA and it
+              // read washed-out next to the navy "Ambitt". Same call the portal
+              // brand-mark and the agent-email footer already make.
+              ({ "--am": "#1b2e40", "--ag": "#00706f" } as React.CSSProperties)
             : ({ "--am": "#ffffff", "--ag": "#00d4d4" } as React.CSSProperties)
         }
       >

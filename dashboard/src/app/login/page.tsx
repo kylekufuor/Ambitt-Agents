@@ -59,9 +59,9 @@ export default function LoginPage() {
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
           <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center mx-auto mb-4">
-            <span className="text-black font-bold text-lg">A</span>
+            <span className="text-black font-semibold text-lg">A</span>
           </div>
-          <h1 className="text-xl font-bold text-white">Ambitt Dashboard</h1>
+          <h1 className="text-xl font-medium text-white">Ambitt Dashboard</h1>
           <p className="text-zinc-500 text-sm mt-1">Admin access only</p>
         </div>
 

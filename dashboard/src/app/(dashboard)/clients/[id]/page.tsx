@@ -120,7 +120,7 @@ export default async function ClientDetailPage({
       {/* Client Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">{client.businessName}</h1>
+          <h1 className="text-2xl font-medium text-foreground">{client.businessName}</h1>
           <p className="text-muted-foreground text-sm mt-1">{client.industry} — {client.email}</p>
         </div>
         <div className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${
@@ -151,7 +151,7 @@ export default async function ClientDetailPage({
               {engagement.daysSinceLastReply !== null ? `Last reply ${engagement.daysSinceLastReply}d ago` : "No replies yet"}
             </p>
           </div>
-          <p className="text-3xl font-bold text-foreground mt-2 tabular-nums">
+          <p className="text-3xl font-semibold text-foreground mt-2 tabular-nums">
             {engagement.agentMessages > 0 ? `${engagement.replyRatePct.toFixed(0)}%` : "—"}
           </p>
           <p className="text-muted-foreground/60 text-xs mt-1">
@@ -326,7 +326,7 @@ function KpiCard({ label, value }: { label: string; value: string }) {
   return (
     <div className="bg-card border border-border rounded-xl p-5">
       <p className="text-muted-foreground text-[11px] font-semibold uppercase tracking-wider">{label}</p>
-      <p className="text-2xl font-bold text-foreground mt-2 tabular-nums">{value}</p>
+      <p className="text-2xl font-medium text-foreground mt-2 tabular-nums">{value}</p>
     </div>
   );
 }

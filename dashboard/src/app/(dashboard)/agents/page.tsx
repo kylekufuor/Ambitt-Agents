@@ -119,7 +119,7 @@ export default async function AgentsPage() {
     <div className="p-6 space-y-6 max-w-7xl">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Agents</h1>
+          <h1 className="text-2xl font-medium text-foreground">Agents</h1>
           <p className="text-muted-foreground text-sm mt-1">
             {agents.length} live · {pendingFromPRD.length} in pipeline
           </p>
@@ -463,7 +463,7 @@ function FleetDot({ color, label, count }: { color: string; label: string; count
     <div className="flex items-center gap-2">
       <div className={`w-3 h-3 rounded-full ${color}`} />
       <div>
-        <p className="text-foreground font-bold text-lg tabular-nums leading-none">{count}</p>
+        <p className="text-foreground font-semibold text-lg tabular-nums leading-none">{count}</p>
         <p className="text-muted-foreground text-[10px] uppercase tracking-wider">{label}</p>
       </div>
     </div>

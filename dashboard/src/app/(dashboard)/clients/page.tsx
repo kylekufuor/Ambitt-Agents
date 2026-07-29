@@ -34,7 +34,7 @@ export default async function ClientsPage() {
     <div className="p-6 space-y-6 max-w-7xl">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Clients</h1>
+          <h1 className="text-2xl font-medium text-foreground">Clients</h1>
           <p className="text-muted-foreground text-sm mt-1">{clients.length} total</p>
         </div>
       </div>

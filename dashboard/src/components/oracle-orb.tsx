@@ -300,7 +300,7 @@ function OrbInner({
                     <action.icon className="size-6 text-white" />
                   </div>
                   {action.badgeKey === "approvals" && pendingCount && pendingCount > 0 && (
-                    <div className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-amber-500 text-black text-[10px] font-bold flex items-center justify-center ring-2 ring-background">
+                    <div className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-amber-500 text-black text-[10px] font-semibold flex items-center justify-center ring-2 ring-background">
                       {pendingCount}
                     </div>
                   )}
@@ -334,7 +334,7 @@ function OrbInner({
 
           {/* Pending badge */}
           {!open && pendingCount && pendingCount > 0 && (
-            <div className="absolute top-8 right-8 w-7 h-7 rounded-full bg-amber-500 text-black text-xs font-bold flex items-center justify-center ring-2 ring-background z-20">
+            <div className="absolute top-8 right-8 w-7 h-7 rounded-full bg-amber-500 text-black text-xs font-semibold flex items-center justify-center ring-2 ring-background z-20">
               {pendingCount}
             </div>
           )}

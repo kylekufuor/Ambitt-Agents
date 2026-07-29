@@ -234,7 +234,7 @@ export default async function AgentDetailPage({
       <div className="flex items-start justify-between">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold text-foreground">{agent.name}</h1>
+            <h1 className="text-2xl font-medium text-foreground">{agent.name}</h1>
             <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-semibold uppercase tracking-wider ${statusColors[agent.status] ?? "bg-muted text-muted-foreground"}`}>
               {agent.status.replace("_", " ")}
             </span>
@@ -339,23 +339,23 @@ export default async function AgentDetailPage({
       <div className="grid grid-cols-2 lg:grid-cols-7 gap-4">
         <div className="bg-card border border-border rounded-xl p-5">
           <p className="text-muted-foreground text-[11px] font-semibold uppercase tracking-wider">Tasks Completed</p>
-          <p className="text-3xl font-bold text-foreground mt-2 tabular-nums">{agent.totalTasksCompleted}</p>
+          <p className="text-3xl font-semibold text-foreground mt-2 tabular-nums">{agent.totalTasksCompleted}</p>
         </div>
         <div className="bg-card border border-border rounded-xl p-5">
           <p className="text-muted-foreground text-[11px] font-semibold uppercase tracking-wider">Cost (MTD)</p>
-          <p className="text-3xl font-bold text-foreground mt-2 tabular-nums">{centsToUsd(stats.thisMonthCost)}</p>
+          <p className="text-3xl font-semibold text-foreground mt-2 tabular-nums">{centsToUsd(stats.thisMonthCost)}</p>
           <p className="text-muted-foreground/60 text-xs mt-1">{stats.thisMonthCalls} calls</p>
         </div>
         <div className="bg-card border border-border rounded-xl p-5">
           <p className="text-muted-foreground text-[11px] font-semibold uppercase tracking-wider">Tokens (MTD)</p>
-          <p className="text-3xl font-bold text-foreground mt-2 tabular-nums">{formatTokens(stats.totalTokens)}</p>
+          <p className="text-3xl font-semibold text-foreground mt-2 tabular-nums">{formatTokens(stats.totalTokens)}</p>
           <p className="text-muted-foreground/60 text-xs mt-1 tabular-nums">
             {formatTokens(stats.tokensInput)} in · {formatTokens(stats.tokensOutput)} out
           </p>
         </div>
         <div className="bg-card border border-border rounded-xl p-5">
           <p className="text-muted-foreground text-[11px] font-semibold uppercase tracking-wider">Projected</p>
-          <p className={`text-3xl font-bold mt-2 tabular-nums ${stats.projectedCost > agent.budgetMonthlyCents ? "text-red-400" : "text-foreground"}`}>
+          <p className={`text-3xl font-semibold mt-2 tabular-nums ${stats.projectedCost > agent.budgetMonthlyCents ? "text-red-400" : "text-foreground"}`}>
             {centsToUsd(stats.projectedCost)}
           </p>
         </div>
@@ -363,7 +363,7 @@ export default async function AgentDetailPage({
           <p className="text-muted-foreground text-[11px] font-semibold uppercase tracking-wider">Budget Burn</p>
           <div className="mt-2">
             <div className="flex justify-between text-xs mb-1">
-              <span className="text-foreground font-bold text-lg tabular-nums">{stats.burnPct.toFixed(0)}%</span>
+              <span className="text-foreground font-semibold text-lg tabular-nums">{stats.burnPct.toFixed(0)}%</span>
               <span className="text-muted-foreground tabular-nums">{centsToUsd(agent.budgetMonthlyCents)}</span>
             </div>
             <div className="h-2 bg-muted rounded-full overflow-hidden">
@@ -384,7 +384,7 @@ export default async function AgentDetailPage({
         </div>
         <div className="bg-card border border-border rounded-xl p-5">
           <p className="text-muted-foreground text-[11px] font-semibold uppercase tracking-wider">Error Rate (30d)</p>
-          <p className={`text-3xl font-bold mt-2 tabular-nums ${stats.errorRate.errorRatePct >= 20 ? "text-red-400" : stats.errorRate.errorRatePct >= 5 ? "text-amber-400" : "text-foreground"}`}>
+          <p className={`text-3xl font-semibold mt-2 tabular-nums ${stats.errorRate.errorRatePct >= 20 ? "text-red-400" : stats.errorRate.errorRatePct >= 5 ? "text-amber-400" : "text-foreground"}`}>
             {stats.errorRate.runs > 0 ? `${stats.errorRate.errorRatePct.toFixed(0)}%` : "—"}
           </p>
           <p className="text-muted-foreground/60 text-xs mt-1">

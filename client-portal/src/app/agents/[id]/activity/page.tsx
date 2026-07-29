@@ -110,7 +110,7 @@ export default async function AgentActivityPage(
               >
                 <MailIcon size={26} />
               </span>
-              <p className="font-display text-[19px] text-[color:var(--text)] mb-1.5">
+              <p className="font-display-sm text-[19px] text-[color:var(--text)] mb-1.5">
                 No emails sent — yet
               </p>
               <p className="text-[13.5px] text-[color:var(--text-3)] max-w-sm mx-auto leading-relaxed">

@@ -428,7 +428,7 @@ function WelcomeSlide({ onBegin }: { onBegin: () => void }) {
         <div className="fa-agent-frame"><AtlasSingle width={50} height={72} /></div>
         <div className="fa-h-title">Let&apos;s build<br />your agent.</div>
         <p className="fa-hero-body">
-          Hey there. I&apos;m <strong>Atlas</strong> — Ambitt Agents&apos; onboarding agent. The more detail you share here, the sharper the proposal I&apos;ll draft for you.
+          Hey there. I&apos;m <strong>Atlas</strong>{" "}— Ambitt Agents&apos; onboarding agent. The more detail you share here, the sharper the proposal I&apos;ll draft for you.
         </p>
         <p className="fa-hero-body">
           Once you&apos;re done, I&apos;ll review everything and email back a tailored presentation of the agent we&apos;d build for you — usually within 30 minutes.

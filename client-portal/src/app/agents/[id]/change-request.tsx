@@ -66,7 +66,7 @@ export function ChangeRequest({ agentId, agentName }: { agentId: string; agentNa
             <SparkIcon size={21} />
           </span>
           <div className="min-w-0">
-            <h3 className="text-[15px] font-medium text-[color:var(--text)]">
+            <h3 className="text-[15px] font-semibold text-[color:var(--text)]">
               Need something bigger?
             </h3>
             <p className="text-[13px] text-[color:var(--text-3)] mt-0.5 max-w-[560px]">

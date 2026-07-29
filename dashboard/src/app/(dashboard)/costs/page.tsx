@@ -69,7 +69,7 @@ export default async function CostsPage() {
   return (
     <div className="p-6 space-y-6 max-w-7xl">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Costs</h1>
+        <h1 className="text-2xl font-medium text-foreground">Costs</h1>
         <p className="text-muted-foreground text-sm mt-1">
           Accurate to the cent — recalculated from raw token counts
         </p>
@@ -79,19 +79,19 @@ export default async function CostsPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-card border border-border rounded-xl p-5">
           <p className="text-muted-foreground text-[11px] font-semibold uppercase tracking-wider">Spend (MTD)</p>
-          <p className="text-3xl font-bold text-foreground mt-2 tabular-nums">{centsToUsd(kpis.totalSpendCents)}</p>
+          <p className="text-3xl font-semibold text-foreground mt-2 tabular-nums">{centsToUsd(kpis.totalSpendCents)}</p>
         </div>
 
         <div className="bg-card border border-border rounded-xl p-5">
           <p className="text-muted-foreground text-[11px] font-semibold uppercase tracking-wider">Projected Month-End</p>
-          <p className="text-3xl font-bold text-foreground mt-2 tabular-nums">{centsToUsd(kpis.projectedCents)}</p>
+          <p className="text-3xl font-semibold text-foreground mt-2 tabular-nums">{centsToUsd(kpis.projectedCents)}</p>
         </div>
 
         <div className="bg-card border border-border rounded-xl p-5">
           <p className="text-muted-foreground text-[11px] font-semibold uppercase tracking-wider">vs Last Month</p>
           {kpis.vsLastMonthPct != null ? (
             <div className="mt-2 flex items-baseline gap-2">
-              <p className={`text-3xl font-bold tabular-nums ${kpis.vsLastMonthPct > 0 ? "text-red-400" : "text-emerald-400"}`}>
+              <p className={`text-3xl font-semibold tabular-nums ${kpis.vsLastMonthPct > 0 ? "text-red-400" : "text-emerald-400"}`}>
                 {kpis.vsLastMonthPct > 0 ? "+" : ""}{kpis.vsLastMonthPct.toFixed(1)}%
               </p>
               <span className="text-muted-foreground text-xs">({centsToUsd(kpis.lastMonthCents)} last mo)</span>
@@ -104,7 +104,7 @@ export default async function CostsPage() {
         <div className="bg-card border border-border rounded-xl p-5">
           <p className="text-muted-foreground text-[11px] font-semibold uppercase tracking-wider">Gross Margin</p>
           <div className="mt-2 flex items-baseline gap-2">
-            <p className={`text-3xl font-bold tabular-nums ${kpis.grossMarginPct >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+            <p className={`text-3xl font-semibold tabular-nums ${kpis.grossMarginPct >= 0 ? "text-emerald-400" : "text-red-400"}`}>
               {kpis.grossMarginPct.toFixed(1)}%
             </p>
             <span className="text-muted-foreground text-xs">

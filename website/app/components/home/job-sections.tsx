@@ -93,7 +93,7 @@ function NadiaJob() {
               meta="6 listings · updated 7:01 AM"
             />
             <div className="sign">
-              <b>Nadia</b> · reply and tell me which to dig into, I&rsquo;ll pull full comps.
+              <b>Nadia</b>{" "}· reply and tell me which to dig into, I&rsquo;ll pull full comps.
             </div>
           </div>
         </div>
@@ -195,7 +195,7 @@ function FrancisJob() {
               <br />
               <br />
               Two replies are drafted and waiting for your ok — Marcus and the vendor. Heads up: your{" "}
-              <b>11:00 and 11:30 overlap</b> — want me to move the shorter one?
+              <b>11:00 and 11:30 overlap</b>{" "}— want me to move the shorter one?
               <span className="done-row">
                 <CheckDisc size={18} bg="var(--violet)" /> Pulled from your Gmail &amp; Google Calendar.
               </span>

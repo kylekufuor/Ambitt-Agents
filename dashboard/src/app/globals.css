@@ -7,8 +7,8 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-dm-sans), var(--font-dm-sans-ext), system-ui, -apple-system, sans-serif;
+  --font-mono: var(--font-dm-mono), "SF Mono", Menlo, monospace;
   --font-heading: var(--font-sans);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
@@ -125,9 +125,40 @@
   }
   body {
     @apply bg-background text-foreground;
+    /* DM Sans has an optical-size axis (9–40). At the densities this dashboard
+       runs — 11px table labels next to 24px page titles — letting the browser
+       pick the right cut per size is the difference between "small text" and
+       "small text drawn to be small". */
+    font-optical-sizing: auto;
   }
   html {
     @apply font-sans;
+  }
+
+  /* ------------------------------------------------------------------------
+     TYPE DISCIPLINE — same system as the marketing site and the client portal
+     (see client-portal/DESIGN.md), tuned for operator density.
+
+     Page titles are 24px at 500. They were 24px at 700; on a dark surface,
+     light-on-dark already blooms about half a weight step, so 700 was reading
+     as heavy twice over. Hierarchy comes from the size step (24 → 15 → 13)
+     and from --foreground vs --muted-foreground, not from ink.
+
+     Section headings stay at 15px/600 — under 20px there is no size left to
+     spend, so weight is the only lever. That is optical compensation, and it
+     is the one place weight is allowed to go up.
+
+     No negative tracking anywhere: nothing here reaches the ~40px where
+     tightening is a correction rather than a tic. Positive tracking on the
+     uppercase 11px table labels (`tracking-wider`) stays — that is the
+     opposite adjustment and it is correct.
+     ------------------------------------------------------------------------ */
+  h1 {
+    line-height: 1.15;
+  }
+  h2,
+  h3 {
+    line-height: 1.25;
   }
 }
 

@@ -396,7 +396,7 @@ function SettingCard({
             </span>
           )}
           <div className="min-w-0">
-            <h3 className="text-[15px] font-medium text-[color:var(--text)]">{title}</h3>
+            <h3 className="text-[15px] font-semibold text-[color:var(--text)]">{title}</h3>
             <p className="text-[13px] text-[color:var(--text-3)] mt-0.5 max-w-[520px]">{hint}</p>
           </div>
         </div>

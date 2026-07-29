@@ -98,7 +98,7 @@ export default function OnboardLanding() {
             <div className="fa-agent-frame"><AtlasSingle width={50} height={72} /></div>
             <div className="fa-h-title">Let&apos;s build<br />your agent.</div>
             <p className="fa-hero-body">
-              Hey there. I&apos;m <strong>Atlas</strong> — Ambitt Agents&apos; onboarding agent. I&apos;ll guide you through your intake and draft a custom proposal. Talking with me is also a small preview of what an agent built for you could do.
+              Hey there. I&apos;m <strong>Atlas</strong>{" "}— Ambitt Agents&apos; onboarding agent. I&apos;ll guide you through your intake and draft a custom proposal. Talking with me is also a small preview of what an agent built for you could do.
             </p>
             <p className="fa-hero-body">
               The more detail you share over the next 5–10 minutes, the sharper your proposal will be — usually back in your inbox within 30 minutes.
