@@ -816,6 +816,13 @@ async function executeBuiltinTool(
       const status = a.status && VALID_STATUS.has(a.status) ? a.status : undefined;
       const email = a.email?.trim() || null;
 
+      // Stages that can only be true if outreach already happened. Reaching
+      // one of these without a contact timestamp is incoherent, and it breaks
+      // the follow-up window silently. "new" is excluded (nothing sent yet);
+      // "lost" and "archived" are excluded because a lead can be written off
+      // without ever having been contacted.
+      const OUTREACH_IMPLIES_CONTACT = new Set(["contacted", "replied", "qualified", "won"]);
+
       // Upsert by (agentId, case-insensitive name [+ email]) so re-logging the
       // same lead advances it through the pipeline instead of duplicating.
       const existing = await prisma.lead.findFirst({
@@ -824,7 +831,9 @@ async function executeBuiltinTool(
           name: { equals: name, mode: "insensitive" },
           ...(email ? { email } : {}),
         },
-        select: { id: true },
+        // lastContactedAt is read so we can tell "never contacted" from
+        // "already stamped" — see the lastContactedAt logic below.
+        select: { id: true, lastContactedAt: true },
       });
 
       const fields = {
@@ -842,7 +851,24 @@ async function executeBuiltinTool(
           a.details && typeof a.details === "object"
             ? (a.details as Prisma.InputJsonValue)
             : undefined,
-        lastContactedAt: a.mark_contacted ? new Date() : undefined,
+        // `mark_contacted` used to be the ONLY way a contact date got stamped,
+        // and it is independent of `status`. So an agent could set status
+        // "contacted" and leave lastContactedAt null — which makes the lead
+        // permanently invisible to the day-3/day-7 follow-up window, because
+        // that window filters on the timestamp. Two of Arthur's three leads
+        // were in exactly that state, and list_leads surfaced it within
+        // minutes of shipping: "two contacted leads have no send date on
+        // record, so the day-3 clock never started."
+        //
+        // Now: moving a lead to a stage that implies outreach stamps the date
+        // if it is not already set. We never OVERWRITE an existing stamp from
+        // status alone — only an explicit mark_contacted does that, since
+        // re-logging a lead should not silently reset its follow-up clock.
+        lastContactedAt: a.mark_contacted
+          ? new Date()
+          : status && OUTREACH_IMPLIES_CONTACT.has(status) && !existing?.lastContactedAt
+            ? new Date()
+            : undefined,
       };
 
       if (existing) {
