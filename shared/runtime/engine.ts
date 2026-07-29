@@ -1338,10 +1338,10 @@ export async function runAgent(input: RuntimeInput): Promise<RuntimeOutput> {
 
     // No tool calls — the model wants to respond.
     if (apiResponse.stop_reason === "end_turn" || toolUseBlocks.length === 0) {
-      // If Haiku finished research and we haven't escalated yet, escalate to
-      // CLIENT_MODEL to write the client-facing response. Haiku's text is
-      // discarded so Sonnet regenerates from the full tool context.
-      if (!hasEscalated && toolsUsed.length > 0) {
+      // The triage model is about to produce client-facing prose. Escalate
+      // first, and discard its draft so CLIENT_MODEL regenerates from the full
+      // context. Haiku's job is choosing tools, never writing to the client.
+      if (shouldEscalateBeforeResponding({ hasEscalated, toolsUsedCount: toolsUsed.length })) {
         currentModel = CLIENT_MODEL;
         hasEscalated = true;
         continue;
@@ -1583,6 +1583,33 @@ export async function runAgent(input: RuntimeInput): Promise<RuntimeOutput> {
     totalOutputTokens,
     loopCount,
   };
+}
+
+/**
+ * Triage escalation policy: should we hand off to CLIENT_MODEL before letting
+ * the current model write the client-facing response?
+ *
+ * **`toolsUsedCount` is deliberately ignored, and that is the entire point of
+ * this function existing.** The original condition was
+ * `!hasEscalated && toolsUsed.length > 0`, which meant a turn that called no
+ * tools never escalated at all — Haiku answered and its prose went straight to
+ * the client. On 2026-07-29 a prod dry-run confirmed it: Arthur's deal-math
+ * reply was written by Haiku, and `ApiUsage` logged one Haiku call and no
+ * CLIENT_MODEL call. "Did a tool get called" was standing in for "was this
+ * hard", and it does not hold: drafting outreach that goes to a property owner
+ * under the client's name uses zero tools.
+ *
+ * The count stays in the signature so the regression test can assert that zero
+ * tools still escalates. Do not reintroduce it as a condition.
+ *
+ * `hasEscalated` starts as `!TRIAGE_ENABLED`, so the `DISABLE_TRIAGE_ROUTING=1`
+ * kill switch still short-circuits this to "never escalate, already there".
+ */
+export function shouldEscalateBeforeResponding(ctx: {
+  hasEscalated: boolean;
+  toolsUsedCount: number;
+}): boolean {
+  return !ctx.hasEscalated;
 }
 
 /**

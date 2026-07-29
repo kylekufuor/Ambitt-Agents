@@ -5,7 +5,7 @@
 // refused every non-active agent unconditionally, which silently made the
 // whole dry-run harness useless: you could only test an agent that was
 // already live, i.e. the one state where you least need a dry run.
-import { runRefusalReason } from "./engine.js";
+import { runRefusalReason, shouldEscalateBeforeResponding } from "./engine.js";
 
 let pass = 0;
 let fail = 0;
@@ -85,6 +85,50 @@ check(
 checkTrue(
   "killed + dryRun off + allowInactive still refuses",
   runRefusalReason({ status: "killed", dryRun: false }, { allowInactive: true }) !== null,
+);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Triage escalation — CLIENT_MODEL must write every client-facing response
+// ═══════════════════════════════════════════════════════════════════════════
+// The bug this pins: the condition used to be `!hasEscalated && toolsUsed > 0`,
+// so a turn that called no tools never escalated and Haiku's prose shipped to
+// the client. Verified in prod on 2026-07-29 — Arthur's deal-math answer was
+// Haiku's, with no CLIENT_MODEL call logged.
+
+// The regression itself: zero tools must STILL escalate.
+check(
+  "REGRESSION: no tools used still escalates",
+  shouldEscalateBeforeResponding({ hasEscalated: false, toolsUsedCount: 0 }),
+  true,
+);
+
+// Tool count must be irrelevant in both directions.
+for (const n of [0, 1, 5, 50]) {
+  checkTrue(
+    `tool count ${n} does not affect the decision`,
+    shouldEscalateBeforeResponding({ hasEscalated: false, toolsUsedCount: n }) === true,
+    { n },
+  );
+}
+
+// Escalate exactly once — otherwise the loop ping-pongs models forever.
+check(
+  "already escalated → do not escalate again",
+  shouldEscalateBeforeResponding({ hasEscalated: true, toolsUsedCount: 0 }),
+  false,
+);
+check(
+  "already escalated, tools used → still no",
+  shouldEscalateBeforeResponding({ hasEscalated: true, toolsUsedCount: 3 }),
+  false,
+);
+
+// DISABLE_TRIAGE_ROUTING=1 sets hasEscalated = !TRIAGE_ENABLED = true at init,
+// so the kill switch must read as "already at the final model".
+check(
+  "kill switch (hasEscalated seeded true) never escalates",
+  shouldEscalateBeforeResponding({ hasEscalated: true, toolsUsedCount: 0 }),
+  false,
 );
 
 console.log(`\n${pass}/${pass + fail} passed${fail ? ` — ${fail} FAILED` : " — all green"}`);
