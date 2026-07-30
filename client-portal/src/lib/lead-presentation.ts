@@ -48,6 +48,106 @@ export function presentText(value: string | null | undefined): string {
   return stripEmDashes(value).text;
 }
 
+export type ThreadEventKind =
+  | "logged" | "sent" | "delivered" | "bounced" | "contacted" | "temperature";
+
+export interface ThreadEvent {
+  kind: ThreadEventKind;
+  at: Date;
+  /** Who moved: us, the owner, or neither. Drives the marker. */
+  side: "us" | "them" | "none";
+  title: string;
+  detail?: string;
+}
+
+export interface ThreadSend {
+  to: string;
+  subject: string;
+  acceptedAt: Date;
+  deliveredAt: Date | null;
+  bouncedAt: Date | null;
+  bounceReason: string | null;
+}
+
+/**
+ * Everything that has actually happened to one lead, oldest first.
+ *
+ * Deliberately built only from things we can prove: rows in EmailSend, the
+ * lead's own timestamps, and the temperature stamp. There is no invented
+ * "Arthur researched this owner" step, and no reply side at all yet, because
+ * inbound mail is logged per agent (InboundEmailLog has fromAddr but no lead
+ * link) and cannot honestly be attributed to a specific owner. When that link
+ * exists, replies join this list as side: "them" and nothing else changes.
+ */
+export function buildThread(
+  lead: {
+    createdAt: Date;
+    lastContactedAt: Date | null;
+    temperature?: string | null;
+    temperatureReason?: string | null;
+    temperatureSetBy?: string | null;
+    temperatureSetAt?: Date | null;
+  },
+  sends: ThreadSend[],
+  agentName: string,
+): ThreadEvent[] {
+  const out: ThreadEvent[] = [];
+
+  out.push({
+    kind: "logged",
+    at: lead.createdAt,
+    side: "us",
+    title: `${agentName} added this owner to your book.`,
+  });
+
+  for (const s of sends) {
+    out.push({
+      kind: "sent",
+      at: s.acceptedAt,
+      side: "us",
+      title: `${agentName} wrote to them, in your name.`,
+      detail: presentText(s.subject),
+    });
+    if (s.bouncedAt) {
+      out.push({
+        kind: "bounced",
+        at: s.bouncedAt,
+        side: "none",
+        title: "It did not get through.",
+        detail: presentText(s.bounceReason) || "The address bounced.",
+      });
+    } else if (s.deliveredAt) {
+      out.push({ kind: "delivered", at: s.deliveredAt, side: "none", title: "Delivered." });
+    }
+  }
+
+  // A contact date with no send behind it is a legacy row: the agent marked it
+  // contacted before we audited sends. Say what we know rather than implying a
+  // letter we cannot show.
+  if (lead.lastContactedAt && sends.length === 0) {
+    out.push({
+      kind: "contacted",
+      at: lead.lastContactedAt,
+      side: "us",
+      title: `${agentName} recorded reaching out.`,
+      detail: "This predates our sending records, so there is no copy of it here.",
+    });
+  }
+
+  if (lead.temperature && lead.temperatureSetAt) {
+    const who = lead.temperatureSetBy === "client" ? "You" : agentName;
+    out.push({
+      kind: "temperature",
+      at: lead.temperatureSetAt,
+      side: lead.temperatureSetBy === "client" ? "none" : "us",
+      title: `${who} marked this ${lead.temperature}.`,
+      detail: presentText(lead.temperatureReason) || undefined,
+    });
+  }
+
+  return out.sort((a, b) => a.at.getTime() - b.at.getTime());
+}
+
 export type Temperature = "hot" | "warm" | "cold";
 
 export interface PresentedTemperature {
