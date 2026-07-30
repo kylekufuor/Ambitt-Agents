@@ -171,6 +171,12 @@ export function assembleSystemPrompt(ctx: AgentContext): string {
   // 5a. Human voice — sound like a person, be confident, "we" not the operator.
   sections.push(VOICE_RULES);
 
+  // 5a-ii. Outreach voice. Everything above governs writing TO the client.
+  // Nothing governed writing to a THIRD PARTY on the client's behalf, so the
+  // agent improvised and produced letters that referred to the client in the
+  // third person and then signed as them. This section closes that gap.
+  sections.push(buildOutreachVoiceSection(ctx));
+
   // 5b. Client-chosen tone override (layered on top of standards)
   const tone = buildToneSection(ctx);
   if (tone) sections.push(tone);
@@ -420,6 +426,43 @@ Rules:
 - Be specific. Reference their business by name, their metrics, their context.
 - Sign off with your name and role, like "[Your Name], [Your Role] at Ambitt Agents" (never put a dash before your name).
 - When reporting actions taken, include: what was done, to whom/where, timestamp, and result.`;
+
+/**
+ * Voice for mail the agent writes to a THIRD PARTY on the client's behalf:
+ * a property owner, a prospect, a vendor. Someone who has never heard of us.
+ *
+ * Why this exists. Every other rule in this file governs writing TO the client,
+ * and COMMUNICATION_STANDARDS even instructs a sign-off of "[Name], [Role] at
+ * Ambitt Agents". Applied to outreach that is signed as the client, those rules
+ * are actively wrong, and with nothing else to go on the agent split the
+ * difference: on 2026-07-29 Arthur drafted a letter opening "I'm working
+ * closely with a well-capitalized investor" and signed it "Best, Casey", and a
+ * review of the portal designs found the same collision, letters reading "I
+ * work with Casey Litsey" over the signature "Casey Litsey". Casey works with
+ * himself.
+ *
+ * That is not a cosmetic slip. Kansas City multifamily is a few hundred people
+ * who know each other. An owner who has held a building since 1998, receiving a
+ * letter where the sender refers to the signer in the third person, concludes
+ * the broker has put a call centre on his name.
+ *
+ * Kyle's ruling, 2026-07-29: OUTREACH IS FROM THE CLIENT. First person, as
+ * them, full stop. The alternative (write as a named assistant of theirs) is
+ * equally defensible and some clients may want it later; the hybrid is the only
+ * option that is indefensible, and it is the one we were shipping.
+ */
+function buildOutreachVoiceSection(ctx: AgentContext): string {
+  const who = ctx.clientName;
+  return `## Writing To Someone Other Than The Client
+
+When you write to a third party for ${ctx.clientBusinessName} (a property owner, a prospect, a vendor, anyone who is not the client) the letter is FROM ${who}. Not from you, not from an assistant, not from a team. You are drafting what ${who} would have written if they had the time.
+
+- **Write in the first person as ${who}.** "I noticed", "I work in this market", "I'd be glad to". Never refer to ${who} in the third person: no "I work with ${who}", no "on behalf of ${who}", no "${who} asked me to reach out". The recipient reads a letter signed by ${who}. A sender who talks about ${who} in the third person reads as a call centre, and in a small market that costs the client their reputation.
+- **Never mention yourself, this platform, or that software was involved.** No "as their assistant", no "our team", no signature block that is not ${who}'s own.
+- **Sign as ${who}.** The sign-off rules elsewhere in this prompt (your name, your role, "at Ambitt Agents") apply ONLY to messages you send to the client. They must never appear in outreach.
+- **Claim nothing on the client's behalf that you have not been told is true.** Do not invent buyers, funds, mandates, timelines, or interest. If you need a claim like that to make the letter work, ask the client for it instead of supplying it yourself. A letter that overstates is worse than no letter, because the client has to answer for it.
+- Every other voice rule still applies here, especially the em dash ban.`;
+}
 
 const VOICE_RULES = `## How You Write
 
