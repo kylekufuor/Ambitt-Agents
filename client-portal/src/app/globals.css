@@ -636,20 +636,33 @@ select {
             0 20px 32px -12px rgba(27, 49, 57, 0.10);
 }
 
-/* --- shell ---------------------------------------------------------------- */
+/* --- shell ----------------------------------------------------------------
+   The rail is DARK, and that is the one place the portal goes dark.
+
+   Not a new hue: #15272e is our own ink (--text #1b3139) taken a couple of
+   steps deeper. It had only ever been used as letterforms. As a surface it
+   costs nothing in brand terms and fixes the actual problem, which was never
+   a missing colour — it was a missing VALUE. The four light planes sit within
+   ~6% lightness of each other, so a page made of them has no anchor and reads
+   as one soft wash however many accents you add.
+
+   It also earns the accent back. #00b3b3 is the logo teal and is unusable as
+   text on oat at 2.59:1, so it had been demoted to fills. On this ground it
+   is bright, legible and finally looks like the brand. */
 .v3-rail {
-  background: #f6f3ef;
-  border-right: 1px solid var(--border);
+  background: #15272e;
+  border-right: 1px solid rgba(255, 255, 255, 0.07);
   position: relative;
   z-index: 0;
-  box-shadow: inset -9px 0 14px -12px rgba(27, 49, 57, 0.28);
+  /* Lit along its inner edge so it reads as a panel in front of nothing,
+     rather than a hole cut in the page. */
+  box-shadow: inset -1px 0 0 rgba(0, 0, 0, 0.35), inset 1px 0 0 rgba(255, 255, 255, 0.05);
 }
 /* The content plane sits in front of the rail and casts onto it. */
 .v3-main {
   position: relative;
   z-index: 1;
   background: linear-gradient(180deg, #f3efe9 0, var(--bg) 260px);
-  box-shadow: -7px 0 18px -10px rgba(27, 49, 57, 0.13);
 }
 .v3-top {
   background: var(--surface);
@@ -663,22 +676,33 @@ select {
 .v3-ni {
   display: flex; align-items: center; gap: 9px;
   height: 32px; padding: 0 10px; border-radius: 5px;
-  font-size: 14px; color: var(--text-2); text-decoration: none;
+  font-size: 14px; color: rgba(226, 236, 238, 0.72); text-decoration: none;
   transition: background 0.12s ease, color 0.12s ease;
 }
-.v3-ni:hover { background: rgba(27, 49, 57, 0.045); color: var(--text); }
+.v3-ni:hover { background: rgba(255, 255, 255, 0.07); color: #f4f9fa; }
+/* Active lifts toward the light instead of away from it: a slightly raised
+   plane, a lit top edge, and the mark in full brand teal. */
 .v3-ni[data-active="true"] {
-  background: var(--surface); color: var(--text); font-weight: 500;
-  box-shadow: var(--lit), 0 1px 2px rgba(27, 49, 57, 0.09),
-              0 3px 8px -3px rgba(27, 49, 57, 0.10);
+  background: rgba(255, 255, 255, 0.10); color: #ffffff; font-weight: 500;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.10);
 }
-.v3-ni[data-active="true"] .v3-ic { color: var(--brand-solid); }
-.v3-ic { width: 16px; height: 16px; flex: none; color: var(--text-3); }
+.v3-ni[data-active="true"] .v3-ic { color: var(--brand); }
+.v3-ic { width: 16px; height: 16px; flex: none; color: rgba(226, 236, 238, 0.55); }
 .v3-navs {
   font-family: var(--font-dm-mono), ui-monospace, monospace;
   font-size: 11px; font-weight: 500; letter-spacing: 0.09em;
-  text-transform: uppercase; color: var(--text-3); padding: 16px 10px 6px;
+  /* 0.55 not 0.50: at 0.50 this measured 4.32:1 on the rail, just under AA. */
+  text-transform: uppercase; color: rgba(226, 236, 238, 0.55); padding: 16px 10px 6px;
 }
+/* Everything inside the rail reads on the dark ground. Scoped to .v3-rail so
+   the same utility classes keep working on the light pages. */
+.v3-rail .rail-ws-name { color: #ffffff; }
+.v3-rail .rail-ws-sub,
+.v3-rail .rail-agent-line { color: rgba(226, 236, 238, 0.58); }
+.v3-rail .rail-agent-name { color: #f4f9fa; }
+.v3-rail .rail-divider { border-color: rgba(255, 255, 255, 0.09); }
+.v3-rail .rail-ws:hover { background: rgba(255, 255, 255, 0.07); }
+.v3-rail .rail-count { color: rgba(226, 236, 238, 0.55); }
 
 /* --- planes --------------------------------------------------------------- */
 .v3-panel { background: var(--surface); border-radius: 8px; box-shadow: var(--lift-2); }

@@ -116,21 +116,21 @@ function agentLine(a: RailAgent): { dot: string; line: string } {
             weekday: "short", hour: "numeric", minute: "2-digit", hour12: true,
           })
         : null;
-      return { dot: "var(--emerald)", line: next ? `Working. Next run ${next}` : "Working" };
+      return { dot: "#34d17d", line: next ? `Working. Next run ${next}` : "Working" };
     }
     case "paused":
       // Who paused decides what the client can do about it, so it is in the words.
       return {
-        dot: "var(--text-4)",
+        dot: "#9fb4bc",
         line: a.pausedBy === "client" ? "Paused by you" : "Stopped by us",
       };
     case "building":
     case "pending_approval":
-      return { dot: "var(--blue)", line: "Getting set up" };
+      return { dot: "#6f9dff", line: "Getting set up" };
     case "killed":
-      return { dot: "var(--text-4)", line: "Finished" };
+      return { dot: "#9fb4bc", line: "Finished" };
     default:
-      return { dot: "var(--text-4)", line: a.status };
+      return { dot: "#9fb4bc", line: a.status };
   }
 }
 
@@ -160,7 +160,7 @@ function NavItem({
       <span className="v3-ni cursor-default opacity-55" aria-disabled="true" title="Not ready yet">
         <Icon name={icon} />
         {label}
-        <span className="ml-auto text-[10.5px] text-[color:var(--text-3)] font-mono">soon</span>
+        <span className="rail-count ml-auto text-[10.5px] font-mono">soon</span>
       </span>
     );
   }
@@ -169,7 +169,7 @@ function NavItem({
       <Icon name={icon} />
       {label}
       {count !== undefined && count > 0 && (
-        <span className="ml-auto font-mono text-[11px] text-[color:var(--text-3)]">{count}</span>
+        <span className="rail-count ml-auto font-mono text-[11px]">{count}</span>
       )}
       {dot && (
         <span
@@ -190,13 +190,13 @@ export function RailNav({ businessName, planLabel, agent, counts, toolsNeedSetup
 
   return (
     <>
-      <Link href="/" className="flex items-center gap-[9px] px-3 py-[7px] mx-2 mb-[10px] rounded-[5px] hover:bg-[rgba(27,49,57,0.045)] transition-colors no-underline">
+      <Link href="/" className="rail-ws flex items-center gap-[9px] px-3 py-[7px] mx-2 mb-[10px] rounded-[5px] transition-colors no-underline">
         <span className="w-[26px] h-[26px] rounded-[5px] bg-[color:var(--brand-solid)] text-white text-[10.5px] font-semibold grid place-items-center shrink-0">
           {initials}
         </span>
         <span className="min-w-0">
-          <span className="block text-[14px] font-medium leading-tight truncate">{businessName}</span>
-          <span className="block text-[11px] text-[color:var(--text-3)]">{planLabel}</span>
+          <span className="rail-ws-name block text-[14px] font-medium leading-tight truncate">{businessName}</span>
+          <span className="rail-ws-sub block text-[11px]">{planLabel}</span>
         </span>
       </Link>
 
@@ -222,15 +222,15 @@ export function RailNav({ businessName, planLabel, agent, counts, toolsNeedSetup
       </nav>
 
       {agent && a && (
-        <div className="mt-auto mx-2 pt-3 pb-1.5 px-4 border-t border-[color:var(--border)]">
+        <div className="rail-divider mt-auto mx-2 pt-3 pb-1.5 px-4 border-t">
           <div className="flex items-center gap-2">
             <span
               className="w-[7px] h-[7px] rounded-full shrink-0"
               style={{ background: a.dot, boxShadow: `0 0 0 3px color-mix(in srgb, ${a.dot} 12%, transparent)` }}
             />
-            <span className="text-[14px] font-medium">{agent.name}</span>
+            <span className="rail-agent-name text-[14px] font-medium">{agent.name}</span>
           </div>
-          <p className="text-[11px] text-[color:var(--text-3)] mt-0.5 leading-snug">{a.line}</p>
+          <p className="rail-agent-line text-[11px] mt-0.5 leading-snug">{a.line}</p>
         </div>
       )}
     </>
