@@ -1,5 +1,14 @@
 # Client portal — information architecture and navigation model
 
+> **SUPERSEDED 2026-07-30.** This describes portal **v2**, a dashboard with a
+> light rail and eight destinations. Kyle rejected the direction; what shipped
+> is **v3**, a lightweight CRM with a dark rail, a hot/warm/cold leads board and
+> an account section. Kept for the reasoning and the measured findings, which
+> are still good — the layout decisions are not.
+>
+> Build against: `client-portal/DESIGN.md` (tokens and rules, current) and
+> `docs/mockups/portal-crm-v3/index.html` (the approved reference).
+
 **Status:** build-ready spec, pending Kyle's answers to §10 (3 questions, each with a default).
 **Author:** Parker (PM) · **Date:** 2026-07-29
 **Scope:** IA and navigation only. Not visual design — every screen still obeys

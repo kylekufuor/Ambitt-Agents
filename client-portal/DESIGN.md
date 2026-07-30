@@ -51,7 +51,7 @@ the friendly read (red is the error colour in every UI convention) for nothing.
 | `--text-3` | `#5a6f77` | tertiary — **the AA floor** | 4.53:1 |
 | `--text-4` | `#78949f` | **decorative only** — placeholders, disabled | 3.01:1 |
 | `--border` | `#dce0e2` | hairline — **rows and rails, never a card outline** | — |
-| `--border-strong` | `#c6cfd2` | control boundaries | — |
+| `--border-strong` | `#6f8892` | control boundaries — inputs, secondary buttons, toggle-off | 3.69:1 surface / 3.50 bg / 3.21 wash |
 
   **There is no fourth AA text step and you cannot invent one.** `--text-3` is
   Databricks' own muted `#5A6F77` and it is the lightest value that still
@@ -91,12 +91,24 @@ A black shadow on a warm ground turns the card gray at the edge and reads as a
 sticker; an ink-tinted one reads as an object sitting on paper. Two-stop
 shadows were the old approximation; don't go back to them.
 
-### No gradients
+### No gradients, with one named exception
 Databricks ships none in its critical CSS and neither do we. The icon chips are
 flat tints. Accent is rationed to roughly one word per headline plus the primary
 CTA. If a surface needs interest, it gets it from type, spacing and elevation.
 
-## Type is one family, weight 500 — read this before setting any text
+**The exception (v3, 2026-07-30):** `.v3-main` carries a single vertical wash,
+`#f3efe9 → --bg` over the first 260px. It is not decoration — it stops the
+content plane reading as one flat sheet where it meets the dark rail. One
+gradient, one surface, stated here so it does not become a licence for more.
+
+## Type is one family — read this before setting any text
+
+> **Weights updated 2026-07-30 (v3.1).** This section used to say "weight 500".
+> Shipping weights are now **body 450, headings 580**, with Tailwind's
+> `font-medium` at 560 and `font-semibold` at 640. DM Sans is variable
+> (100–1000), so those are real interpolated weights, not synthetic bold. The
+> lift was needed once the rail went dark: it raised the perceived contrast of
+> everything beside it and left the old weights looking thin.
 
 **DM Sans, everywhere, 76px down to 10px.** No display/body pairing — the
 cohesion comes from one family used with discipline, not from a second face.
@@ -196,6 +208,37 @@ every primary CTA look destructive, and there's no way to design around it.)
 Colour is never the only signal — every status also carries its text label and,
 where it matters, an icon.
 
+## Three planes — read this before adding a surface (v3)
+
+The portal is not a sheet of paper. Everything sits on one of three planes, and
+the tokens for them live in the DEPTH block of `globals.css`:
+
+| Plane | Token | What lives there |
+|---|---|---|
+| recessed | `--well` | the board columns, quoted replies, segmented-control grooves, the payment-method row |
+| page | `--bg` + the `.v3-main` wash | the ground content sits on |
+| lifted | `--lit` + `--lift-1/2/3` | cards, panels, tables, the active nav item |
+
+`--lit` is the piece doing most of the work: a 1px white inset along the top
+edge of a raised surface. A shadow alone reads as a rectangle with something
+dark under it; a shadow **plus** a lit edge reads as a surface catching light.
+
+### The rail is dark, and it is the only dark surface
+`#15272e` — our own ink (`--text` `#1b3139`) two steps deeper. Not a new hue.
+The problem it solves was never a missing colour: the four light surfaces sit
+within ~6% lightness of each other, so a page made only of them has no anchor
+and reads as one wash however many accents you add.
+
+It also earns the logo teal back. `#00b3b3` is 2.59:1 on oat and cannot carry
+text there, which is why it had been demoted to fills. On the rail it is bright
+and legible, and the active nav mark is the one place the real brand teal
+appears as an icon.
+
+Everything on that ground was measured, not eyeballed: nav rest 7.34:1, active
+11.32:1, section labels 4.88:1 (they were 4.32:1 at the alpha first chosen —
+under AA — which is why they are 0.55 and not 0.50). Status dots were re-picked
+too; `--emerald` and `--blue` are near-invisible on ink.
+
 ## Depth & life (the premium bar)
 - Cards read via elevation + a faint tonal wash, not a gray outline.
 - Icons are **duotone with a gradient base + highlight** — they have dimension,
@@ -203,6 +246,14 @@ where it matters, an icon.
 - Interactions reward: cards lift, buttons have a confident press, active nav is
   clearly teal. One or two considered moments per screen, never everywhere.
 - Numbers/metrics get accent color; labels stay slate. Hierarchy is obvious.
+
+## Third-party logos go through us, never straight from the browser (v3)
+Any app, tool or site we name renders its real mark via `<ToolLogo>`, which
+always points at `/api/logo`. Never an `<img>` aimed at a third party: an icon
+loaded directly tells that service which tools each client uses, on every page
+view. A client's CoStar and Crexi subscriptions are their business. The
+endpoint is not an open proxy — `?u=` accepts https from a three-host
+allowlist, `?d=` interpolates a validated hostname into a fixed upstream.
 
 ## Every page, every state
 Cover: signed-out (login, account-not-found), no agents, agent building
