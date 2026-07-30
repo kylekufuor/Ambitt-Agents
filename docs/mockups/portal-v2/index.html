@@ -253,6 +253,29 @@ textarea.field{height:auto;padding:10px 12px;line-height:1.55;resize:vertical}
    already are is the "two controls, one destination" problem in miniature. */
 .sec-now{font-size:var(--fs-sm);font-weight:500;color:var(--text);white-space:nowrap}
 
+/* Tools. A tool row answers three things at once, in this order: what it is in
+   the client's words, whether Arthur can use it, and what it costs to leave it
+   alone. The third is the one every "integrations" page omits, and it is the
+   only one that makes anybody act. */
+.tool{display:flex;gap:14px;align-items:flex-start;padding:18px 0;
+  border-top:1px solid var(--border)}
+.tool:first-of-type{border-top:0;padding-top:4px}
+.tool-b{flex:1;min-width:0}
+.tool-n{font-size:var(--fs-body);font-weight:500;color:var(--text)}
+.tool-w{font-size:var(--fs-sm);color:var(--text-2);margin-top:3px;max-width:58ch}
+/* The consequence line. Indented off a rule so it reads as a footnote to the
+   tool rather than more description of it. */
+.tool-c{font-size:var(--fs-sm);color:var(--text-3);margin-top:8px;max-width:58ch;
+  padding-left:11px;border-left:2px solid var(--border-strong)}
+.tool-a{flex:none;display:flex;align-items:center;gap:10px;padding-top:2px}
+/* Built-ins: no action, no status, so they get a denser treatment than a row
+   with a button. Showing them at all is the point — it is the answer to "what
+   can he already do", which is otherwise invisible. */
+.builtins{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.builtin{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;
+  border-radius:3px;background:var(--surface-2);font-size:var(--fs-xs);
+  color:var(--text-2);white-space:nowrap}
+
 /* ===========================================================================
    THE SHELL. Rail + strip are rendered ONCE by the layout. Nothing below
    the strip ever moves them.
@@ -2261,7 +2284,230 @@ litseycre.com</textarea>
   having one scaffold.
 </p>
 
-<!-- ==================== 9 · EMPTY STATES ==================== -->
+<!-- ==================== 9 · TOOLS ==================== -->
+<div class="cap">
+  <h2>Tools and access</h2>
+  <span class="badge">/agents/arthur/tools</span>
+  <p>
+    The page with no frame until now, and the first click most new clients ever make. Every link
+    in the portal that says "finish setting him up" lands here, including the only button on the
+    week one screen.
+  </p>
+  <p style="margin-top:10px">
+    Real state, not a tidy invention: Arthur's tools today are CoStar, Crexi and The Analyst Pro
+    as browser sign ins, plus Gmail and Google Drive requested and still unanswered. So four of
+    the five are waiting on Casey, which is exactly the situation this page has to be good at.
+  </p>
+  <p style="margin-top:10px">
+    Three decisions here. Order the page by what is waiting on the client, not by category, so
+    the work is at the top. Say what each missing tool <em>costs</em> him, because a list of
+    switches nobody has explained is a list nobody flips. And answer "where does my CoStar
+    password go" on the page that asks for it, not in a policy nobody opens.
+  </p>
+</div>
+
+<div class="frame-scroll">
+<div class="shell" data-shell data-rail="tools" data-crumbs="Home>/|Arthur>/agents/arthur|Tools">
+  <main class="content">
+  <div class="wrap" style="padding-bottom:32px">
+
+    <div class="pagehead">
+      <div>
+        <h1 class="h1">What Arthur can <span class="teal">reach</span>.</h1>
+        <p class="pagesub">
+          He works inside your own accounts, as you. Four are waiting on you, and he is running
+          without them in the meantime.
+        </p>
+      </div>
+    </div>
+
+    <div class="split">
+      <div class="stack-4">
+
+        <!-- Waiting first. This is the whole reason the client opened the page. -->
+        <article class="card card-pad">
+          <div class="between" style="align-items:flex-start">
+            <div>
+              <h2 class="h3">Waiting on you</h2>
+              <p class="sm" style="margin-top:4px;color:var(--text-3)">
+                About ten minutes in total. You can do them one at a time.
+              </p>
+            </div>
+            <span class="pill pill-amber">4 to do</span>
+          </div>
+
+          <div style="margin-top:16px">
+            <div class="tool">
+              <span class="key k-amber"><svg class="ic" aria-hidden="true"><use href="#ic-shield"/></svg></span>
+              <div class="tool-b">
+                <p class="tool-n">Crexi</p>
+                <p class="tool-w">
+                  Your sign in, so he can pull on market listings and broker contacts the same way
+                  you would.
+                </p>
+                <p class="tool-c">
+                  Without it he is sourcing from CoStar and the county record only, so he is
+                  finding owners but not seeing what is already listed against them.
+                </p>
+              </div>
+              <div class="tool-a">
+                <button class="btn btn-primary btn-sm">Add your sign in</button>
+              </div>
+            </div>
+
+            <div class="tool">
+              <span class="key k-amber"><svg class="ic" aria-hidden="true"><use href="#ic-shield"/></svg></span>
+              <div class="tool-b">
+                <p class="tool-n">The Analyst Pro</p>
+                <p class="tool-w">
+                  Your sign in, for the underwriting runs he attaches to a property before he
+                  writes to the owner.
+                </p>
+                <p class="tool-c">
+                  Without it the numbers in his write ups are his own from the rent roll and the
+                  county record, and he says so on each one.
+                </p>
+              </div>
+              <div class="tool-a">
+                <button class="btn btn-secondary btn-sm">Add your sign in</button>
+              </div>
+            </div>
+
+            <div class="tool">
+              <span class="key k-amber"><svg class="ic" aria-hidden="true"><use href="#ic-mail"/></svg></span>
+              <div class="tool-b">
+                <p class="tool-n">Gmail</p>
+                <p class="tool-w">
+                  Permission to send from casey@litseycre.com, so letters arrive from your address
+                  and replies land in your inbox where you already work.
+                </p>
+                <p class="tool-c">
+                  Until you grant it he drafts and holds. Nothing he has written has been sent,
+                  and the six in Approvals are waiting on this as much as on you.
+                </p>
+              </div>
+              <div class="tool-a">
+                <button class="btn btn-secondary btn-sm">Connect Gmail</button>
+              </div>
+            </div>
+
+            <div class="tool">
+              <span class="key k-amber"><svg class="ic" aria-hidden="true"><use href="#ic-knowledge"/></svg></span>
+              <div class="tool-b">
+                <p class="tool-n">Google Drive</p>
+                <p class="tool-w">
+                  Read access to the folder you keep rent rolls and offering memos in, so you do
+                  not have to email him files one at a time.
+                </p>
+                <p class="tool-c">
+                  Optional. Without it he works from whatever you send to arthur@ambitt.agency
+                  with DOCS in the subject.
+                </p>
+              </div>
+              <div class="tool-a">
+                <button class="btn btn-secondary btn-sm">Connect Drive</button>
+              </div>
+            </div>
+          </div>
+
+          <p class="field-help" style="margin-top:16px">
+            We emailed you the Gmail and Drive requests on 12 June and again on 3 July. If they
+            are not landing, tell Arthur and he will send them somewhere else.
+          </p>
+        </article>
+
+        <!-- Connected. A checkmark proves nothing; what he did with it does. -->
+        <article class="card card-pad">
+          <h2 class="h3">Working</h2>
+          <div style="margin-top:12px">
+            <div class="tool">
+              <span class="key k-muted"><svg class="ic" aria-hidden="true"><use href="#ic-check"/></svg></span>
+              <div class="tool-b">
+                <div class="row-flex" style="gap:9px">
+                  <p class="tool-n">CoStar</p>
+                  <span class="pill pill-emerald">Signed in</span>
+                </div>
+                <p class="tool-w">
+                  He signs in as you in a browser, the same session you would get, and reads. He
+                  does not export, message or change anything in there.
+                </p>
+                <div class="facts" style="margin-top:8px">
+                  <span>last used Fri 9:02 am</span><span class="sep">·</span>
+                  <span>64 owners checked</span><span class="sep">·</span>
+                  <span>added 12 Jun</span>
+                </div>
+              </div>
+              <div class="tool-a">
+                <button class="btn btn-ghost btn-sm">Replace sign in</button>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <!-- Comes with him. No action, no status. Worth showing because it is
+             the only answer to "what can he already do", and a new client
+             reading a page of four amber rows deserves it. -->
+        <article class="card card-pad">
+          <h2 class="h3">Comes with him</h2>
+          <p class="sm" style="margin-top:6px;color:var(--text-3)">
+            Already working, nothing to connect, no account of yours involved.
+          </p>
+          <div class="builtins">
+            <span class="builtin"><svg class="ic-sm" aria-hidden="true"><use href="#ic-search"/></svg>Web research</span>
+            <span class="builtin"><svg class="ic-sm" aria-hidden="true"><use href="#ic-download"/></svg>Spreadsheets</span>
+            <span class="builtin"><svg class="ic-sm" aria-hidden="true"><use href="#ic-download"/></svg>PDF write ups</span>
+            <span class="builtin"><svg class="ic-sm" aria-hidden="true"><use href="#ic-results"/></svg>County records</span>
+            <span class="builtin"><svg class="ic-sm" aria-hidden="true"><use href="#ic-mail"/></svg>Reading your replies</span>
+          </div>
+        </article>
+      </div>
+
+      <aside class="stack-4">
+        <!-- The trust card. This page asks a broker for his CoStar password, so
+             it answers where that goes, on the page, before he has to ask. -->
+        <article class="card card-pad">
+          <div class="row-flex" style="gap:9px">
+            <span class="key k-muted"><svg class="ic" aria-hidden="true"><use href="#ic-shield"/></svg></span>
+            <h2 class="h3">Where a sign in goes</h2>
+          </div>
+          <div class="deflist" style="margin-top:12px">
+            <div><dt>Held</dt><dd class="w">Encrypted at rest</dd></div>
+            <div><dt>Used for</dt><dd class="w">Signing in as you</dd></div>
+            <div><dt>Shared with</dt><dd class="w">Nobody</dd></div>
+            <div><dt>You can</dt><dd class="w">Replace or remove it</dd></div>
+          </div>
+          <p class="field-help" style="margin-top:12px">
+            Nobody here reads it and it never leaves us. If a site texts you a code when he signs
+            in, he will ask you for it and wait. He never asks for a code you were not expecting.
+          </p>
+        </article>
+
+        <article class="card card-pad">
+          <p class="eyebrow-n">What he can do today</p>
+          <p class="sm" style="margin-top:8px">
+            Source owners, verify them against the county record, write up the ones that clear
+            your buy box, and draft the letters. Everything except send them.
+          </p>
+          <a class="btn-link" style="display:inline-block;margin-top:12px" href="/agents/arthur/results">See the 15 he is working</a>
+        </article>
+
+        <article class="card card-pad">
+          <p class="eyebrow-n">Something missing</p>
+          <p class="sm" style="margin-top:8px">
+            If he should be reaching something that is not on this list, tell him and he will ask
+            us to add it.
+          </p>
+          <a class="btn btn-secondary btn-sm" style="margin-top:12px" href="/agents/arthur/chat">Ask Arthur</a>
+        </article>
+      </aside>
+    </div>
+
+  </div>
+  </main>
+</div>
+</div>
+
+<!-- ==================== 10 · EMPTY STATES ==================== -->
 <div class="cap">
   <h2>Week one, before there is anything to show</h2>
   <span class="badge">/agents/arthur/results</span>
@@ -2331,7 +2577,7 @@ litseycre.com</textarea>
   ever emailed alive.
 </p>
 
-<!-- ==================== 10 · STOPPED ==================== -->
+<!-- ==================== 11 · STOPPED ==================== -->
 <div class="cap">
   <h2>When he is stopped</h2>
   <span class="badge">/</span>
@@ -2445,7 +2691,7 @@ litseycre.com</textarea>
 </div>
 </div>
 
-<!-- ==================== 11 · NOTHING WAITING + NOT FOUND ==================== -->
+<!-- ==================== 12 · NOTHING WAITING + NOT FOUND ==================== -->
 <div class="cap">
   <h2>Nothing waiting, and a page that is not there</h2>
   <span class="badge">/approvals</span>
@@ -2550,7 +2796,7 @@ litseycre.com</textarea>
   for itself.
 </p>
 
-<!-- ==================== 12 · MOBILE ==================== -->
+<!-- ==================== 13 · MOBILE ==================== -->
 <div class="cap">
   <h2>390px, same routes, same URLs</h2>
   <span class="badge">iPhone 15, 390 &times; 800</span>

@@ -76,8 +76,12 @@ The mockup draws one. Casey needs, in order of how likely he is to hit them:
   operator/system-paused — a client cannot lift the latter, and the portal
   enforces that at `api/agents/[id]/resume/route.ts:25`. There is no visual
   language for it.
-- **`/agents/[id]/tools`** — undrawn at any width, and it is the target of the
-  week-one empty state's only primary button. The first click a new client makes.
+- ~~`/agents/[id]/tools`~~ — **drawn 2026-07-30**, frame 9. Grounded in Arthur's
+  real tool state rather than an invention: CoStar signed in, Crexi and The
+  Analyst Pro waiting on a sign-in, Gmail and Drive requested and unanswered.
+  Ordered by what is waiting on the client rather than by category; every
+  waiting row states what it *costs* to leave it; and the card that asks a
+  broker for his CoStar password answers where that password goes, on the page.
 - **Desk with nothing waiting** — the home page, one drawn state, and it is the
   state where two things need attention.
 - **Agent mid-setup, zero tools connected.**
