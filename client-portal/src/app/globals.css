@@ -716,3 +716,28 @@ select {
 @media (prefers-reduced-motion: reduce) {
   .v3-card, .v3-card:hover, .v3-card:active { transform: none; transition: none; }
 }
+
+/* ===========================================================================
+   WEIGHT (v3.1)
+   ---------------------------------------------------------------------------
+   A step thicker everywhere. DM Sans is a variable face (100-1000), so these
+   are real interpolated weights rather than the browser faking a bold, and
+   450/580 land between the static cuts we would otherwise be stuck with.
+
+   It reads more solid without becoming a bold-everything interface, and it
+   holds up better beside the dark rail, which raised the perceived contrast
+   of everything next to it and left the type looking thinner than it is.
+
+   Set here rather than per-page so nothing has to be revisited: the rules are
+   deliberately low-specificity element and utility selectors, which the type
+   scale classes on individual pages still override where they need to.
+   =========================================================================== */
+body { font-weight: 450; }
+h1, h2, h3 { font-weight: 580; }
+/* Tailwind's own weight utilities, lifted a step to match. */
+.font-medium { font-weight: 560; }
+.font-semibold { font-weight: 640; }
+/* Rail items, which sit on the dark ground and need it most. */
+.v3-ni { font-weight: 470; }
+.v3-ni[data-active="true"] { font-weight: 600; }
+.v3-navs { font-weight: 580; }
