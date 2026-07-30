@@ -4,6 +4,13 @@ import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { PortalShell } from "@/components/portal-shell";
 import { LeadsIcon } from "@/components/icons";
+import {
+  presentLeadName,
+  presentText,
+  presentDetails,
+  presentScenario,
+  presentContact,
+} from "@/lib/lead-presentation";
 
 export const dynamic = "force-dynamic";
 
@@ -183,10 +190,17 @@ function LeadCard({ lead }: { lead: LeadRow }) {
   const status = STATUS[lead.status] ?? { label: lead.status, pill: "pill-muted" };
   const stripe = STRIPE[lead.status] ?? "muted";
   const value = fmtUsd(lead.valueUsd);
-  const detailEntries =
-    lead.details && typeof lead.details === "object" && !Array.isArray(lead.details)
-      ? Object.entries(lead.details as Record<string, unknown>).filter(([, v]) => v != null && v !== "")
-      : [];
+  // Everything below is agent-authored, so it goes through the presentation
+  // layer rather than straight onto the screen: em dashes scrubbed to match
+  // the email path, machine keys humanized, and sentences separated from
+  // scalars so a 118-character market note is not rendered in a chip built
+  // for "1987". See lib/lead-presentation.ts.
+  const name = presentLeadName(lead.name);
+  const scenario = presentScenario(lead.details);
+  const facts = presentDetails(lead.details);
+  const scalars = facts.filter((f) => f.kind === "scalar");
+  const prose = facts.filter((f) => f.kind === "prose");
+  const contact = presentContact(lead.status, lead.lastContactedAt);
 
   return (
     <div className="card card-hover relative overflow-hidden p-5 pl-6">
@@ -194,15 +208,25 @@ function LeadCard({ lead }: { lead: LeadRow }) {
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h3 className="text-[15.5px] font-semibold text-[color:var(--text)] leading-tight">
-            {lead.name}
+            {name.title}
           </h3>
-          {lead.company && (
-            <p className="text-[13px] text-[color:var(--text-3)] mt-0.5">{lead.company}</p>
+          {(name.subtitle || lead.company) && (
+            <p className="text-[13px] text-[color:var(--text-3)] mt-0.5">
+              {name.subtitle ?? lead.company}
+            </p>
           )}
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {value && (
             <span className="font-display-sm text-[16px] text-[color:var(--brand-ink)]">{value}</span>
+          )}
+          {/* The scenario is what KIND of deal this is; the pill beside it is how
+              far the outreach has got. They used to both render as "status" and
+              read as a contradiction. */}
+          {scenario && (
+            <span className="text-[11px] rounded-[3px] px-2 py-1 bg-[color:var(--surface-2)] text-[color:var(--text-2)] whitespace-nowrap">
+              {scenario}
+            </span>
           )}
           <span className={`pill ${status.pill}`}>{status.label}</span>
         </div>
@@ -215,30 +239,56 @@ function LeadCard({ lead }: { lead: LeadRow }) {
       )}
 
       {lead.notes && (
-        <p className="text-[13px] text-[color:var(--text-3)] mt-2 leading-relaxed">{lead.notes}</p>
+        <p className="text-[13px] text-[color:var(--text-3)] mt-2 leading-relaxed">
+          {presentText(lead.notes)}
+        </p>
       )}
 
-      {detailEntries.length > 0 && (
+      {/* Short facts stay chips: they are skimmable and they line up. */}
+      {scalars.length > 0 && (
         <div className="flex flex-wrap gap-1.5 mt-3">
-          {detailEntries.map(([k, v]) => (
+          {scalars.map((f) => (
             <span
-              key={k}
+              key={f.key}
               className="text-[11.5px] rounded-[7px] px-2 py-1 bg-[color:var(--surface-2)] text-[color:var(--text-2)]"
             >
-              <span className="text-[color:var(--text-3)]">{k}:</span> {String(v)}
+              <span className="text-[color:var(--text-3)]">{f.label}:</span> {f.value}
             </span>
           ))}
         </div>
+      )}
+
+      {/* Sentences get set as sentences. A 118-character market note in an
+          11.5px chip was unreadable, and it is the most useful thing the agent
+          wrote about the building. */}
+      {prose.length > 0 && (
+        <dl className="mt-3 space-y-2">
+          {prose.map((f) => (
+            <div key={f.key}>
+              <dt className="text-[11px] uppercase tracking-[0.08em] text-[color:var(--text-3)]">
+                {f.label}
+              </dt>
+              <dd className="text-[13px] text-[color:var(--text-2)] leading-relaxed mt-0.5">
+                {f.value}
+              </dd>
+            </div>
+          ))}
+        </dl>
       )}
 
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-3.5 pt-3 border-t border-[color:var(--border)] text-[12px] text-[color:var(--text-3)]">
         {lead.source && <span>{lead.source}</span>}
         {lead.source && <span>·</span>}
         <span>Added {fmtDate(lead.createdAt)}</span>
-        {lead.lastContactedAt && (
+        {/* "Contacted" with no date is a real state, not missing data: the
+            engine only started stamping lastContactedAt on 2026-07-29 and does
+            not backfill, so rows written before that assert an outreach they
+            cannot date. Two of Casey's three leads are in it. Rendering a
+            blank looked like a bug; saying it plainly does not. */}
+        {contact && (
           <>
             <span>·</span>
-            <span>Last contacted {fmtDate(lead.lastContactedAt)}</span>
+            <span>{contact}</span>
           </>
         )}
       </div>

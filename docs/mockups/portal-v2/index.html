@@ -253,6 +253,17 @@ textarea.field{height:auto;padding:10px 12px;line-height:1.55;resize:vertical}
    already are is the "two controls, one destination" problem in miniature. */
 .sec-now{font-size:var(--fs-sm);font-weight:500;color:var(--text);white-space:nowrap}
 
+/* Agent-authored sentences inside a record. .deflist right-aligns a 12.5px
+   mono value against its label, which is right for "1968" and wrong for the
+   57 to 118 character sentences the agent actually writes. These get the
+   opposite treatment: label above, value left aligned, normal text, full
+   width of the rail. */
+.prose-facts{margin-top:14px;padding-top:14px;border-top:1px solid var(--border);
+  display:flex;flex-direction:column;gap:12px}
+.pf-l{font-family:var(--mono);font-size:var(--fs-micro);font-weight:500;
+  letter-spacing:.09em;text-transform:uppercase;color:var(--text-3)}
+.pf-v{font-size:var(--fs-sm);color:var(--text-2);line-height:1.5;margin-top:3px}
+
 /* Tools. A tool row answers three things at once, in this order: what it is in
    the client's words, whether Arthur can use it, and what it costs to leave it
    alone. The third is the one every "integrations" page omits, and it is the
@@ -1740,22 +1751,58 @@ a.crumb:hover{color:var(--brand-ink);text-decoration:underline;text-underline-of
             <button class="btn btn-primary">Save the correction</button>
             <button class="btn btn-secondary">Not a fit, tell Arthur why</button>
           </div>
+          <!-- Spec route 7 requires reasoning, provenance AND undo on this
+               page. Reasoning and provenance were here; undo was not, on the
+               one surface where the client overwrites something the agent
+               researched. Back is not undo, so it has to be a control here. -->
+          <div class="decided" style="margin-top:16px">
+            <span>
+              <b>Saved.</b> Arthur has the correction and will use it from his next run,
+              Monday at 8:00 am. Nothing has gone out with it yet.
+              <button class="btn-link">Undo</button>
+            </span>
+          </div>
         </article>
       </div>
 
       <aside class="stack-4">
+        <!-- Two layouts, because Lead.details holds two kinds of value. The
+             earlier version assumed eight tidy scalars; measured against
+             Casey's live rows, two of the eight had a source field and four
+             real keys had no slot. .deflist right-aligns 12.5px mono, which
+             turns a 118-character market note into ragged prose hugging the
+             right edge of a 300px rail. Scalars keep the aligned pair.
+             Sentences get set as sentences. -->
         <div class="card card-pad">
           <p class="eyebrow-n">The property</p>
           <div class="deflist" style="margin-top:12px">
             <div><dt>Units</dt><dd>38</dd></div>
             <div><dt>Built</dt><dd>1968</dd></div>
-            <div><dt>Stories</dt><dd>3</dd></div>
-            <div><dt>Parcel</dt><dd>09-812-04-16-00-0-00-000</dd></div>
-            <div><dt>County</dt><dd class="w">Clay, MO</dd></div>
             <div><dt>Owned since</dt><dd>Mar 2007</dd></div>
             <div><dt>Loan matures</dt><dd>Mar 2027</dd></div>
-            <div><dt>Scenario</dt><dd class="w"><span class="tag">Off market</span></dd></div>
+            <div><dt>Parcel</dt><dd>09-812-04-16-00-0-00-000</dd></div>
           </div>
+          <!-- The scenario is NOT a property fact and does not belong in this
+               list. It used to sit here as a row called Scenario while a
+               details key called "status" sat four rows above the lifecycle
+               pill, so the page showed two fields called status disagreeing.
+               It is rendered once, next to the record title, as a tag. -->
+          <div class="prose-facts">
+            <div>
+              <p class="pf-l">Crexi check</p>
+              <p class="pf-v">No matching listing found on Crexi, confirmed off market.</p>
+            </div>
+            <div>
+              <p class="pf-l">Market note</p>
+              <p class="pf-v">
+                North Kansas City multifamily trading 6.0 to 7.8% in 2025, and nothing on this
+                street has changed hands since 2019.
+              </p>
+            </div>
+          </div>
+          <p class="field-help" style="margin-top:12px">
+            Arthur wrote all of this. If a line is wrong, tell him below.
+          </p>
         </div>
 
         <div class="card card-pad">
