@@ -134,12 +134,32 @@ function agentLine(a: RailAgent): { dot: string; line: string } {
   }
 }
 
+/**
+ * Destinations that do not exist yet are NOT links.
+ *
+ * The rail is built from the approved design, which has more rooms than the
+ * house currently has. A nav item that 404s is worse than one that says it is
+ * not ready: the client clicks Billing, lands on nothing, and now doubts the
+ * rest of the nav. Each route flips to a real link the day its page lands, and
+ * nothing else about the rail changes.
+ */
+const BUILT = new Set<string>(["/", "/leads"]);
+
 function NavItem({
   href, label, icon, count, dot, active,
 }: {
   href: string; label: string; icon: IconName;
   count?: number; dot?: boolean; active: boolean;
 }) {
+  if (!BUILT.has(href)) {
+    return (
+      <span className="v3-ni cursor-default opacity-55" aria-disabled="true" title="Not ready yet">
+        <Icon name={icon} />
+        {label}
+        <span className="ml-auto text-[10.5px] text-[color:var(--text-3)] font-mono">soon</span>
+      </span>
+    );
+  }
   return (
     <Link href={href} className="v3-ni" data-active={active} aria-current={active ? "page" : undefined}>
       <Icon name={icon} />
