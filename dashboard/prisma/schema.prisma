@@ -115,6 +115,11 @@ model Agent {
   // Shape: [{ name, source, siteUrl, fields: [{ title, fieldType }] }].
   customTools     Json?
 
+  // Per-agent routing preferences (inbound allowlist, MFA relay channel,
+  // outbound identity). Free-form JSON with a Zod parser in shared/. Mirrored
+  // from prisma/schema.prisma; the portal's Email setup page reads it.
+  communicationSettings Json?
+
   // Client-facing "Things you can ask {agent}" examples shown in the portal next
   // to the agent's inbox address. AI-generated per agent (grounded in purpose +
   // tools), lazily on first portal load, then cached here. Shape:

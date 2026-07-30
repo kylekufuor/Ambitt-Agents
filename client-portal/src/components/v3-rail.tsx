@@ -143,7 +143,11 @@ function agentLine(a: RailAgent): { dot: string; line: string } {
  * rest of the nav. Each route flips to a real link the day its page lands, and
  * nothing else about the rail changes.
  */
-const BUILT = new Set<string>(["/", "/leads", "/billing"]);
+const BUILT = new Set<string>([
+  "/", "/leads", "/approvals", "/activity",
+  "/agent/how", "/agent/tools", "/agent/email",
+  "/billing", "/people", "/settings",
+]);
 
 function NavItem({
   href, label, icon, count, dot, active,
