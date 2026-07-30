@@ -1,5 +1,7 @@
 "use client";
 
+import { ToolLogo } from "@/components/tool-logo";
+
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ToolsIcon, ShieldIcon } from "@/components/icons";
@@ -70,28 +72,6 @@ function timeAgo(iso: string | null): string | null {
   return new Date(iso).toLocaleDateString();
 }
 
-function Avatar({ name, logoUrl }: { name: string; logoUrl: string | null }) {
-  const initial = (name.trim().charAt(0) || "?").toUpperCase();
-  if (logoUrl) {
-    return (
-      <img
-        src={logoUrl}
-        alt=""
-        className="w-9 h-9 rounded-[9px] object-contain bg-[color:var(--surface)]"
-        style={{ boxShadow: "inset 0 0 0 1px rgba(27,49,57,0.08), 0 1px 2px rgba(27,49,57,0.08)" }}
-        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
-      />
-    );
-  }
-  return (
-    <div
-      className="w-9 h-9 rounded-[9px] bg-[color:var(--surface-2)] flex items-center justify-center text-sm font-semibold text-[color:var(--text-2)]"
-      style={{ boxShadow: "inset 0 0 0 1px rgba(27,49,57,0.06)" }}
-    >
-      {initial}
-    </div>
-  );
-}
 
 export function ToolsList({ agentId, agentName, initialData }: ToolsListProps) {
   const [data] = useState(initialData);
@@ -243,7 +223,7 @@ function ToolItem({
   return (
     <li className="card overflow-hidden">
       <div className="flex items-center gap-3 px-4 py-3.5">
-        <Avatar name={row.name} logoUrl={row.logoUrl} />
+        <ToolLogo name={row.name} logoUrl={row.logoUrl} siteUrl={row.siteUrl ?? null} />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <p className="text-[14px] font-semibold text-[color:var(--text)]">{row.name}</p>
@@ -367,7 +347,7 @@ function PersonalInfoItem({
   return (
     <li className="card overflow-hidden">
       <div className="flex items-center gap-3 px-4 py-3.5">
-        <Avatar name={row.title} logoUrl={null} />
+        <ToolLogo name={row.title} />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <p className="text-[14px] font-semibold text-[color:var(--text)]">{row.title}</p>
