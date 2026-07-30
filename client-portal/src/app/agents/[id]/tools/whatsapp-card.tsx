@@ -49,7 +49,7 @@ export function WhatsAppCard({
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(data.error ?? "Couldn't save — try again.");
+        setError(data.error ?? "Couldn't save. Try again.");
         return;
       }
       if (removeIt) {
@@ -88,7 +88,7 @@ export function WhatsAppCard({
 
           <p className="text-[12.5px] text-[color:var(--text-3)] mt-1.5 leading-relaxed max-w-[440px]">
             When {agentName}{" "}needs a login-verification code to sign in for you, it sends a text
-            to your mobile — just reply with the code and it&apos;s back to work in seconds. Much
+            to your mobile. Just reply with the code and it&apos;s back to work in seconds. Much
             quicker than email.
           </p>
 

@@ -261,7 +261,7 @@ function ToolItem({
           </p>
           {isCustom && row.vaultPending && (
             <p className="text-[12.5px] text-[color:var(--amber)] mt-1.5 leading-relaxed">
-              We&apos;re still setting up your secure vault — you&apos;ll be able to add this login here in a moment.
+              We&apos;re still setting up your secure vault. You&apos;ll be able to add this login here in a moment.
             </p>
           )}
           {row.loginStatus === "failed" && (
@@ -458,7 +458,7 @@ function CredentialForm({
         <div key={f.title}>
           <label className="field-label">
             {f.title}
-            {f.filled && <span className="ml-2 text-[color:var(--emerald)] text-[11px] font-normal">already saved — leave empty to keep</span>}
+            {f.filled && <span className="ml-2 text-[color:var(--emerald)] text-[11px] font-normal">already saved, leave empty to keep</span>}
           </label>
           <div className="relative">
             <input
@@ -474,7 +474,7 @@ function CredentialForm({
               onChange={(e) => setValues({ ...values, [f.title]: e.target.value })}
               disabled={saving}
               className="field pr-14"
-              placeholder={f.filled ? "•••••••• (saved — leave empty to keep)" : `Enter ${f.title}`}
+              placeholder={f.filled ? "•••••••• (saved, leave empty to keep)" : `Enter ${f.title}`}
             />
             {isConcealed(f.fieldType) && (
               <button
@@ -510,7 +510,7 @@ function CredentialForm({
 
       <p className="flex items-center gap-1.5 text-[11.5px] text-[color:var(--text-3)] leading-relaxed">
         <span className="text-[color:var(--emerald)] shrink-0"><ShieldIcon size={14} /></span>
-        Encrypted in your own vault the moment you save — we never see or keep the values.
+        Encrypted in your own vault the moment you save. We never see or keep the values.
       </p>
 
       {error && <p className="text-[12.5px] text-[color:var(--red)]">{error}</p>}
