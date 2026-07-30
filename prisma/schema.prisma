@@ -1059,6 +1059,22 @@ model Lead {
   // Pipeline status. Free-form, but the portal understands these:
   //   new | contacted | replied | qualified | won | lost | archived
   status   String  @default("new")
+
+  // How warm this one is: hot | warm | cold. Distinct from `status`, which is
+  // where the outreach has GOT to. Temperature is a judgement about whether it
+  // is worth the client's morning, and the agent makes it.
+  //
+  // `temperatureReason` is not optional in spirit. A temperature with no stated
+  // reason is a colour somebody else picked for you, and the client stops
+  // trusting the columns within a week. The agent must say why in the client's
+  // own terms ("he asked for a number after saying no"), never in ours.
+  //
+  // `temperatureSetBy` decides who wins when they disagree: once a client has
+  // moved a lead by hand, the agent proposes but does not overwrite.
+  temperature       String? // hot | warm | cold
+  temperatureReason String? @db.Text
+  temperatureSetBy  String? // "agent" | "client"
+  temperatureSetAt  DateTime?
   source   String? // where it came from, e.g. "CoStar export", "web research"
   valueUsd Int? // estimated deal value in whole US dollars (optional)
 
@@ -1075,6 +1091,9 @@ model Lead {
   @@index([clientId])
   @@index([agentId, status])
   @@index([agentId, createdAt])
+  // The board groups by temperature and the table sorts by last contact.
+  @@index([clientId, temperature])
+  @@index([clientId, lastContactedAt])
 }
 
 // ClientDevice — a paired local worker (v1: the "Ambitt Agents" Chrome

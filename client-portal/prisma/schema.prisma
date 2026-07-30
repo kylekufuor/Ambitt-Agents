@@ -946,6 +946,8 @@ model AgentImprovement {
   @@index([status])
   @@index([createdAt])
   @@index([agentId, createdAt])
+  @@index([clientId, temperature])
+  @@index([clientId, lastContactedAt])
 }
 
 model OracleAction {
@@ -981,6 +983,13 @@ model Lead {
   // Pipeline status. Free-form, but the portal understands these:
   //   new | contacted | replied | qualified | won | lost | archived
   status   String  @default("new")
+
+  // How warm this one is: hot | warm | cold. Distinct from `status`, which is
+  // where the outreach has GOT to. See prisma/schema.prisma for the full note.
+  temperature       String?
+  temperatureReason String? @db.Text
+  temperatureSetBy  String? // "agent" | "client"
+  temperatureSetAt  DateTime?
   source   String? // where it came from, e.g. "CoStar export", "web research"
   valueUsd Int? // estimated deal value in whole US dollars (optional)
 

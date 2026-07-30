@@ -8,6 +8,7 @@
 // real ones are not (short scalar values, no em dashes, uniform keys), and it
 // shipped three defects a client could see on day one.
 import {
+  presentTemperature,
   presentLeadName,
   presentText,
   humanizeKey,
@@ -171,6 +172,45 @@ checkTrue("nested object is skipped, not stringified",
 check("numbers survive", presentDetails({ unit_count: 38 })[0]?.value, "38");
 check("booleans survive", presentDetails({ verified: true })[0]?.value, "true");
 check("presentText on null", presentText(null), "");
+
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 7. Temperature, including the honest fallback
+// ═══════════════════════════════════════════════════════════════════════════
+// Every lead in the system predates the temperature column, so the fallback is
+// not an edge case today, it is ALL of Casey's rows.
+{
+  const agentSet = presentTemperature({
+    temperature: "hot", temperatureReason: "he asked for a number — after saying no",
+    temperatureSetBy: "agent", status: "replied",
+  });
+  check("agent-set temperature is used as-is", agentSet.value, "hot");
+  check("its reason is carried through", agentSet.by, "agent");
+  checkTrue("REGRESSION: the reason is scrubbed like any agent text",
+    !agentSet.reason!.includes("—"), agentSet.reason);
+
+  const clientSet = presentTemperature({
+    temperature: "cold", temperatureReason: "not my market", temperatureSetBy: "client", status: "replied",
+  });
+  check("a client's own choice beats their status", clientSet.value, "cold");
+  check("and is attributed to them", clientSet.by, "client");
+
+  // Casey's three live rows: contacted, contacted, new. None judged yet.
+  for (const [status, want] of [["replied","hot"],["qualified","hot"],["won","hot"],
+                                ["contacted","warm"],["new","warm"],
+                                ["lost","cold"],["archived","cold"]] as const) {
+    const d = presentTemperature({ status });
+    check(`derived: ${status} -> ${want}`, d.value, want);
+    check(`derived: ${status} claims no reason`, d.reason, null);
+    check(`derived: ${status} is labelled derived`, d.by, "derived");
+  }
+  checkTrue("REGRESSION: a derived temperature never invents a reason",
+    ["new","contacted","replied","lost","archived","weird"].every(s => presentTemperature({status:s}).reason === null));
+  check("an unknown status still lands somewhere", presentTemperature({ status: "zzz" }).value, "warm");
+  check("junk in the column falls back to derivation",
+    presentTemperature({ temperature: "lukewarm", status: "replied" }).by, "derived");
+}
 
 console.log(`\n${pass}/${pass + fail} passed${fail ? ` — ${fail} FAILED` : " — all green"}`);
 process.exitCode = fail ? 1 : 0;

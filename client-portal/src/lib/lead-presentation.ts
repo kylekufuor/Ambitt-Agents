@@ -48,6 +48,59 @@ export function presentText(value: string | null | undefined): string {
   return stripEmDashes(value).text;
 }
 
+export type Temperature = "hot" | "warm" | "cold";
+
+export interface PresentedTemperature {
+  value: Temperature;
+  /** The sentence shown under the tag. Null only when nobody has judged it. */
+  reason: string | null;
+  /**
+   * `agent`   Arthur decided and said why.
+   * `client`  the client moved it by hand; Arthur may propose but not overwrite.
+   * `derived` nobody has judged it, we placed it from the outreach status.
+   */
+  by: "agent" | "client" | "derived";
+}
+
+/**
+ * Where a lead sits on the board.
+ *
+ * The honest part is `derived`. Every lead in the system predates the
+ * temperature column, so on day one the board would otherwise be empty or, far
+ * worse, full of confident-looking tags nobody actually made. We place those
+ * rows from their outreach status and SAY that is what happened, because the
+ * whole reason the board is worth looking at is that every card can explain
+ * itself. Inventing a reason to fill the gap would poison exactly the thing
+ * this feature is for.
+ */
+export function presentTemperature(lead: {
+  temperature?: string | null;
+  temperatureReason?: string | null;
+  temperatureSetBy?: string | null;
+  status: string;
+}): PresentedTemperature {
+  const raw = (lead.temperature ?? "").trim().toLowerCase();
+  if (raw === "hot" || raw === "warm" || raw === "cold") {
+    const by = lead.temperatureSetBy === "client" ? "client" : "agent";
+    const reason = presentText(lead.temperatureReason).trim();
+    return { value: raw, reason: reason || null, by };
+  }
+
+  const s = lead.status.trim().toLowerCase();
+  // Someone answered, so it wants a human. Anything written off is parked.
+  const value: Temperature =
+    s === "replied" || s === "qualified" || s === "won"
+      ? "hot"
+      : s === "lost" || s === "archived"
+        ? "cold"
+        : "warm";
+  return { value, reason: null, by: "derived" };
+}
+
+/** The line shown where a reason would be, when there is no reason. */
+export const DERIVED_TEMPERATURE_NOTE =
+  "Placed by where the outreach has got to. Arthur has not judged this one yet.";
+
 export interface PresentedName {
   /** The entity that holds it. The record page title. */
   title: string;

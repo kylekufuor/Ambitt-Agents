@@ -286,6 +286,17 @@ const BUILTIN_CLAUDE_TOOLS: Anthropic.Messages.Tool[] = [
           type: "boolean",
           description: "Set true if you just reached out to this lead, to stamp the last-contacted time.",
         },
+        temperature: {
+          type: "string",
+          enum: ["hot", "warm", "cold"],
+          description:
+            "How warm this one is, which is YOUR judgement and is different from status. Status is where the outreach has got to; temperature is whether it deserves the client's morning. 'hot' = they replied, asked a question, named a date, or otherwise did something that needs the client. 'warm' = you are working it and it is going normally. 'cold' = parked, said no, already listed, not a fit. If the client has moved this lead by hand you may propose a change but you will not overwrite them.",
+        },
+        temperature_reason: {
+          type: "string",
+          description:
+            "Why you put it at that temperature, in ONE short sentence, in the client's own terms. Required whenever you set temperature. Write what a colleague would say: 'he asked for a number after saying no', 'already listed and you said those are yours to call'. Never explain your own process, never mention scores, models or rules. A temperature with no reason is just a colour the client did not choose, and they stop trusting the whole board.",
+        },
       },
       required: ["name"],
     },
@@ -808,6 +819,8 @@ async function executeBuiltinTool(
         notes?: string;
         details?: Record<string, unknown>;
         mark_contacted?: boolean;
+        temperature?: string;
+        temperature_reason?: string;
       };
       const name = (a.name ?? "").trim();
       if (!name) return { content: "log_lead failed: a lead name is required.", isError: true };
@@ -840,8 +853,21 @@ async function executeBuiltinTool(
         },
         // lastContactedAt is read so we can tell "never contacted" from
         // "already stamped" — see the lastContactedAt logic below.
-        select: { id: true, lastContactedAt: true },
+        // temperature* is read so a client's own hand-set temperature is not
+        // silently overwritten on the next run.
+        select: {
+          id: true,
+          lastContactedAt: true,
+          temperature: true,
+          temperatureSetBy: true,
+        },
       });
+
+      const temp = resolveTemperatureWrite(
+        { temperature: a.temperature, reason: a.temperature_reason },
+        existing ?? null,
+      );
+      if ("error" in temp) return { content: temp.error, isError: true };
 
       const fields = {
         company: a.company?.trim() || undefined,
@@ -876,12 +902,15 @@ async function executeBuiltinTool(
           : status && OUTREACH_IMPLIES_CONTACT.has(status) && !existing?.lastContactedAt
             ? new Date()
             : undefined,
+        ...(temp.write ?? {}),
       };
+
+      const tempNote = temp.note ? ` ${temp.note}` : temp.write ? ` Marked ${temp.write.temperature}.` : "";
 
       if (existing) {
         await prisma.lead.update({ where: { id: existing.id }, data: fields });
         return {
-          content: `Lead updated: "${name}"${status ? ` (status: ${status})` : ""}. It's live in the client's portal.`,
+          content: `Lead updated: "${name}"${status ? ` (status: ${status})` : ""}.${tempNote} It's live in the client's portal.`,
           isError: false,
         };
       }
@@ -889,7 +918,7 @@ async function executeBuiltinTool(
         data: { agentId, clientId, name, ...fields, status: status ?? "new" },
       });
       return {
-        content: `Lead logged: "${name}". It's now in the client's portal Leads table.`,
+        content: `Lead logged: "${name}".${tempNote} It's now in the client's portal Leads table.`,
         isError: false,
       };
     }
@@ -1832,6 +1861,76 @@ export function shouldEscalateBeforeResponding(ctx: {
  *      check, allowInactive would be a way to make a stopped agent email a
  *      real client.
  */
+export type Temperature = "hot" | "warm" | "cold";
+
+export interface TemperatureWrite {
+  temperature: Temperature;
+  temperatureReason: string;
+  temperatureSetBy: "agent";
+  temperatureSetAt: Date;
+}
+
+/**
+ * Decides what a log_lead call is allowed to do to a lead's temperature.
+ *
+ * Two rules, both of which exist because the client has to trust the board:
+ *
+ * 1. A temperature without a reason is refused. The reason line is the entire
+ *    product here. A broker looking at a column of leads somebody else sorted,
+ *    with no explanation, stops believing the sort within a week and we have
+ *    built a worse spreadsheet. Refusing loudly at the tool boundary is the
+ *    only place this can be enforced, because a prompt instruction is a
+ *    request and this is a requirement.
+ *
+ * 2. Once the client has moved a lead by hand, the agent proposes but does not
+ *    overwrite. Casey dragging a card to Cold is him telling Arthur something,
+ *    and having it silently spring back on the next run is the single fastest
+ *    way to make the portal feel like it is fighting him.
+ */
+export function resolveTemperatureWrite(
+  requested: { temperature?: unknown; reason?: unknown },
+  existing: { temperature: string | null; temperatureSetBy: string | null } | null,
+  now: Date = new Date(),
+): { error: string } | { write: TemperatureWrite | null; note?: string } {
+  const raw = typeof requested.temperature === "string" ? requested.temperature.trim().toLowerCase() : "";
+  const reason = typeof requested.reason === "string" ? requested.reason.trim() : "";
+
+  // A reason on its own is not an error, just nothing to write.
+  if (!raw) return { write: null };
+
+  if (raw !== "hot" && raw !== "warm" && raw !== "cold") {
+    return { error: `temperature must be "hot", "warm" or "cold" (got "${raw}"). Nothing was changed.` };
+  }
+  if (!reason) {
+    return {
+      error:
+        `You set temperature "${raw}" without saying why. Call log_lead again with temperature_reason: ` +
+        `one short sentence, in the client's own terms, explaining what this lead did to earn that. ` +
+        `Nothing was changed.`,
+    };
+  }
+
+  // The client owns it once they have touched it.
+  if (existing?.temperatureSetBy === "client" && existing.temperature !== raw) {
+    return {
+      write: null,
+      note:
+        `The client set this one to "${existing.temperature}" themselves, so it stays there and your ` +
+        `"${raw}" was not applied. If you think that is wrong, say so in your next message to them ` +
+        `rather than changing it.`,
+    };
+  }
+
+  return {
+    write: {
+      temperature: raw,
+      temperatureReason: reason,
+      temperatureSetBy: "agent",
+      temperatureSetAt: now,
+    },
+  };
+}
+
 export function runRefusalReason(
   agent: { status: string; dryRun: boolean },
   opts: { allowInactive?: boolean } = {},
