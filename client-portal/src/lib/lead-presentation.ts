@@ -255,6 +255,25 @@ export function presentScenario(details: unknown): string | null {
  * it. Saying "Contacted" with a blank date reads like a bug; saying so plainly
  * does not.
  */
+/**
+ * The same fact as presentContact, sized for a table column rather than a
+ * sentence. "before we started recording the date" is honest prose and is far
+ * too long for a cell; "not recorded" says the same thing in a column that has
+ * a header explaining what the column is.
+ */
+export function presentLastSpoke(
+  status: string,
+  lastContactedAt: Date | string | null | undefined,
+): string {
+  const OUTREACH_DONE = new Set(["contacted", "replied", "qualified", "won"]);
+  if (!lastContactedAt) {
+    return OUTREACH_DONE.has(status.toLowerCase()) ? "not recorded" : "never";
+  }
+  const d = lastContactedAt instanceof Date ? lastContactedAt : new Date(lastContactedAt);
+  if (Number.isNaN(d.getTime())) return "not recorded";
+  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+}
+
 export function presentContact(
   status: string,
   lastContactedAt: Date | string | null | undefined,

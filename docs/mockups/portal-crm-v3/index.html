@@ -50,6 +50,13 @@
   --red:#be123c;     --red-tint:rgba(190,18,60,.1);
   --blue:#1d4ed8;    --blue-tint:rgba(29,78,216,.1);
 
+  /* Depth. The page is not a sheet of paper: there is a recessed plane (the
+     rail and the board wells), a page plane, and things lifted off it. The
+     --lit inset is a 1px highlight along a card's top edge, which is what
+     makes a surface read as catching light from above rather than as a
+     rectangle with a shadow under it. */
+  --lit:inset 0 1px 0 rgba(255,255,255,.9);
+  --well:inset 0 1px 3px rgba(27,49,57,.07),inset 0 0 0 1px rgba(27,49,57,.035);
   --e1:0 1px 2px rgba(27,49,57,.05),0 1px 1px rgba(27,49,57,.03);
   --e2:0 0 0 1px rgba(27,49,57,.03),0 1px 2px rgba(27,49,57,.03),
        0 2px 3px rgba(27,49,57,.02),0 4px 8px rgba(27,49,57,.025),
@@ -90,8 +97,10 @@ button,input,textarea,select{font:inherit;color:inherit}
    it keeps the client's own data as the darkest thing on the screen.
    =========================================================================== */
 .app{display:grid;grid-template-columns:232px 1fr;min-height:720px;background:var(--bg)}
+.main{background:linear-gradient(180deg,#f3efe9 0,var(--bg) 260px)}
 .rail{background:var(--rail);border-right:1px solid var(--border);padding:10px 0;
-  display:flex;flex-direction:column}
+  display:flex;flex-direction:column;position:relative;z-index:0;
+  box-shadow:inset -9px 0 14px -12px rgba(27,49,57,.28)}
 
 /* Workspace, not a logo lockup. The client's own business is the first thing
    in the rail, because this is their portal, not our product tour. */
@@ -113,7 +122,8 @@ button,input,textarea,select{font:inherit;color:inherit}
   font-size:var(--fs-sm);color:var(--text-2);text-decoration:none;transition:background .12s ease}
 .ni:hover{background:rgba(27,49,57,.045);color:var(--text)}
 /* Active: surface lift + ink + a teal icon. One accent, no bar, no tint wash. */
-.ni.on{background:var(--surface);color:var(--text);font-weight:500;box-shadow:var(--e1)}
+.ni.on{background:var(--surface);color:var(--text);font-weight:500;
+  box-shadow:var(--lit),0 1px 2px rgba(27,49,57,.09),0 3px 8px -3px rgba(27,49,57,.10)}
 .ni.on .ic{color:var(--brand-solid)}
 .ic{width:16px;height:16px;flex:none;color:var(--text-3)}
 .ni-c{margin-left:auto;font-family:var(--mono);font-size:var(--fs-micro);color:var(--text-3)}
@@ -132,9 +142,11 @@ button,input,textarea,select{font:inherit;color:inherit}
 .ag-s{font-size:var(--fs-micro);color:var(--text-3);margin-top:2px;line-height:1.4}
 
 /* --- content ------------------------------------------------------------- */
-.main{background:var(--bg);min-width:0;display:flex;flex-direction:column}
+.main{min-width:0;display:flex;flex-direction:column;position:relative;z-index:1;
+  box-shadow:-7px 0 18px -10px rgba(27,49,57,.13)}
 .top{height:52px;display:flex;align-items:center;gap:12px;padding:0 20px;
-  background:var(--surface);border-bottom:1px solid var(--border);flex:none}
+  background:var(--surface);flex:none;position:relative;z-index:2;
+  box-shadow:0 1px 0 var(--border),0 6px 14px -8px rgba(27,49,57,.16)}
 .crumb{font-size:var(--fs-sm);color:var(--text-3)}
 .crumb a{color:var(--text-3);text-decoration:none}
 .crumb a:hover{color:var(--text)}
@@ -156,7 +168,8 @@ button,input,textarea,select{font:inherit;color:inherit}
 
 /* The agent work line. "What did my agent do", answered in a sentence with the
    receipts one click away, instead of a dashboard of tiles. */
-.did{background:var(--surface);border-radius:7px;padding:13px 16px;box-shadow:var(--e1);
+.did{background:var(--surface);border-radius:7px;padding:13px 16px;
+  box-shadow:var(--lit),0 1px 2px rgba(27,49,57,.06),0 4px 10px -4px rgba(27,49,57,.08);
   margin:16px 0 18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .did-i{width:28px;height:28px;border-radius:6px;background:var(--brand-tint);
   color:var(--brand-solid);display:grid;place-items:center;flex:none}
@@ -173,7 +186,9 @@ button,input,textarea,select{font:inherit;color:inherit}
 .seg button{height:28px;padding:0 12px;border:0;background:transparent;border-radius:4px;
   font-size:var(--fs-xs);color:var(--text-2);cursor:pointer;display:inline-flex;
   align-items:center;gap:6px}
-.seg button.on{background:var(--surface);color:var(--text);font-weight:500;box-shadow:var(--e1)}
+.seg{box-shadow:var(--well)}
+.seg button.on{background:var(--surface);color:var(--text);font-weight:500;
+  box-shadow:var(--lit),0 1px 2px rgba(27,49,57,.11)}
 .chip{height:28px;padding:0 11px;border-radius:5px;border:1px solid var(--border);
   background:var(--surface);font-size:var(--fs-xs);color:var(--text-2);cursor:pointer;
   display:inline-flex;align-items:center;gap:6px}
@@ -185,16 +200,18 @@ button,input,textarea,select{font:inherit;color:inherit}
    =========================================================================== */
 .board{display:grid;grid-template-columns:repeat(3,1fr);gap:13px;align-items:start}
 @media (max-width:1080px){.board{grid-template-columns:1fr}}
-.col{background:var(--surface-2);border-radius:8px;padding:11px}
+.col{background:var(--surface-2);border-radius:8px;padding:11px;box-shadow:var(--well)}
 .col-h{display:flex;align-items:center;gap:8px;padding:2px 4px 11px}
 .col-t{font-size:var(--fs-sm);font-weight:500}
 .col-n{font-family:var(--mono);font-size:var(--fs-xs);color:var(--text-3)}
 .col-r{margin-left:auto;font-size:var(--fs-micro);color:var(--text-3)}
 .col-hot .col-t{color:var(--amber)}
 .cards{display:flex;flex-direction:column;gap:8px}
-.card{background:var(--surface);border-radius:6px;padding:12px 13px;box-shadow:var(--e1);
-  display:block;text-decoration:none;cursor:grab;transition:box-shadow .15s ease,transform .15s ease}
-.card:hover{box-shadow:var(--e2);transform:translateY(-1px)}
+.card{background:var(--surface);border-radius:6px;padding:12px 13px;
+  box-shadow:var(--lit),0 1px 2px rgba(27,49,57,.07),0 3px 6px -2px rgba(27,49,57,.07);
+  display:block;text-decoration:none;cursor:grab;transition:box-shadow .16s ease,transform .16s ease}
+.card:hover{box-shadow:var(--lit),var(--e2);transform:translateY(-2px)}
+.card:active{transform:translateY(0);box-shadow:var(--lit),0 1px 2px rgba(27,49,57,.1)}
 .card-n{font-size:var(--fs-sm);font-weight:500;line-height:1.25}
 .card-p{font-size:var(--fs-xs);color:var(--text-3);margin-top:2px}
 .card-e{font-size:var(--fs-xs);color:var(--text-2);margin-top:8px;padding-top:8px;
@@ -227,7 +244,7 @@ button,input,textarea,select{font:inherit;color:inherit}
 /* ===========================================================================
    TABLE (the other half of the toggle)
    =========================================================================== */
-.tbl{background:var(--surface);border-radius:8px;box-shadow:var(--e2);overflow:hidden}
+.tbl{background:var(--surface);border-radius:8px;box-shadow:var(--lit),var(--e2);overflow:hidden}
 .tbl table{width:100%;border-collapse:collapse}
 .tbl th{text-align:left;font-family:var(--mono);font-size:var(--fs-micro);font-weight:500;
   letter-spacing:.08em;text-transform:uppercase;color:var(--text-3);
@@ -245,7 +262,7 @@ button,input,textarea,select{font:inherit;color:inherit}
    =========================================================================== */
 .cols2{display:grid;grid-template-columns:1fr 320px;gap:20px;align-items:start}
 @media (max-width:1040px){.cols2{grid-template-columns:1fr}}
-.panel{background:var(--surface);border-radius:8px;padding:17px;box-shadow:var(--e2)}
+.panel{background:var(--surface);border-radius:8px;padding:17px;box-shadow:var(--lit),var(--e2)}
 .panel + .panel{margin-top:13px}
 .panel h2{font-size:var(--fs-body);margin-bottom:3px}
 .panel-s{font-size:var(--fs-xs);color:var(--text-3);line-height:1.5}
@@ -269,7 +286,7 @@ button,input,textarea,select{font:inherit;color:inherit}
 .t-what{font-size:var(--fs-sm);color:var(--text-2);margin-top:2px}
 .t-what b{font-weight:500;color:var(--text)}
 .quote{margin-top:7px;padding:10px 12px;background:var(--bg);border-radius:6px;
-  font-size:var(--fs-sm);color:var(--text);line-height:1.5}
+  font-size:var(--fs-sm);color:var(--text);line-height:1.5;box-shadow:var(--well)}
 
 .facts{margin-top:11px}
 .facts>div{display:flex;justify-content:space-between;gap:14px;padding:7px 0;
@@ -291,9 +308,11 @@ button,input,textarea,select{font:inherit;color:inherit}
 .btn{height:36px;padding:0 14px;border-radius:5px;border:1px solid transparent;
   font-size:var(--fs-sm);font-weight:500;cursor:pointer;display:inline-flex;
   align-items:center;justify-content:center;gap:7px;text-decoration:none;white-space:nowrap}
-.btn-primary{background:var(--brand-solid);color:#fff}
+.btn-primary{background:var(--brand-solid);color:#fff;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.18),0 1px 2px rgba(27,49,57,.18)}
 .btn-primary:hover{background:var(--brand-ink)}
-.btn-secondary{background:var(--surface);border-color:var(--border-strong);color:var(--text)}
+.btn-secondary{background:var(--surface);border-color:var(--border-strong);color:var(--text);
+  box-shadow:var(--lit),0 1px 1px rgba(27,49,57,.05)}
 .btn-ghost{background:transparent;color:var(--text-2)}
 .btn-sm{height:28px;padding:0 11px;font-size:var(--fs-xs)}
 .row{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-top:13px}
@@ -308,7 +327,7 @@ button,input,textarea,select{font:inherit;color:inherit}
 .big{font-family:var(--mono);font-size:var(--fs-display);font-weight:500;line-height:1.1}
 .money{font-family:var(--mono);font-variant-numeric:tabular-nums}
 .pm{display:flex;align-items:center;gap:11px;margin-top:12px;padding:11px 13px;
-  background:var(--bg);border-radius:6px}
+  background:var(--bg);border-radius:6px;box-shadow:var(--well)}
 .pm-c{width:34px;height:23px;border-radius:3px;background:var(--text);color:var(--surface);
   font-size:var(--fs-nano);font-weight:600;display:grid;place-items:center;flex:none;letter-spacing:.02em}
 

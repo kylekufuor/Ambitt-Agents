@@ -1007,8 +1007,6 @@ model AgentImprovement {
   @@index([status])
   @@index([createdAt])
   @@index([agentId, createdAt])
-  @@index([clientId, temperature])
-  @@index([clientId, lastContactedAt])
 }
 
 model OracleAction {
@@ -1067,6 +1065,8 @@ model Lead {
   @@index([clientId])
   @@index([agentId, status])
   @@index([agentId, createdAt])
+  @@index([clientId, temperature])
+  @@index([clientId, lastContactedAt])
 }
 
 // ClientDevice — a paired local worker (v1: the "Ambitt Agents" Chrome

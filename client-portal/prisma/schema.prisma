@@ -138,6 +138,13 @@ model Agent {
   runningSince     DateTime? // set when a run starts, cleared when it ends — drives the portal "working now" badge
   nextScheduledRun DateTime?
 
+  // Who paused and why. Resume authority depends on this: a client may lift
+  // their own pause, but an operator or system halt is ours to lift. Mirrored
+  // from prisma/schema.prisma — it was missing here, so the rail could not
+  // tell the client "you paused this" from "we stopped this".
+  pausedBy     String?
+  pausedReason String?   @db.Text
+
   // Dry-run mode — when true, side-effect callsites (sendEmail, sendWhatsApp,
   // Composio executeTool, browse actions that write) record what they WOULD
   // have done to DryRunLog instead of actually firing. Defaults true for new
@@ -946,8 +953,6 @@ model AgentImprovement {
   @@index([status])
   @@index([createdAt])
   @@index([agentId, createdAt])
-  @@index([clientId, temperature])
-  @@index([clientId, lastContactedAt])
 }
 
 model OracleAction {
@@ -1006,6 +1011,8 @@ model Lead {
   @@index([clientId])
   @@index([agentId, status])
   @@index([agentId, createdAt])
+  @@index([clientId, temperature])
+  @@index([clientId, lastContactedAt])
 }
 
 // ClientDevice — a paired local worker (v1: the "Ambitt Agents" Chrome

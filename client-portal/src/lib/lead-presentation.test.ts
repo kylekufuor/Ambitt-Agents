@@ -8,6 +8,7 @@
 // real ones are not (short scalar values, no em dashes, uniform keys), and it
 // shipped three defects a client could see on day one.
 import {
+  presentLastSpoke,
   presentTemperature,
   presentLeadName,
   presentText,
@@ -211,6 +212,20 @@ check("presentText on null", presentText(null), "");
   check("junk in the column falls back to derivation",
     presentTemperature({ temperature: "lukewarm", status: "replied" }).by, "derived");
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 8. The table column form
+// ═══════════════════════════════════════════════════════════════════════════
+// The prose form reads "before we started recording the date", which is right
+// in a sentence and far too long for a cell under a "You last spoke" header.
+check("a real date is short", presentLastSpoke("contacted", new Date("2026-07-22T16:41:00Z")), "22 Jul");
+check("REGRESSION: contacted with no date is two words, not a sentence",
+  presentLastSpoke("contacted", null), "not recorded");
+check("never contacted says never", presentLastSpoke("new", null), "never");
+check("a lead written off without contact says never", presentLastSpoke("lost", null), "never");
+check("an unparseable date does not render Invalid Date", presentLastSpoke("replied", "nope"), "not recorded");
+checkTrue("the cell never runs long", ["contacted","new","replied","lost"].every(
+  st => presentLastSpoke(st, null).length <= 12));
 
 console.log(`\n${pass}/${pass + fail} passed${fail ? ` — ${fail} FAILED` : " — all green"}`);
 process.exitCode = fail ? 1 : 0;

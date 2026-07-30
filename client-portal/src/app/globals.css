@@ -54,7 +54,9 @@
   --text-3: #5a6f77;        /* tertiary — 5.2:1 card, 4.5:1 wash. The AA floor. */
   --text-4: #78949f;        /* DECORATIVE ONLY — placeholders, disabled. 3.2:1 */
   --border: #dce0e2;        /* Databricks hairline — rows and rails, never card outlines */
-  --border-strong: #c6cfd2;
+  --border-strong: #6f8892;  /* control boundaries. 3.69:1 on --surface, 3.50 on
+                                --bg, 3.21 on --surface-2, so it clears WCAG
+                                1.4.11 on all three. Was #c6cfd2 at 1.56:1. */
 
   /* ---------------------------------------------------------------------
      STATUS — every one of these sits >=33 dE from --brand-ink, so a status
@@ -604,4 +606,89 @@ select {
 @keyframes pulse-dot {
   0%, 100% { transform: scale(1);   opacity: 1; }
   50%      { transform: scale(0.7); opacity: 0.6; }
+}
+
+/* ===========================================================================
+   DEPTH (v3)
+   ---------------------------------------------------------------------------
+   The portal is not a sheet of paper. Three planes:
+
+     recessed   the rail, board columns, quoted replies, segmented grooves
+     page       the ground the content sits on
+     lifted     cards, panels, tables, the active nav item
+
+   --lit is the piece that does most of the work: a 1px white highlight along
+   the top edge of a raised surface. A shadow alone reads as a rectangle with
+   something dark under it; a shadow plus a lit edge reads as a surface
+   catching light from above. Costs nothing and is the difference between
+   "boxes" and "depth".
+   =========================================================================== */
+:root {
+  --lit: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  --well: inset 0 1px 3px rgba(27, 49, 57, 0.07),
+          inset 0 0 0 1px rgba(27, 49, 57, 0.035);
+  --lift-1: var(--lit), 0 1px 2px rgba(27, 49, 57, 0.07),
+            0 3px 6px -2px rgba(27, 49, 57, 0.07);
+  --lift-2: var(--lit), 0 1px 2px rgba(27, 49, 57, 0.05),
+            0 2px 4px rgba(27, 49, 57, 0.04), 0 8px 16px -6px rgba(27, 49, 57, 0.07);
+  --lift-3: var(--lit), 0 2px 4px rgba(27, 49, 57, 0.05),
+            0 8px 16px -4px rgba(27, 49, 57, 0.08),
+            0 20px 32px -12px rgba(27, 49, 57, 0.10);
+}
+
+/* --- shell ---------------------------------------------------------------- */
+.v3-rail {
+  background: #f6f3ef;
+  border-right: 1px solid var(--border);
+  position: relative;
+  z-index: 0;
+  box-shadow: inset -9px 0 14px -12px rgba(27, 49, 57, 0.28);
+}
+/* The content plane sits in front of the rail and casts onto it. */
+.v3-main {
+  position: relative;
+  z-index: 1;
+  background: linear-gradient(180deg, #f3efe9 0, var(--bg) 260px);
+  box-shadow: -7px 0 18px -10px rgba(27, 49, 57, 0.13);
+}
+.v3-top {
+  background: var(--surface);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  box-shadow: 0 1px 0 var(--border), 0 6px 14px -8px rgba(27, 49, 57, 0.16);
+}
+
+/* --- rail nav ------------------------------------------------------------- */
+.v3-ni {
+  display: flex; align-items: center; gap: 9px;
+  height: 32px; padding: 0 10px; border-radius: 5px;
+  font-size: 14px; color: var(--text-2); text-decoration: none;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.v3-ni:hover { background: rgba(27, 49, 57, 0.045); color: var(--text); }
+.v3-ni[data-active="true"] {
+  background: var(--surface); color: var(--text); font-weight: 500;
+  box-shadow: var(--lit), 0 1px 2px rgba(27, 49, 57, 0.09),
+              0 3px 8px -3px rgba(27, 49, 57, 0.10);
+}
+.v3-ni[data-active="true"] .v3-ic { color: var(--brand-solid); }
+.v3-ic { width: 16px; height: 16px; flex: none; color: var(--text-3); }
+.v3-navs {
+  font-family: var(--font-dm-mono), ui-monospace, monospace;
+  font-size: 11px; font-weight: 500; letter-spacing: 0.09em;
+  text-transform: uppercase; color: var(--text-3); padding: 16px 10px 6px;
+}
+
+/* --- planes --------------------------------------------------------------- */
+.v3-panel { background: var(--surface); border-radius: 8px; box-shadow: var(--lift-2); }
+.v3-well  { background: var(--surface-2); border-radius: 8px; box-shadow: var(--well); }
+.v3-card  {
+  background: var(--surface); border-radius: 6px; box-shadow: var(--lift-1);
+  transition: box-shadow 0.16s ease, transform 0.16s ease;
+}
+.v3-card:hover { box-shadow: var(--lift-2); transform: translateY(-2px); }
+.v3-card:active { transform: translateY(0); box-shadow: var(--lit), 0 1px 2px rgba(27,49,57,0.1); }
+@media (prefers-reduced-motion: reduce) {
+  .v3-card, .v3-card:hover, .v3-card:active { transform: none; transition: none; }
 }
