@@ -1,0 +1,3196 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Client portal v2 · persistent shell, results ledger, four-verb approvals · Ambitt Agents</title>
+
+<style>
+/* ===========================================================================
+   FONTS. Self-hosted woff2, copied from client-portal/public/fonts.
+   Never a CDN link: a silent fallback to a system face is the exact failure
+   the type system exists to prevent, and it fails invisibly.
+   =========================================================================== */
+@font-face{
+  font-family:'DM Sans';src:url('fonts/dm-sans.woff2') format('woff2');
+  font-weight:100 1000;font-style:normal;font-display:block;
+}
+@font-face{
+  font-family:'DM Mono';src:url('fonts/dm-mono.woff2') format('woff2');
+  font-weight:400 500;font-style:normal;font-display:block;
+}
+
+/* ===========================================================================
+   TOKENS.
+   Colour is unchanged from client-portal/src/app/globals.css. Databricks'
+   measured neutrals already equal ours, so "copy Databricks" is a structure
+   and type-scale job, not a repaint.
+   Type scale, spacing, control sizes and layout metrics are NEW. See
+   DESIGN-V2.md for what changed and why.
+   =========================================================================== */
+:root{
+  /* --- brand: two-step teal, unchanged --------------------------------- */
+  --brand:#00b3b3;              /* MARK ONLY. Fills, rules, tints. Never text. */
+  --brand-solid:#00807e;        /* fill under a white label, focus, selected  */
+  --brand-solid-hover:#00706f;
+  --brand-ink:#00706f;          /* teal AS TEXT */
+  --brand-tint:rgba(0,179,179,.08);
+  --brand-tint-strong:rgba(0,179,179,.14);
+  --brand-shadow:0 1px 2px rgba(27,49,57,.08);
+
+  /* --- neutrals, unchanged --------------------------------------------- */
+  --bg:#f9f7f4;
+  --surface:#fffdfb;
+  --surface-2:#f1ede7;
+  --text:#1b3139;
+  --text-2:#47606a;
+  --text-3:#5a6f77;    /* the AA floor. Every label lives here or above.     */
+  --text-4:#78949f;    /* SEPARATORS AND RULES ONLY. Never a letterform.     */
+  --border:#dce0e2;
+  --border-strong:#6f8892; /* 3.69:1 on surface, 3.50 ground, 3.21 wash, so it clears
+                              1.4.11 on all three, not just the lightest. Was #c6cfd2
+                              at 1.56:1, and it is
+                              the boundary of every input, secondary button and
+                              toggle-off, so the whole control layer failed 1.4.11. */
+
+  /* --- status, unchanged ------------------------------------------------ */
+  --emerald:#16713a;  --emerald-tint:rgba(22,113,58,.1);
+  --amber:#a34a07;    --amber-tint:rgba(163,74,7,.1);
+  --red:#be123c;      --red-tint:rgba(190,18,60,.1);
+  --blue:#1d4ed8;     --blue-tint:rgba(29,78,216,.1);
+
+  /* --- elevation: the same six-stop ink-tinted ramp, now NAMED ---------- */
+  --e0:0 0 0 1px rgba(27,49,57,.04);
+  --e1:0 1px 2px rgba(27,49,57,.05),0 1px 1px rgba(27,49,57,.03);
+  --e2:0 0 0 1px rgba(27,49,57,.03),0 1px 2px rgba(27,49,57,.03),
+       0 2px 3px rgba(27,49,57,.02),0 4px 8px rgba(27,49,57,.025),
+       0 9px 13px -4px rgba(27,49,57,.03),0 16px 24px -10px rgba(27,49,57,.04);
+  --e3:0 2px 3px rgba(27,49,57,.02),0 4px 8px rgba(27,49,57,.025),
+       0 9px 13px rgba(27,49,57,.035),0 16px 24px rgba(27,49,57,.04),
+       0 32px 40px -12px rgba(27,49,57,.05);
+  --e4:0 2px 3px rgba(27,49,57,.02),0 4px 8px rgba(27,49,57,.03),
+       0 9px 13px rgba(27,49,57,.04),0 16px 24px rgba(27,49,57,.05),
+       0 32px 40px rgba(27,49,57,.06),0 72px 104px rgba(27,49,57,.07);
+
+  /* --- TYPE SCALE. Seven steps. There is no eighth. -------------------- */
+  --fs-display:24px;   /* page title, one per page, every depth            */
+  --fs-h2:20px;        /* section and card title                           */
+  --fs-h3:16px;        /* row title, form-group heading                    */
+  --fs-body:16px;      /* body                                             */
+  --fs-sm:14px;        /* secondary line, meta, help                       */
+  --fs-xs:12.5px;      /* dense mono facts, table micro-meta               */
+  --fs-micro:11px;     /* eyebrow, uppercase, mono, tracked                */
+
+  /* --- SPACING. 4px base, six steps in product UI. --------------------- */
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px; --s7:48px;
+
+  /* --- CONTROLS -------------------------------------------------------- */
+  --ctl:36px;          /* every input, select and button                   */
+  --ctl-sm:28px;       /* inline / in-row control                          */
+  --radius-sm:3px; --radius:4px; --radius-lg:8px; --radius-xl:10px;
+
+  /* --- LAYOUT ---------------------------------------------------------- */
+  --rail:248px;        /* the rail never changes width, ever               */
+  --strip:52px;        /* the persistent context strip                     */
+  --content:1040px;    /* content max width, set by the SHELL not the page */
+
+  --font:'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  --mono:'DM Mono','SF Mono',Menlo,monospace;
+
+  /* mockup document only, never product */
+  --canvas:#eae5dd;
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility}
+body{
+  background:var(--canvas);color:var(--text);font-family:var(--font);
+  font-size:var(--fs-body);line-height:1.55;font-optical-sizing:auto;
+}
+a{color:inherit;text-decoration:none}
+button{font-family:inherit;font-size:inherit;cursor:pointer;border:0;background:none;color:inherit}
+ul,ol{list-style:none}
+
+/* Keyboard focus is a state indicator, so it takes the solid step (3:1), not
+   the mark. One ring for every interactive thing in the product: a rail item,
+   a row, a verb and a field all show the same shape, so a keyboard user never
+   has to learn a second vocabulary. */
+:focus-visible{outline:2px solid var(--brand-solid);outline-offset:2px;border-radius:3px}
+.field:focus-visible{outline:none}
+
+/* ===========================================================================
+   PRIMITIVES
+   =========================================================================== */
+.h1{font-size:var(--fs-display);font-weight:500;line-height:1.2}
+.h2{font-size:var(--fs-h2);font-weight:500;line-height:1.25}
+.h3{font-size:var(--fs-h3);font-weight:600;line-height:1.35}
+.body{font-size:var(--fs-body);line-height:1.55}
+.sm{font-size:var(--fs-sm);line-height:1.5;color:var(--text-2)}
+.sm3{font-size:var(--fs-sm);line-height:1.5;color:var(--text-3)}
+.xs{font-size:var(--fs-xs);line-height:1.45;color:var(--text-3)}
+.t2{color:var(--text-2)}.t3{color:var(--text-3)}.ink{color:var(--text)}
+.teal{color:var(--brand-ink)}
+.prose{max-width:62ch}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+
+/* Eyebrow is DM Mono now. Databricks sets every eyebrow, label and stat
+   numeral in DM Mono; it buys a level of hierarchy without a second family
+   and without creeping the weight up. */
+.eyebrow{font-family:var(--mono);font-size:var(--fs-micro);font-weight:500;
+  letter-spacing:.09em;text-transform:uppercase;color:var(--brand-ink)}
+.eyebrow-n{font-family:var(--mono);font-size:var(--fs-micro);font-weight:500;
+  letter-spacing:.09em;text-transform:uppercase;color:var(--text-3)}
+
+.sep{color:var(--text-4);padding:0 6px}          /* the only --text-4 usage */
+.hairline{height:1px;background:var(--border);border:0}
+
+.card{background:var(--surface);border-radius:var(--radius-lg);box-shadow:var(--e2)}
+.card-pad{padding:var(--s5)}
+.card-hover{transition:box-shadow .2s ease-in-out,transform .18s ease}
+.card-hover:hover{transform:translateY(-3px);
+  box-shadow:0 0 0 1px rgba(0,179,179,.18),0 2px 3px rgba(27,49,57,.02),
+  0 4px 8px rgba(27,49,57,.03),0 9px 13px rgba(27,49,57,.035),
+  0 16px 24px rgba(27,49,57,.04),0 32px 40px -12px rgba(27,49,57,.05)}
+.wash{background:var(--surface-2);border-radius:var(--radius-lg)}
+
+/* Buttons. 36px, 4px radius, state carried by colour over 150-200ms. */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:var(--s2);
+  height:var(--ctl);padding:0 var(--s4);border-radius:var(--radius);
+  font-size:var(--fs-sm);font-weight:600;white-space:nowrap;
+  transition:background .2s ease,border-color .15s ease,color .15s ease}
+.btn-primary{background:var(--brand-solid);color:#fff;box-shadow:var(--brand-shadow)}
+.btn-primary:hover{background:var(--brand-solid-hover)}
+.btn-primary:active{transform:translateY(1px)}
+.btn-secondary{background:var(--surface);color:var(--text-2);
+  border:1px solid var(--border-strong);font-weight:500}
+.btn-secondary:hover{border-color:var(--text-3);color:var(--text)}
+.btn-ghost{background:none;color:var(--text-3);font-weight:500;padding:0 var(--s3)}
+.btn-ghost:hover{color:var(--text);background:var(--surface-2)}
+.btn-danger{background:var(--surface);color:var(--red);border:1px solid rgba(190,18,60,.35);font-weight:500}
+.btn-danger:hover{border-color:var(--red)}
+.btn-sm{height:var(--ctl-sm);padding:0 var(--s3);font-size:var(--fs-xs)}
+.btn-link{color:var(--brand-ink);font-weight:500;font-size:var(--fs-sm)}
+.btn-link:hover{text-decoration:underline;text-underline-offset:3px}
+
+.pill{display:inline-flex;align-items:center;gap:6px;padding:3px 9px;border-radius:999px;
+  font-size:var(--fs-micro);font-weight:600;letter-spacing:.04em;text-transform:uppercase;white-space:nowrap}
+.pill-emerald{background:var(--emerald-tint);color:var(--emerald)}
+.pill-amber{background:var(--amber-tint);color:var(--amber)}
+.pill-red{background:var(--red-tint);color:var(--red)}
+.pill-blue{background:var(--blue-tint);color:var(--blue)}
+.pill-muted{background:var(--surface-2);color:var(--text-3)}
+
+/* Scenario tag. A category, not a state, so it gets NO hue: mono on wash. */
+.tag{display:inline-flex;align-items:center;font-family:var(--mono);font-size:10.5px;
+  font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:var(--text-2);
+  background:var(--surface-2);border-radius:var(--radius-sm);padding:3px 7px}
+
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex:none}
+.dot-emerald{background:var(--emerald);box-shadow:0 0 0 3px var(--emerald-tint)}
+.dot-amber{background:var(--amber);box-shadow:0 0 0 3px var(--amber-tint)}
+.dot-red{background:var(--red);box-shadow:0 0 0 3px var(--red-tint)}
+.dot-blue{background:var(--blue);box-shadow:0 0 0 3px var(--blue-tint)}
+.dot-muted{background:var(--border-strong)}
+
+.row-flex{display:flex;align-items:center;gap:var(--s3);flex-wrap:wrap}
+.between{display:flex;align-items:center;justify-content:space-between;gap:var(--s4)}
+.stack-2>*+*{margin-top:var(--s2)}
+.stack-3>*+*{margin-top:var(--s3)}
+.stack-4>*+*{margin-top:var(--s4)}
+.stack-5>*+*{margin-top:var(--s5)}
+
+.ic{width:18px;height:18px;flex:none}
+.ic-sm{width:15px;height:15px;flex:none}
+.ic-lg{width:22px;height:22px;flex:none}
+
+/* Arthur's own words. A second typographic register: indented prose behind a
+   teal rule. Field data is UI voice; judgment is a person talking. */
+.said{margin-top:var(--s3);padding-left:var(--s4);border-left:2px solid var(--brand);
+  color:var(--text-2);font-size:var(--fs-sm);line-height:1.6;max-width:64ch}
+.said b{color:var(--text);font-weight:500}
+
+/* Mono facts strip inside a row. Tabular where tabular helps, prose elsewhere. */
+.facts{display:flex;flex-wrap:wrap;align-items:center;gap:2px 0;
+  font-family:var(--mono);font-size:var(--fs-xs);color:var(--text-2)}
+
+/* Fields */
+.field{width:100%;height:var(--ctl);padding:0 12px;background:var(--surface);
+  border:1px solid var(--border-strong);border-radius:var(--radius);color:var(--text);
+  font-family:var(--font);font-size:var(--fs-sm);outline:none;
+  transition:border-color .15s ease,box-shadow .15s ease}
+textarea.field{height:auto;padding:10px 12px;line-height:1.55;resize:vertical}
+.field:focus{border-color:var(--brand-solid);box-shadow:0 0 0 3px var(--brand-tint-strong)}
+.field::placeholder{color:var(--text-3)}   /* NOT --text-4: it carries words */
+.field-label{display:block;font-size:var(--fs-xs);font-weight:600;color:var(--text-2);
+  margin-bottom:6px;letter-spacing:.01em}
+.field-help{font-size:var(--fs-xs);color:var(--text-3);margin-top:6px;line-height:1.5}
+
+/* Toggle */
+.tog{width:38px;height:22px;border-radius:999px;background:var(--border-strong);
+  position:relative;flex:none;transition:background .18s ease;
+  appearance:none;border:0;padding:0;margin:0;display:block;cursor:pointer}
+.tog::after{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;
+  border-radius:50%;background:#fffdfb;box-shadow:var(--e1);transition:transform .18s ease}
+.tog.on{background:var(--brand-solid)}
+.tog.on::after{transform:translateX(16px)}
+
+/* In-page section index. NOT a tab strip and not navigation: every link is a
+   hash on this same page, set with replace so back does not walk through
+   anchors. The route-tab version this replaces was banned twice by the IA spec
+   (§7.3, §7.12), duplicated the rail's agent row with an "Overview" tab, and
+   would have broken every #communication deep link already sitting in a
+   client's inbox. Styled deliberately unlike tabs so it does not read as a
+   second navigation surface. */
+.secindex{display:flex;gap:14px;align-items:baseline;overflow-x:auto;scrollbar-width:none;
+  padding-bottom:2px}
+.secindex::-webkit-scrollbar{display:none}
+.secindex-l{font-family:var(--mono);font-size:var(--fs-micro);font-weight:500;
+  letter-spacing:.09em;text-transform:uppercase;color:var(--text-3);flex:none}
+.sec{font-size:var(--fs-sm);font-weight:500;color:var(--brand-ink);white-space:nowrap;
+  text-decoration:none;border-bottom:1px solid transparent;transition:border-color .15s ease}
+.sec:hover{border-bottom-color:var(--brand-ink)}
+/* The section you are reading is stated, not linked. A link to where you
+   already are is the "two controls, one destination" problem in miniature. */
+.sec-now{font-size:var(--fs-sm);font-weight:500;color:var(--text);white-space:nowrap}
+
+/* ===========================================================================
+   THE SHELL. Rail + strip are rendered ONCE by the layout. Nothing below
+   the strip ever moves them.
+   =========================================================================== */
+.shell{display:grid;grid-template-columns:var(--rail) 1fr;background:var(--bg);
+  min-height:100%;position:relative}
+
+.rail{background:var(--surface);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;padding:0 0 var(--s4)}
+.rail-brand{height:var(--strip);display:flex;align-items:center;gap:9px;
+  padding:0 var(--s4);border-bottom:1px solid var(--border)}
+.lockup{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:600;letter-spacing:-.005em}
+.robot{width:19px;height:17px;color:var(--brand-solid)}
+.rail-nav{padding:var(--s3) var(--s2) 0;flex:1;overflow-y:auto}
+.rail-sec{padding:var(--s4) 10px 6px}
+
+.navitem{display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;
+  border-radius:var(--radius);font-size:var(--fs-sm);font-weight:500;color:var(--text-2);
+  position:relative;transition:background .14s ease,color .14s ease}
+.navitem:hover{background:var(--surface-2);color:var(--text)}
+.navitem.on{background:var(--brand-tint);color:var(--brand-ink);font-weight:600}
+.navitem.on::before{content:"";position:absolute;left:0;top:7px;bottom:7px;width:2px;
+  border-radius:0 2px 2px 0;background:var(--brand-solid)}
+.navitem .cnt{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--text-3)}
+.badge-w{margin-left:auto;display:inline-flex;align-items:center;justify-content:center;
+  min-width:20px;height:19px;padding:0 6px;border-radius:999px;
+  background:var(--amber-tint);color:var(--amber);
+  font-family:var(--mono);font-size:11px;font-weight:500}
+
+/* The agent block. Its second line is the whole point: status in words, not a
+   colour alone, visible at rest on every screen in the product. */
+.agent-row{display:flex;gap:9px;align-items:flex-start;padding:8px 10px;border-radius:var(--radius);
+  transition:background .14s ease}
+.agent-row:hover{background:var(--surface-2)}
+.agent-row.on{background:var(--brand-tint)}
+.agent-row.on .an{color:var(--brand-ink)}
+.agent-row .dot{margin-top:6px}
+.an{display:block;font-size:var(--fs-sm);font-weight:600;color:var(--text);line-height:1.3}
+.as{display:block;font-size:11.5px;color:var(--text-3);line-height:1.35;margin-top:1px}
+.subnav{margin:2px 0 0 19px;padding-left:11px;border-left:1px solid var(--border)}
+.subitem{display:flex;align-items:center;gap:8px;height:31px;padding:0 10px;border-radius:var(--radius);
+  font-size:13.5px;font-weight:500;color:var(--text-3);transition:background .14s ease,color .14s ease}
+.subitem:hover{background:var(--surface-2);color:var(--text)}
+.subitem.on{background:var(--brand-tint);color:var(--brand-ink);font-weight:600}
+.subitem .cnt{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--text-3)}
+.subitem.on .cnt{color:var(--brand-ink)}
+.needs{margin-left:auto;width:7px;height:7px;border-radius:50%;background:var(--amber);
+  box-shadow:0 0 0 3px var(--amber-tint)}
+.rail-foot{padding:var(--s3) var(--s2) 0;margin-top:var(--s3);border-top:1px solid var(--border)}
+
+/* The strip. Globals only: where am I, who am I, how do I reach a human.
+   No destinations live here. The rail is the only navigation. */
+.strip{height:var(--strip);border-bottom:1px solid var(--border);background:var(--surface);
+  display:flex;align-items:center;gap:var(--s4);padding:0 var(--s5);position:sticky;top:0;z-index:5}
+.crumbs{display:flex;align-items:center;min-width:0;font-size:13.5px;flex:1;overflow:hidden}
+.crumb{color:var(--text-3);white-space:nowrap;transition:color .14s ease}
+a.crumb:hover{color:var(--brand-ink);text-decoration:underline;text-underline-offset:3px}
+.crumb.now{color:var(--text);font-weight:600;overflow:hidden;text-overflow:ellipsis}
+.ctx{font-size:13.5px;color:var(--text-3)}
+.ctx b{color:var(--text-2);font-weight:500}
+.strip-r{display:flex;align-items:center;gap:var(--s3);flex:none}
+.acct{display:flex;align-items:center;gap:8px;height:30px;padding:0 8px 0 3px;border-radius:999px;
+  transition:background .14s ease}
+.acct:hover{background:var(--surface-2)}
+.initials{width:24px;height:24px;border-radius:50%;background:var(--brand-solid);color:#fff;
+  display:grid;place-items:center;font-size:10.5px;font-weight:600;letter-spacing:.02em;flex:none}
+.acct-n{font-size:13px;font-weight:500;color:var(--text-2)}
+
+.content{min-width:0;display:flex;flex-direction:column}
+.wrap{width:100%;max-width:var(--content);padding:var(--s5) var(--s5) var(--s7);margin:0 auto}
+.pagehead{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--s4);
+  margin-bottom:var(--s5)}
+.pagesub{font-size:var(--fs-sm);color:var(--text-2);margin-top:6px;max-width:62ch}
+
+/* ===========================================================================
+   FRAME CHROME (mockup only)
+   =========================================================================== */
+.doc{max-width:1440px;margin:0 auto;padding:0 var(--s5) var(--s7)}
+.cap{margin:var(--s7) 0 var(--s4);display:flex;align-items:baseline;gap:var(--s3);flex-wrap:wrap}
+.cap h2{font-size:var(--fs-h2);font-weight:500}
+.cap .badge{font-family:var(--mono);font-size:var(--fs-xs);color:var(--text-2);
+  background:rgba(255,253,251,.7);border-radius:var(--radius-sm);padding:3px 8px}
+.cap p{flex-basis:100%;font-size:var(--fs-sm);color:var(--text-2);max-width:78ch;margin-top:2px}
+.frame{border-radius:var(--radius-xl);overflow:hidden;box-shadow:var(--e4);background:var(--bg)}
+.frame-scroll{overflow-x:auto;border-radius:var(--radius-xl);box-shadow:var(--e4);background:var(--bg)}
+.frame-scroll .shell{width:1360px}
+.note{margin-top:var(--s3);font-size:var(--fs-sm);color:var(--text-2);max-width:88ch;
+  padding-left:var(--s3);border-left:2px solid var(--border-strong)}
+.note b{color:var(--text);font-weight:600}
+.phones{display:flex;gap:var(--s5);flex-wrap:wrap}
+.phone{width:390px;height:800px;overflow-y:auto;overflow-x:hidden;background:var(--bg);
+  border-radius:var(--radius-xl);box-shadow:var(--e4);position:relative;flex:none}
+.phone::-webkit-scrollbar{width:0}
+
+/* ===========================================================================
+   PAGE PARTS used inside frames
+   =========================================================================== */
+
+/* Waiting card. NO coloured left border strip: that is a named AI-design tell
+   and it was the one thing the old system still shipped that both 2026
+   catalogues call out. A card that needs the client reads as urgent through
+   elevation (it sits a step above everything else on the page), a duotone key
+   chip, and a pill that says the wait in words. Three signals, no strip. */
+.waiting{padding:var(--s5);box-shadow:var(--e3)}
+.waiting .key{width:32px;height:32px;border-radius:9px;display:grid;place-items:center;flex:none}
+
+/* Ledger of verbs. Counts of things the agent DID. No currency, ever. */
+.ledger{display:grid;grid-template-columns:repeat(5,1fr);background:var(--surface);
+  border-radius:var(--radius-lg);box-shadow:var(--e2);overflow:hidden}
+.ledger>div{padding:var(--s4);border-left:1px solid var(--border)}
+.ledger>div:first-child{border-left:0}
+.ledger .n{font-family:var(--mono);font-size:var(--fs-display);font-weight:500;color:var(--text);line-height:1.1}
+.ledger .l{font-size:var(--fs-xs);color:var(--text-2);margin-top:5px;line-height:1.35}
+
+/* Log. Actor first, outcome second, next step third. */
+.log{position:relative;padding-left:var(--s5)}
+.log li{position:relative;padding:0 0 var(--s5) var(--s4)}
+.log li::before{content:"";position:absolute;left:-13px;top:14px;bottom:-6px;width:1px;background:var(--border)}
+.log li:last-child{padding-bottom:0}
+.log li:last-child::before{display:none}
+.mk{position:absolute;left:-18px;top:6px;width:11px;height:11px;border-radius:50%;
+  background:var(--surface);border:2px solid var(--border-strong)}
+.mk.act{border-color:var(--brand-solid);background:var(--brand-solid)}
+.mk.warn{border-color:var(--amber);background:var(--surface)}
+.log .when{font-family:var(--mono);font-size:var(--fs-xs);color:var(--text-3)}
+.log .what{font-size:var(--fs-sm);color:var(--text-2);line-height:1.6;margin-top:3px;max-width:66ch}
+.log .what b{color:var(--text);font-weight:600}
+.quote{display:block;margin:8px 0;padding-left:12px;border-left:2px solid var(--border-strong);
+  color:var(--text-2);font-style:italic}
+
+/* Record rows. One property is one row you read like a sentence. Rows are
+   separated by hairlines inside one card, never by twelve cell borders. */
+.grouphead{display:flex;align-items:center;gap:var(--s3);padding:9px var(--s4);
+  background:var(--surface-2);border-radius:var(--radius);margin:var(--s5) 0 var(--s2)}
+.grouphead .gn{font-size:13.5px;font-weight:600;color:var(--text)}
+.grouphead .gc{font-family:var(--mono);font-size:var(--fs-xs);color:var(--text-3)}
+.rows{background:var(--surface);border-radius:var(--radius-lg);box-shadow:var(--e2);overflow:hidden}
+.rec{display:block;padding:var(--s4);border-top:1px solid var(--border);transition:background .14s ease}
+.rec:first-child{border-top:0}
+.rec:hover{background:var(--surface-2)}
+.rec-t{display:flex;align-items:baseline;gap:var(--s2);flex-wrap:wrap}
+.rec-n{font-size:var(--fs-h3);font-weight:600;line-height:1.3}
+.rec-e{font-size:var(--fs-sm);color:var(--text-3)}
+.rec-p{font-size:var(--fs-sm);color:var(--text-2);margin-top:3px}
+.rec-next{font-size:13px;color:var(--text-3);margin-top:7px;display:flex;align-items:center;gap:7px}
+
+/* Approvals */
+.pips{display:flex;gap:5px}
+.pip{width:26px;height:5px;border-radius:999px;background:var(--border-strong)}
+.pip.done{background:var(--brand-solid)}
+.pip.now{background:var(--amber)}
+.draft{border-top:1px solid var(--border)}
+.draft:first-child{border-top:0}
+.draft-h{display:flex;align-items:flex-start;gap:var(--s3);padding:var(--s4);cursor:pointer}
+.draft-h:hover{background:var(--surface-2)}
+.draft-b{padding:0 var(--s4) var(--s4) 46px}
+.letter{background:var(--surface-2);border-radius:var(--radius-lg);padding:var(--s4);
+  font-size:var(--fs-sm);line-height:1.65;color:var(--text-2);max-width:66ch}
+.letter .subj{font-weight:600;color:var(--text);margin-bottom:var(--s3)}
+.verbs{display:flex;align-items:center;gap:var(--s2);margin-top:var(--s4);flex-wrap:wrap;max-width:64ch}
+.verbs .spacer{flex:1;min-width:var(--s2)}
+.decided{display:flex;align-items:flex-start;gap:9px;margin-top:var(--s3);padding:10px 12px;
+  border-radius:var(--radius);background:var(--surface-2);font-size:13.5px;color:var(--text-2);line-height:1.5}
+.decided b{color:var(--text);font-weight:600}
+.idx{width:26px;height:26px;border-radius:50%;flex:none;display:grid;place-items:center;
+  background:var(--surface-2);color:var(--text-3);font-family:var(--mono);font-size:11px}
+.idx.ok{background:var(--brand-tint);color:var(--brand-ink)}
+.idx.skip{background:var(--surface-2);color:var(--text-3)}
+
+/* Trust triad blocks on a record */
+.triad{display:flex;align-items:center;gap:9px;margin-bottom:var(--s3)}
+.triad .k{width:26px;height:26px;border-radius:7px;display:grid;place-items:center;flex:none}
+.k-teal{background:var(--brand-tint);color:var(--brand-ink)}
+.k-amber{background:var(--amber-tint);color:var(--amber)}
+.k-muted{background:var(--surface-2);color:var(--text-3)}
+
+/* Side rail inside a page (the record scaffold, reused everywhere) */
+.split{display:grid;grid-template-columns:1fr 300px;gap:var(--s5);align-items:start}
+.deflist{font-size:13.5px}
+.deflist>div{display:flex;justify-content:space-between;gap:var(--s3);padding:7px 0;border-top:1px solid var(--border)}
+.deflist>div:first-child{border-top:0}
+.deflist dt{color:var(--text-3);flex:none}
+.deflist dd{color:var(--text);text-align:right;font-family:var(--mono);font-size:var(--fs-xs)}
+.deflist dd.w{font-family:var(--font);font-size:13.5px}
+
+/* Skeleton. Only the content column ever skeletonises. */
+.skel{background:linear-gradient(90deg,var(--surface-2) 0%,#e7e2da 50%,var(--surface-2) 100%);
+  background-size:200% 100%;border-radius:var(--radius);animation:sk 1.6s ease-in-out infinite}
+@keyframes sk{0%{background-position:200% 0}100%{background-position:-200% 0}}
+@media (prefers-reduced-motion:reduce){.skel{animation:none}}
+
+/* Empty states */
+.empty{text-align:left;max-width:56ch}
+.empty .mark{width:44px;height:44px;border-radius:12px;background:var(--brand-tint);
+  color:var(--brand-ink);display:grid;place-items:center;margin-bottom:var(--s4)}
+
+/* Mobile chrome */
+.mhead{height:52px;display:flex;align-items:center;gap:var(--s3);padding:0 var(--s4);
+  background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:6}
+.burger{width:34px;height:34px;border-radius:var(--radius);display:grid;place-items:center;
+  color:var(--text-2);position:relative;margin-left:-6px}
+.burger .flag{position:absolute;top:5px;right:5px;width:7px;height:7px;border-radius:50%;
+  background:var(--amber);box-shadow:0 0 0 2px var(--surface)}
+.mcrumbs{height:38px;display:flex;align-items:center;padding:0 var(--s4);gap:0;background:var(--surface);
+  border-bottom:1px solid var(--border);overflow-x:auto;white-space:nowrap;scrollbar-width:none;
+  position:sticky;top:52px;z-index:5;font-size:13px}
+.mcrumbs::-webkit-scrollbar{display:none}
+.mwrap{padding:var(--s4) var(--s4) 72px}
+.scrim{position:absolute;inset:0;background:rgba(27,49,57,.42);z-index:8}
+.drawer{position:absolute;top:0;left:0;bottom:0;width:296px;background:var(--surface);z-index:9;
+  box-shadow:var(--e4);display:flex;flex-direction:column;animation:dr .22s ease}
+@keyframes dr{from{transform:translateX(-100%)}to{transform:translateX(0)}}
+.stickybar{position:sticky;bottom:0;background:var(--surface);border-top:1px solid var(--border);
+  padding:10px var(--s4);display:flex;gap:var(--s2);align-items:center;box-shadow:0 -8px 20px -12px rgba(27,49,57,.25)}
+
+/* Specimen (appendix) */
+.spec{display:grid;grid-template-columns:180px 1fr;gap:var(--s4) var(--s5);align-items:baseline}
+.spec .k{font-family:var(--mono);font-size:var(--fs-xs);color:var(--text-3)}
+.ramp{display:grid;grid-template-columns:repeat(5,1fr);gap:var(--s4)}
+.ramp>div{background:var(--surface);border-radius:var(--radius-lg);padding:var(--s4);min-height:92px}
+.rules{columns:2;column-gap:var(--s5)}
+.rules li{break-inside:avoid;font-size:var(--fs-sm);color:var(--text-2);line-height:1.55;
+  padding-left:var(--s4);position:relative;margin-bottom:10px}
+.rules li::before{content:"";position:absolute;left:0;top:9px;width:6px;height:6px;border-radius:50%;
+  background:var(--brand)}
+.rules li b{color:var(--text);font-weight:600}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:var(--s5)}
+
+@media (max-width:900px){
+  .doc{padding:0 var(--s4) var(--s6)}
+  .rules{columns:1}
+  .two{grid-template-columns:1fr}
+  .ramp{grid-template-columns:repeat(2,1fr)}
+  .spec{grid-template-columns:1fr;gap:var(--s2)}
+}
+/* A phone frame is intrinsically 390px wide, so at a 390px viewport there is
+   no room left for document padding. Full bleed it rather than letting the
+   document scroll sideways. */
+@media (max-width:430px){
+  .phones{margin-left:calc(var(--s4) * -1);margin-right:calc(var(--s4) * -1);gap:var(--s4)}
+  .split{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<!-- =========================================================================
+     ICONS. The portal's own duotone construction: a soft body at 0.2 opacity,
+     crisp foreground detail, and a white highlight at 0.55 for a lit edge.
+     Lifted from client-portal/src/components/icons.tsx and extended in the
+     same grammar. No Lucide, no Heroicons, nothing with a lone 1.5px stroke.
+     ========================================================================= -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <symbol id="ic-robot" viewBox="0 0 128 116">
+    <circle cx="64" cy="10" r="8" fill="currentColor"/>
+    <rect x="60" y="16" width="8" height="18" rx="4" fill="currentColor"/>
+    <rect x="6" y="58" width="13" height="30" rx="6.5" fill="currentColor" opacity=".8"/>
+    <rect x="109" y="58" width="13" height="30" rx="6.5" fill="currentColor" opacity=".8"/>
+    <rect x="16" y="32" width="96" height="74" rx="26" fill="currentColor"/>
+    <circle cx="46" cy="70" r="14" style="fill:var(--eye,#fffdfb)"/>
+    <circle cx="82" cy="70" r="14" style="fill:var(--eye,#fffdfb)"/>
+  </symbol>
+  <symbol id="ic-desk" viewBox="0 0 24 24">
+    <rect x="3.5" y="4.5" width="17" height="15" rx="4" fill="currentColor" opacity=".2"/>
+    <path d="M3.5 13.4h4a1 1 0 0 1 .96.72 3.7 3.7 0 0 0 7.08 0 1 1 0 0 1 .96-.72h4" stroke="currentColor" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M6.6 5.2A1.6 1.6 0 0 1 8.1 4.1h7.8a1.6 1.6 0 0 1 1.5 1.1l2.6 7.6a1 1 0 0 1-1.9.64L15.4 6.1H8.6L6.3 13.4a1 1 0 0 1-1.9-.6l2.2-7.6Z" fill="currentColor"/>
+    <path d="M9.2 6.4h3.2a.7.7 0 0 1 0 1.4H9.2a.7.7 0 0 1 0-1.4Z" fill="#fff" opacity=".55"/>
+  </symbol>
+  <symbol id="ic-approvals" viewBox="0 0 24 24">
+    <rect x="4.6" y="3.8" width="14.8" height="16.6" rx="4" fill="currentColor" opacity=".2"/>
+    <rect x="4.6" y="3.8" width="14.8" height="16.6" rx="4" stroke="currentColor" stroke-width="1.6" fill="none"/>
+    <rect x="8.4" y="2.2" width="7.2" height="4.2" rx="2.1" fill="currentColor"/>
+    <path d="M8.5 13.1l2.3 2.2 4.6-4.9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <path d="M6.4 7.1h1.9a.7.7 0 0 1 0 1.4H6.4a.7.7 0 0 1 0-1.4Z" fill="#fff" opacity=".55"/>
+  </symbol>
+  <symbol id="ic-results" viewBox="0 0 24 24">
+    <rect x="3.5" y="5" width="17" height="14" rx="3" fill="currentColor" opacity=".2"/>
+    <rect x="3.5" y="5" width="17" height="14" rx="3" stroke="currentColor" stroke-width="1.6" fill="none"/>
+    <path d="M4 9.5h16" stroke="currentColor" stroke-width="1.6"/>
+    <path d="M8 9.5V19" stroke="currentColor" stroke-width="1.6"/>
+    <rect x="10" y="11.5" width="7.5" height="1.8" rx=".9" fill="currentColor"/>
+    <rect x="10" y="15" width="5" height="1.8" rx=".9" fill="currentColor" opacity=".6"/>
+    <path d="M6 7.4h3a.7.7 0 0 1 0 1.4H6a.7.7 0 0 1 0-1.4Z" fill="#fff" opacity=".55"/>
+  </symbol>
+  <symbol id="ic-mail" viewBox="0 0 24 24">
+    <rect x="3.2" y="5.5" width="17.6" height="13" rx="3.2" fill="currentColor" opacity=".2"/>
+    <rect x="3.2" y="5.5" width="17.6" height="13" rx="3.2" stroke="currentColor" stroke-width="1.6" fill="none"/>
+    <path d="M4.5 7.8 12 13l7.5-5.2" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <path d="M6 7.3h3.4a.7.7 0 0 1 0 1.4H6a.7.7 0 0 1 0-1.4Z" fill="#fff" opacity=".55"/>
+  </symbol>
+  <symbol id="ic-tools" viewBox="0 0 24 24">
+    <rect x="6" y="9" width="12" height="9" rx="3.4" fill="currentColor" opacity=".2"/>
+    <path d="M9 4.5v4M15 4.5v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    <path d="M6.2 9.2A3 3 0 0 1 9 7.5h6a3 3 0 0 1 2.8 1.7 1 1 0 0 1-.9 1.4H7.1a1 1 0 0 1-.9-1.4Z" fill="currentColor"/>
+    <path d="M9 11v3.2a3 3 0 0 0 6 0V11" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/>
+    <path d="M12 17.2v2.6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    <path d="M9 5v3a.7.7 0 0 1-1.4 0V5a.7.7 0 0 1 1.4 0Z" fill="#fff" opacity=".55"/>
+  </symbol>
+  <symbol id="ic-chat" viewBox="0 0 24 24">
+    <path d="M4 9.2A4.2 4.2 0 0 1 8.2 5h7.6A4.2 4.2 0 0 1 20 9.2v3.4a4.2 4.2 0 0 1-4.2 4.2H10l-3.4 2.7A1 1 0 0 1 5 18.7v-2a4.2 4.2 0 0 1-1-2.7V9.2Z" fill="currentColor" opacity=".2"/>
+    <path d="M4 9.2A4.2 4.2 0 0 1 8.2 5h7.6A4.2 4.2 0 0 1 20 9.2v3.4a4.2 4.2 0 0 1-4.2 4.2H10l-3.4 2.7A1 1 0 0 1 5 18.7v-2a4.2 4.2 0 0 1-1-2.7V9.2Z" stroke="currentColor" stroke-width="1.6" fill="none"/>
+    <circle cx="9" cy="11" r="1.15" fill="currentColor"/><circle cx="12" cy="11" r="1.15" fill="currentColor"/><circle cx="15" cy="11" r="1.15" fill="currentColor"/>
+    <path d="M8.2 6.4h3a.7.7 0 0 1 0 1.4h-3a.7.7 0 0 1 0-1.4Z" fill="#fff" opacity=".55"/>
+  </symbol>
+  <symbol id="ic-configure" viewBox="0 0 24 24">
+    <rect x="3.5" y="4.5" width="17" height="15" rx="4" fill="currentColor" opacity=".2"/>
+    <path d="M6 8.5h12M6 15.5h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    <circle cx="9.5" cy="8.5" r="2.6" fill="currentColor"/><circle cx="9.5" cy="8.5" r="1.05" fill="#fff"/>
+    <circle cx="15" cy="15.5" r="2.6" fill="currentColor"/><circle cx="15" cy="15.5" r="1.05" fill="#fff"/>
+  </symbol>
+  <symbol id="ic-knowledge" viewBox="0 0 24 24">
+    <path d="M5 5.5A1.5 1.5 0 0 1 6.5 4H16a3 3 0 0 1 3 3v11a1.5 1.5 0 0 1-1.5 1.5H7a2 2 0 0 1-2-2V5.5Z" fill="currentColor" opacity=".2"/>
+    <path d="M7 4.6A2 2 0 0 0 5 6.6V18a2 2 0 0 0 2 2h10.2a1 1 0 0 0 1-1V7a3 3 0 0 0-3-3H7Zm0 2h8a1 1 0 0 1 1 1v11H7a.8.8 0 0 1 0-1.6h7.2a1 1 0 0 0 0-2H7a2.6 2.6 0 0 0-.9.16V7a.4.4 0 0 1 .4-.4Z" fill="currentColor"/>
+    <rect x="8.4" y="8.4" width="6" height="1.7" rx=".85" fill="currentColor"/>
+    <rect x="8.4" y="11.3" width="4.4" height="1.7" rx=".85" fill="currentColor" opacity=".6"/>
+    <path d="M7.2 6.7H10a.7.7 0 0 1 0 1.4H7.2a.7.7 0 0 1 0-1.4Z" fill="#fff" opacity=".55"/>
+  </symbol>
+  <symbol id="ic-send" viewBox="0 0 24 24">
+    <path d="M4.2 11.4 19 5.2a.9.9 0 0 1 1.2 1.1l-3.5 12.4a1 1 0 0 1-1.75.33L12.5 15l-2.9 2.3a.6.6 0 0 1-.97-.47v-3.1L18 6.9 8.9 12.6l-4.5-1.2Z" fill="currentColor" opacity=".2"/>
+    <path d="M20.5 5.1a.95.95 0 0 0-1-.2L3.9 10.6a.9.9 0 0 0 .06 1.7l4.4 1.28 1.5 4.35a.9.9 0 0 0 1.6.2l2.1-2.85 3.2 2.32a.95.95 0 0 0 1.5-.55l2.5-11.2a.95.95 0 0 0-.26-.9ZM9.7 12.9l7.3-4.9-5.9 6.1-.1 2-1.3-3.2Z" fill="currentColor"/>
+    <path d="M16.5 6.2 8.6 11.5l-1.2-.35L16 5.9a.6.6 0 0 1 .5.3Z" fill="#fff" opacity=".55"/>
+  </symbol>
+  <symbol id="ic-card" viewBox="0 0 24 24">
+    <rect x="3" y="5.5" width="18" height="13" rx="3.4" fill="currentColor" opacity=".2"/>
+    <rect x="3" y="5.5" width="18" height="13" rx="3.4" stroke="currentColor" stroke-width="1.6" fill="none"/>
+    <path d="M3 9.8h18" stroke="currentColor" stroke-width="2.4"/>
+    <rect x="6" y="13.4" width="5.4" height="1.8" rx=".9" fill="currentColor"/>
+    <path d="M5.6 7h3a.7.7 0 0 1 0 1.4h-3a.7.7 0 0 1 0-1.4Z" fill="#fff" opacity=".4"/>
+  </symbol>
+  <symbol id="ic-clock" viewBox="0 0 24 24">
+    <circle cx="12" cy="12" r="8.6" fill="currentColor" opacity=".2"/>
+    <circle cx="12" cy="12" r="8.6" stroke="currentColor" stroke-width="1.6" fill="none"/>
+    <path d="M12 7.4V12l3.1 1.9" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/>
+    <path d="M7.4 6.5 9.7 5.4a.7.7 0 0 1 .6 1.26l-2.3 1.1a.7.7 0 0 1-.6-1.26Z" fill="#fff" opacity=".55"/>
+  </symbol>
+  <symbol id="ic-check" viewBox="0 0 24 24">
+    <circle cx="12" cy="12" r="9" fill="currentColor" opacity=".2"/>
+    <path d="M7.9 12.3l2.7 2.6 5.5-5.8" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <path d="M7.5 7.3 9.8 6a.7.7 0 0 1 .7 1.2L8.2 8.5a.7.7 0 0 1-.7-1.2Z" fill="#fff" opacity=".55"/>
+  </symbol>
+  <symbol id="ic-warn" viewBox="0 0 24 24">
+    <path d="M10.6 4.1a1.6 1.6 0 0 1 2.8 0l7.1 13.2a1.6 1.6 0 0 1-1.4 2.4H4.9a1.6 1.6 0 0 1-1.4-2.4L10.6 4.1Z" fill="currentColor" opacity=".2"/>
+    <path d="M10.6 4.1a1.6 1.6 0 0 1 2.8 0l7.1 13.2a1.6 1.6 0 0 1-1.4 2.4H4.9a1.6 1.6 0 0 1-1.4-2.4L10.6 4.1Z" stroke="currentColor" stroke-width="1.6" fill="none"/>
+    <rect x="11" y="8.4" width="2" height="5.4" rx="1" fill="currentColor"/>
+    <circle cx="12" cy="16.4" r="1.2" fill="currentColor"/>
+  </symbol>
+  <symbol id="ic-search" viewBox="0 0 24 24">
+    <circle cx="10.6" cy="10.6" r="6.2" fill="currentColor" opacity=".2"/>
+    <circle cx="10.6" cy="10.6" r="6.2" stroke="currentColor" stroke-width="1.8" fill="none"/>
+    <path d="m15.4 15.4 4 4" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+    <path d="M7.6 7.4a4.4 4.4 0 0 1 2.4-1.3.7.7 0 0 1 .2 1.38 3 3 0 0 0-1.6.9.7.7 0 0 1-1-.98Z" fill="#fff" opacity=".55"/>
+  </symbol>
+  <symbol id="ic-download" viewBox="0 0 24 24">
+    <rect x="3.6" y="4.4" width="16.8" height="15.2" rx="4" fill="currentColor" opacity=".2"/>
+    <path d="M12 6.4v7.4m0 0 3-3m-3 3-3-3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <path d="M6.6 16.6h10.8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    <path d="M6.2 6.6h2.6a.7.7 0 0 1 0 1.4H6.2a.7.7 0 0 1 0-1.4Z" fill="#fff" opacity=".55"/>
+  </symbol>
+  <symbol id="ic-pencil" viewBox="0 0 24 24">
+    <path d="M4.5 16.3 15.2 5.6a2.4 2.4 0 0 1 3.4 3.4L7.9 19.7l-4.3.9.9-4.3Z" fill="currentColor" opacity=".2"/>
+    <path d="M14.5 4.9a3.4 3.4 0 0 1 4.8 4.8L8.7 20.3a1 1 0 0 1-.5.27l-4.3.9a1 1 0 0 1-1.2-1.18l.9-4.3a1 1 0 0 1 .27-.5L14.5 4.9Zm3.4 1.4a1.4 1.4 0 0 0-2 0L5.4 16.9l-.5 2.4 2.4-.5L17.9 8.3a1.4 1.4 0 0 0 0-2Z" fill="currentColor"/>
+    <path d="M15.6 6.5 17.2 8l-1 1-1.6-1.6 1-.9Z" fill="#fff" opacity=".55"/>
+  </symbol>
+  <symbol id="ic-shield" viewBox="0 0 24 24">
+    <path d="M12 3.4 5.6 5.9v5.3c0 4 2.7 7 6.4 8.4 3.7-1.4 6.4-4.4 6.4-8.4V5.9L12 3.4Z" fill="currentColor" opacity=".2"/>
+    <path d="M11.64 3.47 5.24 5.97A1 1 0 0 0 4.6 6.9v4.3c0 4.5 3.05 7.86 7.05 9.4a1 1 0 0 0 .7 0c4-1.54 7.05-4.9 7.05-9.4V6.9a1 1 0 0 0-.64-.93l-6.4-2.5a1 1 0 0 0-.72 0Z" stroke="currentColor" stroke-width="1.6" fill="none"/>
+    <path d="m9.2 11.8 2 2 3.6-3.9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <path d="M7.5 6.6 10 5.6a.7.7 0 0 1 .5 1.3l-2.5 1a.7.7 0 0 1-.5-1.3Z" fill="#fff" opacity=".55"/>
+  </symbol>
+  <symbol id="ic-spark" viewBox="0 0 24 24">
+    <path d="M12 3.5c.6 3.7 1.8 5 5.5 5.6-3.7.6-4.9 1.9-5.5 5.6-.6-3.7-1.8-5-5.5-5.6 3.7-.6 4.9-1.9 5.5-5.6Z" fill="currentColor" opacity=".25"/>
+    <path d="M12 3c.7 4 2 5.3 6 6-4 .7-5.3 2-6 6-.7-4-2-5.3-6-6 4-.7 5.3-2 6-6Z" fill="currentColor"/>
+    <path d="M18 14.5c.3 1.7.8 2.2 2.5 2.5-1.7.3-2.2.8-2.5 2.5-.3-1.7-.8-2.2-2.5-2.5 1.7-.3 2.2-.8 2.5-2.5Z" fill="currentColor" opacity=".7"/>
+  </symbol>
+  <symbol id="ic-burger" viewBox="0 0 24 24">
+    <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/>
+  </symbol>
+  <symbol id="ic-x" viewBox="0 0 24 24">
+    <path d="M6.5 6.5l11 11m0-11-11 11" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/>
+  </symbol>
+  <symbol id="ic-undo" viewBox="0 0 24 24">
+    <path d="M4.6 9.4h9.2a5.4 5.4 0 1 1 0 10.8H8" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/>
+    <path d="M8.4 5.2 4.2 9.4l4.2 4.2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  </symbol>
+</svg>
+
+<!-- =========================================================================
+     THE SHELL, AUTHORED ONCE. Every frame below clones these two templates.
+     That is not a mockup shortcut: it is the point of the redesign. In the
+     product these live in app/(portal)/layout.tsx and are never re-created
+     by a page.
+     ========================================================================= -->
+<template id="tpl-rail">
+  <aside class="rail">
+    <div class="rail-brand">
+      <a class="lockup" href="/">
+        <svg class="robot" viewBox="0 0 128 116" aria-hidden="true"><use href="#ic-robot"/></svg>
+        <span>Ambitt<span class="teal"> Agents</span></span>
+      </a>
+    </div>
+    <nav class="rail-nav" aria-label="Portal">
+      <a class="navitem" data-key="desk" href="/">
+        <svg class="ic" aria-hidden="true"><use href="#ic-desk"/></svg>Your desk
+        <span class="badge-w" data-waiting>2</span>
+      </a>
+      <a class="navitem" data-key="approvals" href="/approvals">
+        <svg class="ic" aria-hidden="true"><use href="#ic-approvals"/></svg>Approvals
+      </a>
+      <p class="eyebrow-n rail-sec">Your agents</p>
+      <a class="agent-row" data-key="agent" href="/agents/arthur">
+        <span class="dot dot-emerald" aria-hidden="true"></span>
+        <span>
+          <span class="an">Arthur</span>
+          <span class="as" data-agent-state>Working. Next run Mon 8:00 am</span>
+        </span>
+      </a>
+      <div class="subnav">
+        <a class="subitem" data-key="results" data-opt="results" href="/agents/arthur/results">Results<span class="cnt">15</span></a>
+        <a class="subitem" data-key="threads" data-opt="threads" href="/agents/arthur/threads">Threads<span class="cnt">3</span></a>
+        <a class="subitem" data-key="tools" href="/agents/arthur/tools">Tools<span class="needs" aria-label="needs setup"></span></a>
+        <a class="subitem" data-key="chat" href="/agents/arthur/chat">Ask Arthur</a>
+      </div>
+      <div class="rail-foot">
+        <a class="navitem" data-key="billing" href="/billing">
+          <svg class="ic" aria-hidden="true"><use href="#ic-card"/></svg>Plan and billing
+        </a>
+      </div>
+    </nav>
+  </aside>
+</template>
+
+<template id="tpl-strip">
+  <header class="strip">
+    <nav class="crumbs" aria-label="Breadcrumb"></nav>
+    <div class="strip-r">
+      <a class="btn btn-ghost btn-sm" href="/help">Get help</a>
+      <a class="acct" href="/account">
+        <span class="initials" aria-hidden="true">CL</span>
+        <span class="acct-n">Casey</span>
+      </a>
+      <!-- Sign out existed only in the mobile drawer, so on desktop there was no
+           way to sign out of the portal at all. -->
+      <a class="btn btn-ghost btn-sm" href="/logout">Sign out</a>
+    </div>
+  </header>
+</template>
+
+<template id="tpl-mhead">
+  <header class="mhead">
+    <button class="burger" aria-label="Open navigation, 2 things waiting">
+      <svg class="ic-lg" aria-hidden="true"><use href="#ic-burger"/></svg>
+      <span class="flag" data-waiting></span>
+    </button>
+    <a class="lockup" href="/" style="font-size:14px">
+      <svg class="robot" viewBox="0 0 128 116" aria-hidden="true"><use href="#ic-robot"/></svg>
+      <span>Ambitt<span class="teal"> Agents</span></span>
+    </a>
+    <a class="acct" href="/account" style="margin-left:auto">
+      <span class="initials" aria-hidden="true">CL</span>
+    </a>
+  </header>
+</template>
+
+<div class="doc">
+
+<!-- ==================== MOCKUP CHROME ==================== -->
+<header style="padding:56px 0 8px;max-width:80ch">
+  <p class="eyebrow">Client portal v2 · 29 July 2026</p>
+  <h1 style="font-size:34px;font-weight:500;line-height:1.15;margin-top:12px">
+    One shell that never unmounts, and every destination is a real URL.
+  </h1>
+  <p class="body t2" style="margin-top:14px">
+    Built from <span class="mono xs">docs/research/portal-redesign-research.md</span> and
+    <span class="mono xs">docs/specs/portal-ia-navigation.md</span>, not from the earlier concept.
+    Structure and type scale are Databricks. The record scaffold is HubSpot. The oversight
+    language is Lev. The colour is untouched, because Databricks' measured neutrals already
+    equal ours. Data is Casey Litsey's real book: off market multifamily across the Kansas City
+    metro, Wichita and Topeka.
+  </p>
+  <div class="row-flex" style="margin-top:20px;gap:8px">
+    <span class="tag">Sidebar always expanded</span>
+    <span class="tag">No hash anchors</span>
+    <span class="tag">Breadcrumbs only</span>
+    <span class="tag">Four verbs</span>
+    <span class="tag">No dollar figure</span>
+    <span class="tag">No command palette</span>
+  </div>
+</header>
+
+<div class="two" style="margin-top:32px">
+  <div class="card card-pad">
+    <p class="eyebrow-n">Rendered by the layout, never unmounts</p>
+    <ul class="stack-2" style="margin-top:12px;font-size:14px;color:var(--text-2)">
+      <li>The 248px rail, including every count and status word in it</li>
+      <li>The 52px context strip and the breadcrumb inside it</li>
+      <li>The account chip and the help link</li>
+      <li>The content column's max width, so density cannot drift per page</li>
+    </ul>
+    <p class="field-help" style="margin-top:14px">
+      Today <span class="mono xs">PortalShell</span> is rendered by each
+      <span class="mono xs">page.tsx</span>, so every navigation unmounts the rail and the
+      route's skeleton draws a centred top bar where the rail was. That is the single worst
+      thing about the portal and it is fixed by moving four elements up one level.
+    </p>
+  </div>
+  <div class="card card-pad">
+    <p class="eyebrow-n">Rendered by the page, swaps on navigation</p>
+    <ul class="stack-2" style="margin-top:12px;font-size:14px;color:var(--text-2)">
+      <li>The page title and its one primary action</li>
+      <li>The content, and the content's skeleton</li>
+      <li>Filters, which live in the query string so back removes one at a time</li>
+      <li>Nothing else. If it is the same on two routes, it belongs in the layout.</li>
+    </ul>
+    <p class="field-help" style="margin-top:14px">
+      The breadcrumb is derived from the route, not from data, which is why it can render
+      before the page does. That is the whole reason it sits in the strip and not in the page
+      body.
+    </p>
+  </div>
+</div>
+
+<!-- ==================== 1 · THE DESK ==================== -->
+<div class="cap">
+  <h2>The desk</h2>
+  <span class="badge">/</span>
+  <p>
+    Depth zero, so no breadcrumb: the strip carries the account context instead. One job, in
+    priority order: what is waiting, what happened, what is next. No nav tiles, because the rail
+    is the navigation. No dollar figure, because value is what the agent did.
+  </p>
+</div>
+
+<div class="frame-scroll">
+<div class="shell" data-shell data-rail="desk" data-ctx="Litsey Real Estate">
+  <main class="content">
+  <div class="wrap">
+
+    <div class="pagehead">
+      <div>
+        <h1 class="h1">Arthur drafted six emails and <span class="teal">stopped</span>.</h1>
+        <p class="pagesub">
+          He wrote them Sunday night, from the nine owners he sourced last week. Nothing has gone
+          anywhere and nothing will until you say so.
+        </p>
+      </div>
+    </div>
+
+    <div class="split">
+      <div>
+        <div class="between" style="margin-bottom:12px">
+          <p class="eyebrow-n">Waiting on you</p>
+          <p class="xs">2 things, about four minutes of reading</p>
+        </div>
+
+        <article class="card waiting">
+          <div class="between" style="align-items:flex-start">
+            <div class="row-flex" style="gap:11px;align-items:flex-start;flex-wrap:nowrap">
+              <span class="key k-teal"><svg class="ic" aria-hidden="true"><use href="#ic-approvals"/></svg></span>
+              <div>
+                <p class="eyebrow-n">Drafted Sunday, 8:04 pm</p>
+                <h3 class="h2" style="margin-top:4px">Monday outreach batch</h3>
+              </div>
+            </div>
+            <span class="pill pill-amber">3 days waiting</span>
+          </div>
+          <p class="sm" style="margin-top:10px">
+            6 owners<span class="sep">·</span>all off market<span class="sep">·</span>none of them
+            contacted before<span class="sep">·</span>4 in the Northland, 2 south of the river
+          </p>
+          <p class="said">
+            I kept this one tight. Four Northland owners and two further south, all 1958 to 1981
+            vintage, all held longer than fifteen years. If one of them calls back, the comps
+            conversation covers the other five, so it is worth going out as a set.
+          </p>
+          <div class="row-flex" style="margin-top:18px">
+            <a class="btn btn-primary" href="/approvals/monday-28-jul">Open the batch</a>
+            <a class="btn btn-ghost" href="/approvals">See everything waiting</a>
+          </div>
+        </article>
+
+        <article class="card waiting" style="margin-top:12px">
+          <div class="between" style="align-items:flex-start">
+            <div class="row-flex" style="gap:11px;align-items:flex-start;flex-wrap:nowrap">
+              <span class="key k-amber"><svg class="ic" aria-hidden="true"><use href="#ic-warn"/></svg></span>
+              <div>
+                <p class="eyebrow-n">Needs a rule from you</p>
+                <h3 class="h2" style="margin-top:4px">Hillcrest Manor is listed with another broker</h3>
+              </div>
+            </div>
+            <span class="pill pill-amber">Held out</span>
+          </div>
+          <p class="sm" style="margin-top:10px">
+            Gerald Vanderslice<span class="sep">·</span>Vanderslice and Sons<span class="sep">·</span>705 S Noland Rd, Independence MO
+          </p>
+          <div class="facts" style="margin-top:8px">
+            <span>40 units</span><span class="sep">·</span><span>built 1971</span>
+            <span class="sep">·</span><span>held 22 yrs</span>
+            <span style="padding-left:10px"><span class="tag">Listing</span></span>
+          </div>
+          <p class="said">
+            Your export had it as off market, but the county record and the listing photos both say
+            it went live nine days ago with another shop. I pulled it out of the batch and I have
+            not touched the owner. Tell me once how you want listed properties handled and I will
+            apply it to every one of these from here on.
+          </p>
+          <div class="row-flex" style="margin-top:18px">
+            <a class="btn btn-primary" href="/approvals/hillcrest-rule">Tell Arthur how to handle these</a>
+            <a class="btn btn-ghost" href="/agents/arthur/results/vanderslice">Look at the property</a>
+          </div>
+        </article>
+
+        <div class="between" style="margin:32px 0 12px">
+          <p class="eyebrow-n">What Arthur did last week</p>
+          <p class="xs mono">Mon 21 Jul to Sun 27 Jul</p>
+        </div>
+        <div class="ledger">
+          <div><p class="n">9</p><p class="l">owners sourced and researched</p></div>
+          <div><p class="n">12</p><p class="l">emails written and sent</p></div>
+          <div><p class="n">4</p><p class="l">follow ups nudged</p></div>
+          <div><p class="n">3</p><p class="l">replies read and answered</p></div>
+          <div><p class="n">1</p><p class="l">owner moved to warm</p></div>
+        </div>
+        <p class="sm3" style="margin-top:10px">
+          Every one of those 12 emails went out in your name, after you had read it.
+          <a class="btn-link" href="/agents/arthur/threads">See what he sent</a>
+        </p>
+
+        <div class="between" style="margin:32px 0 14px">
+          <p class="eyebrow-n">Since you last looked</p>
+          <p class="xs mono">Friday, 3:20 pm</p>
+        </div>
+        <ul class="log">
+          <li>
+            <span class="mk act" aria-hidden="true"></span>
+            <p class="when">Wed 7:02 am</p>
+            <p class="what">
+              <b>Arthur re-checked all 15 properties</b> against county records for anything that
+              changed over the weekend. One had: Hillcrest Manor went from off market to listed. He
+              held it out of Monday's batch and flagged it above.
+            </p>
+          </li>
+          <li>
+            <span class="mk act" aria-hidden="true"></span>
+            <p class="when">Tue 4:18 pm</p>
+            <p class="what">
+              <b>Ray Pfannenstiel wrote back</b> about Northgate Apartments on NE Vivion Rd.
+              <span class="quote">"Not selling this year, but call me after the 15th and we can
+              talk about the Vivion Rd building."</span>
+              Arthur answered the same afternoon, moved Ray to warm, and set the next touch for
+              16 August.
+              <a class="btn-link" href="/agents/arthur/results/pfannenstiel">Open the record</a>
+            </p>
+          </li>
+          <li>
+            <span class="mk warn" aria-hidden="true"></span>
+            <p class="when">Fri 9:00 am</p>
+            <p class="what">
+              <b>Arthur nudged Alvina Ptacek</b> about Sunflower Gardens in Wichita, 54 units. That
+              was the day 3 follow up and there is still nothing back. Day 7 goes out this afternoon
+              unless you tell him to leave it.
+            </p>
+          </li>
+          <li>
+            <span class="mk warn" aria-hidden="true"></span>
+            <p class="when">Fri 9:00 am</p>
+            <p class="what">
+              <b>Arthur nudged Stan Zolnierczyk</b> about Meadowbrook Terrace on Mission Rd, 44
+              units. Day 3, no reply. Day 7 is queued for tomorrow morning.
+            </p>
+          </li>
+          <li>
+            <span class="mk" aria-hidden="true"></span>
+            <p class="when">Thu 11:26 am</p>
+            <p class="what">
+              <b>Bernadette Okafor said no</b> on Riverbend Lofts. Arthur thanked her, marked it
+              passed, and he will not contact her again unless you ask him to.
+            </p>
+          </li>
+        </ul>
+        <div class="row-flex" style="margin-top:22px">
+          <a class="btn btn-secondary" href="/agents/arthur/results">Everything Arthur is working</a>
+          <a class="btn btn-ghost" href="/agents/arthur/chat">Ask Arthur something</a>
+        </div>
+      </div>
+
+      <aside class="stack-4">
+        <div class="card card-pad">
+          <div class="row-flex" style="gap:10px">
+            <span style="width:36px;height:36px;border-radius:10px;background:var(--brand-tint);display:grid;place-items:center">
+              <svg style="width:20px;height:18px;color:var(--brand-solid)" viewBox="0 0 128 116" aria-hidden="true"><use href="#ic-robot"/></svg>
+            </span>
+            <div>
+              <p class="h3">Arthur</p>
+              <p class="xs" style="color:var(--emerald);font-weight:600">Working</p>
+            </div>
+          </div>
+          <div class="deflist" style="margin-top:14px">
+            <div><dt>Last run</dt><dd class="w">41 minutes ago</dd></div>
+            <div><dt>Next run</dt><dd class="w">Mon 8:00 am</dd></div>
+            <div><dt>Autonomy</dt><dd class="w">Supervised</dd></div>
+          </div>
+          <p class="field-help" style="margin-top:12px">
+            Sourcing, drafting and following up across the Kansas City metro, Wichita and Topeka.
+          </p>
+          <div class="row-flex" style="margin-top:14px;gap:8px">
+            <a class="btn btn-secondary btn-sm" href="/agents/arthur">Open his file</a>
+            <button class="btn btn-ghost btn-sm">Pause Arthur</button>
+          </div>
+        </div>
+
+        <div class="card card-pad">
+          <p class="eyebrow-n">This month</p>
+          <p class="sm" style="margin-top:10px">
+            <span class="mono" style="font-size:18px;color:var(--brand-ink);font-weight:500">34</span>
+            of 120 conversations used
+          </p>
+          <div style="height:6px;background:var(--surface-2);border-radius:999px;overflow:hidden;margin-top:10px">
+            <div style="height:100%;width:28%;background:var(--brand-solid);border-radius:999px"></div>
+          </div>
+          <p class="field-help" style="margin-top:10px">
+            Growth plan, renews 12 August. <a class="btn-link" href="/billing">Plan and billing</a>
+          </p>
+        </div>
+
+        <div class="card card-pad">
+          <p class="eyebrow-n">Need a hand</p>
+          <p class="sm" style="margin-top:8px">
+            Reply to any of Arthur's emails and a person on our team reads it. Or write to
+            <span style="color:var(--brand-ink);font-weight:500">hello@ambitt.agency</span>.
+          </p>
+        </div>
+      </aside>
+    </div>
+
+  </div>
+  </main>
+</div>
+</div>
+
+<p class="note">
+  <b>What went away.</b> The five nav tiles (a second, prettier copy of the rail), the
+  "Good to see you, Casey" greeting (a headline that says nothing costs the most valuable line on
+  the page), and the marked up dollar figure that told a $1,499 client they had received about $27
+  of value. The ledger replaces it with counts of things Arthur did, in verbs, each one clickable
+  through to the rows behind it.
+</p>
+
+<!-- ==================== 2 · NAVIGATING ==================== -->
+<div class="cap">
+  <h2>Mid navigation, on a slow connection</h2>
+  <span class="badge">/ &rarr; /agents/arthur/results</span>
+  <p>
+    The client clicked Results. The rail, the strip, the breadcrumb, the counts and the account
+    chip are all still on screen, because they are rendered by the layout and the layout did not
+    unmount. Only the content column skeletonises, and the skeleton is the shape of the page that
+    is coming.
+  </p>
+</div>
+
+<div class="frame-scroll">
+<div class="shell" data-shell data-rail="results" data-crumbs="Home>/|Arthur>/agents/arthur|Results">
+  <main class="content">
+  <div class="wrap">
+    <div class="pagehead">
+      <div style="width:100%">
+        <div class="skel" style="width:180px;height:26px"></div>
+        <div class="skel" style="width:min(420px,70%);height:15px;margin-top:10px"></div>
+      </div>
+    </div>
+    <div class="row-flex" style="gap:8px;margin-bottom:20px">
+      <div class="skel" style="width:260px;height:36px;border-radius:4px"></div>
+      <div class="skel" style="width:76px;height:28px;border-radius:999px"></div>
+      <div class="skel" style="width:96px;height:28px;border-radius:999px"></div>
+      <div class="skel" style="width:120px;height:28px;border-radius:999px"></div>
+    </div>
+    <div class="skel" style="width:190px;height:34px;border-radius:4px"></div>
+    <div class="card" style="margin-top:8px">
+      <div style="padding:16px;border-bottom:1px solid var(--border)">
+        <div class="skel" style="width:220px;height:17px"></div>
+        <div class="skel" style="width:min(380px,60%);height:14px;margin-top:9px"></div>
+        <div class="skel" style="width:min(300px,48%);height:12px;margin-top:9px"></div>
+      </div>
+      <div style="padding:16px;border-bottom:1px solid var(--border)">
+        <div class="skel" style="width:190px;height:17px"></div>
+        <div class="skel" style="width:min(420px,66%);height:14px;margin-top:9px"></div>
+        <div class="skel" style="width:min(280px,44%);height:12px;margin-top:9px"></div>
+      </div>
+      <div style="padding:16px">
+        <div class="skel" style="width:240px;height:17px"></div>
+        <div class="skel" style="width:min(360px,58%);height:14px;margin-top:9px"></div>
+        <div class="skel" style="width:min(300px,48%);height:12px;margin-top:9px"></div>
+      </div>
+    </div>
+  </div>
+  </main>
+</div>
+</div>
+
+<p class="note">
+  <b>Why this matters more than it sounds.</b> A shell that survives a navigation is itself a
+  navigational fact: it tells the client the app did not reload and they did not leave. Today the
+  opposite happens, and it happens on every navigation on every authenticated screen. The
+  breadcrumb is already correct here, before any data has arrived, because it is derived from the
+  route. Nothing in this frame is waiting on the network except the rows themselves.
+</p>
+
+<!-- ==================== 3 · APPROVALS BATCH ==================== -->
+<div class="cap">
+  <h2>An approvals batch, with the four verbs</h2>
+  <span class="badge">/approvals/monday-28-jul</span>
+  <p>
+    Six decisions cost one navigation, not six. Each draft carries Accept, Edit, Respond and
+    Ignore, and each decision writes a sentence back that says exactly what happens and when. The
+    batch is the unit because batching is how Arthur actually works.
+  </p>
+</div>
+
+<div class="frame-scroll">
+<div class="shell" data-shell data-rail="approvals" data-crumbs="Home>/|Approvals>/approvals|Monday outreach batch">
+  <main class="content">
+  <div class="wrap">
+
+    <div class="pagehead">
+      <div>
+        <h1 class="h1">Monday outreach batch</h1>
+        <p class="pagesub">
+          Six drafts, written Sunday at 8:04 pm. Nothing sends until you decide it, and nothing at
+          all goes out before Monday at 8:10 am.
+        </p>
+      </div>
+      <div style="text-align:right;flex:none">
+        <div class="pips" style="justify-content:flex-end">
+          <span class="pip done"></span><span class="pip done"></span><span class="pip done"></span>
+          <span class="pip now"></span><span class="pip"></span><span class="pip"></span>
+        </div>
+        <p class="xs mono" style="margin-top:8px">3 of 6 decided</p>
+      </div>
+    </div>
+
+    <article class="card card-pad">
+      <p class="eyebrow-n">Why these six</p>
+      <p class="said" style="margin-top:10px">
+        Four Northland owners and two further south, all 1958 to 1981 vintage, all held longer than
+        fifteen years, none of them contacted before. If one calls back, the comps conversation
+        covers the other five, so it is worth going out as a set.
+        <br><br>
+        I left Hillcrest Manor out of it. That one turned out to be listed with another shop, and I
+        am not going to write to an owner around another broker without your say.
+        <a class="btn-link" href="/approvals/hillcrest-rule">Deal with that one</a>
+      </p>
+    </article>
+
+    <p class="sm3" style="margin:24px 0 10px;max-width:76ch">
+      <b style="color:var(--text);font-weight:600">Accept</b> sends it as written.
+      <b style="color:var(--text);font-weight:600">Edit</b> opens the letter, and Arthur writes the
+      next batch your way.
+      <b style="color:var(--text);font-weight:600">Respond</b> writes back to him without touching
+      the draft. <b style="color:var(--text);font-weight:600">Ignore</b> skips this one, and he
+      will not raise it again unless something changes on the property.
+    </p>
+
+    <div class="card">
+      <!-- open draft -->
+      <section class="draft">
+        <div class="draft-h" role="button" tabindex="0" aria-expanded="true">
+          <span class="idx">1</span>
+          <div style="flex:1;min-width:0">
+            <div class="rec-t">
+              <span class="rec-n">Marion Kubik</span>
+              <span class="rec-e">Kubik Family Trust</span>
+              <span style="margin-left:auto"><span class="tag">Off market</span></span>
+            </div>
+            <p class="rec-p">Parvin Place, 1112 NE Parvin Rd, Kansas City MO</p>
+            <div class="facts" style="margin-top:6px">
+              <span>31 units</span><span class="sep">·</span><span>built 1958</span>
+              <span class="sep">·</span><span>held since 1998</span>
+            </div>
+          </div>
+        </div>
+        <div class="draft-b">
+          <div class="letter">
+            <p class="subj">Parvin Place, and whether you have ever put a number on it</p>
+            <p>Ms Kubik,</p>
+            <p style="margin-top:10px">
+              I buy and broker small multifamily on the north side here in Kansas City, and Parvin
+              Place has been on my list for a while.
+            </p>
+            <p style="margin-top:10px">
+              You have held the 31 units since 1998, which is longer than almost anyone on NE Parvin
+              Rd. I am not asking you to list it. If you ever put a number on it, I would like to be
+              the call you make.
+            </p>
+            <p style="margin-top:10px">
+              If the answer is no, say so and I will not write again.
+            </p>
+            <p style="margin-top:10px">Casey Litsey<br>Litsey Real Estate<br>816 555 0142</p>
+          </div>
+          <p class="field-help" style="margin-top:10px">
+            Goes from casey@litseycre.com. Reply comes straight back to you, and Arthur reads it too.
+          </p>
+          <div class="verbs">
+            <button class="btn btn-primary">
+              <svg class="ic-sm" aria-hidden="true"><use href="#ic-check"/></svg>Accept
+            </button>
+            <button class="btn btn-secondary">
+              <svg class="ic-sm" aria-hidden="true"><use href="#ic-pencil"/></svg>Edit
+            </button>
+            <button class="btn btn-secondary">
+              <svg class="ic-sm" aria-hidden="true"><use href="#ic-send"/></svg>Respond
+            </button>
+            <span class="spacer"></span>
+            <button class="btn btn-ghost">Ignore</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- accepted -->
+      <section class="draft">
+        <div class="draft-h" role="button" tabindex="0" aria-expanded="true">
+          <span class="idx ok"><svg style="width:13px;height:13px" aria-hidden="true"><use href="#ic-check"/></svg></span>
+          <div style="flex:1;min-width:0">
+            <div class="rec-t">
+              <span class="rec-n">Clyde Hemenway</span>
+              <span class="rec-e">Hemenway Trust</span>
+              <span style="margin-left:auto"><span class="pill pill-emerald">Accepted</span></span>
+            </div>
+            <p class="rec-p">Shoal Creek Commons, 8305 N Oak Trafficway, Kansas City MO</p>
+            <div class="decided">
+              <svg class="ic-sm" style="color:var(--emerald);margin-top:2px" aria-hidden="true"><use href="#ic-check"/></svg>
+              <span>
+                <b>Accepted as written.</b> Goes out Monday at 8:10 am from casey@litseycre.com. You
+                can pull it back any time before then.
+                <button class="btn-link" style="margin-left:6px">Undo</button>
+              </span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- edited -->
+      <section class="draft">
+        <div class="draft-h" role="button" tabindex="0" aria-expanded="true">
+          <span class="idx ok"><svg style="width:13px;height:13px" aria-hidden="true"><use href="#ic-pencil"/></svg></span>
+          <div style="flex:1;min-width:0">
+            <div class="rec-t">
+              <span class="rec-n">Odessa Trawick</span>
+              <span class="rec-e">Trawick Property Co</span>
+              <span style="margin-left:auto"><span class="pill pill-blue">Edited</span></span>
+            </div>
+            <p class="rec-p">Cedar Bluff Apartments, 6402 N Cherry St, Gladstone MO</p>
+            <div class="decided">
+              <svg class="ic-sm" style="color:var(--blue);margin-top:2px" aria-hidden="true"><use href="#ic-pencil"/></svg>
+              <span>
+                <b>You rewrote the opening line.</b> Arthur kept your version and he will write the
+                next batch that way. Goes out Monday at 8:10 am.
+                <button class="btn-link" style="margin-left:6px">See your version</button>
+              </span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- undecided, collapsed -->
+      <section class="draft">
+        <div class="draft-h" role="button" tabindex="0" aria-expanded="true">
+          <span class="idx">4</span>
+          <div style="flex:1;min-width:0">
+            <div class="rec-t">
+              <span class="rec-n">Duane Sedlacek</span>
+              <span class="rec-e">Sedlacek Properties</span>
+              <span style="margin-left:auto"><span class="tag">Refi</span></span>
+            </div>
+            <p class="rec-p">Blue Ridge Crossing, 4501 Blue Ridge Blvd, Raytown MO</p>
+            <div class="facts" style="margin-top:6px">
+              <span>36 units</span><span class="sep">·</span><span>built 1972</span>
+              <span class="sep">·</span><span>loan matures Nov 2026</span>
+            </div>
+            <p class="rec-next">
+              <svg class="ic-sm" style="color:var(--text-3)" aria-hidden="true"><use href="#ic-clock"/></svg>
+              Arthur leads on the maturity, not on a sale. Read it before you accept this one.
+            </p>
+          </div>
+          <button class="btn btn-secondary btn-sm" style="flex:none">Read the draft</button>
+        </div>
+      </section>
+
+      <!-- ignored -->
+      <section class="draft">
+        <div class="draft-h" role="button" tabindex="0" aria-expanded="true">
+          <span class="idx skip"><svg style="width:12px;height:12px" aria-hidden="true"><use href="#ic-x"/></svg></span>
+          <div style="flex:1;min-width:0">
+            <div class="rec-t">
+              <span class="rec-n">Loretta Dziedzic</span>
+              <span class="rec-e" style="text-decoration:none">Ash Street Flats</span>
+              <span style="margin-left:auto"><span class="pill pill-muted">Ignored</span></span>
+            </div>
+            <p class="rec-p">1218 S Ash St, Olathe KS</p>
+            <div class="decided">
+              <svg class="ic-sm" style="color:var(--text-3);margin-top:2px" aria-hidden="true"><use href="#ic-x"/></svg>
+              <span>
+                <b>Skipped.</b> Arthur will not send this one, and he will not raise her again unless
+                the property changes hands or comes to market.
+                <button class="btn-link" style="margin-left:6px">Undo</button>
+              </span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- responding -->
+      <section class="draft">
+        <div class="draft-h" role="button" tabindex="0" aria-expanded="true">
+          <span class="idx">6</span>
+          <div style="flex:1;min-width:0">
+            <div class="rec-t">
+              <span class="rec-n">Dolores Whitcomb</span>
+              <span class="rec-e">Whitcomb Family Partnership</span>
+              <span style="margin-left:auto"><span class="pill pill-amber">Answering Arthur</span></span>
+            </div>
+            <p class="rec-p">Barry Road Terrace, 8140 NW Barry Rd, Kansas City MO</p>
+          </div>
+        </div>
+        <div class="draft-b">
+          <label class="field-label" for="resp">Write back to Arthur</label>
+          <textarea class="field" id="resp" rows="3">Hold this one until after the 15th. Her brother handles the property and he is out of town.</textarea>
+          <p class="field-help">
+            He reads this before the batch goes, applies it to this draft, and remembers it for the
+            next time Barry Road comes up. This does not count against your monthly conversations.
+          </p>
+          <div class="verbs">
+            <button class="btn btn-primary">
+              <svg class="ic-sm" aria-hidden="true"><use href="#ic-send"/></svg>Send to Arthur
+            </button>
+            <button class="btn btn-ghost">Cancel</button>
+          </div>
+        </div>
+      </section>
+
+      <div style="padding:14px 16px;border-top:1px solid var(--border);background:var(--surface-2);
+                  border-radius:0 0 var(--radius-lg) var(--radius-lg)" class="between">
+        <p class="sm">
+          1 accepted<span class="sep">·</span>1 edited<span class="sep">·</span>1 skipped<span class="sep">·</span>3 still to read
+        </p>
+        <p class="xs mono">Nothing sends before Mon 8:10 am</p>
+      </div>
+    </div>
+
+    <p class="field-help" style="margin-top:14px;max-width:76ch">
+      Deciding an item does not navigate. The page stays where it is and the count above updates,
+      so going back never shows you a decision you already made as still pending.
+    </p>
+
+  </div>
+  </main>
+</div>
+</div>
+
+<p class="note">
+  <b>Why four verbs and not two.</b> Approve and dismiss forces a client who wants one sentence
+  changed into a dismiss, and we lose both the email and the reason. Edit captures the correction
+  and turns it into training; Respond captures the reason without touching the letter. Accept is
+  the only filled button on the row, Ignore is the only one set apart, and there is no
+  "approve all six" on this page: one tap that sends six emails in Casey's name is exactly how you
+  earn the phone call that starts "I did not know it sent that."
+</p>
+
+<!-- ==================== 4 · RESULTS LEDGER ==================== -->
+<div class="cap">
+  <h2>The results ledger</h2>
+  <span class="badge">/agents/arthur/results?stage=all&amp;sort=recent</span>
+  <p>
+    CRM grammar, worklist obligations. Stages, a record view, last contacted and next action are
+    all here; the Add button is not, because Arthur is the only author. Rows, not cells: one owner
+    is one row you read like a sentence, with a mono facts strip where numbers genuinely want
+    alignment. Filters live in the URL so back removes one at a time.
+  </p>
+</div>
+
+<div class="frame-scroll">
+<div class="shell" data-shell data-rail="results" data-crumbs="Home>/|Arthur>/agents/arthur|Results">
+  <main class="content">
+  <div class="wrap">
+
+    <div class="pagehead">
+      <div>
+        <h1 class="h1">Results</h1>
+        <p class="pagesub">
+          15 properties Arthur is working. He logs every one of them. If he has something wrong,
+          open the record and tell him.
+        </p>
+      </div>
+      <button class="btn btn-secondary" style="flex:none">
+        <svg class="ic-sm" aria-hidden="true"><use href="#ic-download"/></svg>Export these 15
+      </button>
+    </div>
+
+    <div class="row-flex" style="gap:8px;margin-bottom:4px">
+      <span style="position:relative;display:inline-flex;align-items:center">
+        <svg class="ic-sm" style="position:absolute;left:11px;color:var(--text-3)" aria-hidden="true"><use href="#ic-search"/></svg>
+        <input class="field" type="search" style="width:264px;padding-left:34px" placeholder="Owner, entity or street" aria-label="Search results">
+      </span>
+      <button class="btn btn-sm" style="background:var(--brand-tint);color:var(--brand-ink);font-weight:600">All 15</button>
+      <button class="btn btn-sm btn-secondary">Replied 1</button>
+      <button class="btn btn-sm btn-secondary">Follow up due 2</button>
+      <button class="btn btn-sm btn-secondary">Waiting 4</button>
+      <button class="btn btn-sm btn-secondary">Drafted 6</button>
+      <button class="btn btn-sm btn-secondary">Held out 1</button>
+      <button class="btn btn-sm btn-secondary">Passed 1</button>
+    </div>
+
+    <div class="grouphead">
+      <span class="dot dot-emerald" aria-hidden="true"></span>
+      <span class="gn">Replied</span><span class="gc">1</span>
+      <span class="gc" style="margin-left:auto">Someone wrote back and Arthur answered</span>
+    </div>
+    <div class="rows">
+      <a class="rec" href="/agents/arthur/results/pfannenstiel">
+        <div class="rec-t">
+          <span class="rec-n">Ray Pfannenstiel</span><span class="rec-e">Pfannenstiel Holdings</span>
+          <span style="margin-left:auto"><span class="tag">Off market</span></span>
+        </div>
+        <p class="rec-p">Northgate Apartments, 2919 NE Vivion Rd, Kansas City MO</p>
+        <div class="facts" style="margin-top:6px">
+          <span>38 units</span><span class="sep">·</span><span>built 1968</span><span class="sep">·</span>
+          <span>held 19 yrs</span><span class="sep">·</span><span>loan matures Mar 2027</span>
+        </div>
+        <p class="rec-next">
+          <svg class="ic-sm" style="color:var(--text-3)" aria-hidden="true"><use href="#ic-clock"/></svg>
+          Next: Arthur picks it back up on 16 August, as Ray asked
+        </p>
+      </a>
+    </div>
+
+    <div class="grouphead">
+      <span class="dot dot-amber" aria-hidden="true"></span>
+      <span class="gn">Follow up due</span><span class="gc">2</span>
+      <span class="gc" style="margin-left:auto">Arthur acts on these without asking</span>
+    </div>
+    <div class="rows">
+      <a class="rec" href="/agents/arthur/results/ptacek">
+        <div class="rec-t">
+          <span class="rec-n">Alvina Ptacek</span><span class="rec-e">Ptacek Bros</span>
+          <span style="margin-left:auto"><span class="tag">Off market</span></span>
+        </div>
+        <p class="rec-p">Sunflower Gardens, 4711 E Harry St, Wichita KS</p>
+        <div class="facts" style="margin-top:6px">
+          <span>54 units</span><span class="sep">·</span><span>built 1974</span><span class="sep">·</span>
+          <span>held 31 yrs</span><span class="sep">·</span><span>day 3 sent 25 Jul</span>
+        </div>
+        <p class="rec-next">
+          <svg class="ic-sm" style="color:var(--blue)" aria-hidden="true"><use href="#ic-clock"/></svg>
+          Next: day 7 nudge, this afternoon at 4:10 pm
+        </p>
+      </a>
+      <a class="rec" href="/agents/arthur/results/zolnierczyk">
+        <div class="rec-t">
+          <span class="rec-n">Stan Zolnierczyk</span><span class="rec-e">Meadowbrook Terrace LLC</span>
+          <span style="margin-left:auto"><span class="tag">Off market</span></span>
+        </div>
+        <p class="rec-p">Meadowbrook Terrace, 7820 Mission Rd, Prairie Village KS</p>
+        <div class="facts" style="margin-top:6px">
+          <span>44 units</span><span class="sep">·</span><span>built 1962</span><span class="sep">·</span>
+          <span>held 16 yrs</span><span class="sep">·</span><span>day 3 sent 25 Jul</span>
+        </div>
+        <p class="rec-next">
+          <svg class="ic-sm" style="color:var(--blue)" aria-hidden="true"><use href="#ic-clock"/></svg>
+          Next: day 7 nudge, tomorrow at 8:10 am
+        </p>
+      </a>
+    </div>
+
+    <div class="grouphead">
+      <span class="dot dot-muted" aria-hidden="true"></span>
+      <span class="gn">Waiting on a reply</span><span class="gc">4</span>
+      <span class="gc" style="margin-left:auto">Sent, nothing back yet</span>
+    </div>
+    <div class="rows">
+      <a class="rec" href="/agents/arthur/results/boaz">
+        <div class="rec-t">
+          <span class="rec-n">Antoinette Boaz</span><span class="rec-e">Boaz Legacy Estate Co</span>
+          <span style="margin-left:auto"><span class="tag">Off market</span></span>
+        </div>
+        <p class="rec-p">Gladstone Gardens, 5711 N Oak Trafficway, Gladstone MO</p>
+        <div class="facts" style="margin-top:6px">
+          <span>52 units</span><span class="sep">·</span><span>built 1963</span><span class="sep">·</span><span>sent Tue 22 Jul</span>
+        </div>
+      </a>
+      <a class="rec" href="/agents/arthur/results/halloran">
+        <div class="rec-t">
+          <span class="rec-n">Junior Halloran</span><span class="rec-e">Halloran Bros</span>
+          <span style="margin-left:auto"><span class="tag">Off market</span></span>
+        </div>
+        <p class="rec-p">Brookside Court, 6321 Brookside Blvd, Kansas City MO</p>
+        <div class="facts" style="margin-top:6px">
+          <span>24 units</span><span class="sep">·</span><span>built 1957</span><span class="sep">·</span><span>sent Tue 22 Jul</span>
+        </div>
+      </a>
+      <a class="rec" href="/agents/arthur/results/lindgren">
+        <div class="rec-t">
+          <span class="rec-n">Everett Lindgren</span><span class="rec-e">Lindgren Holdings</span>
+          <span style="margin-left:auto"><span class="tag">Refi</span></span>
+        </div>
+        <p class="rec-p">Seneca Ridge, 1902 W Seneca St, Topeka KS</p>
+        <div class="facts" style="margin-top:6px">
+          <span>30 units</span><span class="sep">·</span><span>built 1976</span><span class="sep">·</span><span>sent Wed 23 Jul</span>
+        </div>
+      </a>
+      <a class="rec" href="/agents/arthur/results/pribyl">
+        <div class="rec-t">
+          <span class="rec-n">Marlene Pribyl</span><span class="rec-e">Pribyl Real Estate</span>
+          <span style="margin-left:auto"><span class="tag">Off market</span></span>
+        </div>
+        <p class="rec-p">Independence Plaza, 1815 S Crysler Ave, Independence MO</p>
+        <div class="facts" style="margin-top:6px">
+          <span>28 units</span><span class="sep">·</span><span>built 1966</span><span class="sep">·</span><span>sent Wed 23 Jul</span>
+        </div>
+      </a>
+    </div>
+
+    <div class="grouphead">
+      <span class="dot dot-amber" aria-hidden="true"></span>
+      <span class="gn">Drafted, waiting on you</span><span class="gc">6</span>
+      <span class="gc" style="margin-left:auto">3 days waiting</span>
+    </div>
+    <div class="rows">
+      <a class="rec" href="/agents/arthur/results/kubik">
+        <div class="rec-t">
+          <span class="rec-n">Marion Kubik</span><span class="rec-e">Kubik Family Trust</span>
+          <span style="margin-left:auto"><span class="tag">Off market</span></span>
+        </div>
+        <p class="rec-p">Parvin Place, 1112 NE Parvin Rd, Kansas City MO</p>
+        <div class="facts" style="margin-top:6px">
+          <span>31 units</span><span class="sep">·</span><span>built 1958</span><span class="sep">·</span><span>held since 1998</span>
+        </div>
+      </a>
+      <a class="rec" href="/agents/arthur/results/hemenway">
+        <div class="rec-t">
+          <span class="rec-n">Clyde Hemenway</span><span class="rec-e">Hemenway Trust</span>
+          <span style="margin-left:auto"><span class="pill pill-emerald">Accepted</span></span>
+        </div>
+        <p class="rec-p">Shoal Creek Commons, 8305 N Oak Trafficway, Kansas City MO</p>
+        <div class="facts" style="margin-top:6px">
+          <span>48 units</span><span class="sep">·</span><span>built 1979</span><span class="sep">·</span><span>goes out Mon 8:10 am</span>
+        </div>
+      </a>
+      <a class="rec" href="/agents/arthur/results/sedlacek">
+        <div class="rec-t">
+          <span class="rec-n">Duane Sedlacek</span><span class="rec-e">Sedlacek Properties</span>
+          <span style="margin-left:auto"><span class="tag">Refi</span></span>
+        </div>
+        <p class="rec-p">Blue Ridge Crossing, 4501 Blue Ridge Blvd, Raytown MO</p>
+        <div class="facts" style="margin-top:6px">
+          <span>36 units</span><span class="sep">·</span><span>built 1972</span><span class="sep">·</span><span>loan matures Nov 2026</span>
+        </div>
+      </a>
+      <a class="rec" href="/approvals/monday-28-jul" style="display:flex;align-items:center;gap:8px;color:var(--brand-ink);font-weight:500;font-size:14px">
+        <svg class="ic-sm" aria-hidden="true"><use href="#ic-approvals"/></svg>
+        3 more in this batch. Decide them together.
+      </a>
+    </div>
+
+    <div class="grouphead">
+      <span class="dot dot-amber" aria-hidden="true"></span>
+      <span class="gn">Held out</span><span class="gc">1</span>
+      <span class="gc" style="margin-left:auto">Arthur stopped and asked</span>
+    </div>
+    <div class="rows">
+      <a class="rec" href="/agents/arthur/results/vanderslice">
+        <div class="rec-t">
+          <span class="rec-n">Gerald Vanderslice</span><span class="rec-e">Vanderslice and Sons</span>
+          <span style="margin-left:auto"><span class="tag">Listing</span></span>
+        </div>
+        <p class="rec-p">Hillcrest Manor, 705 S Noland Rd, Independence MO</p>
+        <div class="facts" style="margin-top:6px">
+          <span>40 units</span><span class="sep">·</span><span>built 1971</span><span class="sep">·</span><span>listed 20 Jul</span>
+        </div>
+        <p class="rec-next">
+          <svg class="ic-sm" style="color:var(--amber)" aria-hidden="true"><use href="#ic-warn"/></svg>
+          Waiting on your rule for listed properties
+        </p>
+      </a>
+    </div>
+
+    <div class="grouphead">
+      <span class="dot dot-muted" aria-hidden="true"></span>
+      <span class="gn">Passed</span><span class="gc">1</span>
+      <span class="gc" style="margin-left:auto">Closed, and Arthur will not write again</span>
+    </div>
+    <div class="rows">
+      <a class="rec" href="/agents/arthur/results/okafor">
+        <div class="rec-t">
+          <span class="rec-n">Bernadette Okafor</span><span class="rec-e">Okafor Ventures</span>
+          <span style="margin-left:auto"><span class="tag">Off market</span></span>
+        </div>
+        <p class="rec-p">Riverbend Lofts, 1409 Grand Blvd, Kansas City MO</p>
+        <div class="facts" style="margin-top:6px">
+          <span>22 units</span><span class="sep">·</span><span>built 1926</span><span class="sep">·</span><span>said no 24 Jul</span>
+        </div>
+      </a>
+    </div>
+
+    <div class="between" style="margin-top:20px">
+      <p class="xs mono">Showing 15 of 15</p>
+      <p class="xs">Sorted by most recent activity</p>
+    </div>
+
+    <div class="wash" style="margin-top:24px;padding:18px 20px;max-width:70ch">
+      <p class="h3">There is no Add button here, on purpose</p>
+      <p class="sm" style="margin-top:6px">
+        Arthur writes this list. If you want him on a property, tell him and he will research it,
+        log it and start the work. That way one of you owns the record and it is never half right
+        in two places.
+      </p>
+      <a class="btn btn-secondary btn-sm" href="/agents/arthur/chat" style="margin-top:12px">Hand Arthur a property</a>
+    </div>
+
+  </div>
+  </main>
+</div>
+</div>
+
+<!-- ==================== 5 · RECORD DETAIL ==================== -->
+<div class="cap">
+  <h2>One record</h2>
+  <span class="badge">/agents/arthur/results/pfannenstiel</span>
+  <p>
+    A real URL, so Arthur can link to it from an email and it still works when a client lands on it
+    cold with an empty history stack. The three blocks down the middle are Lev's oversight contract
+    made into actual surfaces: what he is preparing, what is waiting on you, what he already did.
+    The client can correct anything; a correction is a message to Arthur, not a database edit.
+  </p>
+</div>
+
+<div class="frame-scroll">
+<div class="shell" data-shell data-rail="results" data-crumbs="Home>/|Arthur>/agents/arthur|Results>/agents/arthur/results|Ray Pfannenstiel">
+  <main class="content">
+  <div class="wrap">
+
+    <div class="pagehead">
+      <div>
+        <div class="row-flex" style="gap:10px">
+          <h1 class="h1">Ray Pfannenstiel</h1>
+          <span class="pill pill-emerald">Replied, warm</span>
+        </div>
+        <p class="pagesub">
+          Pfannenstiel Holdings<span class="sep">·</span>Northgate Apartments, 2919 NE Vivion Rd,
+          Kansas City MO
+        </p>
+      </div>
+      <a class="btn btn-secondary" style="flex:none" href="/agents/arthur/threads/pfannenstiel">Read the thread</a>
+    </div>
+
+    <div class="split">
+      <div class="stack-4">
+
+        <article class="card card-pad">
+          <div class="triad">
+            <span class="k k-teal"><svg class="ic-sm" aria-hidden="true"><use href="#ic-clock"/></svg></span>
+            <p class="h3">What Arthur is preparing</p>
+          </div>
+          <p class="sm">
+            A short note on 16 August at 8:10 am, because that is the date Ray gave. Drafted, not
+            sent, and it will come to you first.
+          </p>
+          <div class="letter" style="margin-top:12px">
+            <p class="subj">Following up as promised, Vivion Rd</p>
+            <p>
+              Mr Pfannenstiel, you asked me to come back after the 15th about the Vivion Rd
+              building. Nothing has changed on our side; we are still buying in the Northland and
+              still interested.
+            </p>
+          </div>
+          <div class="row-flex" style="margin-top:14px">
+            <button class="btn btn-secondary btn-sm">Read the whole draft</button>
+            <button class="btn btn-ghost btn-sm">Change the timing</button>
+          </div>
+        </article>
+
+        <article class="card card-pad">
+          <div class="triad">
+            <span class="k k-muted"><svg class="ic-sm" aria-hidden="true"><use href="#ic-check"/></svg></span>
+            <p class="h3">What is waiting on you</p>
+          </div>
+          <p class="sm">
+            Nothing on this one. If any of the detail below is wrong, fix it and Arthur will use
+            your version from his next run.
+          </p>
+        </article>
+
+        <article class="card card-pad">
+          <div class="triad">
+            <span class="k k-muted"><svg class="ic-sm" aria-hidden="true"><use href="#ic-shield"/></svg></span>
+            <p class="h3">What Arthur already did</p>
+          </div>
+          <ul class="log" style="margin-top:14px">
+            <li>
+              <span class="mk act" aria-hidden="true"></span>
+              <p class="when">Tue 22 Jul, 4:41 pm</p>
+              <p class="what">
+                <b>Answered Ray and moved him to warm.</b> Told him we would come back after the
+                15th and left the door open on the Vivion Rd building specifically.
+              </p>
+            </li>
+            <li>
+              <span class="mk act" aria-hidden="true"></span>
+              <p class="when">Tue 22 Jul, 4:18 pm</p>
+              <p class="what">
+                <b>Ray wrote back.</b>
+                <span class="quote">"Not selling this year, but call me after the 15th and we can
+                talk about the Vivion Rd building."</span>
+              </p>
+            </li>
+            <li>
+              <span class="mk act" aria-hidden="true"></span>
+              <p class="when">Mon 21 Jul, 8:10 am</p>
+              <p class="what">
+                <b>Sent the day 3 follow up.</b> Delivered and opened twice.
+              </p>
+            </li>
+            <li>
+              <span class="mk act" aria-hidden="true"></span>
+              <p class="when">Fri 18 Jul, 8:10 am</p>
+              <p class="what">
+                <b>Sent the first letter</b> from casey@litseycre.com, after you accepted it on
+                17 July.
+              </p>
+            </li>
+            <li>
+              <span class="mk" aria-hidden="true"></span>
+              <p class="when">Mon 14 Jul, 7:04 am</p>
+              <p class="what">
+                <b>Sourced and researched the property.</b>
+                <span class="xs" style="display:block;margin-top:6px">
+                  Looked at: Clay County parcel record<span class="sep">·</span>Missouri Secretary of
+                  State entity filing<span class="sep">·</span>recorded deed history<span class="sep">·</span>USPS
+                  address check
+                </span>
+              </p>
+            </li>
+          </ul>
+        </article>
+
+        <article class="card card-pad">
+          <p class="h3">Anything he got wrong</p>
+          <p class="sm" style="margin-top:6px;max-width:64ch">
+            A correction is a message to Arthur, not an edit to a database. He reads it, confirms
+            it, and it changes how he works this record and the ones like it.
+          </p>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px">
+            <div>
+              <label class="field-label" for="rec-email">Email we write to</label>
+              <input class="field" id="rec-email" type="email" value="ray@pfannenstielholdings.com">
+              <p class="field-help">You changed this on 24 July. Arthur has used it since.</p>
+            </div>
+            <div>
+              <label class="field-label" for="rec-phone">Phone</label>
+              <input class="field" id="rec-phone" type="text" value="816 555 0184">
+              <p class="field-help">Arthur found this on the entity filing, 14 July.</p>
+            </div>
+          </div>
+          <div class="row-flex" style="margin-top:18px">
+            <button class="btn btn-primary">Save the correction</button>
+            <button class="btn btn-secondary">Not a fit, tell Arthur why</button>
+          </div>
+        </article>
+      </div>
+
+      <aside class="stack-4">
+        <div class="card card-pad">
+          <p class="eyebrow-n">The property</p>
+          <div class="deflist" style="margin-top:12px">
+            <div><dt>Units</dt><dd>38</dd></div>
+            <div><dt>Built</dt><dd>1968</dd></div>
+            <div><dt>Stories</dt><dd>3</dd></div>
+            <div><dt>Parcel</dt><dd>09-812-04-16-00-0-00-000</dd></div>
+            <div><dt>County</dt><dd class="w">Clay, MO</dd></div>
+            <div><dt>Owned since</dt><dd>Mar 2007</dd></div>
+            <div><dt>Loan matures</dt><dd>Mar 2027</dd></div>
+            <div><dt>Scenario</dt><dd class="w"><span class="tag">Off market</span></dd></div>
+          </div>
+        </div>
+
+        <div class="card card-pad">
+          <p class="eyebrow-n">Reaching him</p>
+          <div class="deflist" style="margin-top:12px">
+            <div style="display:block"><dt>Email</dt><dd class="w" style="font-size:12.5px;text-align:left;margin-top:2px">ray@pfannenstielholdings.com</dd></div>
+            <div><dt>Phone</dt><dd>816 555 0184</dd></div>
+            <div><dt>Mail</dt><dd class="w" style="font-size:12.5px">PO Box 4411, Liberty MO</dd></div>
+          </div>
+          <p class="field-help" style="margin-top:12px">
+            3 emails delivered, 1 reply, none bounced.
+            <a class="btn-link" href="/agents/arthur/threads/pfannenstiel">Read the thread</a>
+          </p>
+        </div>
+
+        <div class="card card-pad">
+          <p class="eyebrow-n">Where this came from</p>
+          <p class="field-help" style="margin-top:10px">
+            Logged by Arthur on 14 July. Last updated by Arthur on 22 July. Email corrected by you
+            on 24 July.
+          </p>
+        </div>
+      </aside>
+    </div>
+
+  </div>
+  </main>
+</div>
+</div>
+
+<p class="note">
+  <b>The scaffold is the same one every screen uses.</b> Page head, then content, then an optional
+  300px rail of facts. HubSpot gets one record template right and reuses it for contacts, companies
+  and deals; ours is header, three oversight blocks, correction, facts rail. Anyone building the
+  next surface copies this file and changes the middle.
+</p>
+
+<!-- ==================== 6 · THE AGENT'S FILE ==================== -->
+<div class="cap">
+  <h2>The agent's file</h2>
+  <span class="badge">/agents/arthur</span>
+  <p>
+    Not a settings dump with a "Back to overview" link on it. One page, with an index to its own
+    sections. The anchors stay anchors: they are what agent emails already link to, and what the
+    rail was wrong to carry as if they were destinations. Nothing here is a second copy of the
+    rail.
+  </p>
+</div>
+
+<div class="frame-scroll">
+<div class="shell" data-shell data-rail="agent" data-crumbs="Home>/|Arthur">
+  <main class="content">
+  <div class="wrap">
+
+    <div class="pagehead">
+      <div>
+        <div class="row-flex" style="gap:10px">
+          <h1 class="h1">Arthur</h1>
+          <span class="pill pill-emerald">Working</span>
+        </div>
+        <p class="pagesub">
+          Off market multifamily sourcing for Litsey Real Estate. Started 9 June 2026.
+        </p>
+      </div>
+      <button class="btn btn-secondary" style="flex:none">Pause Arthur</button>
+    </div>
+
+    <nav class="secindex" style="margin-bottom:24px" aria-label="Sections on this page">
+      <span class="secindex-l">On this page</span>
+      <a class="sec" href="#settings">How he works</a>
+      <a class="sec" href="#communication">Communication</a>
+      <a class="sec" href="#knowledge">Knowledge</a>
+    </nav>
+
+    <div class="split">
+      <div class="stack-4">
+        <article class="card card-pad">
+          <p class="eyebrow-n">Right now</p>
+          <p class="h2" style="margin-top:8px">
+            Waiting on you for three drafts, and re-checking the book every morning.
+          </p>
+          <ul class="log" style="margin-top:18px">
+            <li>
+              <span class="mk act" aria-hidden="true"></span>
+              <p class="when">41 minutes ago</p>
+              <p class="what">
+                <b>Finished his morning run.</b> Re-checked all 15 properties against county
+                records, found nothing new, and logged the run.
+              </p>
+            </li>
+            <li>
+              <span class="mk warn" aria-hidden="true"></span>
+              <p class="when">Stopped Sunday, 8:04 pm</p>
+              <p class="what">
+                <b>Six drafts are sitting with you.</b> He will not send any of them without a
+                decision.
+                <a class="btn-link" href="/approvals/monday-28-jul">Open the batch</a>
+              </p>
+            </li>
+            <li>
+              <span class="mk" aria-hidden="true"></span>
+              <p class="when">Monday, 8:00 am</p>
+              <p class="what">
+                <b>Next run.</b> Sourcing 8 to 12 new owners in the Northland, then day 7 follow ups
+                for anyone who has gone quiet.
+              </p>
+            </li>
+          </ul>
+        </article>
+
+        <article class="card card-pad">
+          <div class="between">
+            <p class="h3">What he can reach</p>
+            <a class="btn-link" href="/agents/arthur/tools">Open Tools</a>
+          </div>
+          <div class="deflist" style="margin-top:14px">
+            <div>
+              <dt style="color:var(--text)">Your email, casey@litseycre.com</dt>
+              <dd class="w"><span class="pill pill-emerald">Connected</span></dd>
+            </div>
+            <div>
+              <dt style="color:var(--text)">Your off market sheet</dt>
+              <dd class="w"><span class="pill pill-emerald">Connected</span></dd>
+            </div>
+            <div>
+              <dt style="color:var(--text)">County parcel records</dt>
+              <dd class="w"><span class="pill pill-emerald">Connected</span></dd>
+            </div>
+            <div>
+              <dt style="color:var(--text)">Your CRM</dt>
+              <dd class="w"><span class="pill pill-amber">Needs your sign in</span></dd>
+            </div>
+          </div>
+          <p class="field-help" style="margin-top:12px">
+            Until the CRM is connected Arthur keeps the record here and you can export it. Once it
+            is connected he writes to yours and stops keeping two.
+          </p>
+        </article>
+
+        <!-- id="settings" is the anchor the rail used to point at and the one
+             agent emails already link to. It stays an anchor on this page. -->
+        <article class="card card-pad" id="settings">
+          <h2 class="h3">How he works</h2>
+          <p class="sm" style="margin-top:8px;max-width:64ch">
+            Arthur is supervised, which means he researches, drafts and follows up on his own, and
+            stops before anything leaves in your name. When he is not sure, he asks rather than
+            guessing, and the question lands on your desk with what he would do if you said yes.
+          </p>
+          <div class="deflist" style="margin-top:14px">
+            <div><dt>Letters a day, at most</dt><dd>8</dd></div>
+            <div><dt>Follows up after</dt><dd>3 days, then 7</dd></div>
+            <div><dt>Sends without asking</dt><dd class="w"><span class="pill pill-muted">Never</span></dd></div>
+          </div>
+          <div class="row-flex" style="margin-top:14px">
+            <button class="btn btn-secondary btn-sm">Change these</button>
+            <a class="btn btn-ghost btn-sm" href="/agents/arthur/chat">Ask him something</a>
+          </div>
+        </article>
+      </div>
+
+      <aside class="stack-4">
+        <div class="card card-pad">
+          <p class="eyebrow-n">At a glance</p>
+          <div class="deflist" style="margin-top:12px">
+            <div><dt>Writes from</dt><dd style="font-size:11.5px">arthur@ambitt.agency</dd></div>
+            <div><dt>Sends as</dt><dd style="font-size:11.5px">casey@litseycre.com</dd></div>
+            <div><dt>Runs</dt><dd class="w">Mon and Thu, 8:00 am</dd></div>
+            <div><dt>Time zone</dt><dd class="w">America/Chicago</dd></div>
+            <div><dt>Autonomy</dt><dd class="w">Supervised</dd></div>
+            <div><dt>Stops itself</dt><dd class="w">Standard</dd></div>
+          </div>
+        </div>
+
+        <div class="card card-pad">
+          <p class="eyebrow-n">Since he started</p>
+          <div class="deflist" style="margin-top:12px">
+            <div><dt>Owners researched</dt><dd>64</dd></div>
+            <div><dt>Letters sent</dt><dd>41</dd></div>
+            <div><dt>Replies handled</dt><dd>11</dd></div>
+            <div><dt>Moved to warm</dt><dd>3</dd></div>
+          </div>
+          <a class="btn-link" style="display:inline-block;margin-top:12px" href="/agents/arthur/results">See the 15 he is working</a>
+        </div>
+      </aside>
+    </div>
+
+  </div>
+  </main>
+</div>
+</div>
+
+<!-- ==================== 7 · COMMUNICATION ==================== -->
+<div class="cap">
+  <h2>Communication</h2>
+  <span class="badge">/agents/arthur#communication</span>
+  <p>
+    The same agent page, opened at a section. An earlier pass made this a route behind a tab
+    strip, which the IA spec bans twice, and which would have stranded every
+    <span class="mono xs">#communication</span> link already sitting in a client's inbox. What was
+    actually wrong was the anchor being in the <em>rail</em>, pretending to be a destination. It
+    is a section index on the page now: the hash is set with replace, so back does not walk
+    through anchors, and the breadcrumb stays <span class="mono xs">Home / Arthur</span> because
+    that is where you are.
+  </p>
+</div>
+
+<div class="frame-scroll">
+<div class="shell" data-shell data-rail="agent" data-crumbs="Home>/|Arthur">
+  <main class="content">
+  <div class="wrap">
+
+    <div class="pagehead">
+      <div>
+        <h1 class="h1">Arthur</h1>
+        <p class="pagesub">
+          Off market multifamily sourcing for Litsey Real Estate. Started 9 June 2026.
+        </p>
+      </div>
+      <button class="btn btn-secondary" style="flex:none">Send yourself a test</button>
+    </div>
+
+    <nav class="secindex" style="margin-bottom:24px" aria-label="Sections on this page">
+      <span class="secindex-l">On this page</span>
+      <a class="sec" href="#settings">How he works</a>
+      <span class="sec-now" aria-current="true">Communication</span>
+      <a class="sec" href="#knowledge">Knowledge</a>
+    </nav>
+
+    <h2 class="h2" id="communication" style="margin-bottom:6px">Communication</h2>
+    <p class="pagesub" style="margin-bottom:20px">
+      Who can reach Arthur, what he signs off as, and who gets a copy. He never changes any of
+      this on his own.
+    </p>
+
+    <div class="split">
+      <div class="stack-4">
+
+        <article class="card card-pad">
+          <div class="between" style="align-items:flex-start">
+            <div>
+              <p class="h3">Who can write to him</p>
+              <p class="sm3" style="margin-top:4px">
+                Mail from anyone else is dropped before he reads it, and we tell you it happened.
+              </p>
+            </div>
+            <button type="button" class="tog on" role="switch" aria-checked="true" aria-label="Only these addresses"></button>
+          </div>
+          <div class="deflist" style="margin-top:16px">
+            <div>
+              <dt style="color:var(--text)">casey@litseycre.com</dt>
+              <dd class="w"><span class="pill pill-muted">You</span></dd>
+            </div>
+            <div>
+              <dt style="color:var(--text)">tanya@litseycre.com</dt>
+              <dd class="w"><button class="btn-link">Remove</button></dd>
+            </div>
+          </div>
+          <div class="row-flex" style="margin-top:16px;gap:8px">
+            <input class="field" style="max-width:280px" type="email" placeholder="name@company.com" aria-label="Add an address">
+            <button class="btn btn-secondary">Add</button>
+          </div>
+          <p class="field-help">
+            Two addresses were turned away last month, both from a mailing list. Neither reached
+            Arthur and neither counted against your plan.
+          </p>
+        </article>
+
+        <article class="card card-pad">
+          <p class="h3">What he sends as</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:14px">
+            <div>
+              <label class="field-label" for="fromname">From name</label>
+              <input class="field" id="fromname" type="text" value="Casey Litsey">
+            </div>
+            <div>
+              <label class="field-label" for="replyto">Replies go to</label>
+              <input class="field" id="replyto" type="email" value="casey@litseycre.com">
+            </div>
+          </div>
+          <div style="margin-top:16px">
+            <label class="field-label" for="sig">Sign off</label>
+            <textarea class="field" id="sig" rows="4">Casey Litsey
+Litsey Real Estate
+816 555 0142
+litseycre.com</textarea>
+            <p class="field-help">
+              This is what an owner sees at the bottom of every letter. Arthur never adds anything
+              to it and never mentions us.
+            </p>
+          </div>
+        </article>
+
+        <article class="card card-pad">
+          <div class="between" style="align-items:flex-start">
+            <div>
+              <p class="h3">Who else gets a copy</p>
+              <p class="sm3" style="margin-top:4px">Blind copied on everything he sends in your name.</p>
+            </div>
+            <button type="button" class="tog on" role="switch" aria-checked="true" aria-label="Blind copy"></button>
+          </div>
+          <input class="field" style="margin-top:14px;max-width:340px" type="email" value="litsey@dropbox.crm.example">
+          <p class="field-help">Your CRM inbox, so every letter files itself against the right owner.</p>
+        </article>
+
+        <article class="card card-pad">
+          <div class="between" style="align-items:flex-start">
+            <div>
+              <p class="h3">Login codes</p>
+              <p class="sm3" style="margin-top:4px">
+                When a county site asks for a code, Arthur texts you and waits. He never stores one.
+              </p>
+            </div>
+            <button type="button" class="tog on" role="switch" aria-checked="true" aria-label="Login code relay"></button>
+          </div>
+          <div class="deflist" style="margin-top:14px">
+            <div><dt>Texts</dt><dd>816 555 0142</dd></div>
+            <div><dt>Waits</dt><dd class="w">Up to 10 minutes, then stops</dd></div>
+            <div><dt>Last used</dt><dd class="w">17 July, Clay County</dd></div>
+          </div>
+        </article>
+
+        <div class="row-flex">
+          <button class="btn btn-primary">Save changes</button>
+          <button class="btn btn-ghost">Discard</button>
+        </div>
+      </div>
+
+      <aside class="stack-4">
+        <div class="card card-pad">
+          <p class="eyebrow-n">What an owner sees</p>
+          <div class="letter" style="margin-top:12px;font-size:13px">
+            <p style="color:var(--text-3);font-size:11.5px" class="mono">From: Casey Litsey</p>
+            <p style="color:var(--text-3);font-size:11.5px" class="mono">casey@litseycre.com</p>
+            <p style="margin-top:12px">
+              ...if you ever put a number on it, I would like to be the call you make.
+            </p>
+            <p style="margin-top:12px">
+              Casey Litsey<br>Litsey Real Estate<br>816 555 0142<br>litseycre.com
+            </p>
+          </div>
+          <p class="field-help" style="margin-top:12px">
+            No footer, no badge, nothing that says a machine wrote it. It is your letter.
+          </p>
+        </div>
+
+        <div class="card card-pad">
+          <p class="eyebrow-n">Delivery, last 30 days</p>
+          <div class="deflist" style="margin-top:12px">
+            <div><dt>Delivered</dt><dd>41</dd></div>
+            <div><dt>Opened</dt><dd>28</dd></div>
+            <div><dt>Replied</dt><dd>11</dd></div>
+            <div><dt>Bounced</dt><dd class="w">None</dd></div>
+          </div>
+          <a class="btn-link" style="display:inline-block;margin-top:12px" href="/agents/arthur/threads">See the threads</a>
+        </div>
+      </aside>
+    </div>
+
+  </div>
+  </main>
+</div>
+</div>
+
+<!-- ==================== 8 · KNOWLEDGE ==================== -->
+<div class="cap">
+  <h2>Knowledge</h2>
+  <span class="badge">/agents/arthur#knowledge</span>
+  <p>
+    What he was given, what he worked out from you, and what he still does not know. The last one
+    is the interesting column: an agent that names its own gap is an agent you can trust with the
+    rest.
+  </p>
+</div>
+
+<div class="frame-scroll">
+<div class="shell" data-shell data-rail="agent" data-crumbs="Home>/|Arthur">
+  <main class="content">
+  <div class="wrap">
+
+    <div class="pagehead">
+      <div>
+        <h1 class="h1">Arthur</h1>
+        <p class="pagesub">
+          Off market multifamily sourcing for Litsey Real Estate. Started 9 June 2026.
+        </p>
+      </div>
+    </div>
+
+    <nav class="secindex" style="margin-bottom:24px" aria-label="Sections on this page">
+      <span class="secindex-l">On this page</span>
+      <a class="sec" href="#settings">How he works</a>
+      <a class="sec" href="#communication">Communication</a>
+      <span class="sec-now" aria-current="true">Knowledge</span>
+    </nav>
+
+    <h2 class="h2" id="knowledge" style="margin-bottom:6px">Knowledge</h2>
+    <p class="pagesub" style="margin-bottom:20px">
+      Everything Arthur works from. Send a file to arthur@ambitt.agency with DOCS in the
+      subject and it lands here.
+    </p>
+
+    <div class="split">
+      <div class="stack-4">
+        <article class="card">
+          <div class="card-pad" style="padding-bottom:8px">
+            <p class="h3">What you gave him</p>
+          </div>
+          <div class="rows" style="box-shadow:none;border-radius:0">
+            <div class="rec">
+              <div class="rec-t">
+                <span class="rec-n" style="font-size:15px">Litsey buy box, 2026</span>
+                <span style="margin-left:auto" class="xs mono">PDF<span class="sep">·</span>9 Jun</span>
+              </div>
+              <p class="rec-p">
+                Unit count, vintage, submarket and hold period. This is what he screens against
+                before he researches anything.
+              </p>
+              <p class="xs" style="margin-top:6px">Used in every run since 9 June</p>
+            </div>
+            <div class="rec">
+              <div class="rec-t">
+                <span class="rec-n" style="font-size:15px">Off market target list</span>
+                <span style="margin-left:auto" class="xs mono">XLSX<span class="sep">·</span>9 Jun</span>
+              </div>
+              <p class="rec-p">240 rows you had already gathered. He verified 64 of them so far.</p>
+              <p class="xs" style="margin-top:6px">Last read this morning</p>
+            </div>
+            <div class="rec">
+              <div class="rec-t">
+                <span class="rec-n" style="font-size:15px">How we talk to owners</span>
+                <span style="margin-left:auto" class="xs mono">DOCX<span class="sep">·</span>14 Jun</span>
+              </div>
+              <p class="rec-p">
+                Your two page note on tone. It is why the letters are short and never mention a
+                cap rate in the first touch.
+              </p>
+              <p class="xs" style="margin-top:6px">Used in every draft</p>
+            </div>
+            <div class="rec">
+              <div class="rec-t">
+                <span class="rec-n" style="font-size:15px">Kansas City submarket map</span>
+                <span style="margin-left:auto" class="xs mono">PDF<span class="sep">·</span>2 Jul</span>
+              </div>
+              <p class="rec-p">Your definition of the Northland, which does not match the county's.</p>
+              <p class="xs" style="margin-top:6px">Used in 9 runs</p>
+            </div>
+          </div>
+        </article>
+
+        <article class="card card-pad">
+          <p class="h3">What he worked out from you</p>
+          <p class="sm3" style="margin-top:4px">
+            Written by Arthur from things you said. Remove any of it and he stops applying it.
+          </p>
+          <ul class="stack-3" style="margin-top:16px">
+            <li class="wash" style="padding:14px 16px">
+              <div class="between" style="align-items:flex-start">
+                <p class="sm" style="max-width:56ch">
+                  Casey does not want a cap rate or a price in a first letter. He said it makes the
+                  owner think you are shopping them.
+                </p>
+                <button class="btn-link" style="flex:none">Remove</button>
+              </div>
+              <p class="xs mono" style="margin-top:8px">From your reply, 14 June</p>
+            </li>
+            <li class="wash" style="padding:14px 16px">
+              <div class="between" style="align-items:flex-start">
+                <p class="sm" style="max-width:56ch">
+                  Owners who have held longer than fifteen years reply about four times as often, so
+                  hold period is worth more than unit count when I choose who to write to.
+                </p>
+                <button class="btn-link" style="flex:none">Remove</button>
+              </div>
+              <p class="xs mono" style="margin-top:8px">Worked out from 41 letters, 3 July</p>
+            </li>
+            <li class="wash" style="padding:14px 16px">
+              <div class="between" style="align-items:flex-start">
+                <p class="sm" style="max-width:56ch">
+                  Bernadette Okafor said no on Riverbend Lofts and asked not to be contacted again.
+                  She is off the list for good.
+                </p>
+                <button class="btn-link" style="flex:none">Remove</button>
+              </div>
+              <p class="xs mono" style="margin-top:8px">From her reply, 24 July</p>
+            </li>
+          </ul>
+        </article>
+      </div>
+
+      <aside class="stack-4">
+        <div class="card card-pad" style="box-shadow:0 0 0 1px rgba(163,74,7,.22),var(--e2)">
+          <div class="triad">
+            <span class="k k-amber"><svg class="ic-sm" aria-hidden="true"><use href="#ic-warn"/></svg></span>
+            <p class="h3">What he still does not know</p>
+          </div>
+          <p class="sm">
+            Nobody has told him how to handle a property that is already listed with another
+            broker. He is holding Hillcrest Manor until you do.
+          </p>
+          <a class="btn btn-primary btn-sm" style="margin-top:14px" href="/approvals/hillcrest-rule">Tell him now</a>
+        </div>
+
+        <div class="card card-pad">
+          <p class="eyebrow-n">Adding to this</p>
+          <p class="sm" style="margin-top:8px">
+            Email arthur@ambitt.agency with <span class="mono" style="font-size:12.5px">DOCS</span>
+            in the subject and attach anything: a spreadsheet, a scan, a note you dictated. He reads
+            it, tells you what he took from it, and it shows up here.
+          </p>
+          <p class="field-help" style="margin-top:10px">
+            PDF, Word, plain text and spreadsheets. Nothing you send is used for anyone else.
+          </p>
+        </div>
+      </aside>
+    </div>
+
+  </div>
+  </main>
+</div>
+</div>
+
+<p class="note">
+  <b>Settings is the fourth route</b> and it holds the schedule, the autonomy mode, how readily he
+  stops himself, what this surface is called for this agent, and pausing. It is left out of this
+  file only for length; it uses the same page scaffold as the three above, which is the point of
+  having one scaffold.
+</p>
+
+<!-- ==================== 9 · EMPTY STATES ==================== -->
+<div class="cap">
+  <h2>Week one, before there is anything to show</h2>
+  <span class="badge">/agents/arthur/results</span>
+  <p>
+    Results is not in the rail yet, because Arthur has not logged a property. Casey got here from a
+    link in his welcome email, so the route still renders, and it renders something worth reading
+    rather than a 404 or an empty table. Nothing on this page is a zero: a zero is not a metric, it
+    is an absence with a number painted on it.
+  </p>
+</div>
+
+<div class="frame-scroll">
+<div class="shell" data-shell data-rail="results" data-waiting="0" data-hide="results,threads"
+     data-agent-state="Getting set up. First run Mon 8:00 am" data-agent-tone="blue"
+     data-crumbs="Home>/|Arthur>/agents/arthur|Results">
+  <main class="content">
+  <div class="wrap">
+
+    <div class="pagehead">
+      <div>
+        <h1 class="h1">Results</h1>
+        <p class="pagesub">Everything Arthur finds and works will land here.</p>
+      </div>
+    </div>
+
+    <article class="card card-pad" style="padding:32px">
+      <div class="empty">
+        <span class="mark"><svg class="ic-lg" aria-hidden="true"><use href="#ic-results"/></svg></span>
+        <p class="h2">Arthur has not logged a property yet.</p>
+        <p class="sm" style="margin-top:10px">
+          His first sourcing run is Monday at 8:00 am, Kansas City time. He will work through your
+          off market target list, verify each owner against the county record, and write up the
+          ones that clear your buy box. You will get an email the moment there is something to
+          look at, so you do not have to come back here to find out.
+        </p>
+        <div class="row-flex" style="margin-top:20px">
+          <a class="btn btn-primary" href="/agents/arthur/tools">Finish connecting your CRM</a>
+          <a class="btn btn-ghost" href="/agents/arthur">See how he is set up</a>
+        </div>
+      </div>
+      <hr class="hairline" style="margin:28px 0">
+      <p class="eyebrow-n">What a row will look like</p>
+      <div class="rows" style="margin-top:12px;box-shadow:none;background:var(--surface-2)">
+        <div class="rec" style="opacity:.62">
+          <div class="rec-t">
+            <span class="rec-n">Owner name</span><span class="rec-e">The entity that holds it</span>
+            <span style="margin-left:auto"><span class="tag">Off market</span></span>
+          </div>
+          <p class="rec-p">Property, street address, city</p>
+          <div class="facts" style="margin-top:6px">
+            <span>units</span><span class="sep">·</span><span>year built</span><span class="sep">·</span><span>years held</span>
+          </div>
+          <p class="rec-next">What Arthur is doing about it next, and when</p>
+        </div>
+      </div>
+    </article>
+
+  </div>
+  </main>
+</div>
+</div>
+
+<p class="note">
+  <b>A destination that can only ever be empty should not be in the rail</b>, and a destination
+  that is empty today should still answer the door. Those are two different rules and the portal
+  needs both: hiding the item keeps the rail honest, rendering the route keeps every link we have
+  ever emailed alive.
+</p>
+
+<!-- ==================== 10 · STOPPED ==================== -->
+<div class="cap">
+  <h2>When he is stopped</h2>
+  <span class="badge">/</span>
+  <p>
+    This is Arthur's real state today: we halted him on 11 July and he has not run since. Every
+    other frame in this file draws a green dot and "Working", which is the one thing the desk must
+    never say when it is not true. The product's whole claim is supervision you can see.
+  </p>
+  <p style="margin-top:10px">
+    Who stopped him decides what the client can do about it, and the portal already enforces this
+    at <span class="mono xs">api/agents/[id]/resume</span>: a client may lift their own pause and
+    may not lift ours. So there are two versions of this screen. Drawn here is the one where we
+    stopped him, which offers no Resume button at all, because a button that returns 403 is worse
+    than no button. When the client stopped him it is the same layout with a Resume control and
+    without the note about us.
+  </p>
+</div>
+
+<div class="frame-scroll">
+<div class="shell" data-shell data-rail="desk" data-waiting="0" data-ctx="Litsey Real Estate"
+     data-agent-state="Stopped by us since 11 July" data-agent-tone="muted">
+  <main class="content">
+  <div class="wrap" style="padding-bottom:32px">
+
+    <div class="pagehead">
+      <div>
+        <div class="row-flex" style="gap:10px">
+          <h1 class="h1">Arthur is stopped.</h1>
+          <span class="pill pill-muted">Stopped</span>
+        </div>
+        <p class="pagesub">
+          We stopped him on 11 July while we fix something on our side. He has not sourced,
+          drafted or sent anything since, and he will not until we start him again.
+        </p>
+      </div>
+    </div>
+
+    <div class="split">
+      <div class="stack-4">
+        <article class="card card-pad">
+          <h2 class="h3">What this means for your book</h2>
+          <p class="sm" style="margin-top:8px;max-width:64ch">
+            Nothing has gone out in your name, and nothing was lost. The fifteen properties he was
+            working are exactly as he left them, and the three owners who had replied are still
+            sitting in Threads waiting for you.
+          </p>
+          <div class="deflist" style="margin-top:14px">
+            <div><dt>Letters sent since he stopped</dt><dd>None</dd></div>
+            <div><dt>Drafts held back</dt><dd>6</dd></div>
+            <div><dt>Follow ups he has not sent</dt><dd>4</dd></div>
+          </div>
+          <div class="row-flex" style="margin-top:14px">
+            <a class="btn btn-secondary btn-sm" href="/agents/arthur/results">See where he left off</a>
+          </div>
+        </article>
+
+        <article class="card card-pad">
+          <p class="eyebrow-n">Since he stopped</p>
+          <ul class="log" style="margin-top:14px">
+            <li>
+              <span class="mk warn" aria-hidden="true"></span>
+              <p class="when">Sat 11 Jul, 2:12 pm</p>
+              <p class="what">
+                <b>We stopped him.</b> He acknowledged an instruction while he was already
+                stopped, which is not behaviour we ship. He stays off until that is fixed and
+                tested.
+              </p>
+            </li>
+            <li>
+              <span class="mk" aria-hidden="true"></span>
+              <p class="when">Sat 11 Jul, 2:12 pm</p>
+              <p class="what">
+                <b>Six drafts were held.</b> They are still held. Nothing was sent and nothing was
+                deleted.
+              </p>
+            </li>
+          </ul>
+        </article>
+      </div>
+
+      <aside class="stack-4">
+        <!-- No Resume control. A client cannot lift an operator hold, the API
+             returns 403, and a button that always fails is a worse answer than
+             an honest sentence. -->
+        <article class="card card-pad">
+          <h2 class="h3">Starting him again</h2>
+          <p class="sm" style="margin-top:8px">
+            This one is on us, so it is not a switch you can flip. We will start him and email you
+            the moment he is back. If you want him held longer than that, say so and we will keep
+            him off.
+          </p>
+          <div class="row-flex" style="margin-top:14px">
+            <a class="btn btn-secondary btn-sm" href="/agents/arthur/chat">Ask about this</a>
+          </div>
+          <p class="field-help" style="margin-top:12px">
+            Expected back this week. If that slips we will tell you before you have to ask.
+          </p>
+        </article>
+
+        <article class="card card-pad">
+          <p class="eyebrow-n">This month</p>
+          <p class="sm" style="margin-top:8px">
+            Growth plan, renews 12 August.
+          </p>
+        </article>
+      </aside>
+    </div>
+
+  </div>
+  </main>
+</div>
+</div>
+
+<!-- ==================== 11 · NOTHING WAITING + NOT FOUND ==================== -->
+<div class="cap">
+  <h2>Nothing waiting, and a page that is not there</h2>
+  <span class="badge">/approvals</span>
+  <span class="badge">404</span>
+  <p>
+    An empty queue is a good state and should read like one. A dead end is a navigation bug, so
+    the 404 keeps the rail, keeps the breadcrumb, says what happened, why, and what to do, and
+    never leaves the client on a page with no way out.
+  </p>
+</div>
+
+<div class="frame-scroll">
+<div class="shell" data-shell data-rail="approvals" data-waiting="0" data-ctx="Litsey Real Estate">
+  <main class="content">
+  <div class="wrap" style="padding-bottom:32px">
+    <div class="pagehead">
+      <div>
+        <h1 class="h1">Approvals</h1>
+        <p class="pagesub">Everything Arthur has stopped for, and everything you have already decided.</p>
+      </div>
+    </div>
+    <article class="card card-pad" style="padding:32px">
+      <div class="empty">
+        <span class="mark"><svg class="ic-lg" aria-hidden="true"><use href="#ic-check"/></svg></span>
+        <p class="h2">Nothing is waiting on you.</p>
+        <p class="sm" style="margin-top:10px">
+          Arthur's next batch lands Monday at 8:00 am and he will email you when it is ready. If
+          something needs a decision before then, it shows up here and on your desk at the same
+          time.
+        </p>
+      </div>
+    </article>
+
+    <p class="eyebrow-n" style="margin:28px 0 10px">Decided this week</p>
+    <div class="rows">
+      <div class="rec" style="cursor:default">
+        <div class="rec-t">
+          <span class="rec-n">Monday outreach batch</span>
+          <span class="rec-e">6 drafts</span>
+          <span style="margin-left:auto"><span class="pill pill-emerald">Decided</span></span>
+        </div>
+        <p class="rec-p">
+          4 accepted, 1 edited, 1 skipped. The four go out Monday at 8:10 am.
+        </p>
+        <div class="row-flex" style="margin-top:10px">
+          <button class="btn btn-secondary btn-sm">
+            <svg class="ic-sm" aria-hidden="true"><use href="#ic-undo"/></svg>Pull them back
+          </button>
+          <a class="btn-link" href="/approvals/monday-28-jul">See what you decided</a>
+        </div>
+      </div>
+      <div class="rec" style="cursor:default">
+        <div class="rec-t">
+          <span class="rec-n">How to handle listed properties</span>
+          <span class="rec-e">A rule for Arthur</span>
+          <span style="margin-left:auto"><span class="pill pill-emerald">Decided</span></span>
+        </div>
+        <p class="rec-p">
+          You told him to leave anything already listed alone and flag it instead. He has applied
+          it to Hillcrest Manor and to everything he sources from here.
+        </p>
+      </div>
+    </div>
+  </div>
+  </main>
+</div>
+</div>
+
+<div class="frame-scroll" style="margin-top:24px">
+<div class="shell" data-shell data-rail="none" data-crumbs="Home>/|Not found">
+  <main class="content">
+  <div class="wrap" style="padding-bottom:40px">
+    <div class="empty" style="padding-top:24px">
+      <span class="mark" style="background:var(--amber-tint);color:var(--amber)">
+        <svg class="ic-lg" aria-hidden="true"><use href="#ic-warn"/></svg>
+      </span>
+      <h1 class="h1">This page is not here.</h1>
+      <p class="sm" style="margin-top:12px">
+        Either the link is old, or it points at something that belongs to a different account. We
+        check who owns a record on every single request, so a link forwarded from somebody else's
+        email lands exactly here.
+      </p>
+      <div class="row-flex" style="margin-top:22px">
+        <a class="btn btn-primary" href="/">Go to your desk</a>
+        <a class="btn btn-secondary" href="/agents/arthur/results">Arthur's results</a>
+      </div>
+      <p class="field-help" style="margin-top:18px">
+        If Arthur sent you this link, forward the email to
+        <span style="color:var(--brand-ink);font-weight:500">hello@ambitt.agency</span> and we will
+        fix it today.
+      </p>
+    </div>
+  </div>
+  </main>
+</div>
+</div>
+
+<p class="note">
+  <b>Three parts, always.</b> What happened, why it happened, what to do next. A generic retry
+  button is not enough for an agent product: when something goes wrong, the client is deciding
+  whether to trust the thing that did it, and a vague error reads exactly like an agent covering
+  for itself.
+</p>
+
+<!-- ==================== 12 · MOBILE ==================== -->
+<div class="cap">
+  <h2>390px, same routes, same URLs</h2>
+  <span class="badge">iPhone 15, 390 &times; 800</span>
+  <p>
+    No separate mobile information architecture. Emailed links land on phones more than laptops, so
+    a divergent structure means a link that works in one place and not the other. The rail becomes
+    a drawer; the breadcrumb stays visible on every screen at every width, because with the drawer
+    closed it is the only way up. The hamburger carries a dot when something is waiting.
+  </p>
+</div>
+
+<div class="phones">
+
+  <!-- M1 · desk -->
+  <div class="phone" data-phone data-rail="desk" data-ctx="Litsey Real Estate">
+    <div class="mwrap">
+      <h1 class="h1" style="font-size:21px">Arthur drafted six emails and <span class="teal">stopped</span>.</h1>
+      <p class="sm" style="margin-top:8px">
+        He wrote them Sunday night. Nothing has gone anywhere and nothing will until you say so.
+      </p>
+
+      <p class="eyebrow-n" style="margin:22px 0 10px">Waiting on you</p>
+      <article class="card waiting" style="padding:16px">
+        <div class="row-flex" style="gap:10px;align-items:flex-start;flex-wrap:nowrap">
+          <span class="key k-teal"><svg class="ic" aria-hidden="true"><use href="#ic-approvals"/></svg></span>
+          <div>
+            <p class="eyebrow-n">Drafted Sunday, 8:04 pm</p>
+            <h3 class="h3" style="margin-top:4px;font-size:17px">Monday outreach batch</h3>
+          </div>
+        </div>
+        <p class="sm3" style="margin-top:10px;font-size:13px">
+          6 owners<span class="sep">·</span>all off market<span class="sep">·</span>3 days waiting
+        </p>
+        <p class="said" style="font-size:13.5px">
+          Four Northland owners and two further south, all held longer than fifteen years. Worth
+          going out as a set.
+        </p>
+        <a class="btn btn-primary" style="margin-top:14px;width:100%" href="/approvals/monday-28-jul">Open the batch</a>
+      </article>
+
+      <article class="card waiting" style="padding:16px;margin-top:10px">
+        <div class="row-flex" style="gap:10px;align-items:flex-start;flex-wrap:nowrap">
+          <span class="key k-amber"><svg class="ic" aria-hidden="true"><use href="#ic-warn"/></svg></span>
+          <div>
+            <p class="eyebrow-n">Needs a rule from you</p>
+            <h3 class="h3" style="margin-top:4px;font-size:17px">Hillcrest Manor is listed with another broker</h3>
+          </div>
+        </div>
+        <p class="sm3" style="margin-top:10px;font-size:13px">
+          Gerald Vanderslice<span class="sep">·</span>Independence MO
+        </p>
+        <p class="said" style="font-size:13.5px">
+          I pulled it out of the batch and I have not touched the owner. Tell me once how you want
+          these handled.
+        </p>
+        <a class="btn btn-primary" style="margin-top:14px;width:100%" href="/approvals/hillcrest-rule">Tell Arthur</a>
+      </article>
+
+      <p class="eyebrow-n" style="margin:26px 0 10px">What Arthur did last week</p>
+      <div class="card" style="padding:4px 16px">
+        <div class="deflist">
+          <div><dt style="color:var(--text-2)">owners sourced and researched</dt><dd style="font-size:15px;color:var(--brand-ink);font-weight:500">9</dd></div>
+          <div><dt style="color:var(--text-2)">emails written and sent</dt><dd style="font-size:15px;color:var(--brand-ink);font-weight:500">12</dd></div>
+          <div><dt style="color:var(--text-2)">follow ups nudged</dt><dd style="font-size:15px;color:var(--brand-ink);font-weight:500">4</dd></div>
+          <div><dt style="color:var(--text-2)">replies read and answered</dt><dd style="font-size:15px;color:var(--brand-ink);font-weight:500">3</dd></div>
+          <div><dt style="color:var(--text-2)">owners moved to warm</dt><dd style="font-size:15px;color:var(--brand-ink);font-weight:500">1</dd></div>
+        </div>
+      </div>
+
+      <p class="eyebrow-n" style="margin:26px 0 12px">Since you last looked</p>
+      <ul class="log">
+        <li>
+          <span class="mk act" aria-hidden="true"></span>
+          <p class="when">Tue 4:18 pm</p>
+          <p class="what" style="font-size:13.5px">
+            <b>Ray Pfannenstiel wrote back</b> about Northgate Apartments.
+            <span class="quote">"Call me after the 15th and we can talk about the Vivion Rd
+            building."</span>
+            Arthur answered the same afternoon and moved Ray to warm.
+          </p>
+        </li>
+        <li>
+          <span class="mk warn" aria-hidden="true"></span>
+          <p class="when">Fri 9:00 am</p>
+          <p class="what" style="font-size:13.5px">
+            <b>Arthur nudged Alvina Ptacek</b> about Sunflower Gardens, 54 units. Day 7 goes out
+            this afternoon unless you tell him to leave it.
+          </p>
+        </li>
+        <li>
+          <span class="mk" aria-hidden="true"></span>
+          <p class="when">Thu 11:26 am</p>
+          <p class="what" style="font-size:13.5px">
+            <b>Bernadette Okafor said no</b> on Riverbend Lofts. Arthur thanked her and marked it
+            passed.
+          </p>
+        </li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- M2 · drawer -->
+  <div class="phone phone-static" data-phone data-rail="desk" data-drawer="1" data-ctx="Litsey Real Estate">
+    <div class="mwrap" aria-hidden="true">
+      <h1 class="h1" style="font-size:21px">Arthur drafted six emails and <span class="teal">stopped</span>.</h1>
+      <p class="sm" style="margin-top:8px">
+        He wrote them Sunday night. Nothing has gone anywhere and nothing will until you say so.
+      </p>
+      <p class="eyebrow-n" style="margin:22px 0 10px">Waiting on you</p>
+      <article class="card waiting" style="padding:16px">
+        <div class="row-flex" style="gap:10px;align-items:flex-start;flex-wrap:nowrap">
+          <span class="key k-teal"><svg class="ic" aria-hidden="true"><use href="#ic-approvals"/></svg></span>
+          <div>
+            <p class="eyebrow-n">Drafted Sunday, 8:04 pm</p>
+            <h3 class="h3" style="margin-top:4px;font-size:17px">Monday outreach batch</h3>
+          </div>
+        </div>
+      </article>
+    </div>
+  </div>
+
+  <!-- M3 · batch -->
+  <div class="phone" data-phone data-rail="approvals" data-crumbs="Home>/|Approvals>/approvals|Monday outreach batch">
+    <div class="mwrap" style="padding-bottom:16px">
+      <div class="pips" style="margin-bottom:12px">
+        <span class="pip done"></span><span class="pip done"></span><span class="pip done"></span>
+        <span class="pip now"></span><span class="pip"></span><span class="pip"></span>
+      </div>
+      <h1 class="h1" style="font-size:21px">Monday outreach batch</h1>
+      <p class="sm" style="margin-top:6px">
+        Six drafts, written Sunday at 8:04 pm. Three decided, three to read.
+      </p>
+
+      <div class="card" style="margin-top:16px">
+        <section class="draft">
+          <div class="draft-h" role="button" tabindex="0" aria-expanded="true" style="padding:14px">
+            <span class="idx">4</span>
+            <div style="flex:1;min-width:0">
+              <p class="rec-n">Duane Sedlacek</p>
+              <p class="rec-p" style="font-size:13px">Blue Ridge Crossing, Raytown MO</p>
+              <div class="facts" style="margin-top:5px">
+                <span>36 units</span><span class="sep">·</span><span>loan matures Nov 2026</span>
+              </div>
+            </div>
+          </div>
+          <div class="draft-b" style="padding:0 14px 14px">
+            <div class="letter" style="font-size:13.5px">
+              <p class="subj" style="font-size:14px">Blue Ridge Crossing, before the note comes due</p>
+              <p>
+                Mr Sedlacek, I broker small multifamily here in Kansas City. Your note on Blue Ridge
+                Crossing matures in November and rates are not what they were in 2016.
+              </p>
+              <p style="margin-top:8px">
+                If refinancing is the plan, ignore this. If a sale is on the table at all, I would
+                rather talk before you are up against the date.
+              </p>
+              <!-- The sign-off is not optional on a small screen. You cannot ask
+                   somebody to approve a letter going out over their name without
+                   showing them the name it goes out over. -->
+              <p style="margin-top:8px">Casey Litsey<br>Litsey Real Estate<br>816 555 0142</p>
+            </div>
+            <p class="field-help" style="margin-top:10px">
+              Goes from casey@litseycre.com, Monday at 8:10 am.
+            </p>
+            <div class="verbs" style="gap:6px;margin-top:10px">
+              <button class="btn btn-primary" style="flex:1">Accept</button>
+              <button class="btn btn-secondary" style="flex:1">Edit</button>
+              <button class="btn btn-secondary" style="flex:1">Respond</button>
+            </div>
+            <!-- Ignore is the one verb Arthur does not revisit, so it does not get
+                 to be the widest button on the screen directly under Accept. Rule
+                 held on desktop by .verbs .spacer; mobile had dropped it. -->
+            <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
+              <button class="btn btn-ghost btn-sm">Ignore this one</button>
+            </div>
+          </div>
+        </section>
+        <section class="draft">
+          <div class="draft-h" role="button" tabindex="0" aria-expanded="true" style="padding:14px">
+            <span class="idx ok"><svg style="width:13px;height:13px" aria-hidden="true"><use href="#ic-check"/></svg></span>
+            <div style="flex:1;min-width:0">
+              <p class="rec-n">Clyde Hemenway</p>
+              <p class="rec-p" style="font-size:13px">Shoal Creek Commons, Kansas City MO</p>
+              <div class="decided" style="font-size:13px">
+                <span><b>Accepted.</b> Goes out Monday at 8:10 am.
+                <button class="btn-link">Undo</button></span>
+              </div>
+            </div>
+          </div>
+        </section>
+        <section class="draft">
+          <div class="draft-h" role="button" tabindex="0" aria-expanded="true" style="padding:14px">
+            <span class="idx skip"><svg style="width:12px;height:12px" aria-hidden="true"><use href="#ic-x"/></svg></span>
+            <div style="flex:1;min-width:0">
+              <p class="rec-n">Loretta Dziedzic</p>
+              <p class="rec-p" style="font-size:13px">Ash Street Flats, Olathe KS</p>
+              <div class="decided" style="font-size:13px">
+                <span><b>Skipped.</b> He will not send this one.
+                <button class="btn-link">Undo</button></span>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+    <div class="stickybar">
+      <p class="xs mono" style="flex:1">3 of 6 decided</p>
+      <button class="btn btn-secondary btn-sm">Next to read</button>
+    </div>
+  </div>
+
+  <!-- M4 · record -->
+  <div class="phone" data-phone data-rail="results"
+       data-crumbs="Home>/|Arthur>/agents/arthur|Results>/agents/arthur/results|Ray Pfannenstiel">
+    <div class="mwrap" style="padding-bottom:16px">
+      <div class="row-flex" style="gap:8px">
+        <h1 class="h1" style="font-size:21px">Ray Pfannenstiel</h1>
+        <span class="pill pill-emerald">Warm</span>
+      </div>
+      <p class="sm3" style="margin-top:6px;font-size:13.5px">
+        Pfannenstiel Holdings<span class="sep">·</span>Northgate Apartments, 2919 NE Vivion Rd
+      </p>
+      <div class="facts" style="margin-top:10px">
+        <span>38 units</span><span class="sep">·</span><span>built 1968</span><span class="sep">·</span><span>held 19 yrs</span>
+      </div>
+
+      <article class="card card-pad" style="margin-top:16px;padding:16px">
+        <div class="triad">
+          <span class="k k-teal"><svg class="ic-sm" aria-hidden="true"><use href="#ic-clock"/></svg></span>
+          <p class="h3" style="font-size:15px">What Arthur is preparing</p>
+        </div>
+        <p class="sm" style="font-size:13.5px">
+          A short note on 16 August at 8:10 am, because that is the date Ray gave. It comes to you
+          first.
+        </p>
+      </article>
+
+      <article class="card card-pad" style="margin-top:10px;padding:16px">
+        <div class="triad">
+          <span class="k k-muted"><svg class="ic-sm" aria-hidden="true"><use href="#ic-shield"/></svg></span>
+          <p class="h3" style="font-size:15px">What Arthur already did</p>
+        </div>
+        <ul class="log" style="margin-top:12px">
+          <li>
+            <span class="mk act" aria-hidden="true"></span>
+            <p class="when">Tue 22 Jul</p>
+            <p class="what" style="font-size:13.5px"><b>Answered Ray and moved him to warm.</b></p>
+          </li>
+          <li>
+            <span class="mk act" aria-hidden="true"></span>
+            <p class="when">Mon 21 Jul</p>
+            <p class="what" style="font-size:13.5px"><b>Sent the day 3 follow up.</b> Opened twice.</p>
+          </li>
+          <li>
+            <span class="mk" aria-hidden="true"></span>
+            <p class="when">Mon 14 Jul</p>
+            <p class="what" style="font-size:13.5px">
+              <b>Sourced and researched the property.</b>
+              <span class="xs" style="display:block;margin-top:4px">
+                Clay County parcel record<span class="sep">·</span>entity filing<span class="sep">·</span>deed history
+              </span>
+            </p>
+          </li>
+        </ul>
+      </article>
+
+      <article class="card card-pad" style="margin-top:10px;padding:16px">
+        <p class="h3" style="font-size:15px">Anything he got wrong</p>
+        <label class="field-label" for="m-email" style="margin-top:12px">Email we write to</label>
+        <input class="field" id="m-email" type="email" value="ray@pfannenstielholdings.com">
+        <p class="field-help">You changed this on 24 July.</p>
+      </article>
+    </div>
+    <div class="stickybar">
+      <button class="btn btn-primary" style="flex:1">Save the correction</button>
+      <button class="btn btn-ghost btn-sm">Not a fit</button>
+    </div>
+  </div>
+
+  <!-- M5 · results -->
+  <div class="phone" data-phone data-rail="results" data-crumbs="Home>/|Arthur>/agents/arthur|Results">
+    <div class="mwrap">
+      <h1 class="h1" style="font-size:21px">Results</h1>
+      <p class="sm" style="margin-top:6px">15 properties Arthur is working.</p>
+      <span style="position:relative;display:flex;align-items:center;margin-top:14px">
+        <svg class="ic-sm" style="position:absolute;left:11px;color:var(--text-3)" aria-hidden="true"><use href="#ic-search"/></svg>
+        <input class="field" type="search" style="padding-left:34px" placeholder="Owner, entity or street" aria-label="Search results">
+      </span>
+      <div class="row-flex" style="gap:6px;margin-top:10px">
+        <button class="btn btn-sm" style="background:var(--brand-tint);color:var(--brand-ink);font-weight:600">All 15</button>
+        <button class="btn btn-sm btn-secondary">Replied 1</button>
+        <button class="btn btn-sm btn-secondary">Due 2</button>
+        <button class="btn btn-sm btn-secondary">Drafted 6</button>
+      </div>
+
+      <div class="grouphead">
+        <span class="dot dot-emerald" aria-hidden="true"></span>
+        <span class="gn">Replied</span><span class="gc">1</span>
+      </div>
+      <div class="rows">
+        <a class="rec" href="/agents/arthur/results/pfannenstiel" style="padding:14px">
+          <div class="rec-t">
+            <span class="rec-n" style="font-size:15px">Ray Pfannenstiel</span>
+            <span style="margin-left:auto"><span class="tag">Off market</span></span>
+          </div>
+          <p class="rec-p" style="font-size:13px">Northgate Apartments, 2919 NE Vivion Rd</p>
+          <div class="facts" style="margin-top:5px"><span>38 units</span><span class="sep">·</span><span>built 1968</span></div>
+          <p class="rec-next" style="font-size:12.5px">Next: Arthur picks it back up on 16 August</p>
+        </a>
+      </div>
+
+      <div class="grouphead">
+        <span class="dot dot-amber" aria-hidden="true"></span>
+        <span class="gn">Follow up due</span><span class="gc">2</span>
+      </div>
+      <div class="rows">
+        <a class="rec" href="/agents/arthur/results/ptacek" style="padding:14px">
+          <div class="rec-t">
+            <span class="rec-n" style="font-size:15px">Alvina Ptacek</span>
+            <span style="margin-left:auto"><span class="tag">Off market</span></span>
+          </div>
+          <p class="rec-p" style="font-size:13px">Sunflower Gardens, 4711 E Harry St, Wichita KS</p>
+          <div class="facts" style="margin-top:5px"><span>54 units</span><span class="sep">·</span><span>held 31 yrs</span></div>
+          <p class="rec-next" style="font-size:12.5px">Next: day 7 nudge, this afternoon</p>
+        </a>
+        <a class="rec" href="/agents/arthur/results/zolnierczyk" style="padding:14px">
+          <div class="rec-t">
+            <span class="rec-n" style="font-size:15px">Stan Zolnierczyk</span>
+            <span style="margin-left:auto"><span class="tag">Off market</span></span>
+          </div>
+          <p class="rec-p" style="font-size:13px">Meadowbrook Terrace, 7820 Mission Rd</p>
+          <div class="facts" style="margin-top:5px"><span>44 units</span><span class="sep">·</span><span>built 1962</span></div>
+          <p class="rec-next" style="font-size:12.5px">Next: day 7 nudge, tomorrow 8:10 am</p>
+        </a>
+      </div>
+
+      <div class="grouphead">
+        <span class="dot dot-amber" aria-hidden="true"></span>
+        <span class="gn">Drafted, waiting on you</span><span class="gc">6</span>
+      </div>
+      <div class="rows">
+        <a class="rec" href="/approvals/monday-28-jul" style="padding:14px;display:flex;align-items:center;gap:8px;color:var(--brand-ink);font-weight:500;font-size:14px">
+          <svg class="ic-sm" aria-hidden="true"><use href="#ic-approvals"/></svg>
+          Decide all six together
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- M6 · threads empty -->
+  <div class="phone" data-phone data-rail="threads" data-waiting="0"
+       data-agent-state="Working. Next run Mon 8:00 am"
+       data-crumbs="Home>/|Arthur>/agents/arthur|Threads">
+    <div class="mwrap">
+      <h1 class="h1" style="font-size:21px">Threads</h1>
+      <p class="sm" style="margin-top:6px">Every exchange with an owner, and what came of it.</p>
+      <article class="card card-pad" style="margin-top:16px;padding:24px 20px">
+        <div class="empty">
+          <span class="mark"><svg class="ic-lg" aria-hidden="true"><use href="#ic-mail"/></svg></span>
+          <p class="h2" style="font-size:18px">Nobody has written back yet.</p>
+          <p class="sm" style="margin-top:8px;font-size:13.5px">
+            Fourteen letters have gone out since Friday. In this market the first replies usually
+            land on day three, so Arthur is watching for them and will answer the same day. When
+            one arrives, you get an email and the thread shows up here.
+          </p>
+          <a class="btn btn-secondary" style="margin-top:16px;width:100%" href="/agents/arthur/results">See who he has written to</a>
+        </div>
+      </article>
+      <p class="field-help" style="margin-top:14px">
+        Delivery for the fourteen: all delivered, nine opened, none bounced.
+      </p>
+    </div>
+  </div>
+
+</div>
+
+<p class="note">
+  <b>The mobile drawer pushes a history entry.</b> Today it closes on Escape and on route change
+  but not on the Android back button, so back exits the page instead of closing the panel. That is
+  both an overlay dismissal failure and a back button violation, and it is one
+  <span class="mono xs">history.pushState</span> away from being right.
+</p>
+
+<!-- ==================== APPENDIX ==================== -->
+<div class="cap" style="margin-top:64px">
+  <h2>The system, on one screen</h2>
+  <p>
+    Full write up in <span class="mono xs">DESIGN-V2.md</span>, which replaces
+    <span class="mono xs">client-portal/DESIGN.md</span>.
+  </p>
+</div>
+
+<div class="card card-pad" style="padding:32px">
+  <p class="eyebrow-n">Type scale. Seven steps, DM Sans and DM Mono, weights 400, 500 and 600.</p>
+  <div class="spec" style="margin-top:20px">
+    <span class="k">--fs-display · 24 · 500</span>
+    <p style="font-size:24px;font-weight:500;line-height:1.2">Monday outreach batch</p>
+    <span class="k">--fs-h2 · 20 · 500</span>
+    <p style="font-size:20px;font-weight:500;line-height:1.25">What Arthur is preparing</p>
+    <span class="k">--fs-h3 · 16 · 600</span>
+    <p style="font-size:16px;font-weight:600;line-height:1.35">Ray Pfannenstiel</p>
+    <span class="k">--fs-body · 16 · 400</span>
+    <p style="font-size:16px;line-height:1.55">He wrote them Sunday night and stopped.</p>
+    <span class="k">--fs-sm · 14 · 400</span>
+    <p style="font-size:14px;line-height:1.5;color:var(--text-2)">6 owners, all off market, none contacted before</p>
+    <span class="k">--fs-xs · 12.5 · mono</span>
+    <p class="mono" style="font-size:12.5px;color:var(--text-2)">38 units · built 1968 · held 19 yrs</p>
+    <span class="k">--fs-micro · 11 · mono caps</span>
+    <p class="eyebrow-n">Waiting on you</p>
+  </div>
+  <p class="field-help" style="margin-top:20px;max-width:80ch">
+    No negative tracking anywhere: it is an optical correction above roughly 40px and a tic below
+    it, and the largest thing in this product is 24px. Weight never goes above 500 at 20px and
+    over; below 20px it goes to 600 because there is no size left to spend. If hierarchy stops
+    reading, the fix is size, space or colour, never a heavier weight.
+  </p>
+</div>
+
+<div class="two" style="margin-top:20px">
+  <div class="card card-pad">
+    <p class="eyebrow-n">Spacing and controls</p>
+    <div class="deflist" style="margin-top:14px">
+      <div><dt>Scale</dt><dd>4 · 8 · 12 · 16 · 24 · 32 · 48</dd></div>
+      <div><dt>Inside a card</dt><dd>24</dd></div>
+      <div><dt>Between cards</dt><dd>12 to 16</dd></div>
+      <div><dt>Between sections</dt><dd>32</dd></div>
+      <div><dt>Every control</dt><dd>36 high</dd></div>
+      <div><dt>In row control</dt><dd>28 high</dd></div>
+      <div><dt>Button radius</dt><dd>4</dd></div>
+      <div><dt>Surface radius</dt><dd>6 · 8 · 10</dd></div>
+      <div><dt>Rail</dt><dd>248 fixed</dd></div>
+      <div><dt>Strip</dt><dd>52 fixed</dd></div>
+      <div><dt>Content</dt><dd>1040 max, set by the shell</dd></div>
+    </div>
+  </div>
+  <div class="card card-pad">
+    <p class="eyebrow-n">Elevation. Same six stop ink tinted ramp, now with names.</p>
+    <div class="deflist" style="margin-top:14px">
+      <div><dt>e0</dt><dd class="w">Flush. A hairline, no shadow. Rails, rows, group headers.</dd></div>
+      <div><dt>e1</dt><dd class="w">Barely lifted. Toggles, chips, the drawer knob.</dd></div>
+      <div><dt>e2</dt><dd class="w">The card. Everything that is an object on the page.</dd></div>
+      <div><dt>e3</dt><dd class="w">Lifted. Hovered card, popover, sticky bar.</dd></div>
+      <div><dt>e4</dt><dd class="w">Over the app. Drawer, sheet, the one destructive dialog.</dd></div>
+    </div>
+    <p class="field-help" style="margin-top:12px">
+      Tinted with the ink navy, never black. A black shadow on a warm ground turns the card gray at
+      the edge and reads as a sticker.
+    </p>
+  </div>
+</div>
+
+<div class="card card-pad" style="margin-top:20px;padding:28px 32px">
+  <p class="eyebrow-n">Navigation rules. These are the ones that are easy to break by accident.</p>
+  <ul class="rules" style="margin-top:18px">
+    <li><b>The shell is rendered by the layout.</b> No page renders it, and it must not unmount on any client side navigation.</li>
+    <li><b>The rail is always expanded on desktop.</b> Never collapsed by default, never hover to expand. A user chosen collapse is fine; a default one is not.</li>
+    <li><b>Two levels, and no more.</b> Account level, then agent level. Anything deeper belongs to a page, reached by a section index on that page.</li>
+    <li><b>Every destination is a route.</b> No hash anchors in navigation, ever. If it cannot hold an active state it is not a destination.</li>
+    <li><b>Breadcrumbs only, and the word "Back" never appears.</b> Browser back handles history, the breadcrumb handles hierarchy, and naming them differently is what stops clients confusing them.</li>
+    <li><b>The breadcrumb lives in the strip</b>, derived from the route only, never from a referrer or a from parameter. It renders identically for a client who clicked through and one who arrived from an email.</li>
+    <li><b>Status in the rail needs a word, not only a colour</b>, and two different states never share a colour.</li>
+    <li><b>List state lives in the URL.</b> Typing replaces, committing a filter pushes, so back removes one filter at a time and support can say "open this link".</li>
+    <li><b>Actions do not navigate.</b> Approve, save, connect, pause: all stay on the screen and revalidate in place. The only exception is advancing inside the approvals queue, which replaces rather than pushes.</li>
+    <li><b>Back is never undo</b>, and back never shows a decision you already made as still pending.</li>
+    <li><b>A destination that can only ever be empty is not in the rail</b>, but the route still renders a crafted empty state so old email links keep working.</li>
+    <li><b>Only the content column skeletonises</b>, and the skeleton is the shape of the page that is coming.</li>
+  </ul>
+</div>
+
+<div class="card card-pad" style="margin-top:20px;padding:28px 32px">
+  <p class="eyebrow-n">Taken, and left behind</p>
+  <div class="two" style="margin-top:18px">
+    <div>
+      <p class="h3">Taken</p>
+      <ul class="stack-2" style="margin-top:10px;font-size:14px;color:var(--text-2)">
+        <li><b style="color:var(--text)">Databricks:</b> the pinned expanded rail, one accent in one placement, DM Sans at 400 and 500, DM Mono for every eyebrow, timestamp and numeral, and the discipline of showing a locked item rather than hiding it.</li>
+        <li><b style="color:var(--text)">HubSpot:</b> one record scaffold reused on every surface, a real global strip separate from navigation, and higher contrast status badges.</li>
+        <li><b style="color:var(--text)">Lev:</b> the oversight contract named in the client's language, as three actual blocks on a record, plus a breadcrumb on every page below the top.</li>
+      </ul>
+    </div>
+    <div>
+      <p class="h3">Left behind</p>
+      <ul class="stack-2" style="margin-top:10px;font-size:14px;color:var(--text-2)">
+        <li><b style="color:var(--text)">Databricks:</b> the 20px card radius and the 60px display type. Both are marketing values, and rounded everything is a named tell.</li>
+        <li><b style="color:var(--text)">HubSpot:</b> collapse by default with hover to expand, fourteen primary categories, and 300 weight body, which fails our contrast floor on a warm ground.</li>
+        <li><b style="color:var(--text)">Lev:</b> the numbered 01 / 02 / 03 section markers and the credit metering language.</li>
+        <li><b style="color:var(--text)">Everyone:</b> a command palette. It earns its keep past ten features and we have six per agent.</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<p class="note" style="margin-top:32px">
+  <b>Fonts are self hosted from this folder.</b> DM Sans variable and DM Mono, copied from
+  <span class="mono xs">client-portal/public/fonts</span> with their licences. No CDN link
+  anywhere: a silent fallback to a system face is the one failure nobody files a bug for, and the
+  product just quietly looks cheap.
+</p>
+
+</div><!-- /doc -->
+
+<script>
+/* ===========================================================================
+   The shell is authored once and cloned into every frame. In the product this
+   is app/(portal)/layout.tsx. Keeping it in one place here is the same
+   argument as keeping it in one place there.
+   =========================================================================== */
+(function () {
+  var railTpl  = document.getElementById('tpl-rail');
+  var stripTpl = document.getElementById('tpl-strip');
+  var mheadTpl = document.getElementById('tpl-mhead');
+
+  function railFor(host) {
+    var frag = railTpl.content.cloneNode(true);
+    var key  = host.getAttribute('data-rail') || '';
+
+    (host.getAttribute('data-hide') || '').split(',').forEach(function (k) {
+      k = k.trim();
+      if (!k) return;
+      var el = frag.querySelector('[data-opt="' + k + '"]');
+      if (el && el.parentNode) el.parentNode.removeChild(el);
+    });
+
+    var active = frag.querySelector('[data-key="' + key + '"]');
+    if (active) {
+      active.classList.add('on');
+      active.setAttribute('aria-current', 'page');
+    }
+
+    var waiting = host.getAttribute('data-waiting');
+    var badge = frag.querySelector('[data-waiting]');
+    if (badge) {
+      if (waiting === '0') { badge.parentNode.removeChild(badge); }
+      else if (waiting) { badge.textContent = waiting; }
+    }
+
+    // The status WORD and the status COLOUR have to move together. This used to
+    // set only the text, so a frame could say "Getting set up" or "Paused" over
+    // the emerald dot it inherited from the template, and there was no markup
+    // path in the whole file that produced a non-green agent. The live portal
+    // already gets this right (paused renders muted). The mockup was the thing
+    // that lost the state, and a rebuild from it would have lost it too.
+    var state = host.getAttribute('data-agent-state');
+    if (state) frag.querySelector('[data-agent-state]').textContent = state;
+    var tone = host.getAttribute('data-agent-tone');
+    if (tone) {
+      var dot = frag.querySelector('.agent-row .dot');
+      if (dot) dot.className = 'dot dot-' + tone;
+    }
+
+    return frag;
+  }
+
+  function crumbsInto(nav, spec, ctx) {
+    if (!spec) {
+      if (ctx) {
+        var c = document.createElement('p');
+        c.className = 'ctx';
+        c.innerHTML = 'Signed in to <b></b>';
+        c.querySelector('b').textContent = ctx;
+        nav.appendChild(c);
+        nav.removeAttribute('aria-label');
+      }
+      return;
+    }
+    spec.split('|').forEach(function (part, i) {
+      var bits  = part.split('>');
+      var label = bits[0];
+      var href  = bits[1];
+      if (i > 0) {
+        var s = document.createElement('span');
+        s.className = 'sep';
+        s.setAttribute('aria-hidden', 'true');
+        s.textContent = '/';
+        nav.appendChild(s);
+      }
+      var el = document.createElement(href ? 'a' : 'span');
+      el.className = 'crumb' + (href ? '' : ' now');
+      if (href) { el.href = href; } else { el.setAttribute('aria-current', 'page'); }
+      el.textContent = label;
+      nav.appendChild(el);
+    });
+  }
+
+  /* Desktop shells */
+  Array.prototype.forEach.call(document.querySelectorAll('[data-shell]'), function (shell) {
+    shell.insertBefore(railFor(shell), shell.firstChild);
+    var strip = stripTpl.content.cloneNode(true);
+    var nav = strip.querySelector('.crumbs');
+    crumbsInto(nav, shell.getAttribute('data-crumbs'), shell.getAttribute('data-ctx'));
+    var content = shell.querySelector('.content');
+    content.insertBefore(strip, content.firstChild);
+  });
+
+  /* Phones */
+  Array.prototype.forEach.call(document.querySelectorAll('[data-phone]'), function (phone) {
+    var head = mheadTpl.content.cloneNode(true);
+    var flag = head.querySelector('[data-waiting]');
+    if (phone.getAttribute('data-waiting') === '0' && flag) {
+      flag.parentNode.removeChild(flag);
+      var burger = head.querySelector('.burger');
+      if (burger) burger.setAttribute('aria-label', 'Open navigation');
+    }
+    phone.insertBefore(head, phone.firstChild);
+
+    var bar = document.createElement('nav');
+    bar.className = 'mcrumbs';
+    bar.setAttribute('aria-label', 'Breadcrumb');
+    crumbsInto(bar, phone.getAttribute('data-crumbs'), phone.getAttribute('data-ctx'));
+    phone.insertBefore(bar, phone.children[1]);
+
+    if (phone.getAttribute('data-drawer') === '1') {
+      var scrim = document.createElement('div');
+      scrim.className = 'scrim';
+      var drawer = document.createElement('div');
+      drawer.className = 'drawer';
+      drawer.appendChild(railFor(phone));
+      var close = document.createElement('button');
+      close.className = 'btn btn-ghost btn-sm';
+      close.style.cssText = 'position:absolute;top:11px;right:10px';
+      close.setAttribute('aria-label', 'Close navigation');
+      close.innerHTML = '<svg class="ic-sm" aria-hidden="true"><use href="#ic-x"/></svg>';
+      drawer.appendChild(close);
+      /* With the drawer open the header's account chip is covered, so the
+         drawer carries the account itself. Nothing in the product should be
+         reachable only from a surface the client just covered up. */
+      var foot = document.createElement('div');
+      foot.style.cssText = 'margin-top:auto;padding:14px 16px;border-top:1px solid var(--border);' +
+        'display:flex;align-items:center;gap:10px';
+      foot.innerHTML =
+        '<span class="initials">CL</span>' +
+        '<span style="min-width:0"><span class="an">Casey Litsey</span>' +
+        '<span class="as">casey@litseycre.com</span></span>' +
+        '<button class="btn btn-ghost btn-sm" style="margin-left:auto">Sign out</button>';
+      drawer.appendChild(foot);
+      phone.appendChild(scrim);
+      phone.appendChild(drawer);
+    }
+  });
+})();
+</script>
+</body>
+</html>

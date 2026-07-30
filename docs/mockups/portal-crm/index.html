@@ -1,0 +1,1778 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Portal worklist — proposal mockup · Ambitt Agents</title>
+
+<style>
+/* ===========================================================================
+   Self-hosted DM Sans + DM Mono, copied from client-portal/public/fonts.
+   Never a CDN link: a silent fallback to a system face is the exact failure
+   the type system exists to prevent (DESIGN.md).
+   =========================================================================== */
+@font-face{
+  font-family:'DM Sans';src:url('fonts/dm-sans.woff2') format('woff2');
+  font-weight:100 1000;font-style:normal;font-display:block;
+}
+@font-face{
+  font-family:'DM Mono';src:url('fonts/dm-mono.woff2') format('woff2');
+  font-weight:400 500;font-style:normal;font-display:block;
+}
+
+/* ===========================================================================
+   Tokens — copied verbatim from client-portal/src/app/globals.css.
+   Nothing invented. Nothing pure black, nothing pure white.
+   =========================================================================== */
+:root{
+  --brand:#00b3b3;              /* MARK ONLY. Fills, rules, tints. Never text. */
+  --brand-solid:#00807e;        /* fill under a white label + focus/selected */
+  --brand-solid-hover:#00706f;
+  --brand-ink:#00706f;          /* teal AS TEXT */
+  --brand-tint:rgba(0,179,179,.08);
+  --brand-tint-strong:rgba(0,179,179,.14);
+  --brand-shadow:0 1px 2px rgba(27,49,57,.08);
+
+  --bg:#f9f7f4;
+  --surface:#fffdfb;
+  --surface-2:#f1ede7;
+  --text:#1b3139;
+  --text-2:#47606a;
+  --text-3:#5a6f77;   /* the AA floor. Every label lives here or above. */
+  --text-4:#78949f;   /* DECORATIVE ONLY — separators, never a word. */
+  --border:#dce0e2;
+  --border-strong:#c6cfd2;
+
+  --emerald:#16713a;  --emerald-tint:rgba(22,113,58,.1);
+  --amber:#a34a07;    --amber-tint:rgba(163,74,7,.1);
+  --red:#be123c;      --red-tint:rgba(190,18,60,.1);
+  --blue:#1d4ed8;     --blue-tint:rgba(29,78,216,.1);
+
+  --sh-1:0 1px 2px rgba(27,49,57,.05),0 1px 1px rgba(27,49,57,.03);
+  --sh-2:0 2px 3px rgba(27,49,57,.02),0 4px 8px rgba(27,49,57,.025),
+         0 9px 13px rgba(27,49,57,.03),0 16px 24px -8px rgba(27,49,57,.04);
+  --sh-3:0 2px 3px rgba(27,49,57,.02),0 4px 8px rgba(27,49,57,.025),
+         0 9px 13px rgba(27,49,57,.035),0 16px 24px rgba(27,49,57,.04),
+         0 32px 40px -12px rgba(27,49,57,.05);
+
+  --radius-sm:3px; --radius:6px; --radius-lg:8px; --radius-xl:10px;
+  --font:'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  --mono:'DM Mono','SF Mono',Menlo,monospace;
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility}
+body{
+  background:var(--bg);color:var(--text);font-family:var(--font);
+  font-size:15px;line-height:1.55;font-optical-sizing:auto;
+}
+a{color:inherit;text-decoration:none}
+button{font-family:inherit;cursor:pointer;border:0;background:none}
+
+/* --- primitives, straight from globals.css -------------------------------- */
+.fd{font-weight:500;line-height:1.18}          /* .font-display  — >=20px */
+.fds{font-weight:600;line-height:1.25}         /* .font-display-sm — <20px */
+.eyebrow{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--brand-ink)}
+.eyebrow-n{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text-3)}
+
+.card{
+  background:var(--surface);border-radius:var(--radius-lg);
+  box-shadow:0 0 0 1px rgba(27,49,57,.03),0 1px 2px rgba(27,49,57,.03),
+    0 2px 3px rgba(27,49,57,.02),0 4px 8px rgba(27,49,57,.025),
+    0 9px 13px -4px rgba(27,49,57,.03),0 16px 24px -10px rgba(27,49,57,.04);
+}
+.card-hover{transition:box-shadow .2s ease-in-out,transform .18s ease}
+.card-hover:hover{
+  transform:translateY(-3px);
+  box-shadow:0 0 0 1px rgba(0,179,179,.18),0 2px 3px rgba(27,49,57,.02),
+    0 4px 8px rgba(27,49,57,.03),0 9px 13px rgba(27,49,57,.035),
+    0 16px 24px rgba(27,49,57,.04),0 32px 40px -12px rgba(27,49,57,.05);
+}
+
+.btn-primary{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  padding:12px 24px;background:var(--brand-solid);color:#fff;border-radius:4px;
+  font-size:14px;font-weight:600;transition:background .2s ease-in-out,transform .1s ease;
+  box-shadow:var(--brand-shadow);
+}
+.btn-primary:hover{background:var(--brand-solid-hover)}
+.btn-primary:active{transform:translateY(1px)}
+.btn-secondary{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  padding:11px 20px;background:var(--surface);color:var(--text-2);
+  border:1px solid var(--border-strong);border-radius:4px;font-size:14px;font-weight:500;
+  transition:border-color .15s ease,color .15s ease;
+}
+.btn-secondary:hover{border-color:var(--text-3);color:var(--text)}
+.btn-ghost{
+  display:inline-flex;align-items:center;gap:6px;padding:6px 10px;color:var(--text-3);
+  font-size:13px;font-weight:500;border-radius:var(--radius-sm);
+  transition:color .15s ease,background .15s ease;
+}
+.btn-ghost:hover{color:var(--text);background:var(--surface-2)}
+.btn-sm{padding:7px 13px;font-size:12.5px}
+
+.pill{
+  display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;
+  font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;white-space:nowrap;
+}
+.pill-emerald{background:var(--emerald-tint);color:var(--emerald)}
+.pill-amber{background:var(--amber-tint);color:var(--amber)}
+.pill-red{background:var(--red-tint);color:var(--red)}
+.pill-blue{background:var(--blue-tint);color:var(--blue)}
+.pill-muted{background:var(--surface-2);color:var(--text-3)}
+
+/* Scenario tags are CATEGORIES, not statuses, so they stay neutral. Teal is
+   identity and the four status hues carry meaning; a category may borrow
+   neither. Distinguished by the word alone. */
+.tag{
+  display:inline-flex;align-items:center;padding:3px 7px;border-radius:var(--radius-sm);
+  background:var(--surface-2);color:var(--text-2);
+  font-family:var(--mono);font-size:10.5px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;
+}
+
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex:none}
+.dot-emerald{background:var(--emerald);box-shadow:0 0 0 3px var(--emerald-tint)}
+.dot-amber{background:var(--amber);box-shadow:0 0 0 3px var(--amber-tint)}
+.dot-blue{background:var(--blue);box-shadow:0 0 0 3px var(--blue-tint)}
+.dot-muted{background:var(--text-4)}
+.hairline{height:1px;background:var(--border);border:0}
+.stripe{position:absolute;top:0;left:0;bottom:0;width:3px;background:var(--brand);
+  border-top-left-radius:var(--radius-lg);border-bottom-left-radius:var(--radius-lg)}
+.stripe.warn{background:var(--amber)} .stripe.blue{background:var(--blue)}
+.stripe.muted{background:var(--border-strong)}
+
+.ic{width:18px;height:18px;flex:none;display:block}
+.chip-icon{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;flex:none;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.6),0 1px 2px rgba(27,49,57,.08)}
+.chip-teal{background:rgba(0,179,179,.12);color:#00706f}
+.chip-amber{background:rgba(163,74,7,.12);color:#a34a07}
+.chip-indigo{background:rgba(67,56,202,.12);color:#4338ca}
+
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums;font-feature-settings:'tnum'}
+
+/* ===========================================================================
+   MOCKUP CHROME — deliberately ink-dark so it can never be mistaken for
+   product surface. Everything below a .cap label is the proposal.
+   =========================================================================== */
+.doc{max-width:1580px;margin:0 auto;padding:0 24px 96px}
+.chrome{background:var(--text);color:#fffdfb;margin:0 -24px 40px;padding:28px 24px 30px}
+.chrome-in{max-width:1100px;margin:0 auto}
+.chrome h1{font-size:26px;font-weight:500;line-height:1.15;color:#fffdfb}
+.chrome .lede{color:#c6cfd2;font-size:14.5px;margin-top:8px;max-width:74ch}
+.chrome .eyebrow{color:#4fd6d6}
+.ans{margin-top:22px;display:grid;gap:0;border-top:1px solid rgba(255,253,251,.14)}
+.ans div{display:grid;grid-template-columns:26px 190px 1fr;gap:14px;align-items:baseline;
+  padding:11px 0;border-bottom:1px solid rgba(255,253,251,.14);font-size:13.5px;color:#c6cfd2}
+.ans b{color:#fffdfb;font-weight:600}
+.ans span.q{color:#4fd6d6;font-family:var(--mono);font-size:12px}
+.chrome nav{margin-top:22px;display:flex;flex-wrap:wrap;gap:8px}
+.chrome nav a{padding:7px 13px;border-radius:4px;background:rgba(255,253,251,.1);
+  font-size:12.5px;font-weight:500;color:#fffdfb;transition:background .15s ease}
+.chrome nav a:hover{background:rgba(79,214,214,.28)}
+
+.cap{max-width:1100px;margin:64px auto 14px;display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.cap h2{font-size:20px;font-weight:500;line-height:1.2}
+.cap p{font-size:13.5px;color:var(--text-3);max-width:70ch}
+.cap .badge{font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--text-3);background:var(--surface-2);padding:3px 7px;border-radius:var(--radius-sm)}
+.frame{border-radius:12px;overflow:hidden;box-shadow:var(--sh-3);background:var(--bg);
+  outline:1px solid var(--border)}
+.note-anno{max-width:1100px;margin:12px auto 0;font-size:13px;color:var(--text-3);
+  padding-left:14px;border-left:2px solid var(--brand)}
+.note-anno b{color:var(--text-2);font-weight:600}
+
+/* ===========================================================================
+   PORTAL SHELL
+   =========================================================================== */
+.shell{display:grid;grid-template-columns:240px 1fr;min-height:640px;background:var(--bg)}
+.sb{background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column}
+.sb-brand{height:56px;display:flex;align-items:center;padding:0 20px;border-bottom:1px solid var(--border)}
+.lockup{display:inline-flex;align-items:center;gap:10px}
+.lockup .robot{width:28px;height:25px;color:var(--brand)}
+.lockup span{font-size:16px;font-weight:600;letter-spacing:-.01em}
+.sb-nav{flex:1;padding:16px 12px}
+.navitem{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:var(--radius);
+  font-size:13.5px;color:var(--text-2)}
+.navitem .ic{opacity:.8}
+.navitem.on{background:var(--brand-tint);color:var(--brand-ink);font-weight:500}
+.navitem .badge-n{margin-left:auto;min-width:20px;height:18px;padding:0 6px;border-radius:999px;
+  background:var(--amber-tint);color:var(--amber);font-size:10.5px;font-weight:700;
+  display:inline-flex;align-items:center;justify-content:center}
+.sb-group{padding:20px 12px 6px}
+.agentrow{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:var(--radius);
+  font-size:13.5px;background:var(--brand-tint);color:var(--brand-ink);font-weight:500}
+.subnav{margin:2px 0 6px 19px;padding-left:12px;border-left:1px solid var(--border);
+  display:flex;flex-direction:column}
+.sub{padding:6px 12px;font-size:12.5px;color:var(--text-3);border-radius:var(--radius);
+  display:flex;align-items:center;gap:8px}
+.sub.on{color:var(--brand-ink);font-weight:500}
+.sub .badge-n{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--amber)}
+.sb-acct{border-top:1px solid var(--border);padding:12px}
+.sb-acct .who{display:flex;align-items:center;gap:10px;padding:6px 8px}
+.initials{width:32px;height:32px;border-radius:50%;background:var(--text);color:#fffdfb;
+  font-size:11px;font-weight:500;display:grid;place-items:center;flex:none}
+.sb-acct .nm{font-size:12.5px;font-weight:500;line-height:1.3}
+.sb-acct .em{font-size:11px;color:var(--text-3);line-height:1.3}
+.sb-acct .out{display:block;padding:6px 8px;margin-top:2px;font-size:12.5px;color:var(--text-3)}
+
+.main{padding:36px 40px 56px}
+.wrap{max-width:820px}
+.wrap-wide{max-width:900px}
+.prose{max-width:62ch}
+
+/* --- page head ------------------------------------------------------------ */
+.h1{font-size:30px;font-weight:500;line-height:1.14;letter-spacing:0}
+.h2{font-size:20px;font-weight:500;line-height:1.2}
+.h3{font-size:15.5px;font-weight:600;line-height:1.3}
+.sub15{font-size:15px;color:var(--text-2);line-height:1.6}
+.m13{font-size:13px;color:var(--text-3)}
+.m12{font-size:12px;color:var(--text-3)}
+.sep{color:var(--text-4);padding:0 2px}
+
+/* --- the agent byline: the strongest "someone else did this" signal ------- */
+.byline{display:flex;align-items:center;gap:12px;background:var(--surface);
+  border-radius:var(--radius-lg);box-shadow:var(--sh-1);padding:10px 14px;margin:22px 0 34px}
+.avatar{width:34px;height:34px;border-radius:50%;background:var(--brand);
+  display:grid;place-items:center;flex:none}
+.avatar .robot{width:21px;height:19px;color:#fffdfb;--eye:#00b3b3}
+.byline .who{font-size:13.5px;font-weight:600}
+.byline .meta{font-size:12.5px;color:var(--text-3);display:flex;align-items:center;gap:7px}
+.byline .meta .ic{width:14px;height:14px;color:var(--text-3)}
+
+/* --- section header ------------------------------------------------------- */
+.sect{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:0 0 12px}
+
+/* --- Arthur's own words: prose register, teal rule ----------------------- */
+.said{margin:14px 0 0;padding:2px 0 2px 14px;border-left:2px solid var(--brand);
+  font-size:14.5px;line-height:1.6;color:var(--text-2)}
+
+/* --- the work ledger: verbs and counts, never currency ------------------- */
+.ledger{display:grid;grid-template-columns:repeat(5,1fr);background:var(--surface);
+  border-radius:var(--radius-lg);box-shadow:var(--sh-1);overflow:hidden}
+.ledger > div{padding:16px 18px;border-left:1px solid var(--border)}
+.ledger > div:first-child{border-left:0}
+.ledger .n{font-family:var(--mono);font-size:25px;font-weight:500;color:var(--brand-ink);
+  line-height:1.1;font-variant-numeric:tabular-nums}
+.ledger .l{font-size:12.5px;color:var(--text-3);margin-top:5px;line-height:1.35}
+
+/* --- log timeline -------------------------------------------------------- */
+.log{list-style:none;margin-top:6px}
+.log li{position:relative;padding:0 0 20px 30px}
+.log li::before{content:"";position:absolute;left:6px;top:16px;bottom:0;width:2px;background:var(--border)}
+.log li:last-child{padding-bottom:0}
+.log li:last-child::before{display:none}
+.log .mk{position:absolute;left:0;top:6px;width:14px;height:14px;border-radius:50%;
+  background:var(--surface);border:2px solid var(--border-strong)}
+.log .mk.act{border-color:var(--brand-solid);background:var(--brand-solid)}
+.log .mk.warn{border-color:var(--amber);background:var(--amber)}
+.log .when{font-family:var(--mono);font-size:11px;color:var(--text-3);letter-spacing:.02em}
+.log .what{font-size:14px;color:var(--text-2);line-height:1.55;margin-top:3px}
+.log .what b{color:var(--text);font-weight:600}
+.log .quote{color:var(--text);font-style:italic}
+
+/* --- pipeline ------------------------------------------------------------ */
+.filters{display:flex;gap:6px;align-items:center;overflow-x:auto;padding-bottom:12px;
+  border-bottom:1px solid var(--border);margin-bottom:26px}
+.f{padding:7px 12px;border-radius:999px;font-size:12.5px;color:var(--text-2);white-space:nowrap;
+  background:var(--surface);box-shadow:var(--sh-1)}
+.f.on{background:var(--brand-tint);color:var(--brand-ink);font-weight:600;
+  box-shadow:inset 0 0 0 1px rgba(0,128,126,.34)}
+.f .c{font-family:var(--mono);color:var(--text-3);margin-left:5px}
+.f.on .c{color:var(--brand-ink)}
+
+.grp{display:flex;align-items:center;gap:9px;margin:30px 0 10px}
+.grp:first-of-type{margin-top:0}
+.grp .t{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text-2)}
+.grp .c{font-family:var(--mono);font-size:11px;color:var(--text-3)}
+.grp .rule{flex:1;height:1px;background:var(--border)}
+.grp .act{font-size:12.5px;color:var(--brand-ink);font-weight:600}
+
+.row{position:relative;overflow:hidden;padding:16px 18px 14px 21px;margin-bottom:8px}
+.row .top{display:flex;align-items:flex-start;justify-content:space-between;gap:14px}
+.row .nm{font-size:15px;font-weight:600;line-height:1.3}
+.row .ent{font-size:12.5px;color:var(--text-3);margin-top:1px}
+.row .prop{font-size:13.5px;color:var(--text-2);margin-top:7px}
+.row .facts{display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin-top:8px}
+.row .facts .n{font-family:var(--mono);font-size:12px;color:var(--text-2);font-variant-numeric:tabular-nums}
+.row .said{margin-top:11px;font-size:13.5px}
+.row .foot{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:12px;padding-top:11px;
+  border-top:1px solid var(--border);font-size:12px;color:var(--text-3)}
+.row .foot .next{color:var(--text-2);font-weight:500}
+
+/* --- drafts / approvals ------------------------------------------------- */
+.decide{display:flex;align-items:center;justify-content:space-between;gap:16px;
+  background:var(--surface);border-radius:var(--radius-lg);box-shadow:var(--sh-2);
+  padding:14px 18px;margin-bottom:22px}
+.decide .tally{display:flex;align-items:center;gap:14px;font-size:13px;color:var(--text-2)}
+.decide .tally b{font-weight:600;color:var(--text)}
+.pips{display:flex;gap:4px}
+.pips i{width:22px;height:5px;border-radius:999px;background:var(--border-strong);display:block}
+.pips i.ok{background:var(--emerald)} .pips i.ed{background:var(--amber)}
+.pips i.no{background:var(--border-strong);opacity:.55}
+
+.idx{font-family:var(--mono);font-size:11px;color:var(--text-3);letter-spacing:.04em}
+/* The draft itself sits on the recessed wash, so it reads as a quoted document
+   inside the card rather than as another card. */
+.letter{background:var(--surface-2);border-radius:var(--radius);padding:16px 18px;margin-top:14px}
+.letter .hdr{font-size:12px;color:var(--text-3);line-height:1.7}
+.letter .hdr b{color:var(--text-2);font-weight:600}
+.letter .body{font-size:14px;color:var(--text);line-height:1.65;margin-top:12px;
+  padding-top:12px;border-top:1px solid var(--border);white-space:pre-line;max-width:56ch}
+.acts{display:flex;align-items:center;gap:8px;margin-top:16px;flex-wrap:wrap}
+.chosen{display:inline-flex;align-items:center;gap:7px;padding:7px 13px;border-radius:4px;
+  background:var(--emerald-tint);color:var(--emerald);font-size:12.5px;font-weight:600;
+  white-space:nowrap}
+.chosen .ic{width:15px;height:15px}
+.mini{display:flex;align-items:center;justify-content:space-between;gap:14px;
+  padding:14px 18px 14px 21px;position:relative;overflow:hidden;margin-bottom:8px}
+.mini .nm{font-size:14px;font-weight:600}
+.mini .pr{font-size:12.5px;color:var(--text-3);margin-top:2px}
+.mini .acts{gap:6px;flex:none;margin-top:0}
+
+.footnote{margin-top:34px;font-size:12.5px;color:var(--text-3);line-height:1.6;max-width:66ch}
+.footnote a{color:var(--brand-ink);font-weight:500}
+
+/* ===========================================================================
+   MOBILE FRAMES — 390px, the same one-column layout as desktop, not a
+   degraded version of a wider one.
+   =========================================================================== */
+.phones{max-width:1300px;margin:0 auto;display:flex;gap:32px;flex-wrap:wrap}
+.phone{width:390px;flex:none}
+.phone .lbl{font-size:12.5px;color:var(--text-3);margin-bottom:10px;display:flex;gap:8px;align-items:baseline}
+.phone .lbl b{color:var(--text);font-weight:600;font-size:13px}
+.phone .glass{width:390px;height:764px;overflow-y:auto;overflow-x:hidden;background:var(--bg);
+  border-radius:14px;box-shadow:var(--sh-3);outline:1px solid var(--border);
+  scrollbar-width:thin;position:relative}
+.mtop{position:sticky;top:0;z-index:5;height:52px;background:var(--surface);
+  border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;padding:0 14px}
+.burger{width:34px;height:34px;display:grid;place-items:center;margin-left:-6px;color:var(--text-2)}
+.mmain{padding:22px 16px 40px}
+.mmain .h1{font-size:26px}
+.mledger{display:grid;grid-template-columns:1fr 1fr;background:var(--surface);
+  border-radius:var(--radius-lg);box-shadow:var(--sh-1);overflow:hidden}
+.mledger > div{padding:14px 16px;border-top:1px solid var(--border);border-left:1px solid var(--border)}
+.mledger > div:nth-child(1),.mledger > div:nth-child(2){border-top:0}
+.mledger > div:nth-child(odd){border-left:0}
+.mledger .n{font-family:var(--mono);font-size:22px;font-weight:500;color:var(--brand-ink);line-height:1.1}
+.mledger .l{font-size:12px;color:var(--text-3);margin-top:4px}
+.mbar{position:sticky;bottom:0;z-index:5;background:var(--surface);border-top:1px solid var(--border);
+  box-shadow:0 -8px 24px -12px rgba(27,49,57,.16);padding:12px 16px;
+  display:flex;align-items:center;gap:12px}
+.mbar .btn-primary{flex:1;padding:13px 16px}
+.mfilters{display:flex;gap:6px;overflow-x:auto;padding:0 16px 14px;
+  border-bottom:1px solid var(--border);scrollbar-width:none}
+.mfilters::-webkit-scrollbar{display:none}
+.stack-tight > * + *{margin-top:8px}
+.mt6{margin-top:6px}.mt8{margin-top:8px}.mt10{margin-top:10px}.mt12{margin-top:12px}
+.mt14{margin-top:14px}.mt16{margin-top:16px}.mt20{margin-top:20px}.mt24{margin-top:24px}
+.mt28{margin-top:28px}.mt34{margin-top:34px}.mt40{margin-top:40px}
+.rowflex{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.between{display:flex;align-items:center;justify-content:space-between;gap:12px}
+</style>
+</head>
+<body>
+
+<!-- ========================================================================
+     ICON SET — the portal's own duotone construction: a soft body at 0.2
+     opacity, crisp foreground detail, and a white highlight at 0.55 for a lit
+     edge. Lifted from client-portal/src/components/icons.tsx. No Lucide,
+     no Heroicons, nothing with a single 1.5px stroke.
+     ==================================================================== -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="ic-robot" viewBox="0 0 128 116">
+    <circle cx="64" cy="10" r="8" fill="currentColor"/>
+    <rect x="60" y="16" width="8" height="18" rx="4" fill="currentColor"/>
+    <rect x="6" y="58" width="13" height="30" rx="6.5" fill="currentColor" opacity=".8"/>
+    <rect x="109" y="58" width="13" height="30" rx="6.5" fill="currentColor" opacity=".8"/>
+    <rect x="16" y="32" width="96" height="74" rx="26" fill="currentColor"/>
+    <circle cx="46" cy="70" r="14" style="fill:var(--eye,#fffdfb)"/>
+    <circle cx="82" cy="70" r="14" style="fill:var(--eye,#fffdfb)"/>
+  </symbol>
+  <symbol id="ic-desk" viewBox="0 0 24 24">
+    <rect x="3.5" y="4.5" width="17" height="15" rx="4" fill="currentColor" opacity=".2"/>
+    <path d="M3.5 13.4h4a1 1 0 0 1 .96.72 3.7 3.7 0 0 0 7.08 0 1 1 0 0 1 .96-.72h4" stroke="currentColor" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M6.6 5.2A1.6 1.6 0 0 1 8.1 4.1h7.8a1.6 1.6 0 0 1 1.5 1.1l2.6 7.6a1 1 0 0 1-1.9.64L15.4 6.1H8.6L6.3 13.4a1 1 0 0 1-1.9-.6l2.2-7.6Z" fill="currentColor"/>
+    <path d="M9.2 6.4h3.2a.7.7 0 0 1 0 1.4H9.2a.7.7 0 0 1 0-1.4Z" fill="#fff" opacity=".55"/>
+  </symbol>
+  <symbol id="ic-leads" viewBox="0 0 24 24">
+    <rect x="3.5" y="5" width="17" height="14" rx="3" fill="currentColor" opacity=".2"/>
+    <rect x="3.5" y="5" width="17" height="14" rx="3" stroke="currentColor" stroke-width="1.6" fill="none"/>
+    <path d="M4 9.5h16" stroke="currentColor" stroke-width="1.6"/>
+    <path d="M8 9.5V19" stroke="currentColor" stroke-width="1.6"/>
+    <rect x="10" y="11.5" width="7.5" height="1.8" rx=".9" fill="currentColor"/>
+    <rect x="10" y="15" width="5" height="1.8" rx=".9" fill="currentColor" opacity=".6"/>
+    <path d="M6 7.4h3a.7.7 0 0 1 0 1.4H6a.7.7 0 0 1 0-1.4Z" fill="#fff" opacity=".55"/>
+  </symbol>
+  <symbol id="ic-activity" viewBox="0 0 24 24">
+    <rect x="3.5" y="4.5" width="17" height="15" rx="4" fill="currentColor" opacity=".2"/>
+    <path d="M5.5 12.5h2.2l2-5.2 3 9.4 2.2-6.1 1.3 1.9h2.3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <path d="M6 6.6h3.4a.7.7 0 0 1 0 1.4H6a.7.7 0 0 1 0-1.4Z" fill="#fff" opacity=".55"/>
+  </symbol>
+  <symbol id="ic-tools" viewBox="0 0 24 24">
+    <rect x="6" y="9" width="12" height="9" rx="3.4" fill="currentColor" opacity=".2"/>
+    <path d="M9 4.5v4M15 4.5v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    <path d="M6.2 9.2A3 3 0 0 1 9 7.5h6a3 3 0 0 1 2.8 1.7 1 1 0 0 1-.9 1.4H7.1a1 1 0 0 1-.9-1.4Z" fill="currentColor"/>
+    <path d="M9 11v3.2a3 3 0 0 0 6 0V11" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/>
+    <path d="M12 17.2v2.6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    <path d="M9 5v3a.7.7 0 0 1-1.4 0V5a.7.7 0 0 1 1.4 0Z" fill="#fff" opacity=".55"/>
+  </symbol>
+  <symbol id="ic-configure" viewBox="0 0 24 24">
+    <rect x="3.5" y="4.5" width="17" height="15" rx="4" fill="currentColor" opacity=".2"/>
+    <path d="M6 8.5h12M6 15.5h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    <circle cx="9.5" cy="8.5" r="2.6" fill="currentColor"/><circle cx="9.5" cy="8.5" r="1.05" fill="#fff"/>
+    <circle cx="15" cy="15.5" r="2.6" fill="currentColor"/><circle cx="15" cy="15.5" r="1.05" fill="#fff"/>
+  </symbol>
+  <symbol id="ic-mail" viewBox="0 0 24 24">
+    <rect x="3.2" y="5.5" width="17.6" height="13" rx="3.2" fill="currentColor" opacity=".2"/>
+    <rect x="3.2" y="5.5" width="17.6" height="13" rx="3.2" stroke="currentColor" stroke-width="1.6" fill="none"/>
+    <path d="M4.5 7.8 12 13l7.5-5.2" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <path d="M6 7.3h3.4a.7.7 0 0 1 0 1.4H6a.7.7 0 0 1 0-1.4Z" fill="#fff" opacity=".55"/>
+  </symbol>
+  <symbol id="ic-clock" viewBox="0 0 24 24">
+    <circle cx="12" cy="12" r="8.6" fill="currentColor" opacity=".2"/>
+    <circle cx="12" cy="12" r="8.6" stroke="currentColor" stroke-width="1.6" fill="none"/>
+    <path d="M12 7.4V12l3.1 1.9" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/>
+    <path d="M7.4 6.5 9.7 5.4a.7.7 0 0 1 .6 1.26l-2.3 1.1a.7.7 0 0 1-.6-1.26Z" fill="#fff" opacity=".55"/>
+  </symbol>
+  <symbol id="ic-check" viewBox="0 0 24 24">
+    <circle cx="12" cy="12" r="9" fill="currentColor" opacity=".2"/>
+    <path d="M7.9 12.3l2.7 2.6 5.5-5.8" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <path d="M7.5 7.3 9.8 6a.7.7 0 0 1 .7 1.2L8.2 8.5a.7.7 0 0 1-.7-1.2Z" fill="#fff" opacity=".55"/>
+  </symbol>
+  <symbol id="ic-spark" viewBox="0 0 24 24">
+    <path d="M12 3.5c.6 3.7 1.8 5 5.5 5.6-3.7.6-4.9 1.9-5.5 5.6-.6-3.7-1.8-5-5.5-5.6 3.7-.6 4.9-1.9 5.5-5.6Z" fill="currentColor" opacity=".25"/>
+    <path d="M12 3c.7 4 2 5.3 6 6-4 .7-5.3 2-6 6-.7-4-2-5.3-6-6 4-.7 5.3-2 6-6Z" fill="currentColor"/>
+    <path d="M18 14.5c.3 1.7.8 2.2 2.5 2.5-1.7.3-2.2.8-2.5 2.5-.3-1.7-.8-2.2-2.5-2.5 1.7-.3 2.2-.8 2.5-2.5Z" fill="currentColor" opacity=".7"/>
+  </symbol>
+  <symbol id="ic-burger" viewBox="0 0 24 24">
+    <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/>
+  </symbol>
+</svg>
+
+<div class="doc">
+
+<!-- ==================== MOCKUP CHROME ==================== -->
+<header class="chrome">
+  <div class="chrome-in">
+    <p class="eyebrow">Proposal · client portal · 29 July 2026</p>
+    <h1 style="margin-top:10px">The portal is a worklist, not a CRM.</h1>
+    <p class="lede">
+      Same objects Kyle's asking for (lead-shaped records, familiar layout, one surface that serves
+      brokers, tax pros and home services at once) with one word changed. A CRM is a system of record
+      the human maintains. A worklist is a report from someone who works for you, and the only thing
+      it asks you to do is decide. Every token, icon and type rule below comes from
+      <span class="num" style="font-size:12.5px;color:#4fd6d6">client-portal/DESIGN.md</span>.
+      Full argument in <span class="num" style="font-size:12.5px;color:#4fd6d6">RATIONALE.md</span>.
+    </p>
+    <div class="ans">
+      <div><span class="q">Q1</span><b>See first</b><span>Not a metric. The handoff: <b>“Arthur drafted six emails and stopped.”</b> Work done and supervision proven in one line. The $27 becomes a five-cell verb ledger further down the page.</span></div>
+      <div><span class="q">Q2</span><b>Queue, not a board</b><span>One prioritised column on desktop, the identical column at 390px. The pipeline is the same list grouped by stage: a board rotated 90°, which is what makes it phone-native.</span></div>
+      <div><span class="q">Q3</span><b>Attribution</b><span>Every line starts with “Arthur”. There is a next run time. There is no Add button. And his reasoning is set as prose, in a second typographic register no CRM has.</span></div>
+      <div><span class="q">Q4</span><b>Approvals are home</b><span>The root route <b>is</b> the approval queue, not a tab off it. Batch card first, per-draft review as an expansion, never six navigations. Decided items fall into the log so you see what your OK caused.</span></div>
+      <div><span class="q">Q5</span><b>Density vs restraint</b><span>Rows, not cells. A 12-column grid would need cell borders, 12px type and zebra stripes on day one. Casey has 15 records, not 4,000: she needs readable, not dense.</span></div>
+    </div>
+    <nav>
+      <a href="#desk">1 · Your desk (desktop)</a>
+      <a href="#review">2 · Batch review (desktop)</a>
+      <a href="#pipeline">3 · Pipeline (desktop)</a>
+      <a href="#mobile">4 · 390px</a>
+      <a href="#colour">Colour semantics</a>
+    </nav>
+  </div>
+</header>
+
+<!-- ==================== FRAME 1 — YOUR DESK ==================== -->
+<div class="cap" id="desk">
+  <h2>1 · Your desk</h2>
+  <span class="badge">/ · desktop</span>
+  <p>The root route. Replaces the greeting, the setup banner, the five equal tiles and the $27.</p>
+</div>
+
+<div class="frame">
+<div class="shell">
+
+  <aside class="sb">
+    <div class="sb-brand">
+      <span class="lockup">
+        <svg class="robot" viewBox="0 0 128 116"><use href="#ic-robot"/></svg>
+        <span>Ambitt<span style="color:var(--brand-ink)"> Agents</span></span>
+      </span>
+    </div>
+    <nav class="sb-nav">
+      <span class="navitem on"><svg class="ic"><use href="#ic-desk"/></svg>Your desk<span class="badge-n">2</span></span>
+      <p class="eyebrow" style="padding:20px 12px 6px">Your agents</p>
+      <span class="agentrow"><span class="dot dot-emerald"></span>Arthur</span>
+      <div class="subnav">
+        <span class="sub on">Desk<span class="badge-n">2</span></span>
+        <span class="sub">Pipeline<span class="badge-n" style="color:var(--text-3)">15</span></span>
+        <span class="sub">Threads</span>
+        <span class="sub">Tools</span>
+        <span class="sub">Configure</span>
+      </div>
+    </nav>
+    <div class="sb-acct">
+      <div class="who">
+        <span class="initials">LR</span>
+        <div style="min-width:0">
+          <div class="nm">Litsey Real Estate</div>
+          <div class="em">litseyrealestate@gmail.com</div>
+        </div>
+      </div>
+      <span class="out">Sign out</span>
+    </div>
+  </aside>
+
+  <main class="main">
+  <div class="wrap">
+
+    <p class="eyebrow">Litsey Real Estate</p>
+    <h1 class="h1" style="margin-top:9px">
+      Arthur drafted six emails and <span style="color:var(--brand-ink)">stopped</span>.
+    </h1>
+    <p class="sub15 prose" style="margin-top:11px">
+      He wrote them Sunday night, from the nine owners he sourced last week. Nothing has gone
+      anywhere. All six are sitting here waiting on your OK.
+    </p>
+
+    <!-- The byline. A CRM has no "next run", which is exactly why this strip
+         is the cheapest, strongest proof that the work wasn't yours. -->
+    <div class="byline">
+      <span class="avatar"><svg class="robot" viewBox="0 0 128 116"><use href="#ic-robot"/></svg></span>
+      <div>
+        <div class="who">Arthur <span class="sep">·</span> <span style="color:var(--emerald);font-weight:600">Working</span></div>
+        <div class="meta" style="margin-top:2px">
+          <svg class="ic"><use href="#ic-clock"/></svg>
+          Last run 41 minutes ago
+          <span class="sep">·</span>
+          Next run Monday, 8:00 am
+          <span class="sep">·</span>
+          Sourcing, drafting, following up
+        </div>
+      </div>
+      <span class="btn-ghost" style="margin-left:auto">Pause Arthur</span>
+    </div>
+
+    <!-- ===== WAITING ON YOU ===== -->
+    <div class="sect">
+      <p class="eyebrow-n">Waiting on you</p>
+      <p class="m12">2 things <span class="sep">·</span> about four minutes of reading</p>
+    </div>
+
+    <div class="card card-hover" style="position:relative;overflow:hidden;padding:22px 24px 20px 27px">
+      <span class="stripe"></span>
+      <div class="between" style="align-items:flex-start">
+        <div>
+          <p class="eyebrow-n">Drafted Sunday, 8:04 pm</p>
+          <h3 class="h2" style="margin-top:7px">Monday outreach batch</h3>
+        </div>
+        <span class="pill pill-amber">3 days waiting</span>
+      </div>
+      <p class="m13" style="margin-top:8px">
+        6 owners <span class="sep">·</span> all off market <span class="sep">·</span>
+        none of them contacted before <span class="sep">·</span> 4 in the Northland, 2 in Prairie Village
+      </p>
+
+      <p class="said">
+        I kept this one tight. Four Northland owners and two in Prairie Village, all 1958 to 1979
+        vintage, all held longer than fifteen years. If one of them calls back, the comps
+        conversation covers the other five, so it's worth going out as a set.
+        <br><br>
+        I left Hillcrest Manor out of it. That one turned out to be listed, and I'm not going to
+        cold call around another broker without your say.
+      </p>
+
+      <div class="rowflex" style="margin-top:20px">
+        <span class="btn-primary">Read the six drafts</span>
+        <span class="btn-secondary">Approve all six</span>
+      </div>
+      <p class="m12" style="margin-top:12px">
+        Approving sends them from casey@litseycre.com over Monday morning, 25 a day at most.
+        You can stop the batch any time before it goes.
+      </p>
+    </div>
+
+    <div class="card card-hover" style="position:relative;overflow:hidden;padding:22px 24px 20px 27px;margin-top:12px">
+      <span class="stripe warn"></span>
+      <div class="between" style="align-items:flex-start">
+        <div>
+          <p class="eyebrow-n">Needs a decision from you</p>
+          <h3 class="h2" style="margin-top:7px">Hillcrest Manor is listed with another broker</h3>
+        </div>
+        <span class="pill pill-amber">Held out</span>
+      </div>
+      <p class="m13" style="margin-top:8px">
+        Gerald Vanderslice <span class="sep">·</span> Vanderslice &amp; Sons <span class="sep">·</span>
+        705 S Noland Rd, Independence MO
+      </p>
+      <div class="facts rowflex" style="margin-top:9px">
+        <span class="num" style="font-size:12px;color:var(--text-2)">40 units</span>
+        <span class="sep">·</span>
+        <span class="num" style="font-size:12px;color:var(--text-2)">built 1971</span>
+        <span class="tag">Listing</span>
+      </div>
+      <p class="said">
+        Your export had it as off market, but the county record and the listing photos both say it
+        went live nine days ago with another shop. I've pulled it out of the batch and I haven't
+        touched the owner. Tell me once how you want listed properties handled and I'll apply it to
+        every one of these from here on.
+      </p>
+      <div class="rowflex" style="margin-top:20px">
+        <span class="btn-primary">Tell Arthur how to handle these</span>
+        <span class="btn-ghost">Leave it alone for now</span>
+      </div>
+    </div>
+
+    <!-- ===== THE LEDGER — verbs and counts, no currency ===== -->
+    <div class="sect" style="margin-top:40px">
+      <p class="eyebrow-n">What Arthur did last week</p>
+      <p class="m12">Mon 21 Jul to Sun 27 Jul</p>
+    </div>
+    <div class="ledger">
+      <div><div class="n">9</div><div class="l">owners sourced and researched</div></div>
+      <div><div class="n">12</div><div class="l">emails written and sent</div></div>
+      <div><div class="n">4</div><div class="l">follow ups nudged</div></div>
+      <div><div class="n">3</div><div class="l">replies read and answered</div></div>
+      <div><div class="n">1</div><div class="l">owner moved to warm</div></div>
+    </div>
+    <p class="m13" style="margin-top:12px">
+      Every one of those 12 emails went out in your name, after you'd read it.
+      <a href="#review" style="color:var(--brand-ink);font-weight:500">See what he sent</a>
+    </p>
+
+    <!-- ===== THE LOG — attribution, outcome, and what happens next ===== -->
+    <div class="sect" style="margin-top:40px">
+      <p class="eyebrow-n">Since you last looked</p>
+      <p class="m12">Friday, 3:20 pm</p>
+    </div>
+    <ul class="log">
+      <li>
+        <span class="mk act"></span>
+        <div class="when">Wed 7:02 am</div>
+        <div class="what">
+          <b>Arthur re-checked all 15 properties</b> against county records for anything that
+          changed over the weekend. One did: Hillcrest Manor went from off market to listed.
+          He held it out of Monday's batch and flagged it above.
+        </div>
+      </li>
+      <li>
+        <span class="mk act"></span>
+        <div class="when">Tue 4:18 pm</div>
+        <div class="what">
+          <b>Ray Pfannenstiel wrote back</b> about Northgate Apartments on NE Vivion.
+          <span class="quote">“Not selling this year, but call me after the 15th and we can talk
+          about the Vivion Rd building.”</span>
+          Arthur answered him the same afternoon, moved Ray to warm, and put a reminder on your
+          calendar for 16 August.
+          <a href="#" style="color:var(--brand-ink);font-weight:500">Read the thread</a>
+        </div>
+      </li>
+      <li>
+        <span class="mk warn"></span>
+        <div class="when">Fri 9:00 am</div>
+        <div class="what">
+          <b>Arthur nudged Alvina Ptacek</b> about Sunflower Gardens in Wichita, 54 units.
+          That was the day 3 follow up and there's still nothing back. Day 7 goes out this
+          afternoon unless you tell him to leave it.
+        </div>
+      </li>
+      <li>
+        <span class="mk warn"></span>
+        <div class="when">Fri 9:00 am</div>
+        <div class="what">
+          <b>Arthur nudged Stan Zolnierczyk</b> about Meadowbrook Terrace on Mission Rd, 44 units.
+          Day 3, no reply. Day 7 is queued for tomorrow morning.
+        </div>
+      </li>
+      <li>
+        <span class="mk"></span>
+        <div class="when">Thu 11:26 am</div>
+        <div class="what">
+          <b>Bernadette Okafor said no</b> on Riverbend Lofts. Arthur thanked her, marked it passed,
+          and he won't contact her again unless you ask him to.
+        </div>
+      </li>
+    </ul>
+
+    <div class="rowflex" style="margin-top:26px">
+      <span class="btn-secondary">Everything Arthur's working (15)</span>
+      <span class="btn-ghost">Ask Arthur something</span>
+    </div>
+
+    <p class="footnote">
+      Arthur emails you after every run, so this page is never the only way to hear from him.
+      It's here for the mornings you'd rather see all of it at once.
+    </p>
+
+  </div>
+  </main>
+</div>
+</div>
+
+<p class="note-anno">
+  <b>What went away.</b> The dollar figure, the “Good to see you, Casey” greeting (a headline that
+  says nothing costs the most valuable line on the page), and the row of five equal tiles. Nav is
+  the sidebar's job; it doesn't need a second, prettier copy in the content area.
+</p>
+
+<!-- ==================== FRAME 2 — BATCH REVIEW ==================== -->
+<div class="cap" id="review">
+  <h2>2 · Batch review</h2>
+  <span class="badge">/ &rsaquo; batch · desktop</span>
+  <p>Reached from “Read the six drafts”. One page for six decisions, not six pages.</p>
+</div>
+
+<div class="frame">
+<div class="shell">
+
+  <aside class="sb">
+    <div class="sb-brand">
+      <span class="lockup">
+        <svg class="robot" viewBox="0 0 128 116"><use href="#ic-robot"/></svg>
+        <span>Ambitt<span style="color:var(--brand-ink)"> Agents</span></span>
+      </span>
+    </div>
+    <nav class="sb-nav">
+      <span class="navitem on"><svg class="ic"><use href="#ic-desk"/></svg>Your desk<span class="badge-n">2</span></span>
+      <p class="eyebrow" style="padding:20px 12px 6px">Your agents</p>
+      <span class="agentrow"><span class="dot dot-emerald"></span>Arthur</span>
+      <div class="subnav">
+        <span class="sub on">Desk<span class="badge-n">2</span></span>
+        <span class="sub">Pipeline<span class="badge-n" style="color:var(--text-3)">15</span></span>
+        <span class="sub">Threads</span>
+        <span class="sub">Tools</span>
+        <span class="sub">Configure</span>
+      </div>
+    </nav>
+    <div class="sb-acct">
+      <div class="who">
+        <span class="initials">LR</span>
+        <div style="min-width:0">
+          <div class="nm">Litsey Real Estate</div>
+          <div class="em">litseyrealestate@gmail.com</div>
+        </div>
+      </div>
+      <span class="out">Sign out</span>
+    </div>
+  </aside>
+
+  <main class="main">
+  <div class="wrap">
+
+    <p class="m13" style="margin-bottom:22px">&larr; Back to your desk</p>
+
+    <p class="eyebrow">Arthur <span style="color:var(--text-4)">·</span> Monday outreach batch</p>
+    <h1 class="h1" style="margin-top:9px">Six drafts. Read them, then send.</h1>
+    <p class="sub15 prose" style="margin-top:11px">
+      Approve the ones that sound like you. Edit anything that doesn't, and Arthur uses your
+      version as the pattern next time. Skip the rest and he'll leave those owners alone.
+    </p>
+
+    <!-- Decision bar. Progress is the six pips, so the client always knows how
+         many are left without counting cards. -->
+    <div class="decide" style="margin-top:28px">
+      <div class="tally">
+        <span class="pips">
+          <i class="ok"></i><i class="ed"></i><i class="no"></i><i class="ok"></i><i class="ok"></i><i class="ok"></i>
+        </span>
+        <span><b>4 approved</b> <span class="sep">·</span> 1 edited <span class="sep">·</span> 1 skipped</span>
+      </div>
+      <div class="rowflex">
+        <span class="btn-ghost">Save and finish later</span>
+        <span class="btn-primary">Send the 5 you approved</span>
+      </div>
+    </div>
+
+    <!-- Draft 1 — expanded, approved -->
+    <div class="card" style="position:relative;overflow:hidden;padding:20px 22px 18px 25px;margin-bottom:12px">
+      <span class="stripe"></span>
+      <div class="between" style="align-items:flex-start">
+        <div>
+          <span class="idx num" style="font-size:11px;color:var(--text-3)">1 of 6</span>
+          <h3 class="h3" style="margin-top:6px">Dolores Whitcomb</h3>
+          <p class="m12" style="margin-top:1px">Whitcomb Family Trust</p>
+        </div>
+        <span class="pill pill-emerald">Approved</span>
+      </div>
+      <p style="font-size:13.5px;color:var(--text-2);margin-top:9px">
+        Brookside Court <span class="sep">·</span> 4821 N Oak Trafficway, Kansas City MO
+      </p>
+      <div class="rowflex" style="margin-top:9px;gap:7px">
+        <span class="num" style="font-size:12px;color:var(--text-2)">48 units</span><span class="sep">·</span>
+        <span class="num" style="font-size:12px;color:var(--text-2)">built 1968</span><span class="sep">·</span>
+        <span class="num" style="font-size:12px;color:var(--text-2)">held 22 yrs</span>
+        <span class="tag">Off market</span>
+      </div>
+
+      <p class="said">
+        Same owner since 2004, no debt of record, and the Oak Trafficway corridor traded twice this
+        spring. If anyone in this batch is ready to have the conversation, it's her.
+      </p>
+
+      <div class="letter">
+        <p class="hdr">
+          <b>To</b> dwhitcomb@whitcombtrust.com &nbsp; <span class="sep">·</span> &nbsp;
+          <b>From</b> casey@litseycre.com &nbsp; <span class="sep">·</span> &nbsp;
+          <b>Sends</b> Monday 8:10 am<br>
+          <b>Subject</b> Brookside Court, 4821 N Oak
+        </p>
+        <div class="body">Ms. Whitcomb,
+
+I'm a commercial broker here in Kansas City. I work with a few buyers looking for 40 to 80 unit properties north of the river, and Brookside Court came up as one I should ask about.
+
+I'm not asking you to list anything. If you'd ever consider selling, I can tell you what a building like yours would bring today and you can decide from there. If the answer's no, I'll leave you be.
+
+Would a short call next week be alright?
+
+Casey Litsey
+Litsey Real Estate
+(816) 555-0142</div>
+      </div>
+
+      <div class="acts">
+        <span class="chosen"><svg class="ic"><use href="#ic-check"/></svg>Approved</span>
+        <span class="btn-secondary btn-sm">Edit it</span>
+        <span class="btn-ghost">Skip this owner</span>
+      </div>
+    </div>
+
+    <!-- Draft 2 — edited. The point of this state: the client's edit becomes training. -->
+    <div class="card" style="position:relative;overflow:hidden;padding:20px 22px 18px 25px;margin-bottom:12px">
+      <span class="stripe warn"></span>
+      <div class="between" style="align-items:flex-start">
+        <div>
+          <span class="idx num" style="font-size:11px;color:var(--text-3)">2 of 6</span>
+          <h3 class="h3" style="margin-top:6px">Duane Sedlacek</h3>
+          <p class="m12" style="margin-top:1px">Sedlacek Properties</p>
+        </div>
+        <span class="pill pill-amber">You edited this</span>
+      </div>
+      <p style="font-size:13.5px;color:var(--text-2);margin-top:9px">
+        Parvin Place <span class="sep">·</span> 2140 NE Parvin Rd, Kansas City MO
+      </p>
+      <div class="rowflex" style="margin-top:9px;gap:7px">
+        <span class="num" style="font-size:12px;color:var(--text-2)">62 units</span><span class="sep">·</span>
+        <span class="num" style="font-size:12px;color:var(--text-2)">built 1972</span>
+        <span class="tag">Off market</span>
+      </div>
+      <p class="said">
+        You rewrote the opening line and cut the second paragraph. I've kept your version, and I'll
+        write the next batch that way unless you tell me otherwise.
+      </p>
+      <div class="acts">
+        <span class="btn-secondary btn-sm">See your version</span>
+        <span class="btn-ghost">Put Arthur's back</span>
+      </div>
+    </div>
+
+    <!-- Draft 3 — skipped -->
+    <div class="card" style="position:relative;overflow:hidden;padding:18px 22px 16px 25px;margin-bottom:12px;background:var(--surface)">
+      <span class="stripe muted"></span>
+      <div class="between">
+        <div>
+          <span class="idx num" style="font-size:11px;color:var(--text-3)">3 of 6</span>
+          <h3 class="h3" style="margin-top:6px;color:var(--text-2)">Loretta Dziedzic</h3>
+          <p class="m12" style="margin-top:3px">
+            Mission Road Duplexes <span class="sep">·</span> 9040 Mission Rd, Prairie Village KS
+            <span class="sep">·</span> <span class="num">12 units</span>
+          </p>
+          <p class="m13" style="margin-top:8px">
+            Skipped. Arthur won't contact her, and Mission Road stays in your pipeline as sourced
+            in case you change your mind.
+          </p>
+        </div>
+        <span class="pill pill-muted">Skipped</span>
+      </div>
+      <div class="acts" style="margin-top:12px;margin-left:-10px">
+        <span class="btn-ghost">Put it back in the batch</span>
+      </div>
+    </div>
+
+    <!-- Drafts 4-6 — collapsed rows. Same anatomy, one line, three verbs. -->
+    <div class="card mini card-hover">
+      <span class="stripe"></span>
+      <div>
+        <div class="between" style="gap:9px;justify-content:flex-start">
+          <span class="idx num" style="font-size:11px;color:var(--text-3)">4 of 6</span>
+          <span class="nm">Marion Kubik</span>
+          <span class="tag">Off market</span>
+        </div>
+        <p class="pr">Gladstone Gardens <span class="sep">·</span> 6301 N Cherry St, Gladstone MO
+          <span class="sep">·</span> <span class="num">24 units</span>
+          <span class="sep">·</span> <span class="num">built 1965</span>
+          <span class="sep">·</span> held 31 years</p>
+      </div>
+      <div class="acts">
+        <span class="chosen"><svg class="ic"><use href="#ic-check"/></svg>Approved</span>
+        <span class="btn-ghost">Open</span>
+      </div>
+    </div>
+
+    <div class="card mini card-hover">
+      <span class="stripe"></span>
+      <div>
+        <div class="between" style="gap:9px;justify-content:flex-start">
+          <span class="idx num" style="font-size:11px;color:var(--text-3)">5 of 6</span>
+          <span class="nm">Wendell Pribyl</span>
+          <span class="tag">Refi</span>
+        </div>
+        <p class="pr">Shoal Creek Flats <span class="sep">·</span> 8420 NW Barry Rd, Kansas City MO
+          <span class="sep">·</span> <span class="num">54 units</span>
+          <span class="sep">·</span> loan matures <span class="num">Mar 2027</span></p>
+      </div>
+      <div class="acts">
+        <span class="chosen"><svg class="ic"><use href="#ic-check"/></svg>Approved</span>
+        <span class="btn-ghost">Open</span>
+      </div>
+    </div>
+
+    <div class="card mini card-hover">
+      <span class="stripe"></span>
+      <div>
+        <div class="between" style="gap:9px;justify-content:flex-start">
+          <span class="idx num" style="font-size:11px;color:var(--text-3)">6 of 6</span>
+          <span class="nm">Antoinette Boaz</span>
+          <span class="tag">Off market</span>
+        </div>
+        <p class="pr">Somerset Terrace <span class="sep">·</span> 7712 Somerset Dr, Prairie Village KS
+          <span class="sep">·</span> <span class="num">18 units</span>
+          <span class="sep">·</span> <span class="num">built 1961</span></p>
+      </div>
+      <div class="acts">
+        <span class="chosen"><svg class="ic"><use href="#ic-check"/></svg>Approved</span>
+        <span class="btn-ghost">Open</span>
+      </div>
+    </div>
+
+    <p class="footnote">
+      Prefer doing this by email? Reply <span class="num" style="font-size:12px">APPROVE</span> to
+      Arthur's Sunday message and he'll take that as all six. This page exists because six
+      decisions in one place beats six replies.
+    </p>
+
+  </div>
+  </main>
+</div>
+</div>
+
+<p class="note-anno">
+  <b>Why “Read the six drafts” is the filled button and “Approve all six” isn't.</b>
+  One click that sends six emails in Casey's name is how you get the “I didn't know it sent that”
+  phone call, and that call costs more than the friction saves. Both actions are one tap either way,
+  but the visual weight sits on the one that keeps her supervising.
+</p>
+
+<!-- ==================== FRAME 3 — PIPELINE ==================== -->
+<div class="cap" id="pipeline">
+  <h2>3 · Pipeline</h2>
+  <span class="badge">/agents/arthur/pipeline · desktop</span>
+  <p>The board, rotated ninety degrees. Grouped by stage, ordered by who's waiting on whom.</p>
+</div>
+
+<div class="frame">
+<div class="shell">
+
+  <aside class="sb">
+    <div class="sb-brand">
+      <span class="lockup">
+        <svg class="robot" viewBox="0 0 128 116"><use href="#ic-robot"/></svg>
+        <span>Ambitt<span style="color:var(--brand-ink)"> Agents</span></span>
+      </span>
+    </div>
+    <nav class="sb-nav">
+      <span class="navitem"><svg class="ic"><use href="#ic-desk"/></svg>Your desk<span class="badge-n">2</span></span>
+      <p class="eyebrow" style="padding:20px 12px 6px">Your agents</p>
+      <span class="agentrow"><span class="dot dot-emerald"></span>Arthur</span>
+      <div class="subnav">
+        <span class="sub">Desk<span class="badge-n">2</span></span>
+        <span class="sub on">Pipeline<span class="badge-n" style="color:var(--brand-ink)">15</span></span>
+        <span class="sub">Threads</span>
+        <span class="sub">Tools</span>
+        <span class="sub">Configure</span>
+      </div>
+    </nav>
+    <div class="sb-acct">
+      <div class="who">
+        <span class="initials">LR</span>
+        <div style="min-width:0">
+          <div class="nm">Litsey Real Estate</div>
+          <div class="em">litseyrealestate@gmail.com</div>
+        </div>
+      </div>
+      <span class="out">Sign out</span>
+    </div>
+  </aside>
+
+  <main class="main">
+  <div class="wrap-wide">
+
+    <div class="between" style="align-items:flex-end">
+      <div>
+        <p class="eyebrow">Arthur</p>
+        <h1 class="h1" style="margin-top:9px">Everything Arthur's working</h1>
+        <p class="sub15 prose" style="margin-top:11px">
+          Fifteen owners. Arthur keeps every one of them current: who owns it, what's been said,
+          what happens next. You don't have to touch a field.
+        </p>
+      </div>
+      <span class="btn-ghost" style="flex:none">&darr; Export CSV</span>
+    </div>
+
+    <div class="filters" style="margin-top:26px">
+      <span class="f on">All <span class="c">15</span></span>
+      <span class="f">Needs you <span class="c">2</span></span>
+      <span class="f">Waiting your OK <span class="c">6</span></span>
+      <span class="f">Follow up due <span class="c">2</span></span>
+      <span class="f">Outreach sent <span class="c">3</span></span>
+      <span class="f">Warm <span class="c">1</span></span>
+      <span class="f">Passed <span class="c">1</span></span>
+      <span class="f">Off market <span class="c">11</span></span>
+      <span class="f">Refi <span class="c">3</span></span>
+      <span class="f">Listing <span class="c">1</span></span>
+    </div>
+
+    <!-- ===== GROUP: replied ===== -->
+    <div class="grp">
+      <span class="dot dot-amber"></span>
+      <span class="t">Replied, needs you</span><span class="c">1</span>
+      <span class="rule"></span>
+    </div>
+    <div class="card card-hover row">
+      <span class="stripe warn"></span>
+      <div class="top">
+        <div>
+          <div class="nm">Odessa Trawick</div>
+          <div class="ent">Trawick Family Trust</div>
+        </div>
+        <div class="rowflex" style="flex:none;gap:8px">
+          <span class="tag">Refi</span>
+          <span class="pill pill-amber">Needs you</span>
+        </div>
+      </div>
+      <div class="prop">Blue Ridge Villas <span class="sep">·</span> 5601 Blue Ridge Blvd, Raytown MO</div>
+      <div class="facts">
+        <span class="n">26 units</span><span class="sep">·</span>
+        <span class="n">built 1963</span><span class="sep">·</span>
+        <span class="n">loan matures Sep 2026</span><span class="sep">·</span>
+        <span class="n">held 19 yrs</span>
+      </div>
+      <p class="said">
+        She wrote back Wednesday asking what it would appraise at today. I can pull the comps, but
+        I'm not putting a number in front of an owner without you seeing it first.
+      </p>
+      <div class="foot">
+        <span>Sourced from your export, 14 Jul</span><span class="sep">·</span>
+        <span>Arthur emailed 21 Jul, she replied 23 Jul</span><span class="sep">·</span>
+        <span class="next">Next: waiting on you</span>
+      </div>
+    </div>
+
+    <!-- ===== GROUP: follow up due ===== -->
+    <div class="grp">
+      <span class="dot dot-blue"></span>
+      <span class="t">Follow up due</span><span class="c">2</span>
+      <span class="rule"></span>
+      <span class="m12">Arthur handles these unless you stop him</span>
+    </div>
+    <div class="card card-hover row">
+      <span class="stripe blue"></span>
+      <div class="top">
+        <div>
+          <div class="nm">Alvina Ptacek</div>
+          <div class="ent">Ptacek Bros.</div>
+        </div>
+        <div class="rowflex" style="flex:none;gap:8px">
+          <span class="tag">Off market</span>
+          <span class="pill pill-blue">Day 7 today</span>
+        </div>
+      </div>
+      <div class="prop">Sunflower Gardens <span class="sep">·</span> 3200 S Seneca St, Wichita KS</div>
+      <div class="facts">
+        <span class="n">54 units</span><span class="sep">·</span>
+        <span class="n">built 1966</span><span class="sep">·</span>
+        <span class="n">held 24 yrs</span>
+      </div>
+      <p class="said">
+        Day 3 nudge went Friday, nothing back. Wichita's outside your usual radius, but 54 units at
+        that vintage is worth the second email.
+      </p>
+      <div class="foot">
+        <span>Arthur emailed 21 Jul</span><span class="sep">·</span>
+        <span>nudged 24 Jul</span><span class="sep">·</span>
+        <span class="next">Next: day 7 nudge, this afternoon</span>
+      </div>
+    </div>
+    <div class="card card-hover row">
+      <span class="stripe blue"></span>
+      <div class="top">
+        <div>
+          <div class="nm">Stanislaw Zolnierczyk</div>
+          <div class="ent">Zolnierczyk LP</div>
+        </div>
+        <div class="rowflex" style="flex:none;gap:8px">
+          <span class="tag">Off market</span>
+          <span class="pill pill-blue">Day 7 tomorrow</span>
+        </div>
+      </div>
+      <div class="prop">Meadowbrook Terrace <span class="sep">·</span> 9140 Mission Rd, Prairie Village KS</div>
+      <div class="facts">
+        <span class="n">44 units</span><span class="sep">·</span>
+        <span class="n">built 1981</span><span class="sep">·</span>
+        <span class="n">held 29 yrs</span>
+      </div>
+      <p class="said">
+        Owner since 1996, and the mailing address is a house two streets from the property, so he's
+        local and he manages it himself. Worth a third touch.
+      </p>
+      <div class="foot">
+        <span>Arthur emailed 21 Jul</span><span class="sep">·</span>
+        <span>nudged 24 Jul</span><span class="sep">·</span>
+        <span class="next">Next: day 7 nudge, tomorrow 8:10 am</span>
+      </div>
+    </div>
+
+    <!-- ===== GROUP: on hold ===== -->
+    <div class="grp">
+      <span class="dot dot-amber"></span>
+      <span class="t">On hold, needs your direction</span><span class="c">1</span>
+      <span class="rule"></span>
+    </div>
+    <div class="card card-hover row">
+      <span class="stripe warn"></span>
+      <div class="top">
+        <div>
+          <div class="nm">Gerald Vanderslice</div>
+          <div class="ent">Vanderslice &amp; Sons</div>
+        </div>
+        <div class="rowflex" style="flex:none;gap:8px">
+          <span class="tag">Listing</span>
+          <span class="pill pill-amber">Held out</span>
+        </div>
+      </div>
+      <div class="prop">Hillcrest Manor <span class="sep">·</span> 705 S Noland Rd, Independence MO</div>
+      <div class="facts">
+        <span class="n">40 units</span><span class="sep">·</span>
+        <span class="n">built 1971</span><span class="sep">·</span>
+        <span class="n">listed 20 Jul</span>
+      </div>
+      <p class="said">
+        Came through as off market but it's been listed nine days with another shop. Pulled from
+        Monday's batch, owner untouched. One rule from you and I'll apply it to all of these.
+      </p>
+      <div class="foot">
+        <span>Caught on the Wednesday county check</span><span class="sep">·</span>
+        <span class="next">Next: waiting on your call</span>
+      </div>
+    </div>
+
+    <!-- ===== GROUP: drafted ===== -->
+    <div class="grp">
+      <span class="dot dot-amber"></span>
+      <span class="t">Drafted, waiting on your OK</span><span class="c">6</span>
+      <span class="rule"></span>
+      <a href="#review" class="act">Read all six &rarr;</a>
+    </div>
+    <div class="card card-hover row">
+      <span class="stripe warn"></span>
+      <div class="top">
+        <div><div class="nm">Dolores Whitcomb</div><div class="ent">Whitcomb Family Trust</div></div>
+        <div class="rowflex" style="flex:none;gap:8px"><span class="tag">Off market</span><span class="pill pill-amber">Draft ready</span></div>
+      </div>
+      <div class="prop">Brookside Court <span class="sep">·</span> 4821 N Oak Trafficway, Kansas City MO</div>
+      <div class="facts">
+        <span class="n">48 units</span><span class="sep">·</span><span class="n">built 1968</span><span class="sep">·</span>
+        <span class="n">held 22 yrs</span><span class="sep">·</span><span class="n">no debt of record</span>
+      </div>
+      <p class="said">Oak Trafficway traded twice this spring and she's owned it since 2004. Best odds in the batch.</p>
+      <div class="foot"><span>Sourced 21 Jul</span><span class="sep">·</span><span class="next">Next: sends Monday 8:10 am if you approve</span></div>
+    </div>
+    <div class="card card-hover row">
+      <span class="stripe warn"></span>
+      <div class="top">
+        <div><div class="nm">Duane Sedlacek</div><div class="ent">Sedlacek Properties</div></div>
+        <div class="rowflex" style="flex:none;gap:8px"><span class="tag">Off market</span><span class="pill pill-amber">You edited it</span></div>
+      </div>
+      <div class="prop">Parvin Place <span class="sep">·</span> 2140 NE Parvin Rd, Kansas City MO</div>
+      <div class="facts">
+        <span class="n">62 units</span><span class="sep">·</span><span class="n">built 1972</span><span class="sep">·</span>
+        <span class="n">3 other Northland properties</span>
+      </div>
+      <p class="said">Biggest one in the batch. He owns three others up here, so if he sells one he'll want to talk about the rest.</p>
+      <div class="foot"><span>Sourced 21 Jul</span><span class="sep">·</span><span class="next">Next: sends Monday, your wording</span></div>
+    </div>
+    <div class="card card-hover row">
+      <span class="stripe warn"></span>
+      <div class="top">
+        <div><div class="nm">Marion Kubik</div><div class="ent">Kubik Family LP</div></div>
+        <div class="rowflex" style="flex:none;gap:8px"><span class="tag">Off market</span><span class="pill pill-amber">Draft ready</span></div>
+      </div>
+      <div class="prop">Gladstone Gardens <span class="sep">·</span> 6301 N Cherry St, Gladstone MO</div>
+      <div class="facts">
+        <span class="n">24 units</span><span class="sep">·</span><span class="n">built 1965</span><span class="sep">·</span>
+        <span class="n">held 31 yrs</span>
+      </div>
+      <p class="said">The LP's registered agent changed in March, which usually means a family is sorting something out.</p>
+      <div class="foot"><span>Sourced 21 Jul</span><span class="sep">·</span><span class="next">Next: sends Monday 8:10 am if you approve</span></div>
+    </div>
+    <div class="card card-hover row">
+      <span class="stripe warn"></span>
+      <div class="top">
+        <div><div class="nm">Wendell Pribyl</div><div class="ent">Pribyl Real Estate Co</div></div>
+        <div class="rowflex" style="flex:none;gap:8px"><span class="tag">Refi</span><span class="pill pill-amber">Draft ready</span></div>
+      </div>
+      <div class="prop">Shoal Creek Flats <span class="sep">·</span> 8420 NW Barry Rd, Kansas City MO</div>
+      <div class="facts">
+        <span class="n">54 units</span><span class="sep">·</span><span class="n">built 1979</span><span class="sep">·</span>
+        <span class="n">loan matures Mar 2027</span>
+      </div>
+      <p class="said">Lead with the maturity, not a sale. He's got twenty months and he'll be shopping the debt long before that.</p>
+      <div class="foot"><span>Sourced 21 Jul</span><span class="sep">·</span><span class="next">Next: sends Monday 8:10 am if you approve</span></div>
+    </div>
+    <div class="card card-hover row">
+      <span class="stripe warn"></span>
+      <div class="top">
+        <div><div class="nm">Antoinette Boaz</div><div class="ent">Boaz Legacy Group</div></div>
+        <div class="rowflex" style="flex:none;gap:8px"><span class="tag">Off market</span><span class="pill pill-amber">Draft ready</span></div>
+      </div>
+      <div class="prop">Somerset Terrace <span class="sep">·</span> 7712 Somerset Dr, Prairie Village KS</div>
+      <div class="facts">
+        <span class="n">18 units</span><span class="sep">·</span><span class="n">built 1961</span><span class="sep">·</span>
+        <span class="n">held 17 yrs</span>
+      </div>
+      <p class="said">Small, but nothing at 18 units has traded in Prairie Village in two years. Cheap email to send.</p>
+      <div class="foot"><span>Sourced 21 Jul</span><span class="sep">·</span><span class="next">Next: sends Monday 8:10 am if you approve</span></div>
+    </div>
+    <div class="card card-hover row">
+      <span class="stripe muted"></span>
+      <div class="top">
+        <div><div class="nm">Loretta Dziedzic</div><div class="ent" style="font-style:italic">Owns it in her own name</div></div>
+        <div class="rowflex" style="flex:none;gap:8px"><span class="tag">Off market</span><span class="pill pill-muted">You skipped it</span></div>
+      </div>
+      <div class="prop">Mission Road Duplexes <span class="sep">·</span> 9040 Mission Rd, Prairie Village KS</div>
+      <div class="facts">
+        <span class="n">12 units</span><span class="sep">·</span><span class="n">built 1958</span><span class="sep">·</span>
+        <span class="n">6 duplexes, one owner</span>
+      </div>
+      <p class="said">You skipped this one. I'll leave her alone and keep the file here in case that changes.</p>
+      <div class="foot"><span>Sourced 21 Jul</span><span class="sep">·</span><span class="next">Next: nothing, on purpose</span></div>
+    </div>
+
+    <!-- ===== GROUP: sent ===== -->
+    <div class="grp">
+      <span class="dot dot-muted"></span>
+      <span class="t">Outreach sent, nothing back yet</span><span class="c">3</span>
+      <span class="rule"></span>
+    </div>
+    <div class="card card-hover row">
+      <span class="stripe muted"></span>
+      <div class="top">
+        <div><div class="nm">Junior Halloran</div><div class="ent">Halloran Bros. Realty</div></div>
+        <div class="rowflex" style="flex:none;gap:8px"><span class="tag">Off market</span><span class="pill pill-muted">Sent Tue</span></div>
+      </div>
+      <div class="prop">Twelfth Street Commons <span class="sep">·</span> 1215 W 12th St, Kansas City MO</div>
+      <div class="facts">
+        <span class="n">28 units</span><span class="sep">·</span><span class="n">built 1957</span><span class="sep">·</span>
+        <span class="n">delivered, opened twice</span>
+      </div>
+      <p class="said">Opened it twice Tuesday evening and didn't answer. That's usually a maybe, so I'd rather nudge than push.</p>
+      <div class="foot"><span>Arthur emailed 28 Jul</span><span class="sep">·</span><span class="next">Next: day 3 nudge, Friday</span></div>
+    </div>
+    <div class="card card-hover row">
+      <span class="stripe muted"></span>
+      <div class="top">
+        <div><div class="nm">Clyde Hemenway</div><div class="ent">Hemenway Trust</div></div>
+        <div class="rowflex" style="flex:none;gap:8px"><span class="tag">Off market</span><span class="pill pill-muted">Sent Tue</span></div>
+      </div>
+      <div class="prop">Ash Street Duplexes <span class="sep">·</span> 612 N Ash St, Olathe KS</div>
+      <div class="facts">
+        <span class="n">12 units</span><span class="sep">·</span><span class="n">built 1994</span><span class="sep">·</span>
+        <span class="n">delivered</span>
+      </div>
+      <p class="said">Newest building on your whole list. Trust owns it, trustee is out of Lenexa.</p>
+      <div class="foot"><span>Arthur emailed 28 Jul</span><span class="sep">·</span><span class="next">Next: day 3 nudge, Friday</span></div>
+    </div>
+    <div class="card card-hover row">
+      <span class="stripe muted"></span>
+      <div class="top">
+        <div><div class="nm">Everett Lindgren</div><div class="ent">Lindgren Holdings LLC</div></div>
+        <div class="rowflex" style="flex:none;gap:8px"><span class="tag">Refi</span><span class="pill pill-muted">Sent Tue</span></div>
+      </div>
+      <div class="prop">Cedar Bluff Apartments <span class="sep">·</span> 1444 SW Clay St, Topeka KS</div>
+      <div class="facts">
+        <span class="n">30 units</span><span class="sep">·</span><span class="n">built 1979</span><span class="sep">·</span>
+        <span class="n">loan matures Mar 2027</span>
+      </div>
+      <p class="said">Refi angle, same as Shoal Creek. If neither of them bites I'd stop leading with maturities.</p>
+      <div class="foot"><span>Arthur emailed 28 Jul</span><span class="sep">·</span><span class="next">Next: day 3 nudge, Friday</span></div>
+    </div>
+
+    <!-- ===== GROUP: warm ===== -->
+    <div class="grp">
+      <span class="dot dot-emerald"></span>
+      <span class="t">Warm</span><span class="c">1</span>
+      <span class="rule"></span>
+    </div>
+    <div class="card card-hover row">
+      <span class="stripe"></span>
+      <div class="top">
+        <div><div class="nm">Ray Pfannenstiel</div><div class="ent">Pfannenstiel Holdings LLC</div></div>
+        <div class="rowflex" style="flex:none;gap:8px"><span class="tag">Off market</span><span class="pill pill-emerald">Call after the 15th</span></div>
+      </div>
+      <div class="prop">Northgate Apartments <span class="sep">·</span> 1120 NE Vivion Rd, Kansas City MO</div>
+      <div class="facts">
+        <span class="n">36 units</span><span class="sep">·</span><span class="n">built 1974</span><span class="sep">·</span>
+        <span class="n">held 12 yrs</span>
+      </div>
+      <p class="said">
+        Said call him after the 15th. It's on your calendar for the 16th, and I'll send you Vivion Rd
+        comps the day before so you're not going in cold.
+      </p>
+      <div class="foot">
+        <span>Replied 28 Jul</span><span class="sep">·</span>
+        <span>Arthur answered same day</span><span class="sep">·</span>
+        <span class="next">Next: your call, 16 Aug</span>
+      </div>
+    </div>
+
+    <!-- ===== GROUP: passed ===== -->
+    <div class="grp">
+      <span class="dot dot-muted"></span>
+      <span class="t">Passed</span><span class="c">1</span>
+      <span class="rule"></span>
+    </div>
+    <div class="card card-hover row">
+      <span class="stripe muted"></span>
+      <div class="top">
+        <div><div class="nm" style="color:var(--text-2)">Bernadette Okafor</div><div class="ent">Okafor Ventures LLC</div></div>
+        <div class="rowflex" style="flex:none;gap:8px"><span class="tag">Off market</span><span class="pill pill-muted">Not interested</span></div>
+      </div>
+      <div class="prop">Riverbend Lofts <span class="sep">·</span> 1801 Grand Blvd, Kansas City MO</div>
+      <div class="facts">
+        <span class="n">22 units</span><span class="sep">·</span><span class="n">built 1911</span>
+      </div>
+      <p class="said">Said no plainly, so I thanked her and closed it. I won't contact her again unless you ask.</p>
+      <div class="foot"><span>Replied 24 Jul</span><span class="sep">·</span><span class="next">Next: nothing</span></div>
+    </div>
+
+    <div class="card" style="padding:20px 22px;margin-top:26px;background:var(--surface)">
+      <div class="between" style="gap:20px">
+        <div>
+          <h3 class="h3">There's no Add button here, on purpose</h3>
+          <p class="m13" style="margin-top:5px;max-width:60ch">
+            Keeping this list current is Arthur's job, not yours. If there's an owner or a building
+            you want worked, hand it to him and he'll fill in the rest before you see it again.
+          </p>
+        </div>
+        <span class="btn-secondary" style="flex:none">Hand Arthur a property</span>
+      </div>
+    </div>
+
+  </div>
+  </main>
+</div>
+</div>
+
+<p class="note-anno">
+  <b>Rows, not cells.</b> One owner is one row you can read like a sentence, not twelve columns you
+  scan. The numbers that genuinely want alignment (units, vintage, hold period, maturity) sit in a
+  DM&nbsp;Mono strip with tabular figures; everything else is prose. That's how a CRM's information
+  density survives a design system that bans cell borders.
+</p>
+
+<!-- ==================== FRAME 4 — 390px ==================== -->
+<div class="cap" id="mobile">
+  <h2>4 · The same thing at 390px</h2>
+  <span class="badge">iPhone width · scroll each frame</span>
+  <p>Not a degraded desktop. Desktop was already one column, so there's nothing to collapse.</p>
+</div>
+
+<div class="phones">
+
+  <!-- ---------- M1 · desk ---------- -->
+  <div class="phone">
+    <p class="lbl"><b>Your desk</b> <span>the handoff, then the ledger, then the log</span></p>
+    <div class="glass">
+      <div class="mtop">
+        <span class="burger"><svg class="ic" style="width:20px;height:20px"><use href="#ic-burger"/></svg></span>
+        <span class="lockup"><svg class="robot" viewBox="0 0 128 116" style="width:24px;height:22px"><use href="#ic-robot"/></svg>
+          <span style="font-size:15px">Ambitt<span style="color:var(--brand-ink)"> Agents</span></span></span>
+        <span class="pill pill-amber" style="margin-left:auto">2 waiting</span>
+      </div>
+      <div class="mmain">
+        <p class="eyebrow">Litsey Real Estate</p>
+        <h1 class="h1" style="margin-top:8px">Arthur drafted six emails and <span style="color:var(--brand-ink)">stopped</span>.</h1>
+        <p style="font-size:14.5px;color:var(--text-2);margin-top:10px;line-height:1.55">
+          He wrote them Sunday night. Nothing has gone anywhere. All six are waiting on your OK.
+        </p>
+
+        <div class="byline" style="margin:18px 0 26px;padding:9px 12px;gap:10px">
+          <span class="avatar" style="width:30px;height:30px"><svg class="robot" viewBox="0 0 128 116" style="width:19px;height:17px"><use href="#ic-robot"/></svg></span>
+          <div style="min-width:0">
+            <div class="who" style="font-size:13px">Arthur <span class="sep">·</span> <span style="color:var(--emerald)">Working</span></div>
+            <div class="meta" style="font-size:11.5px;margin-top:1px">
+              <svg class="ic" style="width:13px;height:13px"><use href="#ic-clock"/></svg>
+              41m ago <span class="sep">·</span> next Mon 8:00 am
+            </div>
+          </div>
+        </div>
+
+        <p class="eyebrow-n">Waiting on you</p>
+        <div class="card" style="position:relative;overflow:hidden;padding:18px 16px 16px 19px;margin-top:10px">
+          <span class="stripe"></span>
+          <div class="between" style="align-items:flex-start;gap:8px">
+            <div>
+              <p class="eyebrow-n" style="font-size:10.5px">Drafted Sunday, 8:04 pm</p>
+              <h3 class="h2" style="font-size:19px;margin-top:6px">Monday outreach batch</h3>
+            </div>
+            <span class="pill pill-amber" style="flex:none">3 days</span>
+          </div>
+          <p class="m12" style="margin-top:7px">6 owners <span class="sep">·</span> all off market <span class="sep">·</span> none contacted before</p>
+          <p class="said" style="font-size:14px;margin-top:12px">
+            Four Northland owners and two in Prairie Village, all held longer than fifteen years. If
+            one calls back the comps conversation covers the other five. I left Hillcrest Manor out,
+            it turned out to be listed.
+          </p>
+          <span class="btn-primary" style="width:100%;margin-top:16px">Read the six drafts</span>
+          <span class="btn-secondary" style="width:100%;margin-top:8px">Approve all six</span>
+        </div>
+
+        <div class="card" style="position:relative;overflow:hidden;padding:16px 16px 14px 19px;margin-top:10px">
+          <span class="stripe warn"></span>
+          <p class="eyebrow-n" style="font-size:10.5px">Needs a decision</p>
+          <h3 class="h3" style="margin-top:6px">Hillcrest Manor is listed with another broker</h3>
+          <p class="m12" style="margin-top:5px">Gerald Vanderslice <span class="sep">·</span> Independence MO <span class="sep">·</span> <span class="num">40 units</span></p>
+          <span class="btn-secondary btn-sm" style="width:100%;margin-top:14px">Tell Arthur how to handle these</span>
+        </div>
+
+        <p class="eyebrow-n" style="margin-top:30px">What Arthur did last week</p>
+        <div class="mledger" style="margin-top:10px">
+          <div><div class="n">9</div><div class="l">owners sourced</div></div>
+          <div><div class="n">12</div><div class="l">emails sent</div></div>
+          <div><div class="n">4</div><div class="l">follow ups nudged</div></div>
+          <div><div class="n">3</div><div class="l">replies answered</div></div>
+        </div>
+        <p class="m13" style="margin-top:10px">
+          One owner moved to warm: Ray Pfannenstiel wants a call after the 15th. All 12 emails went
+          out in your name, after you'd read them.
+        </p>
+
+        <p class="eyebrow-n" style="margin-top:30px">Since you last looked</p>
+        <ul class="log" style="margin-top:12px">
+          <li>
+            <span class="mk act"></span>
+            <div class="when">Wed 7:02 am</div>
+            <div class="what" style="font-size:13.5px"><b>Arthur re-checked all 15 properties</b> against county records. One changed: Hillcrest Manor is now listed.</div>
+          </li>
+          <li>
+            <span class="mk act"></span>
+            <div class="when">Tue 4:18 pm</div>
+            <div class="what" style="font-size:13.5px"><b>Ray Pfannenstiel wrote back.</b> <span class="quote">“Call me after the 15th.”</span> Arthur answered, moved him to warm, put it on your calendar.</div>
+          </li>
+          <li>
+            <span class="mk warn"></span>
+            <div class="when">Fri 9:00 am</div>
+            <div class="what" style="font-size:13.5px"><b>Arthur nudged Alvina Ptacek</b> on Sunflower Gardens. Day 3, nothing back. Day 7 goes this afternoon.</div>
+          </li>
+        </ul>
+        <span class="btn-secondary" style="width:100%;margin-top:22px">Everything Arthur's working (15)</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ---------- M2 · batch review ---------- -->
+  <div class="phone">
+    <p class="lbl"><b>Batch review</b> <span>six decisions, one thumb, sticky send bar</span></p>
+    <div class="glass">
+      <div class="mtop">
+        <span class="burger"><svg class="ic" style="width:20px;height:20px"><use href="#ic-burger"/></svg></span>
+        <div style="min-width:0">
+          <div style="font-size:13px;font-weight:600;line-height:1.2">Monday outreach batch</div>
+          <div style="font-size:11px;color:var(--text-3)">Arthur <span class="sep">·</span> 6 drafts</div>
+        </div>
+      </div>
+      <div class="mmain" style="padding-bottom:24px">
+        <h1 class="h1" style="font-size:24px">Six drafts. Read them, then send.</h1>
+        <p style="font-size:14px;color:var(--text-2);margin-top:9px;line-height:1.55">
+          Approve what sounds like you. Edit what doesn't, and Arthur writes the next batch that way.
+        </p>
+
+        <div class="card" style="padding:12px 14px;margin-top:18px">
+          <div class="rowflex" style="gap:10px">
+            <span class="pips"><i class="ok"></i><i class="ed"></i><i class="no"></i><i class="ok"></i><i class="ok"></i><i class="ok"></i></span>
+            <span style="font-size:12.5px;color:var(--text-2)"><b style="color:var(--text)">4 approved</b> <span class="sep">·</span> 1 edited <span class="sep">·</span> 1 skipped</span>
+          </div>
+        </div>
+
+        <div class="card" style="position:relative;overflow:hidden;padding:16px 14px 14px 17px;margin-top:12px">
+          <span class="stripe"></span>
+          <div class="between" style="align-items:flex-start;gap:8px">
+            <div>
+              <span class="num" style="font-size:10.5px;color:var(--text-3)">1 of 6</span>
+              <h3 class="h3" style="margin-top:5px">Dolores Whitcomb</h3>
+              <p class="m12">Whitcomb Family Trust</p>
+            </div>
+            <span class="pill pill-emerald" style="flex:none">OK'd</span>
+          </div>
+          <p style="font-size:13px;color:var(--text-2);margin-top:8px">Brookside Court <span class="sep">·</span> 4821 N Oak Trafficway, KCMO</p>
+          <div class="rowflex" style="margin-top:8px;gap:6px">
+            <span class="num" style="font-size:11.5px;color:var(--text-2)">48 units</span><span class="sep">·</span>
+            <span class="num" style="font-size:11.5px;color:var(--text-2)">1968</span><span class="sep">·</span>
+            <span class="num" style="font-size:11.5px;color:var(--text-2)">held 22 yrs</span>
+            <span class="tag">Off market</span>
+          </div>
+          <p class="said" style="font-size:13.5px">
+            Same owner since 2004, no debt of record, and Oak Trafficway traded twice this spring.
+          </p>
+          <div class="letter" style="padding:13px 14px;margin-top:12px">
+            <p class="hdr" style="font-size:11.5px">
+              <b>To</b> dwhitcomb@whitcombtrust.com<br>
+              <b>Subject</b> Brookside Court, 4821 N Oak
+            </p>
+            <div class="body" style="font-size:13.5px;max-width:none">Ms. Whitcomb,
+
+I'm a commercial broker here in Kansas City. I work with a few buyers looking for 40 to 80 unit properties north of the river, and Brookside Court came up as one I should ask about.
+
+I'm not asking you to list anything. If you'd ever consider selling, I can tell you what a building like yours would bring today and you can decide from there. If the answer's no, I'll leave you be.
+
+Would a short call next week be alright?
+
+Casey Litsey
+Litsey Real Estate
+(816) 555-0142</div>
+          </div>
+          <div class="rowflex" style="margin-top:14px;gap:6px">
+            <span class="chosen" style="font-size:12px"><svg class="ic" style="width:14px;height:14px"><use href="#ic-check"/></svg>Approved</span>
+            <span class="btn-secondary btn-sm">Edit</span>
+            <span class="btn-ghost" style="padding:7px 8px">Skip</span>
+          </div>
+        </div>
+
+        <div class="card mini" style="margin-top:10px;padding:13px 14px 13px 17px;align-items:flex-start">
+          <span class="stripe warn"></span>
+          <div>
+            <span class="num" style="font-size:10.5px;color:var(--text-3)">2 of 6</span>
+            <div class="nm" style="margin-top:4px">Duane Sedlacek</div>
+            <p class="pr">Parvin Place <span class="sep">·</span> <span class="num">62 units</span></p>
+            <p class="m12" style="margin-top:6px">You rewrote the opening. Arthur kept your version.</p>
+          </div>
+          <span class="pill pill-amber" style="flex:none">Edited</span>
+        </div>
+
+        <div class="card mini" style="margin-top:8px;padding:13px 14px 13px 17px;align-items:flex-start">
+          <span class="stripe muted"></span>
+          <div>
+            <span class="num" style="font-size:10.5px;color:var(--text-3)">3 of 6</span>
+            <div class="nm" style="margin-top:4px;color:var(--text-2)">Loretta Dziedzic</div>
+            <p class="pr">Mission Road Duplexes <span class="sep">·</span> <span class="num">12 units</span></p>
+            <p class="m12" style="margin-top:6px">Skipped. Arthur won't contact her.</p>
+          </div>
+          <span class="pill pill-muted" style="flex:none">Skipped</span>
+        </div>
+
+        <div class="card mini" style="margin-top:8px;padding:13px 14px 13px 17px">
+          <div>
+            <span class="num" style="font-size:10.5px;color:var(--text-3)">4 of 6</span>
+            <div class="nm" style="margin-top:4px">Marion Kubik</div>
+            <p class="pr">Gladstone Gardens <span class="sep">·</span> <span class="num">24 units</span></p>
+          </div>
+          <span class="chosen" style="font-size:12px;flex:none"><svg class="ic" style="width:14px;height:14px"><use href="#ic-check"/></svg>OK'd</span>
+        </div>
+        <div class="card mini" style="margin-top:8px;padding:13px 14px 13px 17px">
+          <div>
+            <span class="num" style="font-size:10.5px;color:var(--text-3)">5 of 6</span>
+            <div class="nm" style="margin-top:4px">Wendell Pribyl</div>
+            <p class="pr">Shoal Creek Flats <span class="sep">·</span> <span class="num">54 units</span></p>
+          </div>
+          <span class="chosen" style="font-size:12px;flex:none"><svg class="ic" style="width:14px;height:14px"><use href="#ic-check"/></svg>OK'd</span>
+        </div>
+        <div class="card mini" style="margin-top:8px;padding:13px 14px 13px 17px">
+          <div>
+            <span class="num" style="font-size:10.5px;color:var(--text-3)">6 of 6</span>
+            <div class="nm" style="margin-top:4px">Antoinette Boaz</div>
+            <p class="pr">Somerset Terrace <span class="sep">·</span> <span class="num">18 units</span></p>
+          </div>
+          <span class="chosen" style="font-size:12px;flex:none"><svg class="ic" style="width:14px;height:14px"><use href="#ic-check"/></svg>OK'd</span>
+        </div>
+      </div>
+      <div class="mbar">
+        <span class="btn-primary">Send the 5 you approved</span>
+        <span class="btn-ghost" style="flex:none">Later</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ---------- M3 · pipeline ---------- -->
+  <div class="phone">
+    <p class="lbl"><b>Pipeline</b> <span>the identical rows, no horizontal scroll</span></p>
+    <div class="glass">
+      <div class="mtop">
+        <span class="burger"><svg class="ic" style="width:20px;height:20px"><use href="#ic-burger"/></svg></span>
+        <div style="min-width:0">
+          <div style="font-size:13px;font-weight:600;line-height:1.2">Pipeline</div>
+          <div style="font-size:11px;color:var(--text-3)">Arthur <span class="sep">·</span> 15 owners</div>
+        </div>
+        <span class="btn-ghost" style="margin-left:auto;font-size:12px">&darr; CSV</span>
+      </div>
+      <div style="padding:20px 16px 0">
+        <h1 class="h1" style="font-size:24px">Everything Arthur's working</h1>
+        <p style="font-size:14px;color:var(--text-2);margin-top:9px;line-height:1.55">
+          Fifteen owners. He keeps every one current. You don't have to touch a field.
+        </p>
+      </div>
+      <div class="mfilters" style="margin-top:18px">
+        <span class="f on">All <span class="c">15</span></span>
+        <span class="f">Needs you <span class="c">2</span></span>
+        <span class="f">Waiting your OK <span class="c">6</span></span>
+        <span class="f">Follow up due <span class="c">2</span></span>
+        <span class="f">Sent <span class="c">3</span></span>
+        <span class="f">Warm <span class="c">1</span></span>
+      </div>
+      <div style="padding:20px 16px 40px">
+        <div class="grp" style="margin-top:0">
+          <span class="dot dot-amber"></span><span class="t">Replied, needs you</span><span class="c">1</span><span class="rule"></span>
+        </div>
+        <div class="card row" style="padding:14px 14px 12px 17px">
+          <span class="stripe warn"></span>
+          <div class="top">
+            <div><div class="nm" style="font-size:14.5px">Odessa Trawick</div><div class="ent">Trawick Family Trust</div></div>
+            <span class="pill pill-amber" style="flex:none">Needs you</span>
+          </div>
+          <div class="prop" style="font-size:13px">Blue Ridge Villas <span class="sep">·</span> 5601 Blue Ridge Blvd, Raytown MO</div>
+          <div class="facts">
+            <span class="n" style="font-size:11.5px">26 units</span><span class="sep">·</span>
+            <span class="n" style="font-size:11.5px">1963</span><span class="sep">·</span>
+            <span class="n" style="font-size:11.5px">matures Sep 2026</span>
+            <span class="tag">Refi</span>
+          </div>
+          <p class="said" style="font-size:13px">She asked what it'd appraise at. I'm not putting a number in front of an owner without you seeing it.</p>
+          <div class="foot" style="font-size:11.5px"><span class="next">Next: waiting on you</span></div>
+        </div>
+
+        <div class="grp">
+          <span class="dot dot-blue"></span><span class="t">Follow up due</span><span class="c">2</span><span class="rule"></span>
+        </div>
+        <div class="card row" style="padding:14px 14px 12px 17px">
+          <span class="stripe blue"></span>
+          <div class="top">
+            <div><div class="nm" style="font-size:14.5px">Alvina Ptacek</div><div class="ent">Ptacek Bros.</div></div>
+            <span class="pill pill-blue" style="flex:none">Day 7 today</span>
+          </div>
+          <div class="prop" style="font-size:13px">Sunflower Gardens <span class="sep">·</span> 3200 S Seneca St, Wichita KS</div>
+          <div class="facts">
+            <span class="n" style="font-size:11.5px">54 units</span><span class="sep">·</span>
+            <span class="n" style="font-size:11.5px">1966</span><span class="sep">·</span>
+            <span class="n" style="font-size:11.5px">held 24 yrs</span>
+            <span class="tag">Off market</span>
+          </div>
+          <p class="said" style="font-size:13px">Day 3 went Friday, nothing back. 54 units at that vintage is worth the second email.</p>
+          <div class="foot" style="font-size:11.5px"><span class="next">Next: day 7 nudge, this afternoon</span></div>
+        </div>
+        <div class="card row" style="padding:14px 14px 12px 17px">
+          <span class="stripe blue"></span>
+          <div class="top">
+            <div><div class="nm" style="font-size:14.5px">Stanislaw Zolnierczyk</div><div class="ent">Zolnierczyk LP</div></div>
+            <span class="pill pill-blue" style="flex:none">Day 7 tmrw</span>
+          </div>
+          <div class="prop" style="font-size:13px">Meadowbrook Terrace <span class="sep">·</span> 9140 Mission Rd, Prairie Village KS</div>
+          <div class="facts">
+            <span class="n" style="font-size:11.5px">44 units</span><span class="sep">·</span>
+            <span class="n" style="font-size:11.5px">1981</span><span class="sep">·</span>
+            <span class="n" style="font-size:11.5px">held 29 yrs</span>
+            <span class="tag">Off market</span>
+          </div>
+          <p class="said" style="font-size:13px">Owner since 1996 and he lives two streets away, so he manages it himself. Worth a third touch.</p>
+          <div class="foot" style="font-size:11.5px"><span class="next">Next: day 7 nudge, tomorrow 8:10 am</span></div>
+        </div>
+
+        <div class="grp">
+          <span class="dot dot-amber"></span><span class="t">Drafted, waiting on your OK</span><span class="c">6</span><span class="rule"></span>
+        </div>
+        <div class="card row" style="padding:14px 14px 12px 17px">
+          <span class="stripe warn"></span>
+          <div class="top">
+            <div><div class="nm" style="font-size:14.5px">Dolores Whitcomb</div><div class="ent">Whitcomb Family Trust</div></div>
+            <span class="pill pill-amber" style="flex:none">Draft ready</span>
+          </div>
+          <div class="prop" style="font-size:13px">Brookside Court <span class="sep">·</span> 4821 N Oak Trafficway, KCMO</div>
+          <div class="facts">
+            <span class="n" style="font-size:11.5px">48 units</span><span class="sep">·</span>
+            <span class="n" style="font-size:11.5px">1968</span><span class="sep">·</span>
+            <span class="n" style="font-size:11.5px">no debt of record</span>
+            <span class="tag">Off market</span>
+          </div>
+          <p class="said" style="font-size:13px">Oak Trafficway traded twice this spring and she's owned it since 2004. Best odds in the batch.</p>
+          <div class="foot" style="font-size:11.5px"><span class="next">Next: sends Monday 8:10 am if you approve</span></div>
+        </div>
+        <span class="btn-secondary" style="width:100%;margin-top:12px">Read all six drafts</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<p class="note-anno">
+  <b>The mobile test a board fails.</b> Five stage columns at 390px means a horizontal scroller where
+  you can never see two stages at once, and drag-to-advance with a thumb on a moving surface. The
+  queue is the same component at both widths: one column, sticky action bar, stage as a chip.
+</p>
+
+<!-- ==================== COLOUR SEMANTICS ==================== -->
+<div class="cap" id="colour">
+  <h2>Colour is doing one job each</h2>
+  <span class="badge">DESIGN.md · teal is identity, never status</span>
+  <p>Four hues, four meanings, and the brand accent isn't one of them.</p>
+</div>
+
+<div style="max-width:1100px;margin:0 auto">
+  <div class="card" style="padding:26px 28px">
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:26px 40px">
+      <div>
+        <div class="rowflex"><span class="pill pill-amber">Needs you</span><span class="m13">amber</span></div>
+        <p class="m13" style="margin-top:8px">Casey has to do something. Drafts waiting, a reply she
+          must answer, a rule Arthur needs. Amber appears three times on the desk and it means the
+          same thing all three times.</p>
+      </div>
+      <div>
+        <div class="rowflex"><span class="pill pill-blue">Day 7 today</span><span class="m13">blue</span></div>
+        <p class="m13" style="margin-top:8px">Arthur will act, unattended, and this is him telling
+          her before he does it. Informational, not a task.</p>
+      </div>
+      <div>
+        <div class="rowflex"><span class="pill pill-muted">Sent Tue</span><span class="m13">muted</span></div>
+        <p class="m13" style="margin-top:8px">Waiting on the world. Nobody owes anybody anything
+          yet, so it recedes.</p>
+      </div>
+      <div>
+        <div class="rowflex"><span class="pill pill-emerald">Call after the 15th</span><span class="m13">green</span></div>
+        <p class="m13" style="margin-top:8px">Something good happened. True green
+          <span class="num">#16713a</span>, 33 dE from the brand teal, so it can never read as “us”.</p>
+      </div>
+      <div>
+        <div class="rowflex"><span class="tag">Off market</span><span class="tag">Refi</span><span class="tag">Listing</span><span class="m13">neutral</span></div>
+        <p class="m13" style="margin-top:8px">Scenario is a category, not a state. Categories get no
+          hue at all: they're set in DM&nbsp;Mono on the recessed wash and told apart by the word.
+          Colouring these is how a palette starts meaning nothing.</p>
+      </div>
+      <div>
+        <div class="rowflex">
+          <span style="width:22px;height:22px;border-radius:6px;background:var(--brand);display:inline-block"></span>
+          <span class="m13">teal, for us only</span>
+        </div>
+        <p class="m13" style="margin-top:8px">The mark, the accent stripe on a card that's waiting,
+          the rule beside Arthur's own words, the ledger numerals, the one word in the headline, and
+          the primary button. Never a status pill.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p class="note-anno" style="margin-top:22px">
+  <b>One rule I'd hold the line on.</b> The accent stripe on the left edge of a card is decoration,
+  so a card that's waiting on Casey also says “3 days waiting” in words, and a follow-up row also
+  says “Day 7 today”. Colour is never the only signal, on any of these screens.
+</p>
+
+
+</div>
+</body>
+</html>
