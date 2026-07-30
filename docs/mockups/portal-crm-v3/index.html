@@ -1,0 +1,1034 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ambitt portal v3 — a CRM that is also a portal</title>
+<style>
+/* ===========================================================================
+   PORTAL v3
+   ---------------------------------------------------------------------------
+   Reference stack, agreed 2026-07-30:
+     Attio    shell, rail, record page, view switching. Light dense rail, not
+              Amperity's dark one. Attio is a CRM rebuilt around agents, which
+              is our exact problem, and it is the smallest change from the type
+              and neutrals we already own.
+     Monday   status legibility only. Colour-coded stages that read instantly,
+              drag between columns, board/table toggle. Not its 15 column lead
+              board and not its density.
+     Copilot  the account half. Billing, team, settings and tools under ONE
+              client-facing nav. Attio and Monday are internal tools with no
+              concept of "this is a portal my vendor gave me", which is half of
+              what this product is.
+     Stripe   the billing page. Plan, usage, method, invoices. No upside to
+              inventing a different one.
+     Front    the lead page. The conversation IS the record, not a tab on it.
+              Kyle asked twice for "the last time I communicated with this
+              lead", which is a Front pattern, not a Monday one.
+
+   What this fixes from v2: v2 was a dashboard with eight destinations and no
+   account section at all, so a client could not pay us, add a colleague, or
+   set up email from inside it. This is a CRM with an account section, which is
+   what a portal is.
+   =========================================================================== */
+
+@font-face{font-family:'DM Sans';src:url('../portal-v2/fonts/dm-sans.woff2') format('woff2');
+  font-weight:100 1000;font-display:swap}
+@font-face{font-family:'DM Mono';src:url('../portal-v2/fonts/dm-mono.woff2') format('woff2');
+  font-weight:300 500;font-display:swap}
+
+:root{
+  --brand:#00b3b3; --brand-solid:#00807e; --brand-ink:#00706f;
+  --brand-tint:rgba(0,179,179,.09); --brand-tint-2:rgba(0,179,179,.16);
+
+  --bg:#f9f7f4; --surface:#fffdfb; --surface-2:#f1ede7; --rail:#f6f3ef;
+  --text:#1b3139; --text-2:#47606a; --text-3:#5a6f77; --text-4:#78949f;
+  --border:#dce0e2; --border-strong:#6f8892;
+
+  --emerald:#16713a; --emerald-tint:rgba(22,113,58,.11);
+  --amber:#a34a07;   --amber-tint:rgba(163,74,7,.11);
+  --red:#be123c;     --red-tint:rgba(190,18,60,.1);
+  --blue:#1d4ed8;    --blue-tint:rgba(29,78,216,.1);
+
+  --e1:0 1px 2px rgba(27,49,57,.05),0 1px 1px rgba(27,49,57,.03);
+  --e2:0 0 0 1px rgba(27,49,57,.03),0 1px 2px rgba(27,49,57,.03),
+       0 2px 3px rgba(27,49,57,.02),0 4px 8px rgba(27,49,57,.025),
+       0 9px 13px -4px rgba(27,49,57,.03),0 16px 24px -10px rgba(27,49,57,.04);
+  --e3:0 2px 3px rgba(27,49,57,.02),0 4px 8px rgba(27,49,57,.025),
+       0 9px 13px rgba(27,49,57,.035),0 16px 24px rgba(27,49,57,.04),
+       0 32px 40px -12px rgba(27,49,57,.05);
+
+  --sans:'DM Sans',system-ui,sans-serif;
+  --mono:'DM Mono',ui-monospace,monospace;
+  --fs-display:24px; --fs-h2:20px; --fs-body:16px; --fs-sm:14px;
+  --fs-xs:12.5px; --fs-micro:11px; --fs-nano:10.5px; /* tags and card marks only */
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--sans);font-size:var(--fs-body);color:var(--text);
+  background:var(--bg);-webkit-font-smoothing:antialiased;line-height:1.5}
+h1,h2,h3{font-weight:500;line-height:1.15;letter-spacing:-.01em}
+a{color:inherit}
+button,input,textarea,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--brand-solid);outline-offset:2px;border-radius:3px}
+
+/* --- mockup chrome ------------------------------------------------------- */
+.page{max-width:1400px;margin:0 auto;padding:56px 24px 96px}
+.doc-h{max-width:78ch;margin-bottom:44px}
+.doc-h h1{font-size:32px;margin-bottom:14px}
+.doc-h p{color:var(--text-2);margin-top:11px}
+.cap{max-width:78ch;margin:56px 0 18px}
+.cap h2{font-size:var(--fs-h2);margin-bottom:9px}
+.cap p{font-size:var(--fs-sm);color:var(--text-2);margin-top:9px}
+.badge{display:inline-block;font-family:var(--mono);font-size:var(--fs-micro);
+  background:var(--surface-2);color:var(--text-3);padding:3px 7px;border-radius:3px}
+.frame{border-radius:10px;overflow:hidden;box-shadow:var(--e3)}
+
+/* ===========================================================================
+   SHELL. Rail plus content. The rail is LIGHT and dense, Attio's answer, not
+   Amperity's dark one: it is the smaller change from the neutrals we own and
+   it keeps the client's own data as the darkest thing on the screen.
+   =========================================================================== */
+.app{display:grid;grid-template-columns:232px 1fr;min-height:720px;background:var(--bg)}
+.rail{background:var(--rail);border-right:1px solid var(--border);padding:10px 0;
+  display:flex;flex-direction:column}
+
+/* Workspace, not a logo lockup. The client's own business is the first thing
+   in the rail, because this is their portal, not our product tour. */
+.ws{display:flex;align-items:center;gap:9px;padding:7px 12px;margin:0 8px 10px;
+  border-radius:5px;text-decoration:none}
+.ws:hover{background:rgba(27,49,57,.045)}
+.ws-a{width:26px;height:26px;border-radius:5px;background:var(--brand-solid);color:#fff;
+  font-size:var(--fs-nano);font-weight:600;display:grid;place-items:center;flex:none}
+.ws-n{font-size:var(--fs-sm);font-weight:500;line-height:1.2;min-width:0;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ws-s{font-size:var(--fs-micro);color:var(--text-3)}
+.ws-c{margin-left:auto;color:var(--text-3);flex:none}
+
+.nav{padding:0 8px;display:flex;flex-direction:column;gap:1px}
+.nav-s{font-family:var(--mono);font-size:var(--fs-micro);font-weight:500;
+  letter-spacing:.09em;text-transform:uppercase;color:var(--text-3);
+  padding:16px 10px 6px}
+.ni{display:flex;align-items:center;gap:9px;height:32px;padding:0 10px;border-radius:5px;
+  font-size:var(--fs-sm);color:var(--text-2);text-decoration:none;transition:background .12s ease}
+.ni:hover{background:rgba(27,49,57,.045);color:var(--text)}
+/* Active: surface lift + ink + a teal icon. One accent, no bar, no tint wash. */
+.ni.on{background:var(--surface);color:var(--text);font-weight:500;box-shadow:var(--e1)}
+.ni.on .ic{color:var(--brand-solid)}
+.ic{width:16px;height:16px;flex:none;color:var(--text-3)}
+.ni-c{margin-left:auto;font-family:var(--mono);font-size:var(--fs-micro);color:var(--text-3)}
+.ni-d{margin-left:auto;width:6px;height:6px;border-radius:50%;background:var(--amber);flex:none}
+
+/* Agent status pinned to the bottom of the rail. Always visible, because "is
+   my agent working" is the question the client actually has. */
+.rail-b{margin-top:auto;padding:12px 16px 6px;border-top:1px solid var(--border);
+  margin-left:8px;margin-right:8px}
+.ag{display:flex;align-items:center;gap:8px}
+.dot{width:7px;height:7px;border-radius:50%;flex:none}
+.dot-emerald{background:var(--emerald);box-shadow:0 0 0 3px var(--emerald-tint)}
+.dot-amber{background:var(--amber);box-shadow:0 0 0 3px var(--amber-tint)}
+.dot-muted{background:var(--text-4);box-shadow:0 0 0 3px rgba(120,148,159,.13)}
+.ag-n{font-size:var(--fs-sm);font-weight:500}
+.ag-s{font-size:var(--fs-micro);color:var(--text-3);margin-top:2px;line-height:1.4}
+
+/* --- content ------------------------------------------------------------- */
+.main{background:var(--bg);min-width:0;display:flex;flex-direction:column}
+.top{height:52px;display:flex;align-items:center;gap:12px;padding:0 20px;
+  background:var(--surface);border-bottom:1px solid var(--border);flex:none}
+.crumb{font-size:var(--fs-sm);color:var(--text-3)}
+.crumb a{color:var(--text-3);text-decoration:none}
+.crumb a:hover{color:var(--text)}
+.crumb b{color:var(--text);font-weight:500}
+.top-sp{flex:1}
+.search{height:30px;width:230px;padding:0 10px 0 30px;border:1px solid var(--border);
+  border-radius:5px;background:var(--bg);font-size:var(--fs-xs)}
+.search::placeholder{color:var(--text-3)}
+.search-w{position:relative;display:flex;align-items:center}
+.search-w .ic{position:absolute;left:9px;width:14px;height:14px;pointer-events:none}
+.avatar{width:26px;height:26px;border-radius:50%;background:var(--brand-solid);color:#fff;
+  font-size:var(--fs-nano);font-weight:600;display:grid;place-items:center;flex:none}
+
+.body{padding:22px 24px 30px;overflow:auto}
+.ph{display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:4px}
+.ph h1{font-size:var(--fs-display)}
+.ph-s{font-size:var(--fs-sm);color:var(--text-3);margin-top:4px}
+.ph-a{margin-left:auto;display:flex;gap:8px;align-items:center;flex:none}
+
+/* The agent work line. "What did my agent do", answered in a sentence with the
+   receipts one click away, instead of a dashboard of tiles. */
+.did{background:var(--surface);border-radius:7px;padding:13px 16px;box-shadow:var(--e1);
+  margin:16px 0 18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.did-i{width:28px;height:28px;border-radius:6px;background:var(--brand-tint);
+  color:var(--brand-solid);display:grid;place-items:center;flex:none}
+.did-t{font-size:var(--fs-sm);flex:1;min-width:240px}
+.did-t b{font-weight:500}
+.did-m{font-family:var(--mono);font-size:var(--fs-micro);color:var(--text-3)}
+.linkish{color:var(--brand-ink);text-decoration:none;border-bottom:1px solid transparent;
+  font-size:var(--fs-xs)}
+.linkish:hover{border-bottom-color:var(--brand-ink)}
+
+/* --- controls, Monday's view toggle -------------------------------------- */
+.bar2{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:14px}
+.seg{display:inline-flex;background:var(--surface-2);border-radius:5px;padding:2px}
+.seg button{height:28px;padding:0 12px;border:0;background:transparent;border-radius:4px;
+  font-size:var(--fs-xs);color:var(--text-2);cursor:pointer;display:inline-flex;
+  align-items:center;gap:6px}
+.seg button.on{background:var(--surface);color:var(--text);font-weight:500;box-shadow:var(--e1)}
+.chip{height:28px;padding:0 11px;border-radius:5px;border:1px solid var(--border);
+  background:var(--surface);font-size:var(--fs-xs);color:var(--text-2);cursor:pointer;
+  display:inline-flex;align-items:center;gap:6px}
+.chip.on{background:var(--brand-tint);border-color:var(--brand-solid);color:var(--text);font-weight:500}
+.hint{font-size:var(--fs-xs);color:var(--text-3);margin-left:auto}
+
+/* ===========================================================================
+   BOARD
+   =========================================================================== */
+.board{display:grid;grid-template-columns:repeat(3,1fr);gap:13px;align-items:start}
+@media (max-width:1080px){.board{grid-template-columns:1fr}}
+.col{background:var(--surface-2);border-radius:8px;padding:11px}
+.col-h{display:flex;align-items:center;gap:8px;padding:2px 4px 11px}
+.col-t{font-size:var(--fs-sm);font-weight:500}
+.col-n{font-family:var(--mono);font-size:var(--fs-xs);color:var(--text-3)}
+.col-r{margin-left:auto;font-size:var(--fs-micro);color:var(--text-3)}
+.col-hot .col-t{color:var(--amber)}
+.cards{display:flex;flex-direction:column;gap:8px}
+.card{background:var(--surface);border-radius:6px;padding:12px 13px;box-shadow:var(--e1);
+  display:block;text-decoration:none;cursor:grab;transition:box-shadow .15s ease,transform .15s ease}
+.card:hover{box-shadow:var(--e2);transform:translateY(-1px)}
+.card-n{font-size:var(--fs-sm);font-weight:500;line-height:1.25}
+.card-p{font-size:var(--fs-xs);color:var(--text-3);margin-top:2px}
+.card-e{font-size:var(--fs-xs);color:var(--text-2);margin-top:8px;padding-top:8px;
+  border-top:1px solid var(--border);line-height:1.45}
+.card-e b{font-weight:500;color:var(--text)}
+/* Arthur's reason. A temperature with no stated reason is a colour somebody
+   else picked for you. This line is the product. */
+.why{display:flex;gap:6px;align-items:flex-start;margin-top:7px;
+  font-size:var(--fs-micro);color:var(--text-3);line-height:1.4}
+.why .ic{width:12px;height:12px;margin-top:1px;color:var(--text-4)}
+.card-f{display:flex;align-items:center;gap:7px;margin-top:9px;
+  font-family:var(--mono);font-size:var(--fs-micro);color:var(--text-3)}
+.sep{color:var(--text-4)}
+.dropzone{border:1px dashed var(--border-strong);border-radius:6px;padding:13px;
+  text-align:center;font-size:var(--fs-xs);color:var(--text-3);margin-top:8px}
+.col-note{font-size:var(--fs-xs);color:var(--text-3);padding:9px 4px 2px;line-height:1.5}
+
+/* --- pills, one vocabulary everywhere ------------------------------------ */
+.pill{display:inline-flex;align-items:center;height:20px;padding:0 8px;border-radius:4px;
+  font-size:var(--fs-micro);font-weight:600;letter-spacing:.03em;text-transform:uppercase;
+  white-space:nowrap}
+.pill-emerald{background:var(--emerald-tint);color:var(--emerald)}
+.pill-amber{background:var(--amber-tint);color:var(--amber)}
+.pill-blue{background:var(--blue-tint);color:var(--blue)}
+.pill-muted{background:var(--surface-2);color:var(--text-3)}
+.tag{display:inline-flex;align-items:center;height:20px;padding:0 8px;border-radius:4px;
+  background:var(--surface-2);color:var(--text-2);font-size:var(--fs-nano);font-weight:500;
+  letter-spacing:.03em;text-transform:uppercase;white-space:nowrap}
+
+/* ===========================================================================
+   TABLE (the other half of the toggle)
+   =========================================================================== */
+.tbl{background:var(--surface);border-radius:8px;box-shadow:var(--e2);overflow:hidden}
+.tbl table{width:100%;border-collapse:collapse}
+.tbl th{text-align:left;font-family:var(--mono);font-size:var(--fs-micro);font-weight:500;
+  letter-spacing:.08em;text-transform:uppercase;color:var(--text-3);
+  padding:10px 14px;border-bottom:1px solid var(--border);white-space:nowrap}
+.tbl td{padding:11px 14px;border-bottom:1px solid var(--border);font-size:var(--fs-sm);
+  color:var(--text-2);vertical-align:middle}
+.tbl tr:last-child td{border-bottom:0}
+.tbl tbody tr:hover{background:var(--bg)}
+.tbl .nm{font-weight:500;color:var(--text)}
+.tbl .sub{font-size:var(--fs-xs);color:var(--text-3);margin-top:1px}
+.tbl .when{font-family:var(--mono);font-size:var(--fs-xs);color:var(--text-3);white-space:nowrap}
+
+/* ===========================================================================
+   ONE LEAD. Front's shape: the conversation is the record.
+   =========================================================================== */
+.cols2{display:grid;grid-template-columns:1fr 320px;gap:20px;align-items:start}
+@media (max-width:1040px){.cols2{grid-template-columns:1fr}}
+.panel{background:var(--surface);border-radius:8px;padding:17px;box-shadow:var(--e2)}
+.panel + .panel{margin-top:13px}
+.panel h2{font-size:var(--fs-body);margin-bottom:3px}
+.panel-s{font-size:var(--fs-xs);color:var(--text-3);line-height:1.5}
+.eyebrow{font-family:var(--mono);font-size:var(--fs-micro);font-weight:500;
+  letter-spacing:.09em;text-transform:uppercase;color:var(--text-3)}
+.temp-w{display:flex;flex-direction:column;align-items:flex-end;gap:5px}
+.temp-why{font-size:var(--fs-micro);color:var(--text-3);text-align:right;max-width:32ch;
+  line-height:1.4}
+
+.thread{list-style:none;margin-top:14px}
+.thread li{position:relative;padding:0 0 15px 20px}
+.thread li::before{content:"";position:absolute;left:4px;top:15px;bottom:0;width:1px;
+  background:var(--border)}
+.thread li:last-child{padding-bottom:0}
+.thread li:last-child::before{display:none}
+.mk{position:absolute;left:0;top:4px;width:9px;height:9px;border-radius:50%;
+  background:var(--surface);border:1.5px solid var(--border-strong)}
+.mk.them{background:var(--emerald);border-color:var(--emerald)}
+.mk.us{background:var(--brand-solid);border-color:var(--brand-solid)}
+.t-when{font-family:var(--mono);font-size:var(--fs-micro);color:var(--text-3)}
+.t-what{font-size:var(--fs-sm);color:var(--text-2);margin-top:2px}
+.t-what b{font-weight:500;color:var(--text)}
+.quote{margin-top:7px;padding:10px 12px;background:var(--bg);border-radius:6px;
+  font-size:var(--fs-sm);color:var(--text);line-height:1.5}
+
+.facts{margin-top:11px}
+.facts>div{display:flex;justify-content:space-between;gap:14px;padding:7px 0;
+  border-bottom:1px solid var(--border)}
+.facts>div:last-child{border-bottom:0}
+.facts dt{font-size:var(--fs-xs);color:var(--text-3)}
+.facts dd{font-family:var(--mono);font-size:var(--fs-xs);color:var(--text);text-align:right}
+/* Sentences set as sentences. The agent writes 60 to 120 character notes and
+   the previous design right-aligned them in mono against a 300px rail. */
+.prose-f{margin-top:11px;padding-top:11px;border-top:1px solid var(--border)}
+.prose-f>div+div{margin-top:10px}
+.pf-v{font-size:var(--fs-sm);color:var(--text-2);line-height:1.5;margin-top:3px}
+.note{width:100%;min-height:72px;padding:10px 12px;border:1px solid var(--border-strong);
+  border-radius:5px;background:var(--surface);font-size:var(--fs-sm);resize:vertical;
+  margin-top:12px;font-family:var(--sans)}
+.note::placeholder{color:var(--text-3)}
+
+/* --- buttons ------------------------------------------------------------- */
+.btn{height:36px;padding:0 14px;border-radius:5px;border:1px solid transparent;
+  font-size:var(--fs-sm);font-weight:500;cursor:pointer;display:inline-flex;
+  align-items:center;justify-content:center;gap:7px;text-decoration:none;white-space:nowrap}
+.btn-primary{background:var(--brand-solid);color:#fff}
+.btn-primary:hover{background:var(--brand-ink)}
+.btn-secondary{background:var(--surface);border-color:var(--border-strong);color:var(--text)}
+.btn-ghost{background:transparent;color:var(--text-2)}
+.btn-sm{height:28px;padding:0 11px;font-size:var(--fs-xs)}
+.row{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-top:13px}
+
+/* ===========================================================================
+   BILLING. Stripe's shape, because it is the one everybody already knows.
+   =========================================================================== */
+.plan{display:grid;grid-template-columns:1.4fr 1fr;gap:13px}
+@media (max-width:900px){.plan{grid-template-columns:1fr}}
+.meter{height:6px;border-radius:3px;background:var(--surface-2);margin-top:10px;overflow:hidden}
+.meter i{display:block;height:100%;background:var(--brand-solid);border-radius:3px}
+.big{font-family:var(--mono);font-size:var(--fs-display);font-weight:500;line-height:1.1}
+.money{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.pm{display:flex;align-items:center;gap:11px;margin-top:12px;padding:11px 13px;
+  background:var(--bg);border-radius:6px}
+.pm-c{width:34px;height:23px;border-radius:3px;background:var(--text);color:var(--surface);
+  font-size:var(--fs-nano);font-weight:600;display:grid;place-items:center;flex:none;letter-spacing:.02em}
+
+/* --- phone --------------------------------------------------------------- */
+.phone{width:390px;max-width:100%;border-radius:12px;overflow:hidden;box-shadow:var(--e3)}
+.phone .app{grid-template-columns:1fr;min-height:0}
+.phone .rail{display:none}
+.phone .body{padding:16px 14px 22px}
+.phone .board{grid-template-columns:1fr}
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z" fill="currentColor" opacity=".22"/><path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></symbol>
+  <symbol id="i-leads" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="2" fill="currentColor" opacity=".22"/><rect x="3.5" y="4.5" width="17" height="15" rx="2" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M7.5 9h9M7.5 12.5h9M7.5 16h5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" fill="currentColor" opacity=".22"/><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="m8.5 12 2.4 2.4 4.6-4.8" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" fill="none"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" fill="currentColor" opacity=".22"/><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M12 7.5V12l3 1.8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" fill="none"/></symbol>
+  <symbol id="i-cfg" viewBox="0 0 24 24"><path d="M5 8h14M5 16h14" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="10" cy="8" r="2.6" fill="currentColor" opacity=".22"/><circle cx="10" cy="8" r="2.6" fill="none" stroke="currentColor" stroke-width="1.7"/><circle cx="15" cy="16" r="2.6" fill="currentColor" opacity=".22"/><circle cx="15" cy="16" r="2.6" fill="none" stroke="currentColor" stroke-width="1.7"/></symbol>
+  <symbol id="i-tools" viewBox="0 0 24 24"><rect x="4" y="9" width="16" height="10" rx="2.4" fill="currentColor" opacity=".22"/><rect x="4" y="9" width="16" height="10" rx="2.4" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M9 9V6.2M15 9V6.2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></symbol>
+  <symbol id="i-mail" viewBox="0 0 24 24"><rect x="3.5" y="5.5" width="17" height="13" rx="2" fill="currentColor" opacity=".22"/><rect x="3.5" y="5.5" width="17" height="13" rx="2" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="m4.5 7.5 7.5 5.5 7.5-5.5" stroke="currentColor" stroke-width="1.7" fill="none" stroke-linecap="round"/></symbol>
+  <symbol id="i-card" viewBox="0 0 24 24"><rect x="3" y="5.5" width="18" height="13" rx="2.2" fill="currentColor" opacity=".22"/><rect x="3" y="5.5" width="18" height="13" rx="2.2" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M3 10h18" stroke="currentColor" stroke-width="1.7"/></symbol>
+  <symbol id="i-team" viewBox="0 0 24 24"><circle cx="9" cy="9" r="3.2" fill="currentColor" opacity=".22"/><circle cx="9" cy="9" r="3.2" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M3.6 19c.5-3 2.7-4.6 5.4-4.6s4.9 1.6 5.4 4.6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M16 7.2a3 3 0 0 1 0 5.6M17.6 19c-.2-1.6-.7-2.9-1.5-3.8" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7.6" fill="currentColor" opacity=".22"/><circle cx="12" cy="12" r="7.6" fill="none" stroke="currentColor" stroke-width="1.7"/><circle cx="12" cy="12" r="2.8" fill="none" stroke="currentColor" stroke-width="1.7"/></symbol>
+  <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3.2l2.1 5.5 5.5 2.1-5.5 2.1-2.1 5.5-2.1-5.5L4.4 10.8l5.5-2.1z" fill="currentColor" opacity=".25"/><path d="M12 3.2l2.1 5.5 5.5 2.1-5.5 2.1-2.1 5.5-2.1-5.5L4.4 10.8l5.5-2.1z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m15.6 15.6 3.4 3.4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="m8 10 4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-board" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="5" height="15" rx="1.4" fill="currentColor" opacity=".25"/><rect x="9.5" y="4.5" width="5" height="15" rx="1.4" fill="currentColor" opacity=".25"/><rect x="15.5" y="4.5" width="5" height="15" rx="1.4" fill="currentColor" opacity=".25"/></symbol>
+  <symbol id="i-tbl" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="14" rx="1.6" fill="currentColor" opacity=".2"/><path d="M3.5 9.6h17M3.5 14.2h17M9.5 5v14" stroke="currentColor" stroke-width="1.5"/></symbol>
+</svg>
+
+<div class="page">
+
+<div class="doc-h">
+  <h1>A CRM that is also a portal</h1>
+  <p>
+    Casey opens this to answer four questions: what did Arthur do, who are my leads, what state
+    are they in, and when did I last speak to each one. Then, occasionally, to pay us, add his
+    assistant, or connect a tool. Both halves live under one rail.
+  </p>
+  <p>
+    Built on the stack we agreed: Attio for the shell and the record, Monday for how status
+    reads, Front for the lead page, Stripe for billing, Copilot for the account section that v2
+    did not have at all. His three live leads are real; the rest is plausible fill so the board
+    can be judged at working density.
+  </p>
+</div>
+
+<!-- ==================== 1 · LEADS ==================== -->
+<div class="cap">
+  <h2>Leads</h2>
+  <span class="badge">/leads</span>
+  <p>
+    Board and table are the same data and the same URL, one toggle apart, which is the one thing
+    Monday gets unarguably right. Board answers "what needs me". Table answers "when did I last
+    speak to this person", which needs a column, not a card.
+  </p>
+  <p>
+    Arthur sets the temperature and every card says why. That reason line is the product: an
+    automatic judgement nobody explains is just a colour somebody else picked for you.
+  </p>
+</div>
+
+<div class="frame">
+<div class="app">
+
+  <!-- ============ THE RAIL ============ -->
+  <aside class="rail">
+    <a class="ws" href="/">
+      <span class="ws-a" aria-hidden="true">LR</span>
+      <span style="min-width:0">
+        <span class="ws-n">Litsey Real Estate</span>
+        <span class="ws-s">Growth plan</span>
+      </span>
+      <svg class="ic ws-c" aria-hidden="true"><use href="#i-chev"/></svg>
+    </a>
+
+    <nav class="nav" aria-label="Portal">
+      <a class="ni" href="/"><svg class="ic"><use href="#i-home"/></svg>Home</a>
+      <a class="ni on" href="/leads" aria-current="page"><svg class="ic"><use href="#i-leads"/></svg>Leads<span class="ni-c">12</span></a>
+      <a class="ni" href="/approvals"><svg class="ic"><use href="#i-check"/></svg>Approvals<span class="ni-c">2</span></a>
+      <a class="ni" href="/activity"><svg class="ic"><use href="#i-clock"/></svg>Activity</a>
+
+      <p class="nav-s">Arthur</p>
+      <a class="ni" href="/agent/how"><svg class="ic"><use href="#i-cfg"/></svg>How he works</a>
+      <a class="ni" href="/agent/tools"><svg class="ic"><use href="#i-tools"/></svg>Tools<span class="ni-d" aria-label="needs setup"></span></a>
+      <a class="ni" href="/agent/email"><svg class="ic"><use href="#i-mail"/></svg>Email setup</a>
+
+      <p class="nav-s">Account</p>
+      <a class="ni" href="/billing"><svg class="ic"><use href="#i-card"/></svg>Billing</a>
+      <a class="ni" href="/team"><svg class="ic"><use href="#i-team"/></svg>People</a>
+      <a class="ni" href="/settings"><svg class="ic"><use href="#i-gear"/></svg>Settings</a>
+    </nav>
+
+    <div class="rail-b">
+      <div class="ag">
+        <span class="dot dot-emerald"></span>
+        <span class="ag-n">Arthur</span>
+      </div>
+      <p class="ag-s">Working. Next run Monday 8:00 am</p>
+    </div>
+  </aside>
+
+  <!-- ============ CONTENT ============ -->
+  <div class="main">
+    <header class="top">
+      <p class="crumb"><b>Leads</b></p>
+      <span class="top-sp"></span>
+      <span class="search-w">
+        <svg class="ic" aria-hidden="true"><use href="#i-search"/></svg>
+        <input class="search" type="search" placeholder="Search owners, properties" aria-label="Search">
+      </span>
+      <span class="avatar" aria-hidden="true">CL</span>
+    </header>
+
+    <div class="body">
+      <div class="ph">
+        <div>
+          <h1>Leads</h1>
+          <p class="ph-s">Every owner Arthur is working for you, hottest first.</p>
+        </div>
+        <div class="ph-a">
+          <button class="btn btn-secondary btn-sm">Export</button>
+          <button class="btn btn-primary btn-sm">Hand Arthur a property</button>
+        </div>
+      </div>
+
+      <div class="did">
+        <span class="did-i" aria-hidden="true"><svg class="ic"><use href="#i-spark"/></svg></span>
+        <p class="did-t">
+          This week Arthur <b>sourced nine owners</b>, <b>wrote fourteen letters</b> and
+          <b>read three replies</b>. Two of them need an answer from you.
+        </p>
+        <span class="did-m">last run 41 min ago</span>
+        <a class="linkish" href="/activity">Everything he did</a>
+      </div>
+
+      <div class="bar2">
+        <div class="seg" role="group" aria-label="View">
+          <button class="on" aria-pressed="true"><svg class="ic" style="width:14px;height:14px"><use href="#i-board"/></svg>Board</button>
+          <button aria-pressed="false"><svg class="ic" style="width:14px;height:14px"><use href="#i-tbl"/></svg>Table</button>
+        </div>
+        <button class="chip on">All 12</button>
+        <button class="chip">Needs you 2</button>
+        <button class="chip">Written to 7</button>
+        <span class="hint">Arthur set these. Drag a card to change it.</span>
+      </div>
+
+      <div class="board">
+        <section class="col col-hot" aria-label="Hot">
+          <div class="col-h">
+            <span class="dot dot-amber"></span><span class="col-t">Hot</span>
+            <span class="col-n">3</span><span class="col-r">answer these</span>
+          </div>
+          <div class="cards">
+            <a class="card" href="/leads/oak">
+              <p class="card-n">Oak Partners LP</p>
+              <p class="card-p">Oak Street Medical Plaza, Tulsa</p>
+              <p class="card-e"><b>Replied Tuesday.</b> Asked what kind of number you had in mind.</p>
+              <p class="why"><svg class="ic"><use href="#i-spark"/></svg>Hot because he answered and asked a question back.</p>
+              <p class="card-f">you spoke 22 Jul<span class="sep">·</span>reply drafted</p>
+            </a>
+            <a class="card" href="/leads/ray">
+              <p class="card-n">Ray Pfannenstiel</p>
+              <p class="card-p">Northgate Apartments, Kansas City</p>
+              <p class="card-e"><b>Replied Friday.</b> Not listing, but wants to know where you would start.</p>
+              <p class="why"><svg class="ic"><use href="#i-spark"/></svg>Hot because he asked for a number after saying no.</p>
+              <p class="card-f">you spoke 25 Jul<span class="sep">·</span>reply drafted</p>
+            </a>
+            <a class="card" href="/leads/hemenway">
+              <p class="card-n">Clyde Hemenway</p>
+              <p class="card-p">Shoal Creek Commons, Kansas City</p>
+              <p class="card-e"><b>Replied last week.</b> Said to call him in the spring.</p>
+              <p class="why"><svg class="ic"><use href="#i-spark"/></svg>Hot because he gave you a date rather than a no.</p>
+              <p class="card-f">you spoke 21 Jul<span class="sep">·</span>Arthur raises him 2 Mar</p>
+            </a>
+          </div>
+        </section>
+
+        <section class="col" aria-label="Warm">
+          <div class="col-h">
+            <span class="dot dot-muted"></span><span class="col-t">Warm</span>
+            <span class="col-n">5</span><span class="col-r">he is on these</span>
+          </div>
+          <div class="cards">
+            <a class="card" href="/leads/maple">
+              <p class="card-n">Maple Holdings LLC</p>
+              <p class="card-p">Maple Industrial Park, Tulsa</p>
+              <p class="card-e"><b>Written to.</b> No reply yet. Day three follow up is drafted.</p>
+              <p class="why"><svg class="ic"><use href="#i-spark"/></svg>Warm because he has been written to and it is early.</p>
+              <p class="card-f">written to, date not recorded<span class="sep">·</span>follow up Mon</p>
+            </a>
+            <a class="card" href="/leads/kubik">
+              <p class="card-n">Marion Kubik</p>
+              <p class="card-p">Parvin Place, Kansas City</p>
+              <p class="card-e"><b>Written to Friday.</b> Has held 31 units since 1998.</p>
+              <p class="why"><svg class="ic"><use href="#i-spark"/></svg>Warm because a long hold answers late, not never.</p>
+              <p class="card-f">Arthur wrote 25 Jul<span class="sep">·</span>follow up Thu</p>
+            </a>
+            <a class="card" href="/leads/sedlacek">
+              <p class="card-n">Duane Sedlacek</p>
+              <p class="card-p">Blue Ridge Crossing, Raytown</p>
+              <p class="card-e"><b>Drafted, not sent.</b> His note matures in November.</p>
+              <p class="why"><svg class="ic"><use href="#i-spark"/></svg>Warm because the loan date gives you a reason to write.</p>
+              <p class="card-f">never contacted<span class="sep">·</span>waiting on you</p>
+            </a>
+            <div class="dropzone">Drop a card here to call it warm</div>
+          </div>
+        </section>
+
+        <section class="col" aria-label="Cold">
+          <div class="col-h">
+            <span class="dot dot-muted"></span><span class="col-t">Cold</span>
+            <span class="col-n">4</span><span class="col-r">parked, not gone</span>
+          </div>
+          <div class="cards">
+            <a class="card" href="/leads/bigjim">
+              <p class="card-n">Big Jim Realty</p>
+              <p class="card-p">Riverside Flex Center, Tulsa</p>
+              <p class="card-e"><b>Already listed.</b> Arthur held off writing.</p>
+              <p class="why"><svg class="ic"><use href="#i-spark"/></svg>Cold because it is on the market and you said those are yours to call.</p>
+              <p class="card-f">never contacted<span class="sep">·</span>nothing scheduled</p>
+            </a>
+            <a class="card" href="/leads/vollmer">
+              <p class="card-n">Estate of H. Vollmer</p>
+              <p class="card-p">Chouteau Courts, Kansas City</p>
+              <p class="card-e"><b>Said no.</b> Asked not to be written to again.</p>
+              <p class="why"><svg class="ic"><use href="#i-spark"/></svg>Cold because he asked us to stop, and Arthur will not write again.</p>
+              <p class="card-f">you spoke 8 Jul<span class="sep">·</span>nothing scheduled</p>
+            </a>
+            <p class="col-note">
+              Two more sit here from before June. Arthur re-checks them against the county record
+              every month and moves one up if anything changes hands.
+            </p>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ==================== 1b · THE SAME LEADS, AS A TABLE ==================== -->
+<div class="cap">
+  <h2>The same screen, one toggle over</h2>
+  <span class="badge">/leads?view=table</span>
+  <p>
+    "When did I last speak to this lead" is a column, not a card. Same rows, same URL, same
+    filters, and the last-contact column is sortable, which is how a broker actually finds the
+    one he has neglected.
+  </p>
+  <p>
+    Two of Casey's live rows say <em>written to, date not recorded</em>. That is true and it is
+    not a bug: the engine only began stamping contact dates on 29 July and does not backfill.
+    Saying so is better than a blank cell or an invented date.
+  </p>
+</div>
+
+<div class="frame">
+<div class="app">
+  <aside class="rail">
+    <a class="ws" href="/">
+      <span class="ws-a" aria-hidden="true">LR</span>
+      <span style="min-width:0">
+        <span class="ws-n">Litsey Real Estate</span>
+        <span class="ws-s">Growth plan</span>
+      </span>
+      <svg class="ic ws-c" aria-hidden="true"><use href="#i-chev"/></svg>
+    </a>
+    <nav class="nav" aria-label="Portal">
+      <a class="ni" href="/"><svg class="ic"><use href="#i-home"/></svg>Home</a>
+      <a class="ni on" href="/leads" aria-current="page"><svg class="ic"><use href="#i-leads"/></svg>Leads<span class="ni-c">12</span></a>
+      <a class="ni" href="/approvals"><svg class="ic"><use href="#i-check"/></svg>Approvals<span class="ni-c">2</span></a>
+      <a class="ni" href="/activity"><svg class="ic"><use href="#i-clock"/></svg>Activity</a>
+      <p class="nav-s">Arthur</p>
+      <a class="ni" href="/agent/how"><svg class="ic"><use href="#i-cfg"/></svg>How he works</a>
+      <a class="ni" href="/agent/tools"><svg class="ic"><use href="#i-tools"/></svg>Tools<span class="ni-d" aria-label="needs setup"></span></a>
+      <a class="ni" href="/agent/email"><svg class="ic"><use href="#i-mail"/></svg>Email setup</a>
+      <p class="nav-s">Account</p>
+      <a class="ni" href="/billing"><svg class="ic"><use href="#i-card"/></svg>Billing</a>
+      <a class="ni" href="/team"><svg class="ic"><use href="#i-team"/></svg>People</a>
+      <a class="ni" href="/settings"><svg class="ic"><use href="#i-gear"/></svg>Settings</a>
+    </nav>
+    <div class="rail-b">
+      <div class="ag"><span class="dot dot-emerald"></span><span class="ag-n">Arthur</span></div>
+      <p class="ag-s">Working. Next run Monday 8:00 am</p>
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="top">
+      <p class="crumb"><b>Leads</b></p>
+      <span class="top-sp"></span>
+      <span class="search-w">
+        <svg class="ic" aria-hidden="true"><use href="#i-search"/></svg>
+        <input class="search" type="search" placeholder="Search owners, properties" aria-label="Search">
+      </span>
+      <span class="avatar" aria-hidden="true">CL</span>
+    </header>
+
+    <div class="body">
+      <div class="ph">
+        <div>
+          <h1>Leads</h1>
+          <p class="ph-s">Every owner Arthur is working for you, hottest first.</p>
+        </div>
+        <div class="ph-a">
+          <button class="btn btn-secondary btn-sm">Export</button>
+          <button class="btn btn-primary btn-sm">Hand Arthur a property</button>
+        </div>
+      </div>
+
+      <div class="bar2" style="margin-top:18px">
+        <div class="seg" role="group" aria-label="View">
+          <button aria-pressed="false"><svg class="ic" style="width:14px;height:14px"><use href="#i-board"/></svg>Board</button>
+          <button class="on" aria-pressed="true"><svg class="ic" style="width:14px;height:14px"><use href="#i-tbl"/></svg>Table</button>
+        </div>
+        <button class="chip on">All 12</button>
+        <button class="chip">Needs you 2</button>
+        <span class="hint">Sorted by when you last spoke</span>
+      </div>
+
+      <div class="tbl">
+        <table>
+          <thead>
+            <tr>
+              <th>Owner</th><th>Temperature</th><th>Where it stands</th>
+              <th>You last spoke</th><th>Next</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><p class="nm">Oak Partners LP</p><p class="sub">Oak Street Medical Plaza, Tulsa</p></td>
+              <td><span class="pill pill-amber">Hot</span></td>
+              <td>Replied, asked for a number <span class="tag">Off market</span></td>
+              <td class="when">22 Jul</td>
+              <td>Reply drafted, waiting on you</td>
+            </tr>
+            <tr>
+              <td><p class="nm">Ray Pfannenstiel</p><p class="sub">Northgate Apartments, Kansas City</p></td>
+              <td><span class="pill pill-amber">Hot</span></td>
+              <td>Replied, wants a starting figure <span class="tag">Off market</span></td>
+              <td class="when">25 Jul</td>
+              <td>Reply drafted, waiting on you</td>
+            </tr>
+            <tr>
+              <td><p class="nm">Clyde Hemenway</p><p class="sub">Shoal Creek Commons, Kansas City</p></td>
+              <td><span class="pill pill-amber">Hot</span></td>
+              <td>Said call me in the spring <span class="tag">Off market</span></td>
+              <td class="when">21 Jul</td>
+              <td>Arthur raises him 2 Mar</td>
+            </tr>
+            <tr>
+              <td><p class="nm">Marion Kubik</p><p class="sub">Parvin Place, Kansas City</p></td>
+              <td><span class="pill pill-muted">Warm</span></td>
+              <td>Written to, no reply yet <span class="tag">Off market</span></td>
+              <td class="when">25 Jul</td>
+              <td>Follow up Thursday</td>
+            </tr>
+            <tr>
+              <td><p class="nm">Maple Holdings LLC</p><p class="sub">Maple Industrial Park, Tulsa</p></td>
+              <td><span class="pill pill-muted">Warm</span></td>
+              <td>Written to, no reply yet <span class="tag">Off market</span></td>
+              <td class="when">date not recorded</td>
+              <td>Follow up Monday</td>
+            </tr>
+            <tr>
+              <td><p class="nm">Duane Sedlacek</p><p class="sub">Blue Ridge Crossing, Raytown</p></td>
+              <td><span class="pill pill-muted">Warm</span></td>
+              <td>Drafted, not sent <span class="tag">Refi</span></td>
+              <td class="when">never</td>
+              <td>Waiting on your approval</td>
+            </tr>
+            <tr>
+              <td><p class="nm">Big Jim Realty</p><p class="sub">Riverside Flex Center, Tulsa</p></td>
+              <td><span class="pill pill-muted">Cold</span></td>
+              <td>Already listed, held off <span class="tag">Listing</span></td>
+              <td class="when">never</td>
+              <td>Nothing scheduled</td>
+            </tr>
+            <tr>
+              <td><p class="nm">Estate of H. Vollmer</p><p class="sub">Chouteau Courts, Kansas City</p></td>
+              <td><span class="pill pill-muted">Cold</span></td>
+              <td>Asked not to be written to <span class="tag">Off market</span></td>
+              <td class="when">8 Jul</td>
+              <td>Nothing scheduled</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ==================== 2 · ONE LEAD ==================== -->
+<div class="cap">
+  <h2>One lead</h2>
+  <span class="badge">/leads/oak</span>
+  <p>
+    Front's shape: the conversation is the record, not a tab on it. Both sides in one thread, so
+    Casey sees the whole relationship rather than his own half of it, and Arthur's own moves are
+    in the same list as the owner's replies.
+  </p>
+  <p>
+    Temperature is a control, not a label. Arthur's choice is stated with his reason underneath,
+    and overruling him is one click. The facts panel is the thing Kyle asked for: what Arthur and
+    Casey both work from, with a correction going to Arthur as a message rather than silently
+    overwriting a field.
+  </p>
+</div>
+
+<div class="frame">
+<div class="app">
+  <aside class="rail">
+    <a class="ws" href="/">
+      <span class="ws-a" aria-hidden="true">LR</span>
+      <span style="min-width:0">
+        <span class="ws-n">Litsey Real Estate</span>
+        <span class="ws-s">Growth plan</span>
+      </span>
+      <svg class="ic ws-c" aria-hidden="true"><use href="#i-chev"/></svg>
+    </a>
+    <nav class="nav" aria-label="Portal">
+      <a class="ni" href="/"><svg class="ic"><use href="#i-home"/></svg>Home</a>
+      <a class="ni on" href="/leads" aria-current="page"><svg class="ic"><use href="#i-leads"/></svg>Leads<span class="ni-c">12</span></a>
+      <a class="ni" href="/approvals"><svg class="ic"><use href="#i-check"/></svg>Approvals<span class="ni-c">2</span></a>
+      <a class="ni" href="/activity"><svg class="ic"><use href="#i-clock"/></svg>Activity</a>
+      <p class="nav-s">Arthur</p>
+      <a class="ni" href="/agent/how"><svg class="ic"><use href="#i-cfg"/></svg>How he works</a>
+      <a class="ni" href="/agent/tools"><svg class="ic"><use href="#i-tools"/></svg>Tools<span class="ni-d" aria-label="needs setup"></span></a>
+      <a class="ni" href="/agent/email"><svg class="ic"><use href="#i-mail"/></svg>Email setup</a>
+      <p class="nav-s">Account</p>
+      <a class="ni" href="/billing"><svg class="ic"><use href="#i-card"/></svg>Billing</a>
+      <a class="ni" href="/team"><svg class="ic"><use href="#i-team"/></svg>People</a>
+      <a class="ni" href="/settings"><svg class="ic"><use href="#i-gear"/></svg>Settings</a>
+    </nav>
+    <div class="rail-b">
+      <div class="ag"><span class="dot dot-emerald"></span><span class="ag-n">Arthur</span></div>
+      <p class="ag-s">Working. Next run Monday 8:00 am</p>
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="top">
+      <p class="crumb"><a href="/leads">Leads</a> / <b>Oak Partners LP</b></p>
+      <span class="top-sp"></span>
+      <span class="search-w">
+        <svg class="ic" aria-hidden="true"><use href="#i-search"/></svg>
+        <input class="search" type="search" placeholder="Search owners, properties" aria-label="Search">
+      </span>
+      <span class="avatar" aria-hidden="true">CL</span>
+    </header>
+
+    <div class="body">
+      <div class="ph">
+        <div>
+          <h1>Oak Partners LP</h1>
+          <p class="ph-s">Oak Street Medical Plaza, 455 Oak St, Tulsa OK</p>
+          <div class="row" style="margin-top:9px">
+            <span class="tag">Off market</span>
+            <span class="pill pill-emerald">Replied</span>
+            <span class="did-m">you last spoke 22 Jul</span>
+          </div>
+        </div>
+        <div class="ph-a">
+          <div class="temp-w">
+            <div class="seg" role="group" aria-label="Temperature">
+              <button class="on" aria-pressed="true">Hot</button>
+              <button aria-pressed="false">Warm</button>
+              <button aria-pressed="false">Cold</button>
+            </div>
+            <p class="temp-why">Arthur called this hot because he answered and asked a question back.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="cols2" style="margin-top:20px">
+        <div>
+          <section class="panel">
+            <h2>Every exchange</h2>
+            <p class="panel-s">Both sides, oldest first. Nothing here is hidden from you.</p>
+            <ul class="thread">
+              <li>
+                <span class="mk us"></span>
+                <p class="t-when">Tue 22 Jul, 8:10 am</p>
+                <p class="t-what"><b>Arthur wrote to him</b> about the plaza, in your name and from your address.</p>
+              </li>
+              <li>
+                <span class="mk them"></span>
+                <p class="t-when">Tue 22 Jul, 4:41 pm</p>
+                <p class="t-what"><b>He replied.</b></p>
+                <p class="quote">
+                  We are not shopping it. That said, if somebody put a real number in front of me
+                  I would look at it. What kind of number are you thinking?
+                </p>
+              </li>
+              <li>
+                <span class="mk us"></span>
+                <p class="t-when">Tue 22 Jul, 5:02 pm</p>
+                <p class="t-what">
+                  <b>Arthur moved him to hot and stopped</b>, because answering this one means
+                  naming a price and that is yours to name.
+                </p>
+              </li>
+              <li>
+                <span class="mk"></span>
+                <p class="t-when">Sun 27 Jul, 8:04 pm</p>
+                <p class="t-what">
+                  <b>Arthur drafted a reply</b> and is holding it. It asks for a walkthrough
+                  before either of you puts a figure on paper.
+                </p>
+                <div class="row">
+                  <button class="btn btn-primary btn-sm">Read it and decide</button>
+                  <button class="btn btn-ghost btn-sm">Tell him what to say instead</button>
+                </div>
+              </li>
+            </ul>
+          </section>
+
+          <section class="panel">
+            <h2>Anything he got wrong</h2>
+            <p class="panel-s">
+              A correction is a message to Arthur, not an edit to a database. He reads it,
+              confirms it, and works this owner and the ones like him differently from then on.
+            </p>
+            <textarea class="note" placeholder="The plaza is held by Oak Partners II, not Oak Partners LP. Same people, different entity."></textarea>
+            <div class="row">
+              <button class="btn btn-primary">Send the correction</button>
+              <button class="btn btn-secondary">Not a fit, tell him why</button>
+            </div>
+          </section>
+        </div>
+
+        <aside>
+          <section class="panel">
+            <p class="eyebrow">The building</p>
+            <div class="facts">
+              <div><dt>Units</dt><dd>44</dd></div>
+              <div><dt>Built</dt><dd>1979</dd></div>
+              <div><dt>Owned since</dt><dd>Mar 2004</dd></div>
+              <div><dt>Parcel</dt><dd>09-812-04-16</dd></div>
+            </div>
+            <div class="prose-f">
+              <div>
+                <p class="eyebrow">Crexi check</p>
+                <p class="pf-v">No exact match found on Crexi for this address, confirmed off market.</p>
+              </div>
+              <div>
+                <p class="eyebrow">Market note</p>
+                <p class="pf-v">
+                  Medical office cap rates in Tulsa running 6.0 to 7.8% in 2025 per CBRE, strong
+                  investor demand for this asset class.
+                </p>
+              </div>
+            </div>
+            <p class="panel-s" style="margin-top:11px">Arthur wrote all of this on 14 July.</p>
+          </section>
+
+          <section class="panel">
+            <p class="eyebrow">Reaching him</p>
+            <div class="facts">
+              <div><dt>Email</dt><dd>dw@oakpartners.com</dd></div>
+              <div><dt>Phone</dt><dd>918 555 0177</dd></div>
+            </div>
+            <p class="panel-s" style="margin-top:10px">
+              You corrected the email on 24 July. Arthur has used it since.
+            </p>
+          </section>
+        </aside>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ==================== 3 · BILLING ==================== -->
+<div class="cap">
+  <h2>Billing</h2>
+  <span class="badge">/billing</span>
+  <p>
+    The half v2 did not have at all. Stripe's shape, because a plan, a usage meter, a card on
+    file and a list of invoices is a solved problem and being different helps nobody.
+  </p>
+  <p>
+    This is the one page where a dollar figure belongs. The no-money rule was always about
+    <em>value</em>, about not telling a client his agent generated $27 of something. What he pays
+    us is legitimately money and hiding it would be strange.
+  </p>
+</div>
+
+<div class="frame">
+<div class="app">
+  <aside class="rail">
+    <a class="ws" href="/">
+      <span class="ws-a" aria-hidden="true">LR</span>
+      <span style="min-width:0">
+        <span class="ws-n">Litsey Real Estate</span>
+        <span class="ws-s">Growth plan</span>
+      </span>
+      <svg class="ic ws-c" aria-hidden="true"><use href="#i-chev"/></svg>
+    </a>
+    <nav class="nav" aria-label="Portal">
+      <a class="ni" href="/"><svg class="ic"><use href="#i-home"/></svg>Home</a>
+      <a class="ni" href="/leads"><svg class="ic"><use href="#i-leads"/></svg>Leads<span class="ni-c">12</span></a>
+      <a class="ni" href="/approvals"><svg class="ic"><use href="#i-check"/></svg>Approvals<span class="ni-c">2</span></a>
+      <a class="ni" href="/activity"><svg class="ic"><use href="#i-clock"/></svg>Activity</a>
+      <p class="nav-s">Arthur</p>
+      <a class="ni" href="/agent/how"><svg class="ic"><use href="#i-cfg"/></svg>How he works</a>
+      <a class="ni" href="/agent/tools"><svg class="ic"><use href="#i-tools"/></svg>Tools<span class="ni-d" aria-label="needs setup"></span></a>
+      <a class="ni" href="/agent/email"><svg class="ic"><use href="#i-mail"/></svg>Email setup</a>
+      <p class="nav-s">Account</p>
+      <a class="ni on" href="/billing" aria-current="page"><svg class="ic"><use href="#i-card"/></svg>Billing</a>
+      <a class="ni" href="/team"><svg class="ic"><use href="#i-team"/></svg>People</a>
+      <a class="ni" href="/settings"><svg class="ic"><use href="#i-gear"/></svg>Settings</a>
+    </nav>
+    <div class="rail-b">
+      <div class="ag"><span class="dot dot-emerald"></span><span class="ag-n">Arthur</span></div>
+      <p class="ag-s">Working. Next run Monday 8:00 am</p>
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="top">
+      <p class="crumb"><b>Billing</b></p>
+      <span class="top-sp"></span>
+      <span class="avatar" aria-hidden="true">CL</span>
+    </header>
+
+    <div class="body">
+      <div class="ph">
+        <div>
+          <h1>Billing</h1>
+          <p class="ph-s">What you are on, what you have used, and every invoice.</p>
+        </div>
+        <div class="ph-a">
+          <button class="btn btn-secondary btn-sm">Change plan</button>
+        </div>
+      </div>
+
+      <div class="plan" style="margin-top:20px">
+        <section class="panel">
+          <div class="row" style="margin-top:0;justify-content:space-between;align-items:flex-start">
+            <div>
+              <p class="eyebrow">Your plan</p>
+              <h2 style="margin-top:6px">Growth</h2>
+              <p class="panel-s" style="margin-top:3px">One agent, 120 conversations a month.</p>
+            </div>
+            <div style="text-align:right">
+              <p class="big money">$1,499</p>
+              <p class="panel-s">a month</p>
+            </div>
+          </div>
+          <p class="panel-s" style="margin-top:14px">Renews 12 August. Cancel any time before then.</p>
+        </section>
+
+        <section class="panel">
+          <p class="eyebrow">This month</p>
+          <p class="big money" style="margin-top:8px">34<span style="color:var(--text-3)"> / 120</span></p>
+          <p class="panel-s" style="margin-top:2px">conversations used</p>
+          <div class="meter"><i style="width:28%"></i></div>
+          <p class="panel-s" style="margin-top:9px">
+            Onboarding emails and anything Arthur sends you about his own setup do not count.
+          </p>
+        </section>
+      </div>
+
+      <section class="panel" style="margin-top:13px">
+        <p class="eyebrow">How you pay</p>
+        <div class="pm">
+          <span class="pm-c" aria-hidden="true">VISA</span>
+          <div style="flex:1">
+            <p style="font-size:var(--fs-sm);font-weight:500">Visa ending 6411</p>
+            <p class="panel-s">Expires 04 / 2029</p>
+          </div>
+          <button class="btn btn-secondary btn-sm">Update card</button>
+        </div>
+        <p class="panel-s" style="margin-top:10px">
+          Billed to accounts@litseycre.com. <a class="linkish" href="/billing/email">Send invoices somewhere else</a>
+        </p>
+      </section>
+
+      <section class="panel" style="margin-top:13px;padding:0;overflow:hidden">
+        <div style="padding:17px 17px 12px"><p class="eyebrow">Invoices</p></div>
+        <div class="tbl" style="box-shadow:none;border-radius:0">
+          <table>
+            <thead>
+              <tr><th>Date</th><th>Invoice</th><th>Amount</th><th>Status</th><th></th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="when">12 Jul 2026</td><td class="money">AMB-0114</td>
+                <td class="money">$1,499.00</td>
+                <td><span class="pill pill-emerald">Paid</span></td>
+                <td style="text-align:right"><a class="linkish" href="#">Download</a></td>
+              </tr>
+              <tr>
+                <td class="when">12 Jun 2026</td><td class="money">AMB-0098</td>
+                <td class="money">$1,499.00</td>
+                <td><span class="pill pill-emerald">Paid</span></td>
+                <td style="text-align:right"><a class="linkish" href="#">Download</a></td>
+              </tr>
+              <tr>
+                <td class="when">28 May 2026</td><td class="money">AMB-0081</td>
+                <td class="money">$2,500.00</td>
+                <td><span class="pill pill-emerald">Paid</span></td>
+                <td style="text-align:right"><a class="linkish" href="#">Download</a></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="panel-s" style="padding:12px 17px 17px">
+          The May invoice is the one off setup fee. It does not repeat.
+        </p>
+      </section>
+    </div>
+  </div>
+</div>
+</div>
+
+</div>
+</body>
+</html>
