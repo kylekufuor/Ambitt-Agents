@@ -157,12 +157,24 @@ function defectIn(name: string, raw: string | undefined, clean: string, shape: R
 }
 
 /**
- * The account that owns the number being registered. Not a secret — it is an
- * API username, and it is already visible in every console URL — so it lives
- * here beside the phone number SID rather than being retyped each run. Only
- * the auth token is a secret, and it is the only thing this script asks for.
+ * The account SID comes from the environment, never from this file.
+ *
+ * It was briefly hardcoded on the reasoning that it is an API username rather
+ * than a secret, and visible in every console URL anyway. GitHub's secret
+ * scanner blocked the push, and it has the better argument: the SID and the
+ * token together are the whole credential, so committing half of it puts the
+ * pair one leak apart. It lives in the gitignored .env instead.
  */
-const ACCOUNT_SID = "ACCOUNT_SID_FROM_ENV";
+function accountSidFromEnv(raw: string | undefined): string {
+  const sid = sanitize(raw);
+  if (sid && !looksLikePlaceholder(sid)) return sid;
+  throw new Error(
+    "\nTWILIO_ACCOUNT_SID is not set.\n" +
+      "Put it in the repo-root .env (gitignored), or pass it for one command:\n\n" +
+      "  TWILIO_ACCOUNT_SID=AC... npx tsx scripts/tollfree-verify.ts --status HH...\n\n" +
+      "Find it at: Twilio Console -> API keys & auth tokens -> Account SID.\n"
+  );
+}
 
 /**
  * Ask for the auth token without echoing it.
@@ -210,8 +222,7 @@ let resolved: { sid: string; token: string } | null = null;
 /** Resolve credentials once, prompting for the token only if we must. */
 async function resolveCredentials(): Promise<void> {
   const rawSid = process.env.TWILIO_ACCOUNT_SID;
-  const envSid = sanitize(rawSid);
-  const sid = envSid && !looksLikePlaceholder(envSid) ? envSid : ACCOUNT_SID;
+  const sid = accountSidFromEnv(rawSid);
 
   const rawToken = process.env.TWILIO_AUTH_TOKEN;
   let token = sanitize(rawToken);
