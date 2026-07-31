@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import { BrandLockup } from "./brand-mark";
 
 /* ---------------------------------------------------------------------------
    The v3 rail.
@@ -17,9 +18,14 @@ import { useState } from "react";
    us, add a colleague, or set up their sending address from inside the portal.
    That is not a CRM missing a feature, it is a portal that is not one.
 
-   The workspace chip at the top is the CLIENT's business, not our logo. This is
-   their portal; our name belongs in the corner of an email, not at the top of
-   their navigation.
+   Our lockup sits at the top, the client's workspace directly under it.
+   Earlier this said the opposite — that our name belonged in the corner of an
+   email and not in their navigation — and shipped a portal with no maker's
+   mark anywhere in it. That reads as unfinished, and it throws away the one
+   surface a client opens on purpose. Kyle overruled it, correctly.
+
+   The order still matters: we sit above, their business sits bigger. Vendor
+   first by position, client first by weight.
    --------------------------------------------------------------------------- */
 
 type IconName =
@@ -190,6 +196,14 @@ export function RailNav({ businessName, planLabel, agent, counts, toolsNeedSetup
 
   return (
     <>
+      {/* Ours. onDark because both wordmark colours are light-ground values —
+          --text would vanish on #15272e entirely. */}
+      <Link href="/" className="block px-3 pt-1 pb-3 mx-2 no-underline" aria-label="Ambitt Agents home">
+        <BrandLockup height={19} onDark />
+      </Link>
+
+      <div className="mx-4 mb-2.5 border-t border-[rgba(255,255,255,0.09)]" />
+
       <Link href="/" className="rail-ws flex items-center gap-[9px] px-3 py-[7px] mx-2 mb-[10px] rounded-[5px] transition-colors no-underline">
         <span className="w-[26px] h-[26px] rounded-[5px] bg-[color:var(--brand-solid)] text-white text-[10.5px] font-semibold grid place-items-center shrink-0">
           {initials}

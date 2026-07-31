@@ -42,7 +42,22 @@ function Robot({
   );
 }
 
-export function BrandLockup({ height = 22, className = "" }: { height?: number; className?: string }) {
+export function BrandLockup({
+  height = 22,
+  className = "",
+  onDark = false,
+}: {
+  height?: number;
+  className?: string;
+  /**
+   * The portal rail is #15272e. Both wordmark colours are light-ground values
+   * — `--text` disappears on it entirely and `--brand-ink` is far too dark —
+   * so a dark ground needs its own pair. This is also the one place the FULL
+   * logo teal #00b3b3 can carry text: it is 2.59:1 on oat and unusable there,
+   * and 6.6:1 here.
+   */
+  onDark?: boolean;
+}) {
   // One head, sized to the cap-height of the wordmark rather than shrunk to
   // fit three across. Same ratio the marketing site's lockup uses.
   const robotW = Math.round(height * 1.45);
@@ -51,12 +66,15 @@ export function BrandLockup({ height = 22, className = "" }: { height?: number; 
       <Robot width={robotW} />
       <span
         className="font-display tracking-tight font-semibold"
-        style={{ color: "var(--text)", fontSize: Math.round(height * 0.85) }}
+        style={{
+          color: onDark ? "#fffdfb" : "var(--text)",
+          fontSize: Math.round(height * 0.85),
+        }}
       >
         Ambitt
         {/* Live text, so it takes the ink step — same call the agent-email
             footer makes. The robot beside it carries the logo teal itself. */}
-        <span style={{ color: "var(--brand-ink)" }}> Agents</span>
+        <span style={{ color: onDark ? "var(--brand)" : "var(--brand-ink)" }}> Agents</span>
       </span>
     </div>
   );
