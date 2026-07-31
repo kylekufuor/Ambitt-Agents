@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { V3Shell } from "@/components/v3-shell";
 import { PageHead, Panel, Eyebrow, Row } from "@/components/v3-ui";
 import { requirePortalContext } from "@/lib/portal-context";
@@ -69,6 +70,12 @@ export default async function SettingsPage() {
           tell us and we will do it and confirm, with no retention call.
         </p>
         <div className="flex gap-2.5 items-center mt-3 flex-wrap">
+          {/* The paragraph above promises you can stop him whenever you like,
+              and the control for that lives on "How he works". Saying so
+              without linking to it left the promise with nowhere to go. */}
+          <Link className="btn btn-secondary btn-sm no-underline" href="/agent/how">
+            Stop or start {agent?.name ?? "your agent"}
+          </Link>
           <a
             className="btn btn-secondary btn-sm no-underline"
             href="mailto:support@ambitt.agency?subject=Cancelling%20our%20plan"

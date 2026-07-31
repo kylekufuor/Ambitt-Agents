@@ -4,10 +4,16 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ChatIcon } from "@/components/icons";
 
-// Apex legal pages the SMS consent language links to. Absolute URLs — the portal
-// lives on a different origin (portal.ambitt.agency) than the marketing apex.
-const PRIVACY_URL = "https://ambitt.agency/privacy";
-const TERMS_URL = "https://ambitt.agency/terms";
+// Legal pages the SMS consent language links to. Absolute, because the portal
+// is on a different origin (portal.ambitt.agency) than the marketing site.
+//
+// WWW, not the apex. The apex is a parked redirect that does not preserve the
+// path: https://ambitt.agency/privacy 301s to https://www.ambitt.agency/ — the
+// home page. So these read as working links and quietly dropped the client on
+// marketing copy instead of the policy they clicked, next to a consent
+// checkbox that cites them.
+const PRIVACY_URL = "https://www.ambitt.agency/privacy";
+const TERMS_URL = "https://www.ambitt.agency/terms";
 
 // The mobile number is stored on Client.whatsappNumber (reused for the SMS relay).
 // sandboxNumber / sandboxJoinCode remain in the payload for backward-compat but

@@ -3,6 +3,7 @@ import { V3Shell } from "@/components/v3-shell";
 import { PageHead, Panel, Eyebrow, Row, AskNote } from "@/components/v3-ui";
 import { requirePortalContext, describeSchedule, describeAgentStatus } from "@/lib/portal-context";
 import { presentText } from "@/lib/lead-presentation";
+import { AgentPower } from "./agent-power";
 
 export const dynamic = "force-dynamic";
 
@@ -71,11 +72,18 @@ export default async function HowHeWorksPage() {
             <p className="text-[16px] font-medium">{status.label}</p>
           </div>
           <p className="text-[13px] text-[color:var(--text-2)] mt-1.5 leading-relaxed">{status.line}</p>
-          {agent.status === "paused" && agent.pausedBy !== "client" && agent.pausedReason && (
-            <p className="text-[12.5px] text-[color:var(--text-3)] mt-2 leading-relaxed">
-              {presentText(agent.pausedReason)}
-            </p>
-          )}
+          {/* pausedReason is NOT rendered here. It is written by whoever placed
+              the hold, for us — Arthur's currently reads "control-ack-while-
+              paused incident; dryRun on until fix deploys", which tells a
+              client nothing and worries them for free. describeAgentStatus
+              already says what it means for them in their own terms, and
+              AgentPower below gives them somewhere to go. */}
+          <AgentPower
+            agentId={agent.id}
+            agentName={agent.name}
+            status={agent.status}
+            pausedBy={agent.pausedBy ?? null}
+          />
           <div className="mt-3.5">
             <Row label="Runs" value={describeSchedule(agent.schedule)} />
             <Row label="Time zone" value={agent.timezone.replace(/_/g, " ")} />
