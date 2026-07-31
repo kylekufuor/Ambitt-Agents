@@ -26,20 +26,33 @@ declared value sits in a diff instead of being retyped into a form nobody can au
 npx tsx scripts/tollfree-verify.ts
 ```
 
-Dry run — prints the exact payload, sends nothing. Read it; it is an attestation.
+Dry run — prints the exact payload, sends nothing, needs no credentials. Read it; it is an
+attestation.
 
 ```bash
-TWILIO_ACCOUNT_SID=AC... TWILIO_AUTH_TOKEN=... npx tsx scripts/tollfree-verify.ts --submit
+npx tsx scripts/tollfree-verify.ts --check
 ```
 
-Submits. Credentials come from the environment for that one command; the repo `.env` declares
-both keys but holds **no values** (the live pair is on the Railway Oracle service → Variables).
-
-Before filing anything it GETs the number and aborts unless the SID really is `+18338536941`.
-The result emails `support@ambitt.agency`; poll it any time with:
+Rehearsal. Reads the number back to prove the credentials work; cannot file anything.
 
 ```bash
-TWILIO_ACCOUNT_SID=AC... TWILIO_AUTH_TOKEN=... npx tsx scripts/tollfree-verify.ts --status HH...
+npx tsx scripts/tollfree-verify.ts --submit
+```
+
+Files it.
+
+Both `--check` and `--submit` prompt for the auth token (hidden, and so kept out of shell
+history) unless `TWILIO_AUTH_TOKEN` is already set. Nothing needs editing into the command —
+every failed attempt at this so far was placeholder text pasted verbatim into a command line
+that was meant to be edited, so there is no longer anything to edit. The account SID is a
+constant in the script: it is an API username, not a secret, and it is visible in every console
+URL. Get the token from Twilio Console -> API keys & auth tokens -> Primary auth token.
+
+Before filing anything, `--submit` GETs the number and aborts unless the SID really is
+`+18338536941`. The result emails `support@ambitt.agency`; poll it any time with:
+
+```bash
+npx tsx scripts/tollfree-verify.ts --status HH...
 ```
 
 ---

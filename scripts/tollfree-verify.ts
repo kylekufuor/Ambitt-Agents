@@ -126,44 +126,112 @@ function sanitize(raw: string | undefined): string {
   return unquoted.trim();
 }
 
+/**
+ * Is this the example text rather than a real value?
+ *
+ * Worth its own check. A placeholder that reaches Twilio does not fail
+ * helpfully — "AC..." in a URL path reads as directory traversal, and the WAF
+ * answers with an HTML 403 that looks like a permissions problem and is not.
+ */
+function looksLikePlaceholder(value: string): boolean {
+  return /paste|your[_-]|here|example|xxxx|\.\.\.|^<.*>$/i.test(value);
+}
+
 /** Describe a malformed credential without ever echoing its value. */
 function defectIn(name: string, raw: string | undefined, clean: string, shape: RegExp): string | null {
   if (!clean) return `${name} is empty.`;
   if (shape.test(clean)) return null;
+  if (looksLikePlaceholder(clean)) {
+    return `${name} is still the placeholder text, not the real value.`;
+  }
   const notes: string[] = [`${name} is ${clean.length} characters and not the expected shape.`];
   if (raw && raw !== clean) notes.push("It had surrounding quotes or whitespace, which were stripped.");
   if (/\s/.test(clean)) notes.push("It still contains whitespace — re-copy it without a line break.");
   return notes.join(" ");
 }
 
-function credentials(): { sid: string; token: string } {
-  const rawSid = process.env.TWILIO_ACCOUNT_SID;
-  const rawToken = process.env.TWILIO_AUTH_TOKEN;
-  const sid = sanitize(rawSid);
-  const token = sanitize(rawToken);
+/**
+ * The account that owns the number being registered. Not a secret — it is an
+ * API username, and it is already visible in every console URL — so it lives
+ * here beside the phone number SID rather than being retyped each run. Only
+ * the auth token is a secret, and it is the only thing this script asks for.
+ */
+const ACCOUNT_SID = "ACCOUNT_SID_FROM_ENV";
 
-  if (sid && token) {
-    // Validate before anything is interpolated into a URL, so a bad value
-    // fails here with a readable reason instead of as a WAF block later.
-    const problems = [
-      defectIn("TWILIO_ACCOUNT_SID", rawSid, sid, /^AC[0-9a-fA-F]{32}$/),
-      defectIn("TWILIO_AUTH_TOKEN", rawToken, token, /^\S{20,}$/),
-    ].filter((p): p is string => p !== null);
-    if (problems.length) throw new Error(`\n${problems.join("\n")}\n\nNothing was sent.\n`);
-  }
-
-  if (!sid || !token) {
-    // The repo-root .env declares both keys but leaves them blank — the live
-    // values only exist on Railway. Say so, rather than sending the reader to
-    // a file that looks correct and is not.
+/**
+ * Ask for the auth token without echoing it.
+ *
+ * A prompt rather than an environment variable on the command line, because
+ * every failed attempt at this so far has been the example text pasted
+ * verbatim into a command the reader was meant to edit. Nothing to edit means
+ * nothing to get wrong — and the secret stays out of shell history too.
+ *
+ * readline's _writeToOutput is private, but overriding it is the standard way
+ * to suppress echo and it behaves correctly with backspace and ctrl-c.
+ */
+async function promptForToken(): Promise<string> {
+  if (!process.stdin.isTTY) {
     throw new Error(
-      "TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN are empty.\n" +
-        "The repo .env declares them but holds no values; the live pair lives on the Railway\n" +
-        "Oracle service (Variables tab). Supply them for one command only:\n\n" +
-        "  TWILIO_ACCOUNT_SID=AC... TWILIO_AUTH_TOKEN=... npx tsx scripts/tollfree-verify.ts --submit\n"
+      "No auth token, and stdin is not a terminal so I cannot ask for one.\n" +
+        "Set TWILIO_AUTH_TOKEN in the environment for this command."
     );
   }
-  return { sid, token };
+
+  const { createInterface } = await import("node:readline");
+  const rl = createInterface({ input: process.stdin, output: process.stdout, terminal: true });
+  const muteable = rl as unknown as { _writeToOutput: (s: string) => void };
+  const write = muteable._writeToOutput.bind(rl);
+  let muted = false;
+  muteable._writeToOutput = (s: string): void => {
+    if (!muted) write(s);
+  };
+
+  const answer = await new Promise<string>((resolve, reject) => {
+    // On ctrl-D (or any closed input) rl.question simply never calls back, so
+    // without this the promise never settles, the event loop empties, and the
+    // process exits 0 having silently done nothing at all.
+    rl.on("close", () => reject(new Error("\nCancelled — no token entered. Nothing was sent.\n")));
+    rl.question("Twilio auth token (input hidden, paste and press return): ", resolve);
+    muted = true;
+  });
+  rl.close();
+  process.stdout.write("\n");
+  return sanitize(answer);
+}
+
+let resolved: { sid: string; token: string } | null = null;
+
+/** Resolve credentials once, prompting for the token only if we must. */
+async function resolveCredentials(): Promise<void> {
+  const rawSid = process.env.TWILIO_ACCOUNT_SID;
+  const envSid = sanitize(rawSid);
+  const sid = envSid && !looksLikePlaceholder(envSid) ? envSid : ACCOUNT_SID;
+
+  const rawToken = process.env.TWILIO_AUTH_TOKEN;
+  let token = sanitize(rawToken);
+  let tokenSource: string | undefined = rawToken;
+
+  if (!token || looksLikePlaceholder(token)) {
+    if (token) console.log("\nTWILIO_AUTH_TOKEN is the placeholder text — ignoring it.");
+    console.log("\nFind it at: Twilio Console → API keys & auth tokens → Primary auth token.\n");
+    token = await promptForToken();
+    tokenSource = token;
+  }
+
+  // Validate before anything is interpolated into a URL, so a bad value fails
+  // here with a readable reason instead of as an opaque WAF block later.
+  const problems = [
+    defectIn("Account SID", rawSid, sid, /^AC[0-9a-fA-F]{32}$/),
+    defectIn("Auth token", tokenSource, token, /^\S{20,}$/),
+  ].filter((p): p is string => p !== null);
+  if (problems.length) throw new Error(`\n${problems.join("\n")}\n\nNothing was sent.\n`);
+
+  resolved = { sid, token };
+}
+
+function credentials(): { sid: string; token: string } {
+  if (!resolved) throw new Error("Credentials were not resolved before use.");
+  return resolved;
 }
 
 function authHeader(): string {
@@ -292,8 +360,10 @@ async function status(sid: string): Promise<void> {
 function dryRun(): void {
   console.log("\nDRY RUN — nothing was sent to Twilio.\n");
   console.log(JSON.stringify(PAYLOAD, null, 2));
-  console.log(`\n${Object.keys(PAYLOAD).length} fields. Submit with:\n`);
-  console.log("  npx tsx scripts/tollfree-verify.ts --submit\n");
+  console.log(`\n${Object.keys(PAYLOAD).length} fields. Then:\n`);
+  console.log("  npx tsx scripts/tollfree-verify.ts --check    rehearse — reads the number back, files nothing");
+  console.log("  npx tsx scripts/tollfree-verify.ts --submit   file it\n");
+  console.log("Both ask for the auth token if it is not already in the environment.\n");
 }
 
 async function main(): Promise<void> {
@@ -303,6 +373,7 @@ async function main(): Promise<void> {
   if (statusIndex !== -1) {
     const sid = args[statusIndex + 1];
     if (!sid) throw new Error("--status needs a verification SID, e.g. --status HHxxxxxxxx");
+    await resolveCredentials();
     await status(sid);
     return;
   }
@@ -310,16 +381,20 @@ async function main(): Promise<void> {
   // Credentials-only rehearsal. Filing is once-and-for-real, so there should be
   // a way to prove the credentials work that cannot accidentally file anything.
   if (args.includes("--check")) {
+    await resolveCredentials();
     await assertNumberMatches();
     console.log("  Credentials work. Nothing was filed — add --submit to file.\n");
     return;
   }
 
   if (args.includes("--submit")) {
+    await resolveCredentials();
     await submit();
     return;
   }
 
+  // Dry run stays credential-free: reading the filing before sending it should
+  // never require going and finding a secret.
   dryRun();
 }
 
