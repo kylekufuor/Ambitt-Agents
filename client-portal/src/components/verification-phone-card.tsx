@@ -22,16 +22,19 @@ export function VerificationPhoneCard({
   const [saved, setSaved] = useState<string | null>(initial);
   const [value, setValue] = useState("");
   const [editing, setEditing] = useState(!initial);
+  // Unchecked by default, deliberately: a pre-ticked consent box is an instant
+  // A2P rejection and is not consent in any case.
+  const [consent, setConsent] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
-  async function save(next: string) {
+  async function save(next: string, withConsent: boolean) {
     setBusy(true);
     setError("");
     const res = await fetch("/api/account/verification-phone", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ phone: next }),
+      body: JSON.stringify({ phone: next, consent: withConsent }),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
@@ -41,6 +44,7 @@ export function VerificationPhoneCard({
     }
     setSaved(data.phone ?? null);
     setValue("");
+    setConsent(false);
     setEditing(!data.phone);
     setBusy(false);
   }
@@ -67,7 +71,7 @@ export function VerificationPhoneCard({
           <button
             className="btn btn-ghost btn-sm"
             disabled={busy}
-            onClick={() => save("")}
+            onClick={() => save("", false)}
           >
             Remove
           </button>
@@ -89,8 +93,8 @@ export function VerificationPhoneCard({
             />
             <button
               className="btn btn-primary"
-              disabled={busy || !value.trim()}
-              onClick={() => save(value)}
+              disabled={busy || !value.trim() || !consent}
+              onClick={() => save(value, consent)}
             >
               {busy ? "Saving…" : "Save"}
             </button>
@@ -100,6 +104,28 @@ export function VerificationPhoneCard({
               </button>
             )}
           </div>
+          {/* The consent record the privacy policy promises. Its wording is
+              the disclosure carriers look for: who sends, what kind of
+              message, frequency, rates, and how to stop. */}
+          <label className="flex items-start gap-2.5 mt-3 cursor-pointer select-none max-w-[62ch]">
+            <input
+              type="checkbox"
+              checked={consent}
+              onChange={(e) => setConsent(e.target.checked)}
+              className="w-4 h-4 mt-0.5 accent-[color:var(--brand-solid)] cursor-pointer shrink-0"
+            />
+            <span className="text-[12.5px] text-[color:var(--text-2)] leading-relaxed">
+              I agree to receive login-verification texts from Ambitt Agents at this number.
+              Message frequency varies, and message and data rates may apply. Reply STOP to opt
+              out or HELP for help. See our{" "}
+              <a href="https://www.ambitt.agency/privacy" target="_blank" rel="noopener noreferrer"
+                 className="text-[color:var(--brand-ink)] underline underline-offset-2">privacy policy</a>{" "}
+              and{" "}
+              <a href="https://www.ambitt.agency/terms" target="_blank" rel="noopener noreferrer"
+                 className="text-[color:var(--brand-ink)] underline underline-offset-2">terms</a>.
+            </span>
+          </label>
+
           {error && <p className="text-[13px] text-[color:var(--red)] mt-2">{error}</p>}
         </div>
       )}
