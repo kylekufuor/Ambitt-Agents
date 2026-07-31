@@ -1943,3 +1943,234 @@ footer.ft {
 .glass-card:hover {
   box-shadow: var(--sh-3);
 }
+
+/* ===========================================================================
+   DOCUMENTATION (/docs)
+   ---------------------------------------------------------------------------
+   Databricks' three-column docs structure — grouped sidebar, content, on-this-
+   page rail — in our own tokens. Nothing new is invented here: the ground,
+   hairline, ink steps, teal and shadows are all the site's existing values, so
+   the docs read as the same product rather than a bolted-on help site.
+
+   The rails are hairline-separated rather than boxed. A docs sidebar sitting
+   in a card is the tell that someone reached for a component instead of a
+   layout.
+   =========================================================================== */
+
+.docs-grid {
+  display: grid;
+  gap: 0;
+  grid-template-columns: 1fr;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 28px;
+}
+@media (min-width: 1024px) {
+  .docs-grid {
+    grid-template-columns: 216px minmax(0, 1fr);
+    gap: 48px;
+  }
+}
+@media (min-width: 1320px) {
+  /* The on-this-page rail only earns its width when there is width to spare.
+     Below this it would squeeze the measure, and the measure is the page. */
+  .docs-grid {
+    grid-template-columns: 216px minmax(0, 1fr) 190px;
+    gap: 56px;
+  }
+}
+
+/* --- the rails ---------------------------------------------------------- */
+.docs-side,
+.docs-toc {
+  display: none;
+}
+@media (min-width: 1024px) {
+  .docs-side {
+    display: block;
+    position: sticky;
+    top: 96px;
+    align-self: start;
+    max-height: calc(100vh - 128px);
+    overflow-y: auto;
+    padding-right: 8px;
+    border-right: 1px solid var(--line);
+  }
+}
+@media (min-width: 1320px) {
+  .docs-toc {
+    display: block;
+    position: sticky;
+    top: 96px;
+    align-self: start;
+    border-left: 1px solid var(--line);
+    padding-left: 20px;
+  }
+}
+
+.docs-side-group + .docs-side-group {
+  margin-top: 22px;
+}
+.docs-side-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.docs-side ul,
+.docs-toc ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.docs-side a,
+.docs-toc a {
+  display: block;
+  font-size: 13.5px;
+  line-height: 1.35;
+  color: var(--ink);
+  text-decoration: none;
+  padding: 5px 0 5px 11px;
+  /* The active marker is a left rule that is always present and usually
+     transparent, so nothing shifts by a pixel when it lights up. */
+  border-left: 2px solid transparent;
+  margin-left: -13px;
+  transition: color 0.14s ease, border-color 0.14s ease;
+}
+.docs-side a:hover,
+.docs-toc a:hover {
+  color: var(--ink-max);
+}
+.docs-side a.is-here,
+.docs-toc a.is-here {
+  color: var(--brand-ink);
+  border-left-color: var(--brand);
+  font-weight: 500;
+}
+
+/* --- content ------------------------------------------------------------ */
+.docs-body {
+  max-width: 68ch;
+}
+.docs-sec {
+  scroll-margin-top: 96px;
+  padding-top: 40px;
+  margin-top: 40px;
+  border-top: 1px solid var(--line);
+}
+/* first-of-type, NOT first-child: the "jump to a section" disclosure is the
+   first child of the body, so :first-child never matched and the opening
+   section drew a rule directly under the disclosure's own bottom border. Two
+   hairlines a few pixels apart reads as a mistake, because it is one. */
+.docs-sec:first-of-type {
+  padding-top: 0;
+  margin-top: 0;
+  border-top: 0;
+}
+.docs-sec > h2 {
+  font-size: 27px;
+  font-weight: 500;
+  line-height: 1.2;
+  color: var(--ink-max);
+  margin-bottom: 6px;
+}
+.docs-sec > .docs-sec-lede {
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--muted);
+  margin-bottom: 22px;
+}
+.docs-q {
+  margin-top: 26px;
+}
+.docs-q > h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ink-strong);
+  margin-bottom: 6px;
+}
+.docs-q p {
+  font-size: 15px;
+  line-height: 1.65;
+  color: var(--ink);
+}
+.docs-q p + p {
+  margin-top: 10px;
+}
+.docs-q strong {
+  font-weight: 600;
+  color: var(--ink-max);
+}
+
+/* Anchor handle: present for everyone, visible on hover or keyboard focus.
+   Docs get linked to section by section, so the link has to be reachable
+   without guessing the id. */
+.docs-anchor {
+  margin-left: 8px;
+  font-size: 15px;
+  color: var(--brand);
+  text-decoration: none;
+  opacity: 0;
+  transition: opacity 0.14s ease;
+}
+.docs-sec > h2:hover .docs-anchor,
+.docs-anchor:focus-visible {
+  opacity: 1;
+}
+
+/* --- callout ------------------------------------------------------------ */
+/* The one teal-tinted ground, a teal rule, no box. Reserved for things that
+   are true and load-bearing, not for decoration: overuse turns it into
+   wallpaper and the next real warning gets skimmed. */
+.docs-note {
+  background: var(--wash);
+  border-left: 3px solid var(--brand);
+  border-radius: 0 10px 10px 0;
+  padding: 14px 18px;
+  margin-top: 18px;
+}
+.docs-note p {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--ink-strong);
+  margin: 0;
+}
+.docs-note p + p {
+  margin-top: 8px;
+}
+
+/* --- mobile contents ---------------------------------------------------- */
+.docs-jump {
+  display: block;
+  margin-bottom: 8px;
+}
+@media (min-width: 1024px) {
+  .docs-jump {
+    display: none;
+  }
+}
+.docs-jump summary {
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink-strong);
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+.docs-jump ul {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  columns: 2;
+  column-gap: 24px;
+}
+.docs-jump a {
+  display: block;
+  font-size: 14px;
+  padding: 5px 0;
+  color: var(--ink);
+  text-decoration: none;
+}
