@@ -8,6 +8,7 @@ import { runImprovementCycle } from "./improve.js";
 import { handleStripeWebhook } from "./billing.js";
 import { onboardClient } from "./onboard.js";
 import { classifyAutomatedInbound } from "./lib/inbound-classify.js";
+import { forwardUnroutedInbound } from "./lib/forwardUnrouted.js";
 import {
   buildThanksEmail,
   buildProposalTeaserEmail,
@@ -1862,6 +1863,21 @@ app.post("/webhooks/email-inbound", async (req: Request, res: Response) => {
       return;
     }
 
+    // Read sender/subject straight off the payload. Do NOT reintroduce a
+    // GET /emails/{id} here: that endpoint only returns OUTBOUND email (re_…
+    // ids), inbound ids are UUIDs, and it 502'd every time. The body is a
+    // separate concern — see the Received Emails fetch further down.
+    //
+    // Parsed BEFORE recipient resolution, not after, so mail resolving to no
+    // agent still records who sent it and what about. Parsing it after the drop
+    // meant every dropped row logged fromAddr: null — the audit trail was blind
+    // about precisely the messages nobody was reading.
+    const emailData = (event.data ?? {}) as Record<string, unknown>;
+    const from = (typeof emailData.from === "string" ? emailData.from : "") || "";
+    const subject = ((typeof emailData.subject === "string" ? emailData.subject : "") || "").toUpperCase().trim();
+    ilog.fromAddr = from || null;
+    ilog.subject = typeof emailData.subject === "string" ? emailData.subject : null;
+
     // Resolve agentId from the recipient(s). Two paths:
     //   1) reply-{agentId}@ambitt.agency — used by Reply-To when clients hit
     //      reply on an agent's outbound email. The original routing scheme.
@@ -1892,23 +1908,25 @@ app.post("/webhooks/email-inbound", async (req: Request, res: Response) => {
     }
 
     if (!agentId) {
-      logger.warn("Inbound email not addressed to any known agent", { to: toAddresses });
-      res.json({ status: "ignored", reason: "No matching agent for recipient" });
+      // No agent owns this address — but "no agent" is not the same as "not
+      // wanted". support@, hello@ and team@ are printed on the website, in the
+      // privacy policy and terms, and across the portal, and mail to them used
+      // to be discarded here. Forward it to the operator instead; the outcome
+      // becomes the audit disposition, so a drop is now always attributable.
+      const outcome = await forwardUnroutedInbound({
+        toAddresses,
+        from,
+        subject: typeof emailData.subject === "string" ? emailData.subject : "",
+        emailId,
+        emailData,
+      });
+      logger.warn("Inbound email not addressed to any known agent", { to: toAddresses, outcome });
+      ilog.disposition = outcome;
+      res.json({ status: outcome, reason: "No matching agent for recipient" });
       return;
     }
     ilog.agentId = agentId;
     ilog.routingPath = routingPath;
-
-    // Resend's email.received webhook ships the FULL inbound email content
-    // in event.data — text, html, attachments, headers, the lot. The earlier
-    // code path tried to fetch GET /emails/{id} from Resend's API, which only
-    // returns OUTBOUND emails (re_… IDs). Inbound emails use UUID IDs and
-    // aren't retrievable that way → 502 every time. Just read the payload.
-    const emailData = (event.data ?? {}) as Record<string, unknown>;
-    const from = (typeof emailData.from === "string" ? emailData.from : "") || "";
-    const subject = ((typeof emailData.subject === "string" ? emailData.subject : "") || "").toUpperCase().trim();
-    ilog.fromAddr = from || null;
-    ilog.subject = typeof emailData.subject === "string" ? emailData.subject : null;
 
     // Sender authorization. Only the agent's owner client (or, for platform
     // agents like Atlas, an active Prospect) can drive an agent run. Anyone

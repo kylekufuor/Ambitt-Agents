@@ -1167,3 +1167,29 @@ model LocalTask {
   @@index([agentId, createdAt])
   @@index([status, createdAt])
 }
+
+// Mirrored from the root schema (Railway rootDirectory isolates each service, so
+// every service needs its own copy). Read-only here: the dashboard reports on
+// inbound routing, it never writes these rows.
+model InboundEmailLog {
+  id          String  @id @default(cuid())
+  emailId     String? // Resend email_id (UUID for inbound)
+  fromAddr    String?
+  toAddr      String? // comma-joined recipients
+  subject     String?
+  agentId     String? // resolved recipient agent, if any
+  clientId    String?
+  routingPath String? // "reply" | "direct"
+  authResult  String? // "ok" | "rejected:<reason>"
+  bodyFetched String? // "ok" | "failed:<status>" | "skipped:had_body" | null (not attempted)
+  // "received" (default) then overwritten by the response status:
+  // ignored | 2fa_captured | documents_stored | action_processed | replied | error
+  disposition String  @default("received")
+  errorMsg    String? @db.Text
+  ms          Int? // total handler time in milliseconds
+  createdAt   DateTime @default(now())
+
+  @@index([agentId, createdAt])
+  @@index([disposition, createdAt])
+  @@index([createdAt])
+}

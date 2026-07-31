@@ -33,7 +33,13 @@ async function runImprovementAction() {
 export default async function ActivityPage() {
   const now = new Date();
 
-  const [oracleActions, improvementActions, activeAgents] = await Promise.all([
+  // Inbound mail that matched no agent. Only support@/hello@/team@-style
+  // addresses land here, and until recently they were discarded in silence —
+  // the audit row said "ignored", which reads like a decision rather than a
+  // loss. Surfaced so a published address can never quietly stop working again.
+  const unroutedSince = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+  const [oracleActions, improvementActions, activeAgents, unroutedInbound] = await Promise.all([
     prisma.oracleAction.findMany({
       orderBy: { createdAt: "desc" },
       take: 50,
@@ -47,7 +53,26 @@ export default async function ActivityPage() {
       where: { status: "active" },
       select: { name: true, lastRunAt: true },
     }),
+    prisma.inboundEmailLog.findMany({
+      where: {
+        createdAt: { gte: unroutedSince },
+        disposition: { startsWith: "unrouted_" },
+      },
+      select: { toAddr: true, fromAddr: true, disposition: true, createdAt: true },
+      orderBy: { createdAt: "desc" },
+      take: 50,
+    }),
   ]);
+
+  // Reaching a human is the only thing that counts, so the panel below reports
+  // what did NOT reach one. A forward that succeeded is not news; a forward
+  // that was capped, misconfigured, or refused is mail nobody has read.
+  const undelivered = unroutedInbound.filter((r) => r.disposition !== "unrouted_foreign_domain");
+  const undeliveredByAddress = new Map<string, number>();
+  for (const row of undelivered) {
+    const key = row.toAddr ?? "(unknown recipient)";
+    undeliveredByAddress.set(key, (undeliveredByAddress.get(key) ?? 0) + 1);
+  }
 
   const lastHealthCheck = oracleActions.find((a) => a.actionType === "fleet_health_check");
 
@@ -106,6 +131,31 @@ export default async function ActivityPage() {
               <p key={i} className="text-muted-foreground text-sm">{agent}</p>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Inbound mail that reached nobody */}
+      {undelivered.length > 0 && (
+        <div className="bg-red-500/5 border border-red-500/20 rounded-xl p-5">
+          <h3 className="text-red-400 text-[11px] font-semibold uppercase tracking-wider mb-2">
+            Inbound mail that reached nobody
+          </h3>
+          <p className="text-muted-foreground text-sm mb-3">
+            {undelivered.length} message{undelivered.length === 1 ? "" : "s"} in the last 7 days matched no
+            agent and could not be forwarded. Published addresses go through this path.
+          </p>
+          <div className="space-y-1">
+            {[...undeliveredByAddress.entries()]
+              .sort((a, b) => b[1] - a[1])
+              .map(([addr, count]) => (
+                <p key={addr} className="text-muted-foreground text-sm">
+                  {addr} — {count}
+                </p>
+              ))}
+          </div>
+          <p className="text-muted-foreground/60 text-[11px] mt-3">
+            {[...new Set(undelivered.map((r) => r.disposition))].join(" · ")}
+          </p>
         </div>
       )}
 
