@@ -18,6 +18,7 @@ export function Footer() {
             <a href="/#agents">Agents</a>
             <a href="/#how">How it works</a>
             <a href="/#pricing">Pricing</a>
+            <a href="/docs">Documentation</a>
           </div>
           <div className="ft-col">
             <h4>Company</h4>

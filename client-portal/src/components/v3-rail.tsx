@@ -31,7 +31,7 @@ import { BrandLockup } from "./brand-mark";
 type IconName =
   | "home" | "leads" | "check" | "clock"
   | "cfg" | "tools" | "mail"
-  | "card" | "team" | "gear";
+  | "card" | "team" | "gear" | "help";
 
 function Icon({ name }: { name: IconName }) {
   // Custom duotone set: a 0.22-opacity body under a 1.7 stroke. Never Lucide,
@@ -88,6 +88,20 @@ function Icon({ name }: { name: IconName }) {
       <circle cx="12" cy="12" r="7.6" fill="currentColor" opacity=".22" />
       <circle cx="12" cy="12" r="7.6" fill="none" stroke="currentColor" strokeWidth="1.7" />
       <circle cx="12" cy="12" r="2.8" fill="none" stroke="currentColor" strokeWidth="1.7" />
+    </>),
+    // Its own glyph rather than borrowing the approvals tick — a checkmark
+    // beside "Help" reads as something already done.
+    help: (<>
+      <circle cx="12" cy="12" r="8.5" fill="currentColor" opacity=".22" />
+      <circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" strokeWidth="1.7" />
+      <path
+        d="M9.7 9.6a2.4 2.4 0 1 1 2.9 2.6v1.3"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+      />
+      <circle cx="12.5" cy="16.3" r="0.95" fill="currentColor" />
     </>),
   };
   return <svg className="v3-ic" viewBox="0 0 24 24" aria-hidden="true">{paths[name]}</svg>;
@@ -152,7 +166,7 @@ function agentLine(a: RailAgent): { dot: string; line: string } {
 const BUILT = new Set<string>([
   "/", "/leads", "/approvals", "/activity",
   "/agent/how", "/agent/tools", "/agent/email",
-  "/billing", "/people", "/settings",
+  "/billing", "/people", "/settings", "/help",
 ]);
 
 function NavItem({
@@ -233,6 +247,7 @@ export function RailNav({ businessName, planLabel, agent, counts, toolsNeedSetup
         <NavItem href="/billing" label="Billing" icon="card" active={is("/billing")} />
         <NavItem href="/people" label="People" icon="team" active={is("/people")} />
         <NavItem href="/settings" label="Settings" icon="gear" active={is("/settings")} />
+        <NavItem href="/help" label="Help" icon="help" active={is("/help")} />
       </nav>
 
       {agent && a && (
