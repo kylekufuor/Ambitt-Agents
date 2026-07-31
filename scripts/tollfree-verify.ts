@@ -57,6 +57,12 @@ const PAYLOAD: Record<string, string | string[]> = {
   BusinessContactLastName: "Kufuor",
   BusinessContactEmail: "support@ambitt.agency",
 
+  // Required, despite Twilio's docs listing it as optional — their validator
+  // rejects the submission without it ("Business contact phone is required").
+  // A reachable human matters here: this is the number a vetting reviewer calls
+  // with a question, and our own +1 817 809 7106 answers to a webhook.
+  BusinessContactPhone: "+15394446517",
+
   // Both, deliberately. The traffic is genuinely two things — verification
   // codes and notices about the client's own assistant — and declaring only
   // 2FA would leave the second sample message unaccounted for.

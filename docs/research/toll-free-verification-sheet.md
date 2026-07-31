@@ -70,6 +70,7 @@ npx tsx scripts/tollfree-verify.ts --status HH...
 | `OptInImageUrls` | `www.ambitt.agency/compliance/sms-opt-in-screen.png` | The real consent screen. See below. |
 | `MessageVolume` | `10` | Lowest bucket. Honest and low; an inflated figure on a brand-new toll-free number invites scrutiny it does not need. |
 | `OptInKeywords` | `START`, `UNSTOP` | True today with no work on our side — Twilio handles toll-free STOP/UNSTOP at the network level and it cannot be disabled. |
+| `BusinessContactPhone` | Kyle's mobile | **Required**, despite the docs listing it optional — the submission is rejected without it. A reachable human matters: this is the number a vetting reviewer calls, and our own `+1 817 809 7106` answers to a webhook. |
 | `PrivacyPolicyUrl` / `TermsAndConditionsUrl` | live `/privacy`, `/terms` | Mandatory since 30 Jun 2026. Both carry the never-shared-or-sold clause. |
 
 ## The opt-in evidence problem
