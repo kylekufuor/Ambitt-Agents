@@ -76,7 +76,15 @@ export default function DocsPage() {
   }, {});
 
   return (
-    <main className="overflow-x-hidden">
+    // NOT overflow-x-hidden, which every other page on the site uses.
+    //
+    // overflow-x: hidden forces overflow-y to compute as auto, which makes this
+    // element a scroll container — and position: sticky then anchors to it
+    // rather than to the viewport. Since main is as tall as its content, the
+    // rails never stick: they scroll away with the page, taking the current
+    // section highlight with them. The docs page has no full-bleed decoration
+    // to contain, so it simply does without.
+    <main>
       <Nav />
 
       {/* Hero sits full width above the grid, so the display line gets the whole
