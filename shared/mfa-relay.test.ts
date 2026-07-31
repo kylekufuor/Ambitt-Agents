@@ -396,9 +396,48 @@ async function numberPreferenceTests() {
   check("no number at all falls through to email", neither.channel, "email");
 }
 
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   A failed text must degrade to email, not strand the login
+   ═══════════════════════════════════════════════════════════════════════════
+   The code already does this — sendSms throwing is caught and the loop falls
+   through to the email branch — but nothing exercised it, and makeDeps has
+   carried an unused `sendSmsThrows` switch the whole time.
+
+   It matters right now specifically. TWILIO_AUTH_TOKEN went on prod today, so
+   smsConfigured() is true and the relay will START choosing SMS. Until the A2P
+   brand and campaign clear, every one of those sends is blocked by the carrier
+   with error 30034. If a blocked text did not degrade, a client would sit
+   waiting for a code that never arrives while a CoStar login window closes in
+   about a minute — strictly worse than the slow email path it replaced. */
+async function smsFailureDegradesTests() {
+  const { deps, spy } = makeDeps({ smsConfigured: true, sendSmsThrows: true });
+  const r = await relayMfaRequest(
+    { clientId: "cp-smsfail", agentId: "ag-smsfail", service: "CoStar", mode: "runtime" },
+    deps,
+  );
+  check("REGRESSION: a failed SMS falls back to email", r.channel, "email");
+  check("...the text was genuinely attempted first", spy.sendSms, 1);
+  check("...and the client actually got the email ask", spy.runtimeEmail, 1);
+  // A send that never left must not consume the runaway budget, or a carrier
+  // outage would silently eat the cap and halt the agent for no reason.
+  check("...a failed send writes no SmsSend audit row", spy.smsSendCreate, 0);
+  check("...and does not halt the agent", spy.haltAgent, 0);
+
+  // Same thing on the worker path, which uses a different email sender.
+  const { deps: d2, spy: s2 } = makeDeps({ smsConfigured: true, sendSmsThrows: true });
+  const r2 = await relayMfaRequest(
+    { clientId: "cp-smsfail-w", agentId: "ag-smsfail-w", service: "CoStar", mode: "worker", taskId: "t9" },
+    d2,
+  );
+  check("worker path degrades too", r2.channel, "email");
+  check("...via the worker email sender", s2.workerEmail, 1);
+}
+
 async function main() {
   await composedPathTests();
   await numberPreferenceTests();
+  await smsFailureDegradesTests();
   console.log(`\n${pass}/${pass + fail} passed${fail ? ` — ${fail} FAILED` : " — all green"}`);
   process.exitCode = fail ? 1 : 0;
 }
