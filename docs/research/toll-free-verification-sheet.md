@@ -3,6 +3,13 @@
 **Number is bought.** `(833) 853-6941`, SID `PN1cf3a50e307932f5469badc525224f1d`, $2.15/mo.
 Verification itself is $0 and takes ~3–5 business days.
 
+**FILED 31 Jul 2026** — verification `HH5972b8b30e4e581dfb120515d25d8793`, status **PENDING_REVIEW**.
+Twilio emails the outcome to `support@ambitt.agency`. Check any time with:
+
+```bash
+npx tsx scripts/tollfree-verify.ts --status HH5972b8b30e4e581dfb120515d25d8793
+```
+
 **Filed by API, not the console.** See below for why. The submission lives in
 `scripts/tollfree-verify.ts` — that file *is* the filing, and it is the thing to edit if any
 declared value changes.
