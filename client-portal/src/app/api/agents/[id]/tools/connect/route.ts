@@ -31,7 +31,11 @@ export async function POST(
   // container's internal localhost behind Railway's proxy) — otherwise Composio
   // redirects the client to their own machine after consent.
   const origin = publicOrigin(req);
-  const redirectUrl = `${origin}/agents/${id}/tools?connected=${encodeURIComponent(appName)}`;
+  // Straight to the v3 path. Pointing at the legacy /agents/[id]/tools would
+  // work, but only via a redirect hop on the way back from Google consent,
+  // which is the worst possible moment to add one.
+  const redirectUrl =
+    `${origin}/agent/tools?a=${encodeURIComponent(id)}&connected=${encodeURIComponent(appName)}`;
 
   const res = await fetch(`${oracleUrl()}/composio/connect`, {
     method: "POST",
