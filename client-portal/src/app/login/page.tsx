@@ -3,68 +3,62 @@
 import { createClient } from "@/lib/supabase-browser";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { BrandLockup } from "@/components/brand-mark";
+
+/* ---------------------------------------------------------------------------
+   Sign in with an email and a password.
+
+   This replaced a 6-digit emailed code. The code was arguably more secure in
+   the narrow sense — nothing to reuse, nothing to leak — but it put an inbox
+   round-trip between a client and their own leads every single time, and that
+   friction was being paid daily by people who only want to check on their
+   agent.
+
+   No client has a password yet, so "Set or reset" below is BOTH the first-time
+   setup and the recovery path. It is the same Supabase recovery email either
+   way, which means nobody here ever handles a client's password: they choose
+   it themselves and we only ever see the resulting session.
+   --------------------------------------------------------------------------- */
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
-  const [token, setToken] = useState("");
-  const [step, setStep] = useState<"email" | "code">("email");
+  const [password, setPassword] = useState("");
+  const [remember, setRemember] = useState(true);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [sending, setSending] = useState(false);
   const router = useRouter();
 
-  // Sending the code is a couple of cross-origin round-trips to Supabase (CORS
-  // preflight + the POST that emails the code), which can take 2–4s. Waiting on
-  // that made the button feel dead, so we advance to the code screen INSTANTLY
-  // and send in the background — the code lands in the inbox a moment later.
-  async function handleSendCode(e: React.FormEvent) {
-    e.preventDefault();
-    if (!email) {
-      setError("Enter your email first");
-      return;
-    }
-    setError("");
-    setStep("code");
-    setSending(true);
-    try {
-      const supabase = createClient();
-      const { error } = await supabase.auth.signInWithOtp({
-        email,
-        options: { shouldCreateUser: true },
-      });
-      if (error) setError(error.message);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Couldn't send the code. Please try again.");
-    } finally {
-      setSending(false);
-    }
-  }
-
-  async function handleVerifyCode(e: React.FormEvent) {
+  async function handleSignIn(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError("");
 
-    const supabase = createClient();
-    const { error } = await supabase.auth.verifyOtp({
-      email,
-      token,
-      type: "email",
-    });
+    // Built HERE, with the checkbox already known, because the cookie lifetime
+    // is fixed when the client is constructed.
+    const supabase = createClient({ rememberDevice: remember });
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
-      setError(error.message);
-    } else {
-      router.push("/");
-      router.refresh();
+      // Supabase returns "Invalid login credentials" both for a wrong password
+      // and for an account that has none set. The second is every client right
+      // now, so the message has to point at the fix instead of implying they
+      // mistyped.
+      setError(
+        /invalid login credentials/i.test(error.message)
+          ? "That email and password did not match. If you have not set a password yet, use the link below."
+          : error.message
+      );
+      setLoading(false);
+      return;
     }
-    setLoading(false);
+
+    router.push("/");
+    router.refresh();
   }
 
   return (
     <div className="page-wash min-h-screen flex flex-col items-center justify-center px-4 relative overflow-hidden">
-      {/* soft brand glow behind the card — atmosphere, not glassmorphism */}
       <div
         aria-hidden
         className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-[62%] w-[520px] h-[520px] rounded-full opacity-70"
@@ -77,90 +71,77 @@ export default function LoginPage() {
         </div>
 
         <div className="card p-7 sm:p-8">
-          {step === "email" ? (
-            <form onSubmit={handleSendCode} className="space-y-5">
-              <div>
-                <h1 className="font-display text-[20px] text-[color:var(--text)] leading-tight">
-                  Sign in to your workspace
-                </h1>
-                <p className="text-[13.5px] text-[color:var(--text-3)] mt-1.5">
-                  Enter your email and we&apos;ll send you a 6-digit code.
-                </p>
-              </div>
+          <form onSubmit={handleSignIn} className="space-y-5">
+            <div>
+              <h1 className="font-display text-[20px] text-[color:var(--text)] leading-tight">
+                Sign in to your workspace
+              </h1>
+              <p className="text-[13.5px] text-[color:var(--text-3)] mt-1.5">
+                Your email and password.
+              </p>
+            </div>
 
-              <div>
-                <label className="field-label" htmlFor="email">Email</label>
-                <input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@yourbusiness.com"
-                  autoFocus
-                  required
-                  className="field"
-                />
-              </div>
-
-              {error && <p className="text-[13px] text-[color:var(--red)]">{error}</p>}
-
-              <button type="submit" disabled={loading} className="btn-primary w-full">
-                {loading ? "Sending…" : "Send login code"}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => { if (email) setStep("code"); else setError("Enter your email first"); }}
-                className="w-full text-[13px] text-[color:var(--text-3)] hover:text-[color:var(--text)] transition"
-              >
-                I already have a code
-              </button>
-            </form>
-          ) : (
-            <form onSubmit={handleVerifyCode} className="space-y-5">
-              <div>
-                <h1 className="font-display text-[20px] text-[color:var(--text)] leading-tight">
-                  Check your inbox
-                </h1>
-                <p className="text-[13.5px] text-[color:var(--text-3)] mt-1.5">
-                  {sending ? "Sending your code to " : "We sent a 6-digit code to "}
-                  <span className="text-[color:var(--text)] font-medium">{email}</span>
-                  {sending && <span className="inline-block animate-pulse">…</span>}
-                </p>
-              </div>
-
+            <div>
+              <label className="field-label" htmlFor="email">Email</label>
               <input
-                type="text"
-                inputMode="numeric"
-                value={token}
-                onChange={(e) => setToken(e.target.value)}
-                placeholder="000000"
+                id="email"
+                name="email"
+                type="email"
+                autoComplete="username"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@yourbusiness.com"
                 autoFocus
                 required
-                maxLength={8}
-                className="field text-center text-[26px] tracking-[0.5em] font-mono"
-                style={{ paddingTop: 14, paddingBottom: 14 }}
+                className="field"
               />
+            </div>
 
-              {error && <p className="text-[13px] text-[color:var(--red)]">{error}</p>}
+            <div>
+              <label className="field-label" htmlFor="password">Password</label>
+              <input
+                id="password"
+                name="password"
+                type="password"
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                className="field"
+              />
+            </div>
 
-              <button type="submit" disabled={loading || token.length < 4} className="btn-primary w-full">
-                {loading ? "Verifying…" : "Verify & sign in"}
-              </button>
+            <label className="flex items-center gap-2.5 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={remember}
+                onChange={(e) => setRemember(e.target.checked)}
+                className="w-4 h-4 accent-[color:var(--brand-solid)] cursor-pointer"
+              />
+              <span className="text-[13.5px] text-[color:var(--text-2)]">Remember this device</span>
+            </label>
 
-              <button
-                type="button"
-                onClick={() => { setStep("email"); setToken(""); setError(""); }}
-                className="w-full text-[13px] text-[color:var(--text-3)] hover:text-[color:var(--text)] transition"
-              >
-                Use a different email
-              </button>
-            </form>
-          )}
+            {error && <p className="text-[13px] text-[color:var(--red)] leading-relaxed">{error}</p>}
+
+            <button type="submit" disabled={loading} className="btn-primary w-full">
+              {loading ? "Signing in…" : "Sign in"}
+            </button>
+
+            <p className="text-center text-[13px] text-[color:var(--text-3)]">
+              <Link href="/login/reset" className="text-[color:var(--brand-ink)] hover:underline">
+                Set or reset your password
+              </Link>
+            </p>
+          </form>
         </div>
 
-        <p className="text-center text-[12px] text-[color:var(--text-3)] mt-6">
-          Your AI workforce, run by us. Questions?{" "}
+        <p className="text-center text-[12.5px] text-[color:var(--text-3)] mt-5 leading-relaxed">
+          On a shared computer? Untick &ldquo;remember this device&rdquo; and we will sign you out
+          when the browser closes.
+        </p>
+
+        <p className="text-center text-[12px] text-[color:var(--text-3)] mt-4">
+          Questions?{" "}
           <a href="mailto:support@ambitt.agency" className="text-[color:var(--brand-ink)] underline underline-offset-2">
             support@ambitt.agency
           </a>

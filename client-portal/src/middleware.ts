@@ -61,7 +61,9 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (
-    request.nextUrl.pathname === "/login" ||
+    // startsWith, not ===, or /login/reset and /login/new-password bounce
+    // back to /login and nobody can ever set a password.
+    request.nextUrl.pathname.startsWith("/login") ||
     request.nextUrl.pathname.startsWith("/api/auth") ||
     request.nextUrl.pathname.startsWith("/onboard") ||
     request.nextUrl.pathname.startsWith("/api/onboard") ||
