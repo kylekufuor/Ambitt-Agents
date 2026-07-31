@@ -1,7 +1,7 @@
 "use client";
 
 import { createClient } from "@/lib/supabase-browser";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { BrandLockup } from "@/components/brand-mark";
@@ -15,18 +15,38 @@ import { BrandLockup } from "@/components/brand-mark";
    to say so rather than failing on submit after they have typed twice.
    --------------------------------------------------------------------------- */
 
-const MIN = 10;
+/**
+ * Eight, and nothing else.
+ *
+ * No character-class rules on purpose: they push people towards the shortest
+ * thing that satisfies the checker (Password1!) and away from the long, plain
+ * passphrase that is actually stronger. The only rule worth enforcing is a
+ * floor on length.
+ */
+const MIN = 8;
 
 export default function NewPasswordPage() {
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
+  const [remember, setRemember] = useState(true);
   const [ready, setReady] = useState<"checking" | "ok" | "expired">("checking");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
+  /**
+   * Exactly one Supabase client on this page, rebuilt when the checkbox moves.
+   *
+   * Two clients would be the subtle bug here. Cookie options are fixed when a
+   * client is constructed, so a default client left listening alongside a
+   * remember-aware one would keep writing the session cookie with ITS options
+   * on every auth event — including the USER_UPDATED that saving a password
+   * fires. The remember-me box would look wired, and the last write would
+   * silently drop the 90-day lifetime.
+   */
+  const supabase = useMemo(() => createClient({ rememberDevice: remember }), [remember]);
+
   useEffect(() => {
-    const supabase = createClient();
     // Supabase parses the recovery token out of the URL on load, so give it a
     // beat before deciding the link was bad.
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -36,7 +56,7 @@ export default function NewPasswordPage() {
       setReady((prev) => (data.session ? "ok" : prev === "ok" ? "ok" : "expired"));
     });
     return () => sub.subscription.unsubscribe();
-  }, []);
+  }, [supabase]);
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
@@ -51,7 +71,10 @@ export default function NewPasswordPage() {
     }
     setLoading(true);
 
-    const supabase = createClient();
+    // The same client the page has been holding, already carrying the
+    // checkbox's cookie lifetime. Setting a password signs you in, so this is
+    // the write that decides whether a client who ticked "remember" is still
+    // signed in tomorrow — on the very first session they ever have.
     const { error } = await supabase.auth.updateUser({ password });
     if (error) {
       setError(error.message);
@@ -126,6 +149,16 @@ export default function NewPasswordPage() {
                   className="field"
                 />
               </div>
+
+              <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={remember}
+                  onChange={(e) => setRemember(e.target.checked)}
+                  className="w-4 h-4 accent-[color:var(--brand-solid)] cursor-pointer"
+                />
+                <span className="text-[13.5px] text-[color:var(--text-2)]">Remember this device</span>
+              </label>
 
               {error && <p className="text-[13px] text-[color:var(--red)]">{error}</p>}
 

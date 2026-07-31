@@ -27,6 +27,10 @@ export default function LoginPage() {
   const [remember, setRemember] = useState(true);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  // Set when sign-in fails in the one way that is usually "no password yet"
+  // rather than "typo". Drives the offer below instead of a dead end.
+  const [offerSetup, setOfferSetup] = useState(false);
+  const [linkSent, setLinkSent] = useState(false);
   const router = useRouter();
 
   async function handleSignIn(e: React.FormEvent) {
@@ -41,12 +45,16 @@ export default function LoginPage() {
 
     if (error) {
       // Supabase returns "Invalid login credentials" both for a wrong password
-      // and for an account that has none set. The second is every client right
-      // now, so the message has to point at the fix instead of implying they
-      // mistyped.
+      // and for an account that has none set — it cannot tell us which, and
+      // deliberately so. Every client who has not been through the setup link
+      // lands here, so the failure has to carry the fix with it rather than
+      // pointing at a link further down that reads like it is for people who
+      // forgot something.
+      const looksLikeNoPassword = /invalid login credentials/i.test(error.message);
+      setOfferSetup(looksLikeNoPassword);
       setError(
-        /invalid login credentials/i.test(error.message)
-          ? "That email and password did not match. If you have not set a password yet, use the link below."
+        looksLikeNoPassword
+          ? "That did not match. If this is your first time here, you have not chosen a password yet."
           : error.message
       );
       setLoading(false);
@@ -55,6 +63,28 @@ export default function LoginPage() {
 
     router.push("/");
     router.refresh();
+  }
+
+  /**
+   * Send the set-password link without making them retype the address.
+   *
+   * Deliberately says the same thing whether or not the address is one of
+   * ours — otherwise this becomes a way to test which businesses are clients.
+   */
+  async function handleSendSetupLink() {
+    setLoading(true);
+    setError("");
+    const supabase = createClient();
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/login/new-password`,
+    });
+    if (error && /rate|too many/i.test(error.message)) {
+      setError("Too many attempts just now. Give it a minute and try again.");
+      setLoading(false);
+      return;
+    }
+    setLinkSent(true);
+    setLoading(false);
   }
 
   return (
@@ -122,6 +152,23 @@ export default function LoginPage() {
             </label>
 
             {error && <p className="text-[13px] text-[color:var(--red)] leading-relaxed">{error}</p>}
+
+            {linkSent ? (
+              <p className="text-[13px] text-[color:var(--text-2)] leading-relaxed">
+                Sent. If <span className="text-[color:var(--text)] font-medium">{email}</span> is on
+                an account with us, there is now a link in that inbox to choose a password. It is
+                good for one hour.
+              </p>
+            ) : offerSetup ? (
+              <button
+                type="button"
+                onClick={handleSendSetupLink}
+                disabled={loading || !email}
+                className="btn-secondary w-full"
+              >
+                {loading ? "Sending…" : "Email me a link to set my password"}
+              </button>
+            ) : null}
 
             <button type="submit" disabled={loading} className="btn-primary w-full">
               {loading ? "Signing in…" : "Sign in"}
