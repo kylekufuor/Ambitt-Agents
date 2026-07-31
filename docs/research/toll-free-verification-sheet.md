@@ -50,10 +50,14 @@ Files it.
 
 Both `--check` and `--submit` prompt for the auth token (hidden, and so kept out of shell
 history) unless `TWILIO_AUTH_TOKEN` is already set. Nothing needs editing into the command —
-every failed attempt at this so far was placeholder text pasted verbatim into a command line
-that was meant to be edited, so there is no longer anything to edit. The account SID is a
-constant in the script: it is an API username, not a secret, and it is visible in every console
-URL. Get the token from Twilio Console -> API keys & auth tokens -> Primary auth token.
+every failed attempt at this was placeholder text pasted verbatim into a command line that was
+meant to be edited, so there is nothing left to edit. Get the token from Twilio Console -> API
+keys & auth tokens -> Primary auth token.
+
+`TWILIO_ACCOUNT_SID` comes from the gitignored repo-root `.env`, where it is already set. It was
+briefly hardcoded in the script on the reasoning that it is an API username rather than a secret;
+GitHub secret scanning blocked the push, and it has the better argument — the SID and the token
+together are the whole credential, so committing half of it leaves the pair one leak apart.
 
 Before filing anything, `--submit` GETs the number and aborts unless the SID really is
 `+18338536941`. The result emails `support@ambitt.agency`; poll it any time with:
