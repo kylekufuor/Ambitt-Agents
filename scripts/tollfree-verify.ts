@@ -109,9 +109,49 @@ const PAYLOAD: Record<string, string | string[]> = {
     "network-level toll-free opt-out.",
 };
 
+/**
+ * Strip what a copy-paste adds: surrounding quotes and stray whitespace.
+ *
+ * This matters more than it looks. The account SID is interpolated into a URL
+ * path, and a trailing newline or space becomes %0A/%20 there — which Twilio's
+ * WAF rejects with an HTML "403 Request blocked" that never reaches Twilio and
+ * reads exactly like a permissions problem. The value looks perfect in the
+ * terminal, because the defect is invisible.
+ */
+function sanitize(raw: string | undefined): string {
+  const trimmed = (raw ?? "").trim();
+  // [\s\S] rather than . with the s flag — this file compiles under the repo's
+  // pre-es2018 target, where that flag is a syntax error.
+  const unquoted = /^(["'])[\s\S]*\1$/.test(trimmed) ? trimmed.slice(1, -1) : trimmed;
+  return unquoted.trim();
+}
+
+/** Describe a malformed credential without ever echoing its value. */
+function defectIn(name: string, raw: string | undefined, clean: string, shape: RegExp): string | null {
+  if (!clean) return `${name} is empty.`;
+  if (shape.test(clean)) return null;
+  const notes: string[] = [`${name} is ${clean.length} characters and not the expected shape.`];
+  if (raw && raw !== clean) notes.push("It had surrounding quotes or whitespace, which were stripped.");
+  if (/\s/.test(clean)) notes.push("It still contains whitespace — re-copy it without a line break.");
+  return notes.join(" ");
+}
+
 function credentials(): { sid: string; token: string } {
-  const sid = process.env.TWILIO_ACCOUNT_SID;
-  const token = process.env.TWILIO_AUTH_TOKEN;
+  const rawSid = process.env.TWILIO_ACCOUNT_SID;
+  const rawToken = process.env.TWILIO_AUTH_TOKEN;
+  const sid = sanitize(rawSid);
+  const token = sanitize(rawToken);
+
+  if (sid && token) {
+    // Validate before anything is interpolated into a URL, so a bad value
+    // fails here with a readable reason instead of as a WAF block later.
+    const problems = [
+      defectIn("TWILIO_ACCOUNT_SID", rawSid, sid, /^AC[0-9a-fA-F]{32}$/),
+      defectIn("TWILIO_AUTH_TOKEN", rawToken, token, /^\S{20,}$/),
+    ].filter((p): p is string => p !== null);
+    if (problems.length) throw new Error(`\n${problems.join("\n")}\n\nNothing was sent.\n`);
+  }
+
   if (!sid || !token) {
     // The repo-root .env declares both keys but leaves them blank — the live
     // values only exist on Railway. Say so, rather than sending the reader to
@@ -129,6 +169,39 @@ function credentials(): { sid: string; token: string } {
 function authHeader(): string {
   const { sid, token } = credentials();
   return `Basic ${Buffer.from(`${sid}:${token}`).toString("base64")}`;
+}
+
+/**
+ * Headers for every Twilio call.
+ *
+ * The User-Agent identifies us in Twilio's request logs, which is worth having
+ * when a submission needs chasing. It is NOT what fixes a CloudFront block —
+ * that was tested, and Node's fetch reaches Twilio with or without it. A block
+ * means the URL itself was malformed; see sanitize().
+ */
+function twilioHeaders(extra: Record<string, string> = {}): Record<string, string> {
+  return {
+    Authorization: authHeader(),
+    "User-Agent": "ambitt-agents-tollfree-verify/1.0",
+    Accept: "application/json",
+    ...extra,
+  };
+}
+
+/**
+ * Turn a Twilio response into something worth reading.
+ *
+ * A CloudFront block arrives as an HTML page, and dumping that raw sends the
+ * reader hunting a Twilio problem that does not exist — so name it.
+ */
+function describeFailure(status: number, body: string): string {
+  if (body.trimStart().toLowerCase().startsWith("<!doctype html")) {
+    return (
+      `HTTP ${status} — blocked by CloudFront before reaching Twilio, not a Twilio error.\n` +
+      `This is what a missing or rejected User-Agent looks like.`
+    );
+  }
+  return `HTTP ${status}\n${body}`;
 }
 
 /** Twilio takes form-encoded bodies; array fields repeat the key. */
@@ -155,12 +228,13 @@ async function assertNumberMatches(): Promise<void> {
   const { sid } = credentials();
   const res = await fetch(
     `https://api.twilio.com/2010-04-01/Accounts/${sid}/IncomingPhoneNumbers/${TOLLFREE_PHONE_NUMBER_SID}.json`,
-    { headers: { Authorization: authHeader() } }
+    { headers: twilioHeaders() }
   );
   const text = await res.text();
   if (!res.ok) {
     throw new Error(
-      `Could not look up ${TOLLFREE_PHONE_NUMBER_SID} (HTTP ${res.status}). Nothing was filed.\n${text}`
+      `Could not look up ${TOLLFREE_PHONE_NUMBER_SID}. Nothing was filed.\n` +
+        describeFailure(res.status, text)
     );
   }
   const number = (JSON.parse(text) as { phone_number?: string }).phone_number;
@@ -177,10 +251,7 @@ async function submit(): Promise<void> {
 
   const res = await fetch(API, {
     method: "POST",
-    headers: {
-      Authorization: authHeader(),
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
+    headers: twilioHeaders({ "Content-Type": "application/x-www-form-urlencoded" }),
     body: encode(PAYLOAD),
   });
 
@@ -188,8 +259,8 @@ async function submit(): Promise<void> {
   if (!res.ok) {
     // Twilio's error body names the offending parameter — surface it whole,
     // because guessing which field a 400 refers to wastes a submission.
-    console.error(`\nSubmission FAILED — HTTP ${res.status}\n`);
-    console.error(text);
+    console.error(`\nSubmission FAILED. Nothing was filed.\n`);
+    console.error(describeFailure(res.status, text));
     process.exit(1);
   }
 
@@ -202,10 +273,10 @@ async function submit(): Promise<void> {
 }
 
 async function status(sid: string): Promise<void> {
-  const res = await fetch(`${API}/${sid}`, { headers: { Authorization: authHeader() } });
+  const res = await fetch(`${API}/${sid}`, { headers: twilioHeaders() });
   const text = await res.text();
   if (!res.ok) {
-    console.error(`\nLookup FAILED — HTTP ${res.status}\n${text}\n`);
+    console.error(`\nLookup FAILED.\n${describeFailure(res.status, text)}\n`);
     process.exit(1);
   }
   const body = JSON.parse(text) as {
@@ -233,6 +304,14 @@ async function main(): Promise<void> {
     const sid = args[statusIndex + 1];
     if (!sid) throw new Error("--status needs a verification SID, e.g. --status HHxxxxxxxx");
     await status(sid);
+    return;
+  }
+
+  // Credentials-only rehearsal. Filing is once-and-for-real, so there should be
+  // a way to prove the credentials work that cannot accidentally file anything.
+  if (args.includes("--check")) {
+    await assertNumberMatches();
+    console.log("  Credentials work. Nothing was filed — add --submit to file.\n");
     return;
   }
 
