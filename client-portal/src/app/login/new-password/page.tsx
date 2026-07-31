@@ -1,6 +1,7 @@
 "use client";
 
 import { createClient } from "@/lib/supabase-browser";
+import { nextFromLocation } from "@/lib/safe-next";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -81,7 +82,9 @@ export default function NewPasswordPage() {
       setLoading(false);
       return;
     }
-    router.push("/");
+    // Land where they were originally headed, carried across the email
+    // round-trip on ?next= and validated before use.
+    router.push(nextFromLocation());
     router.refresh();
   }
 

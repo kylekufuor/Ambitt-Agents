@@ -1,9 +1,9 @@
 "use client";
 
 import { createClient } from "@/lib/supabase-browser";
+import { nextFromLocation } from "@/lib/safe-next";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { BrandLockup } from "@/components/brand-mark";
 
 /* ---------------------------------------------------------------------------
@@ -27,9 +27,6 @@ export default function LoginPage() {
   const [remember, setRemember] = useState(true);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  // Set when sign-in fails in the one way that is usually "no password yet"
-  // rather than "typo". Drives the offer below instead of a dead end.
-  const [offerSetup, setOfferSetup] = useState(false);
   const [linkSent, setLinkSent] = useState(false);
   const router = useRouter();
 
@@ -50,18 +47,16 @@ export default function LoginPage() {
       // lands here, so the failure has to carry the fix with it rather than
       // pointing at a link further down that reads like it is for people who
       // forgot something.
-      const looksLikeNoPassword = /invalid login credentials/i.test(error.message);
-      setOfferSetup(looksLikeNoPassword);
       setError(
-        looksLikeNoPassword
-          ? "That did not match. If this is your first time here, you have not chosen a password yet."
+        /invalid login credentials/i.test(error.message)
+          ? "That did not match. If you have not chosen a password yet, use the button below."
           : error.message
       );
       setLoading(false);
       return;
     }
 
-    router.push("/");
+    router.push(nextFromLocation());
     router.refresh();
   }
 
@@ -75,8 +70,14 @@ export default function LoginPage() {
     setLoading(true);
     setError("");
     const supabase = createClient();
+    // Carry the destination through the email round-trip, so someone who
+    // clicked a tools link and had to set a password on the way still arrives
+    // at the tools page.
+    const next = nextFromLocation();
+    const back = new URL("/login/new-password", window.location.origin);
+    if (next !== "/") back.searchParams.set("next", next);
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/login/new-password`,
+      redirectTo: back.toString(),
     });
     if (error && /rate|too many/i.test(error.message)) {
       setError("Too many attempts just now. Give it a minute and try again.");
@@ -153,32 +154,45 @@ export default function LoginPage() {
 
             {error && <p className="text-[13px] text-[color:var(--red)] leading-relaxed">{error}</p>}
 
-            {linkSent ? (
-              <p className="text-[13px] text-[color:var(--text-2)] leading-relaxed">
-                Sent. If <span className="text-[color:var(--text)] font-medium">{email}</span> is on
-                an account with us, there is now a link in that inbox to choose a password. It is
-                good for one hour.
-              </p>
-            ) : offerSetup ? (
-              <button
-                type="button"
-                onClick={handleSendSetupLink}
-                disabled={loading || !email}
-                className="btn-secondary w-full"
-              >
-                {loading ? "Sending…" : "Email me a link to set my password"}
-              </button>
-            ) : null}
-
             <button type="submit" disabled={loading} className="btn-primary w-full">
               {loading ? "Signing in…" : "Sign in"}
             </button>
 
-            <p className="text-center text-[13px] text-[color:var(--text-3)]">
-              <Link href="/login/reset" className="text-[color:var(--brand-ink)] hover:underline">
-                Set or reset your password
-              </Link>
-            </p>
+            {/* The first-time path, visible from the start rather than waiting
+                for a failure. Every client arrives here without a password, so
+                making them guess wrong first — then reading an error — is the
+                wrong order. It is a labelled section, not a link tucked under
+                the button, because "set or reset your password" reads as being
+                for people who forgot one. */}
+            <div className="pt-1 border-t border-[color:var(--border)]">
+              {linkSent ? (
+                <p className="text-[13px] text-[color:var(--text-2)] leading-relaxed pt-4">
+                  Sent. If <span className="text-[color:var(--text)] font-medium">{email}</span> is
+                  on an account with us, there is now a link in that inbox to choose a password. It
+                  is good for one hour.
+                </p>
+              ) : (
+                <div className="pt-4 space-y-2.5">
+                  <p className="text-[13px] text-[color:var(--text-3)] leading-relaxed">
+                    First time here, or never chosen a password? We will email you a link to set
+                    one.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleSendSetupLink}
+                    disabled={loading || !email}
+                    className="btn-secondary w-full"
+                  >
+                    {loading ? "Sending…" : "Email me a link to set my password"}
+                  </button>
+                  {!email && (
+                    <p className="text-[12.5px] text-[color:var(--text-3)]">
+                      Put your email in above first.
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
           </form>
         </div>
 

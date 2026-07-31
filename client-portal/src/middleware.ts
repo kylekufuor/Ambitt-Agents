@@ -80,7 +80,15 @@ export async function middleware(request: NextRequest) {
 
   if (!user) {
     const url = request.nextUrl.clone();
+    // Remember where they were going. Client emails link straight at a portal
+    // page — the tools invite points at /agents/{id}/tools — and dropping the
+    // destination here meant signing in landed them on the home page with no
+    // trace of what they had clicked. Validated on the way back out by
+    // safeNext(), never trusted as-is.
+    const intended = request.nextUrl.pathname + request.nextUrl.search;
     url.pathname = "/login";
+    url.search = "";
+    if (intended && intended !== "/") url.searchParams.set("next", intended);
     return NextResponse.redirect(url);
   }
 
