@@ -286,7 +286,12 @@ export interface RelayDb {
       dryRun: boolean;
       communicationSettings: unknown;
       safetySensitivity: string | null;
-      client: { email: string | null; whatsappNumber: string | null; businessName: string | null } | null;
+      client: {
+        email: string | null;
+        whatsappNumber: string | null;
+        verificationPhone: string | null;
+        businessName: string | null;
+      } | null;
     } | null>;
   };
   dryRunLog: { create(args: { data: any }): Promise<unknown> };
@@ -437,7 +442,7 @@ export async function relayMfaRequest(
         dryRun: true,
         communicationSettings: true,
         safetySensitivity: true,
-        client: { select: { email: true, whatsappNumber: true, businessName: true } },
+        client: { select: { email: true, whatsappNumber: true, verificationPhone: true, businessName: true } },
       },
     });
     if (!agent) {
@@ -446,9 +451,11 @@ export async function relayMfaRequest(
     }
 
     const clientEmail = agent.client?.email ?? null;
-    // Client.whatsappNumber IS the client's mobile on file (portal-collected);
-    // reused as the SMS target for v1 per spec Open Question 1.
-    const clientMobile = agent.client?.whatsappNumber ?? null;
+    // verificationPhone is the number the client gave us FOR THIS, and is
+    // preferred. whatsappNumber stays as a fallback for clients onboarded
+    // before the dedicated field existed — it is the WhatsApp channel and is
+    // read by other comms, so it is not where a codes-only number belongs.
+    const clientMobile = agent.client?.verificationPhone ?? agent.client?.whatsappNumber ?? null;
     const businessLabel = agent.client?.businessName || clientId;
 
     // Effective per-client SMS cap: safety-sensitivity + per-agent overrides

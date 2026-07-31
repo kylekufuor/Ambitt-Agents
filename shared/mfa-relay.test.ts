@@ -165,7 +165,12 @@ type AgentRow = {
   dryRun: boolean;
   communicationSettings: unknown;
   safetySensitivity: string | null;
-  client: { email: string | null; whatsappNumber: string | null; businessName: string | null } | null;
+  client: {
+    email: string | null;
+    whatsappNumber: string | null;
+    verificationPhone: string | null;
+    businessName: string | null;
+  } | null;
 };
 
 const DEFAULT_AGENT: AgentRow = {
@@ -174,7 +179,12 @@ const DEFAULT_AGENT: AgentRow = {
   dryRun: false,
   communicationSettings: null,
   safetySensitivity: null,
-  client: { email: "client@example.com", whatsappNumber: "+18175551234", businessName: "Acme Co" },
+  client: {
+    email: "client@example.com",
+    whatsappNumber: "+18175551234",
+    verificationPhone: null,
+    businessName: "Acme Co",
+  },
 };
 
 interface Spy {
@@ -333,7 +343,7 @@ async function composedPathTests() {
   // --- no channels on file → none, operator alerted, not halted -------------
   {
     const { deps, spy } = makeDeps({
-      agent: { ...DEFAULT_AGENT, client: { email: null, whatsappNumber: null, businessName: "Nobody" } },
+      agent: { ...DEFAULT_AGENT, client: { email: null, whatsappNumber: null, verificationPhone: null, businessName: "Nobody" } },
     });
     const r = await relayMfaRequest({ clientId: "cp-nochan", agentId: "ag-nochan", service: "CoStar", mode: "runtime" }, deps);
     checkTrue("no-channel: channel none, not halted", r.channel === "none" && r.halted !== true, r);
@@ -345,7 +355,51 @@ async function composedPathTests() {
   checkTrue("durable cap: 5 < 6 → ok", (await smsCapExceededDurable({ smsSend: { count: async () => 5 } }, "c", 6)) === false);
 }
 
-composedPathTests().then(() => {
+/* ═══════════════════════════════════════════════════════════════════════════
+   Which number the code is texted to
+   ═══════════════════════════════════════════════════════════════════════════
+   verificationPhone is the number the client handed over FOR verification
+   codes. whatsappNumber is the WhatsApp channel and is read by other comms, so
+   once a dedicated number exists, texting a login code to the WhatsApp one is
+   both wrong and a wider use of the number than the client agreed to. */
+async function numberPreferenceTests() {
+  const CLIENT = { email: "client@example.com", businessName: "Acme Co" };
+
+  // The relay returns only { channel }, so the number is observed where it
+  // actually matters: the argument sendSms was called with.
+  async function relayTo(id: string, whatsappNumber: string | null, verificationPhone: string | null) {
+    const { deps } = makeDeps({
+      agent: { ...DEFAULT_AGENT, client: { ...CLIENT, whatsappNumber, verificationPhone } },
+      smsConfigured: true,
+    });
+    let sentTo: string | null = null;
+    const inner = deps.sendSms;
+    deps.sendSms = async (o: { to: string; message: string; agentId?: string }) => {
+      sentTo = o.to;
+      return inner(o);
+    };
+    const r = await relayMfaRequest(
+      { clientId: id, agentId: "ag-" + id, service: "CoStar", mode: "runtime" },
+      deps,
+    );
+    return { channel: r.channel, to: sentTo };
+  }
+
+  const both = await relayTo("cp-both", "+18175551234", "+18179990000");
+  check("REGRESSION: verificationPhone wins over whatsappNumber", both.to, "+18179990000");
+  check("...over SMS", both.channel, "sms");
+
+  const legacy = await relayTo("cp-legacy", "+18175551234", null);
+  check("clients onboarded before the field still get their SMS", legacy.to, "+18175551234");
+
+  const neither = await relayTo("cp-none", null, null);
+  check("no number at all falls through to email", neither.channel, "email");
+}
+
+async function main() {
+  await composedPathTests();
+  await numberPreferenceTests();
   console.log(`\n${pass}/${pass + fail} passed${fail ? ` — ${fail} FAILED` : " — all green"}`);
   process.exitCode = fail ? 1 : 0;
-});
+}
+main();

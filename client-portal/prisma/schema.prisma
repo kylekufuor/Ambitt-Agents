@@ -21,6 +21,19 @@ model Client {
   preferredChannel String
   whatsappNumber   String?
 
+  // Mobile used ONLY to relay a login verification code to the human, and for
+  // nothing else. Kept separate from whatsappNumber on purpose: that field is
+  // the WhatsApp channel and is read by alerts and general comms, so reusing
+  // it would silently widen what this number is for. Casey gave us a number to
+  // receive CoStar codes; it is not a marketing list of one.
+  //
+  // Exists because the email relay is too SLOW: CoStar's login window expires
+  // before an emailed code round-trips, which is the whole reason SMS matters
+  // here.
+  verificationPhone   String?
+  verificationPhoneAt DateTime? // when the client last set it
+
+
   onboardingCompletedAt DateTime?
   northStarMetric       String?
   agentGoal             String?   @db.Text

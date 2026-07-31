@@ -2,6 +2,8 @@ import { notFound } from "next/navigation";
 import { V3Shell } from "@/components/v3-shell";
 import { PageHead, Panel, Eyebrow, Row, AskNote } from "@/components/v3-ui";
 import { requirePortalContext } from "@/lib/portal-context";
+import prisma from "@/lib/db";
+import { VerificationPhoneCard } from "@/components/verification-phone-card";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +29,11 @@ function parse(raw: unknown): Settings {
 export default async function EmailSetupPage() {
   const { email, client, agent } = await requirePortalContext();
   if (!agent) notFound();
+
+  const acct = await prisma.client.findUnique({
+    where: { id: client.id },
+    select: { verificationPhone: true },
+  });
 
   const s = parse(agent.communicationSettings);
   const extra = s.inbound?.allowedSenders ?? [];
@@ -70,6 +77,10 @@ export default async function EmailSetupPage() {
             To let a colleague write to him, reply to one of his emails and say who.
           </AskNote>
         </Panel>
+      </div>
+
+      <div className="mt-3.5">
+        <VerificationPhoneCard agentName={agent.name} initial={acct?.verificationPhone ?? null} />
       </div>
 
       <Panel className="mt-3.5">
