@@ -3,25 +3,33 @@
 **Number is bought.** `(833) 853-6941`, SID `PN1cf3a50e307932f5469badc525224f1d`, $2.15/mo.
 Verification itself is $0 and takes ~3–5 business days.
 
-**REJECTED 3 Aug 2026** — verification `HH5972b8b30e4e581dfb120515d25d8793`, code **1407,
-"Opt-In Checkbox is Pre-selected"**. Resubmission window closes **11 Aug 2026**.
+**RESUBMITTED 4 Aug 2026 — back to `PENDING_REVIEW`.** Verification
+`HH5972b8b30e4e581dfb120515d25d8793`.
 
-**The checkbox was never pre-selected. The screenshot was.** The original evidence image had
-been captured mid-test with a number typed and the box ticked, and published as "this is our
-consent screen". A reviewer can only judge what we send them. Fixed: the image is now generated
-from the running portal by `scripts/capture-optin-screenshot.ts`, which refuses to write if the
-box is checked or the number field is filled, and it lives at a NEW url
-(`/compliance/sms-opt-in-consent-unchecked.png`) so a resubmission cannot be served a cached
-copy of the rejected image.
+**History:** filed 31 Jul, **rejected 3 Aug** with code **1407, "Opt-In Checkbox is
+Pre-selected"**. The checkbox was never pre-selected — the *screenshot* was, having been captured
+mid-test with a number typed and the box ticked. A reviewer can only judge what we send them.
 
-Resubmit with (deploy the corrected image FIRST — verified live 4 Aug):
+**Two things that fixed it, and one that cost a round trip:**
+
+1. The evidence image is now generated, not hand-taken. `scripts/capture-optin-screenshot.ts`
+   drives the running portal and **refuses to write if the box is checked or the number field is
+   filled**. Published at a NEW url (`/compliance/sms-opt-in-consent-unchecked.png`) so a
+   resubmission cannot be served a cached copy of the rejected image; the old path was
+   overwritten with the correct image rather than deleted, since the original filing cites it.
+2. `--resubmit` POSTs to the verification's own URL with an `EditReason`, rather than filing a
+   second registration — a duplicate for the same number is its own rejection reason.
+3. **`EditReason` is NOT free text, whatever the docs say.** A 193-character explanation returns
+   `400 Invalid edit reason`. Twilio's own example is `"Website fixed"` (13 chars). The default is
+   now `"Opt-in screenshot fixed"`, and anything longer is truncated to 64.
 
 ```bash
-npx tsx scripts/tollfree-verify.ts --resubmit HH5972b8b30e4e581dfb120515d25d8793
+npx tsx scripts/tollfree-verify.ts --status HH5972b8b30e4e581dfb120515d25d8793
 ```
 
-This POSTs to the verification's own URL with an `EditReason`, rather than filing a second
-registration — a duplicate for the same number is its own rejection reason.
+**Check that rather than waiting on email.** Four days of the first edit window were lost because
+nobody was watching the inbox; the outcome does now reach a human (see the unrouted-mail
+forwarder), but polling is faster.
 
 **Filed by API, not the console.** See below for why. The submission lives in
 `scripts/tollfree-verify.ts` — that file *is* the filing, and it is the thing to edit if any
