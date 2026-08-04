@@ -311,6 +311,9 @@ function encode(payload: Record<string, string | string[]>): URLSearchParams {
 /** What TOLLFREE_PHONE_NUMBER_SID is expected to resolve to, in E.164. */
 const EXPECTED_NUMBER = "+18338536941";
 
+/** Ceiling for EditReason. Undocumented; see the note in resubmit(). */
+const EDIT_REASON_MAX = 64;
+
 /**
  * Confirm the SID really is the number we mean to register, before filing.
  *
@@ -376,8 +379,19 @@ async function submit(): Promise<void> {
 async function resubmit(sid: string, reason: string): Promise<void> {
   await assertNumberMatches();
 
+  // EditReason is documented as free text with no stated limit, and it is not:
+  // a 193-character explanation came back "Invalid edit reason" (HTTP 400).
+  // Twilio's own example in the docs is "Website fixed" — thirteen characters —
+  // so short and plain is the shape the field actually wants. Truncated rather
+  // than rejected locally, because a 400 here costs a round trip against a
+  // filing with a closing edit window.
+  const trimmed = reason.trim().slice(0, EDIT_REASON_MAX);
+  if (trimmed !== reason.trim()) {
+    console.log(`\n  Edit reason shortened to ${EDIT_REASON_MAX} chars: "${trimmed}"`);
+  }
+
   const form = encode(PAYLOAD);
-  form.append("EditReason", reason);
+  form.append("EditReason", trimmed);
 
   const res = await fetch(`${API}/${sid}`, {
     method: "POST",
@@ -448,9 +462,10 @@ async function main(): Promise<void> {
   if (resubmitIndex !== -1) {
     const sid = args[resubmitIndex + 1];
     if (!sid) throw new Error("--resubmit needs the verification SID, e.g. --resubmit HHxxxxxxxx");
-    const reason =
-      args[resubmitIndex + 2] ??
-      "Replaced the opt-in screenshot. The previous image had been captured mid-test with the box ticked; the checkbox is unchecked by default and the new image shows the card in its default state.";
+    // Short and plain, matching the register of Twilio's own example
+    // ("Website fixed"). The long version 400s. The full explanation belongs in
+    // the payload and on the opt-in page, which is where a reviewer reads it.
+    const reason = args[resubmitIndex + 2] ?? "Opt-in screenshot fixed";
     await resolveCredentials();
     await resubmit(sid, reason);
     return;
