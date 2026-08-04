@@ -74,21 +74,35 @@ export default function SmsOptInPage() {
                 collected anywhere else.
               </p>
               <p>
-                Because the page sits behind a login, the screen itself is reproduced below.
+                Because the page sits behind a login, the consent card itself is reproduced below,
+                exactly as it appears to a client who has just arrived.
+              </p>
+              <p className="text-foreground/90">
+                The checkbox is empty. It is not pre-selected, not pre-filled, and not checked by
+                default. A client has to type their number and tick the box themselves before the
+                Save button will do anything.
               </p>
               <figure className="mt-6 rounded-xl overflow-hidden border border-foreground/10">
                 {/* Plain <img>: this page is public evidence and must render for a
-                    reviewer even with JS disabled. */}
+                    reviewer even with JS disabled.
+
+                    The filename is versioned by state rather than reused. The
+                    first submission was rejected as "Opt-In Checkbox is
+                    Pre-selected" because the screenshot at the old path had been
+                    taken mid-test with the box ticked. Pointing a resubmission at
+                    the same URL risks a reviewer being served the cached copy of
+                    exactly the image that got us rejected. */}
                 <img
-                  src="/compliance/sms-opt-in-screen.png"
-                  alt="The Ambitt Agents client portal Email setup page, showing the mobile number field and the unchecked SMS consent checkbox with its full disclosure text."
-                  width={1420}
-                  height={1250}
+                  src="/compliance/sms-opt-in-consent-unchecked.png"
+                  alt="The consent card in the Ambitt Agents client portal: an empty mobile number field, and an UNCHECKED consent checkbox reading 'I agree to receive login-verification texts from Ambitt Agents at this number. Message frequency varies, and message and data rates may apply. Reply STOP to opt out or HELP for help.'"
+                  width={1800}
+                  height={718}
                   className="w-full h-auto block"
                 />
               </figure>
               <figcaption className="text-xs mt-3">
-                The consent screen as a client sees it. The checkbox is never pre-checked.
+                The consent card in its default state, captured directly from the running portal.
+                The checkbox is unchecked until the client ticks it.
               </figcaption>
             </Section>
 

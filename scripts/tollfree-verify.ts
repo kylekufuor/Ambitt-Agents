@@ -84,7 +84,16 @@ const PAYLOAD: Record<string, string | string[]> = {
   // of that exact screen, the verbatim consent wording, and the samples.
   // "Unverifiable opt-in" is the most common toll-free rejection.
   OptInType: "WEB_FORM",
-  OptInImageUrls: ["https://www.ambitt.agency/compliance/sms-opt-in-screen.png"],
+  // Versioned by state, not reused. The first submission was rejected with
+  // code 1407, "Opt-In Checkbox is Pre-selected" — our checkbox never was, but
+  // the screenshot at the old path had been taken mid-test with the box ticked,
+  // and a reviewer can only judge what we send them. This one is generated from
+  // the running portal by scripts/capture-optin-screenshot.ts, which refuses to
+  // write if the box is checked or the number field is filled.
+  //
+  // A new filename also guarantees a cold fetch: resubmitting against the old
+  // URL risks being served a cached copy of the image that got us rejected.
+  OptInImageUrls: ["https://www.ambitt.agency/compliance/sms-opt-in-consent-unchecked.png"],
 
   // Honest and low. An inflated figure on a brand-new toll-free number invites
   // scrutiny it does not need — this relay texts a handful of clients a login
@@ -357,6 +366,37 @@ async function submit(): Promise<void> {
   console.log("The result also emails support@ambitt.agency.\n");
 }
 
+/**
+ * Resubmit a rejected verification, inside the edit window.
+ *
+ * POST to the verification's own URL rather than creating a second one: a
+ * duplicate registration for the same number is its own rejection reason, and
+ * the window belongs to this record.
+ */
+async function resubmit(sid: string, reason: string): Promise<void> {
+  await assertNumberMatches();
+
+  const form = encode(PAYLOAD);
+  form.append("EditReason", reason);
+
+  const res = await fetch(`${API}/${sid}`, {
+    method: "POST",
+    headers: twilioHeaders({ "Content-Type": "application/x-www-form-urlencoded" }),
+    body: form,
+  });
+  const text = await res.text();
+  if (!res.ok) {
+    console.error("\nResubmission FAILED. The filing is unchanged.\n");
+    console.error(describeFailure(res.status, text));
+    process.exit(1);
+  }
+
+  const body = JSON.parse(text) as { status?: string; rejection_reason?: string };
+  console.log("\nResubmitted.\n");
+  console.log(`  Status : ${body.status ?? "(none returned)"}`);
+  console.log(`\nCheck it with:  npx tsx scripts/tollfree-verify.ts --status ${sid}\n`);
+}
+
 async function status(sid: string): Promise<void> {
   const res = await fetch(`${API}/${sid}`, { headers: twilioHeaders() });
   const text = await res.text();
@@ -401,6 +441,18 @@ async function main(): Promise<void> {
     await resolveCredentials();
     await assertNumberMatches();
     console.log("  Credentials work. Nothing was filed — add --submit to file.\n");
+    return;
+  }
+
+  const resubmitIndex = args.indexOf("--resubmit");
+  if (resubmitIndex !== -1) {
+    const sid = args[resubmitIndex + 1];
+    if (!sid) throw new Error("--resubmit needs the verification SID, e.g. --resubmit HHxxxxxxxx");
+    const reason =
+      args[resubmitIndex + 2] ??
+      "Replaced the opt-in screenshot. The previous image had been captured mid-test with the box ticked; the checkbox is unchecked by default and the new image shows the card in its default state.";
+    await resolveCredentials();
+    await resubmit(sid, reason);
     return;
   }
 
