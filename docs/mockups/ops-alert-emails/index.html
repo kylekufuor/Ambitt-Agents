@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Operator alert emails — mockups</title>
+<!--
+  Mockups for the operator alert emails (fleet health, spikes, budget, bounces).
+
+  These are the emails Kyle actually receives, and today they are plain text
+  emitted by the WhatsApp fallback path in shared/whatsapp.ts — they never touch
+  oracle/templates/_shared.ts, which is why they look like a cron job wrote
+  them. Everything below is built from that file's REAL tokens so it is
+  implementable as-is rather than being a picture of a thing we would then have
+  to invent.
+
+  Email constraints respected throughout: table layout, inline styles, system
+  font stack (webfonts do not render in Gmail or Outlook — deliberate, per
+  reference_type_system_dm_sans), no flexbox, no external assets.
+-->
+<style>
+  body { margin:0; background:#e7e2da; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; color:#1b3139; }
+  .page { max-width:1180px; margin:0 auto; padding:40px 24px 80px; }
+  .lede { max-width:62ch; }
+  h1 { font-size:30px; font-weight:600; margin:0 0 10px; letter-spacing:-0.01em; }
+  .sub { font-size:15px; line-height:1.6; color:#52676f; margin:0 0 8px; }
+  h2 { font-size:13px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:#52676f; margin:44px 0 14px; }
+  .note { font-size:13.5px; line-height:1.6; color:#3d545c; max-width:70ch; margin:0 0 18px; }
+  .grid { display:grid; gap:24px; grid-template-columns:1fr; }
+  @media (min-width:900px){ .grid.two { grid-template-columns:1fr 1fr; } }
+  .frame { background:#efeae2; border-radius:14px; padding:18px; box-shadow:0 1px 2px rgba(27,49,57,.06), 0 8px 24px rgba(27,49,57,.06); }
+  .cap { font-size:12px; color:#52676f; margin:0 0 10px; font-weight:600; }
+  .bad { color:#8c2f39; }
+  .good { color:#1f6b46; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="lede">
+    <h1>Operator alerts, redesigned</h1>
+    <p class="sub">The alerts you get from the fleet — health, spikes, budget, bounces. Today they are plain text from the WhatsApp fallback and never touch the email design system. These are built on its real tokens, so they can ship as-is.</p>
+  </div>
+
+  <h2>What arrives today</h2>
+  <p class="note">The screenshot version. It is not that it is ugly so much as that it makes you do the work: nothing tells you how bad it is, what changed, or what to do, and "147h" is a number you have to convert in your head.</p>
+
+  <div class="frame" style="max-width:640px">
+    <p class="cap">Subject: ⚠️ Ambitt alert — Fleet Health</p>
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:#fffdfb;border-radius:10px">
+      <tr><td style="padding:22px 24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:14px;line-height:1.5;color:#1b3139">
+        ⚠️ Fleet Health<br><br>
+        Stale agents:<br>
+        &nbsp;• Atlas (platform.onboarding) — last ran 147h ago<br><br>
+        Fleet: 2 active / 5 total
+      </td></tr>
+    </table>
+  </div>
+
+  <h2>Option A — the one-line verdict</h2>
+  <p class="note">Severity in the rail colour, the finding as a sentence you could read from a lock screen, then the detail. The number that matters is promoted and converted: <strong>6 days</strong>, not 147h. One action, because there is only ever one worth taking.</p>
+
+  <div class="grid two">
+    <div class="frame">
+      <p class="cap">Subject: Atlas has not run in 6 days</p>
+      <!-- EMAIL A -->
+      <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:#efeae2">
+        <tr><td align="center" style="padding:0">
+          <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="max-width:600px;background:#fffdfb;border-radius:12px;overflow:hidden">
+            <!-- severity rail -->
+            <tr><td style="height:4px;background:#c2410c;font-size:0;line-height:0">&nbsp;</td></tr>
+            <tr><td style="padding:26px 28px 0">
+              <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
+                <tr>
+                  <td style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#c2410c">Needs attention</td>
+                  <td align="right" style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:11px;letter-spacing:.04em;color:#52676f">Mon 3 Aug, 7:30 pm</td>
+                </tr>
+              </table>
+              <p style="margin:14px 0 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:22px;line-height:1.25;font-weight:600;color:#1b3139">Atlas has not run in 6 days.</p>
+              <p style="margin:8px 0 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:14.5px;line-height:1.6;color:#3d545c">It is scheduled hourly and last completed on 28 July. Nothing else in the fleet is stale.</p>
+            </td></tr>
+
+            <!-- inset detail -->
+            <tr><td style="padding:20px 28px 0">
+              <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:#f6f2ec;border-radius:8px">
+                <tr><td style="padding:14px 16px">
+                  <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:13px;color:#3d545c">
+                    <tr>
+                      <td style="padding:3px 0">Agent</td>
+                      <td align="right" style="padding:3px 0;color:#1b3139;font-weight:600">Atlas · platform.onboarding</td>
+                    </tr>
+                    <tr>
+                      <td style="padding:3px 0">Last completed</td>
+                      <td align="right" style="padding:3px 0;color:#1b3139;font-weight:600">28 Jul, 4:12 pm</td>
+                    </tr>
+                    <tr>
+                      <td style="padding:3px 0">Fleet running</td>
+                      <td align="right" style="padding:3px 0;color:#1b3139;font-weight:600">2 of 5</td>
+                    </tr>
+                  </table>
+                </td></tr>
+              </table>
+            </td></tr>
+
+            <tr><td style="padding:20px 28px 26px">
+              <table role="presentation" cellpadding="0" cellspacing="0">
+                <tr><td style="background:#00807e;border-radius:6px">
+                  <a href="#" style="display:inline-block;padding:11px 20px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:14px;font-weight:600;color:#ffffff;text-decoration:none">Open Atlas</a>
+                </td></tr>
+              </table>
+              <p style="margin:14px 0 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:12px;line-height:1.55;color:#52676f">You get this because a scheduled agent missed more than 24 hours of runs.</p>
+            </td></tr>
+          </table>
+        </td></tr>
+      </table>
+    </div>
+
+    <div class="frame">
+      <p class="cap">Same design, healthy fleet — Subject: Fleet is healthy, 5 of 5 running</p>
+      <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:#efeae2">
+        <tr><td align="center">
+          <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="max-width:600px;background:#fffdfb;border-radius:12px;overflow:hidden">
+            <tr><td style="height:4px;background:#00b3b3;font-size:0;line-height:0">&nbsp;</td></tr>
+            <tr><td style="padding:26px 28px 0">
+              <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
+                <tr>
+                  <td style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#1f6b46">All clear</td>
+                  <td align="right" style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:11px;letter-spacing:.04em;color:#52676f">Tue 4 Aug, 7:30 pm</td>
+                </tr>
+              </table>
+              <p style="margin:14px 0 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:22px;line-height:1.25;font-weight:600;color:#1b3139">Everything ran on time.</p>
+              <p style="margin:8px 0 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:14.5px;line-height:1.6;color:#3d545c">All 5 agents completed their scheduled runs in the last 24 hours. Nothing needs you.</p>
+            </td></tr>
+            <tr><td style="padding:20px 28px 26px">
+              <p style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:12px;line-height:1.55;color:#52676f">Sent once a day. Turn this off and you will only hear from us when something is wrong.</p>
+            </td></tr>
+          </table>
+        </td></tr>
+      </table>
+    </div>
+  </div>
+
+  <h2>Option B — the status board</h2>
+  <p class="note">For when several things are true at once. Every agent on one row, state carried by a dot and a word rather than colour alone, and the problem rows floated to the top. Scales to a fleet of thirty; Option A does not.</p>
+
+  <div class="frame" style="max-width:640px">
+    <p class="cap">Subject: Fleet: 1 stale, 2 running, 2 paused</p>
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:#efeae2">
+      <tr><td align="center">
+        <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="max-width:600px;background:#fffdfb;border-radius:12px;overflow:hidden">
+          <tr><td style="height:4px;background:#c2410c;font-size:0;line-height:0">&nbsp;</td></tr>
+          <tr><td style="padding:24px 28px 0">
+            <p style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#52676f">Fleet health · Mon 3 Aug</p>
+            <p style="margin:12px 0 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:21px;line-height:1.3;font-weight:600;color:#1b3139">One agent needs you.</p>
+          </td></tr>
+
+          <tr><td style="padding:18px 28px 0">
+            <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:13.5px">
+              <tr>
+                <td style="padding:11px 0;border-bottom:1px solid #dce0e2">
+                  <span style="display:inline-block;width:7px;height:7px;border-radius:4px;background:#c2410c">&nbsp;</span>
+                  <span style="color:#1b3139;font-weight:600;padding-left:8px">Atlas</span>
+                  <span style="color:#52676f"> · onboarding</span>
+                </td>
+                <td align="right" style="padding:11px 0;border-bottom:1px solid #dce0e2;color:#8c2f39;font-weight:600">Stale 6 days</td>
+              </tr>
+              <tr>
+                <td style="padding:11px 0;border-bottom:1px solid #dce0e2">
+                  <span style="display:inline-block;width:7px;height:7px;border-radius:4px;background:#1f6b46">&nbsp;</span>
+                  <span style="color:#1b3139;font-weight:600;padding-left:8px">Arthur</span>
+                  <span style="color:#52676f"> · Litsey Real Estate</span>
+                </td>
+                <td align="right" style="padding:11px 0;border-bottom:1px solid #dce0e2;color:#3d545c">Ran 2 h ago</td>
+              </tr>
+              <tr>
+                <td style="padding:11px 0;border-bottom:1px solid #dce0e2">
+                  <span style="display:inline-block;width:7px;height:7px;border-radius:4px;background:#1f6b46">&nbsp;</span>
+                  <span style="color:#1b3139;font-weight:600;padding-left:8px">Marco</span>
+                  <span style="color:#52676f"> · McQuizzy</span>
+                </td>
+                <td align="right" style="padding:11px 0;border-bottom:1px solid #dce0e2;color:#3d545c">Ran 40 min ago</td>
+              </tr>
+              <tr>
+                <td style="padding:11px 0">
+                  <span style="display:inline-block;width:7px;height:7px;border-radius:4px;background:#9aa9ad">&nbsp;</span>
+                  <span style="color:#1b3139;font-weight:600;padding-left:8px">Zay</span>
+                  <span style="color:#52676f"> · awaiting approval</span>
+                </td>
+                <td align="right" style="padding:11px 0;color:#52676f">Paused by you</td>
+              </tr>
+            </table>
+          </td></tr>
+
+          <tr><td style="padding:22px 28px 26px">
+            <table role="presentation" cellpadding="0" cellspacing="0">
+              <tr><td style="background:#00807e;border-radius:6px">
+                <a href="#" style="display:inline-block;padding:11px 20px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:14px;font-weight:600;color:#ffffff;text-decoration:none">Open the fleet</a>
+              </td></tr>
+            </table>
+          </td></tr>
+        </table>
+      </td></tr>
+    </table>
+  </div>
+
+  <h2>The same system, other alert types</h2>
+  <p class="note">One layout, four severities. The rail colour and the eyebrow are the only things that change, which is what makes an alert readable at a glance after the tenth one.</p>
+
+  <div class="grid two">
+    <div class="frame">
+      <p class="cap">Subject: Arthur sent 16 emails in 2 hours — paused automatically</p>
+      <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:#efeae2">
+        <tr><td align="center">
+          <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="max-width:600px;background:#fffdfb;border-radius:12px;overflow:hidden">
+            <tr><td style="height:4px;background:#9f1239;font-size:0;line-height:0">&nbsp;</td></tr>
+            <tr><td style="padding:26px 28px 0">
+              <p style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#9f1239">Stopped automatically</p>
+              <p style="margin:14px 0 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:22px;line-height:1.25;font-weight:600;color:#1b3139">Arthur sent 16 emails in 2 hours.</p>
+              <p style="margin:8px 0 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:14.5px;line-height:1.6;color:#3d545c">His limit is 6 an hour. We stopped him before the 17th and nothing further will go out in Casey's name until you resume him.</p>
+            </td></tr>
+            <tr><td style="padding:20px 28px 26px">
+              <table role="presentation" cellpadding="0" cellspacing="0"><tr><td style="background:#00807e;border-radius:6px">
+                <a href="#" style="display:inline-block;padding:11px 20px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:14px;font-weight:600;color:#ffffff;text-decoration:none">Review what he sent</a>
+              </td></tr></table>
+            </td></tr>
+          </table>
+        </td></tr>
+      </table>
+    </div>
+
+    <div class="frame">
+      <p class="cap">Subject: 3 emails bounced for Litsey Real Estate</p>
+      <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:#efeae2">
+        <tr><td align="center">
+          <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="max-width:600px;background:#fffdfb;border-radius:12px;overflow:hidden">
+            <tr><td style="height:4px;background:#c2410c;font-size:0;line-height:0">&nbsp;</td></tr>
+            <tr><td style="padding:26px 28px 0">
+              <p style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#c2410c">Delivery problem</p>
+              <p style="margin:14px 0 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:22px;line-height:1.25;font-weight:600;color:#1b3139">3 of Arthur's emails bounced.</p>
+              <p style="margin:8px 0 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:14.5px;line-height:1.6;color:#3d545c">All three to the same domain, all hard bounces. The addresses are suppressed, so he will not keep trying.</p>
+            </td></tr>
+            <tr><td style="padding:18px 28px 0">
+              <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:#f9e6e8;border-radius:8px">
+                <tr><td style="padding:13px 16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:13px;line-height:1.6;color:#3d545c">
+                  <span style="color:#1b3139;font-weight:600">maple-holdings.com</span> — mailbox does not exist (550 5.1.1)
+                </td></tr>
+              </table>
+            </td></tr>
+            <tr><td style="padding:20px 28px 26px">
+              <p style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:12px;line-height:1.55;color:#52676f">Nothing to do unless you know a better address for them.</p>
+            </td></tr>
+          </table>
+        </td></tr>
+      </table>
+    </div>
+  </div>
+
+  <h2>What changes, in words</h2>
+  <p class="note">
+    <strong>The subject line carries the news.</strong> "⚠️ Ambitt alert — Fleet Health" tells you a category; "Atlas has not run in 6 days" tells you the thing. You can triage from the notification without opening it.<br><br>
+    <strong>Severity is structural, not decorative.</strong> A 4px rail and an eyebrow word, in four fixed levels. Colour never carries the meaning alone, so it survives a colourblind reader and a dark-mode client.<br><br>
+    <strong>Numbers are converted.</strong> 147h becomes 6 days. 2/5 becomes "2 of 5 running". Nobody should be doing arithmetic in an alert.<br><br>
+    <strong>One action, or none.</strong> If there is something to do there is one button; if there is nothing to do it says so, which is what stops you opening it to find out.
+  </p>
+
+</div>
+</body>
+</html>

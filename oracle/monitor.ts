@@ -1,5 +1,6 @@
 import prisma from "../shared/db.js";
-import { sendKyleWhatsApp } from "../shared/whatsapp.js";
+import { sendKyleWhatsApp, sendOperatorRichEmail } from "../shared/whatsapp.js";
+import { buildFleetDigestEmail, type FleetRow } from "./templates/ops-alert-email.js";
 import logger from "../shared/logger.js";
 
 // ---------------------------------------------------------------------------
@@ -65,6 +66,79 @@ interface FleetStatus {
   unhealthy: string[];
   stale: string[];
   budgetAlerts: AgentBudgetStatus[];
+}
+
+/** One agent as the digest sees it, kept alongside the legacy string list. */
+interface FleetBoardAgent {
+  name: string;
+  agentType: string;
+  status: string;
+  hoursSinceRun: number | null;
+}
+
+/**
+ * Compose the fleet digest — Option B, the status board.
+ *
+ * Every agent gets a row, not just the broken ones. A digest that lists only
+ * problems cannot tell you the difference between "everything else is fine"
+ * and "everything else was never checked", and that distinction is the whole
+ * reason to read a daily summary.
+ *
+ * The subject leads with the count that matters. "Fleet: 1 stale, 2 running"
+ * is readable from a notification; "Fleet Health" is not.
+ */
+export function buildFleetHealthAlert(
+  board: FleetBoardAgent[],
+  totals: { active: number; total: number }
+): { subject: string; html: string } {
+  const rows: FleetRow[] = board.map((a) => {
+    if (a.status === "paused") {
+      return { name: a.name, context: a.agentType, state: "Paused", severity: "attention" as const };
+    }
+    if (a.status !== "active") {
+      return { name: a.name, context: a.agentType, state: "Not running", severity: "attention" as const };
+    }
+    if (a.hoursSinceRun != null && a.hoursSinceRun > 25) {
+      const days = Math.floor(a.hoursSinceRun / 24);
+      return {
+        name: a.name,
+        context: a.agentType,
+        state: days >= 1 ? `Stale ${days} day${days === 1 ? "" : "s"}` : `Stale ${Math.round(a.hoursSinceRun)}h`,
+        severity: "problem" as const,
+      };
+    }
+    return { name: a.name, context: a.agentType, state: "Running", severity: "good" as const };
+  });
+
+  const stale = rows.filter((r) => r.severity === "problem").length;
+  const paused = rows.filter((r) => r.severity === "attention").length;
+
+  const headline =
+    stale === 0
+      ? "Everything ran on time."
+      : stale === 1
+        ? "One agent needs you."
+        : `${stale} agents need you.`;
+
+  const subject =
+    stale === 0
+      ? `Fleet is healthy, ${totals.active} of ${totals.total} running`
+      : `Fleet: ${stale} stale, ${totals.active} running${paused ? `, ${paused} paused` : ""}`;
+
+  const when = new Date().toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+  const portal = process.env.DASHBOARD_URL ?? "https://dashboard.ambitt.agency";
+
+  return {
+    subject,
+    html: buildFleetDigestEmail({
+      title: `Fleet health · ${when}`,
+      headline,
+      rows,
+      cta: { label: "Open the dashboard", url: portal },
+      whyLine:
+        "Sent once a day. You get this because a scheduled agent missed more than 24 hours of runs, or a budget crossed its warning line.",
+    }),
+  };
 }
 
 export async function checkFleetHealth(): Promise<FleetStatus> {
@@ -239,8 +313,20 @@ export async function checkFleetHealth(): Promise<FleetStatus> {
   const sendAlert = alerts.length > 0 && shouldSendFleetAlert(alertKey, lastFleetAlert, now.getTime());
   if (sendAlert) {
     try {
-      await sendKyleWhatsApp(
-        `⚠️ Fleet Health\n\n${alerts.join("\n\n")}\n\nFleet: ${status.active} active / ${status.total} total`
+      // Every agent goes on the board, not just the broken ones — see
+      // buildFleetHealthAlert. Built here because `agents` is in scope and the
+      // status object deliberately keeps its legacy string shape for the
+      // OracleAction row and the WhatsApp callers that still read it.
+      const board = agents.map((a) => ({
+        name: a.name,
+        agentType: a.agentType,
+        status: a.status,
+        hoursSinceRun: a.lastRunAt
+          ? (now.getTime() - a.lastRunAt.getTime()) / (1000 * 60 * 60)
+          : null,
+      }));
+      await sendOperatorRichEmail(
+        buildFleetHealthAlert(board, { active: status.active, total: status.total })
       );
       // Only latch on a successful send, so a failed send retries next tick.
       lastFleetAlert = { key: alertKey, atMs: now.getTime() };

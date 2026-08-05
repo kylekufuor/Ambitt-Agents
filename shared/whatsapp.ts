@@ -114,4 +114,55 @@ export async function sendOperatorEmail(message: string): Promise<string> {
   }
 }
 
+/**
+ * Operator alert with a designed body, rather than a wrapped string.
+ *
+ * sendOperatorEmail above takes plain text and puts it in a pre-wrap div. That
+ * is right for a one-line ping and wrong for anything structured: fleet health
+ * arrived as a warning emoji over three lines of monospace, which is what a
+ * cron job talking to itself looks like.
+ *
+ * WhatsApp is deliberately NOT tried here. A status board does not survive
+ * being flattened into a text message, and the two callers that use this are
+ * scheduled digests rather than things you need on a phone in ten seconds.
+ * Short, urgent pings keep using sendKyleWhatsApp.
+ */
+export async function sendOperatorRichEmail(opts: {
+  subject: string;
+  html: string;
+}): Promise<string> {
+  const to = process.env.OPERATOR_EMAIL;
+  const key = process.env.RESEND_API_KEY;
+  if (!to || !key) {
+    logger.error("Operator alert has NO channel — OPERATOR_EMAIL/RESEND_API_KEY missing", {
+      subject: opts.subject.slice(0, 120),
+    });
+    return "no-channel";
+  }
+  const domain = process.env.EMAIL_DOMAIN || "ambitt.agency";
+  try {
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        from: `Ambitt Alerts <alerts@${domain}>`,
+        to: [to],
+        subject: opts.subject,
+        html: opts.html,
+      }),
+    });
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      logger.error("Operator alert email failed", { status: res.status, body: body.slice(0, 200) });
+      return "email-failed";
+    }
+    const body = (await res.json().catch(() => ({}))) as { id?: string };
+    logger.info("Operator alert emailed", { to, id: body?.id, subject: opts.subject });
+    return `email:${body?.id ?? "sent"}`;
+  } catch (err) {
+    logger.error("Operator alert email threw", { err: err instanceof Error ? err.message : String(err) });
+    return "email-threw";
+  }
+}
+
 export default { sendWhatsApp, sendKyleWhatsApp };
