@@ -22,6 +22,9 @@ import { decideA11yAction } from "../shared/runtime/browser-brain-a11y.js";
 const ORACLE_URL = process.env.ORACLE_URL || "https://oracle-production-c0ff.up.railway.app";
 const DEVICE_TOKEN = process.env.AMBITT_DEVICE_TOKEN || "";
 const MAX_STEPS = 40;
+
+/** The verbs the loop below can actually carry out. Anything else ends the run. */
+const KNOWN_ACTIONS = new Set(["click", "type", "press", "scroll", "navigate", "done", "fail"]);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // Distilled snapshot, run as a RAW STRING (tsx/esbuild would inject a __name
@@ -70,10 +73,15 @@ function looksLikeMfa(snap) {
 
 // Deterministic login — creds resolved from the platform, typed directly, never
 // shown to the model. Handles single-step and 2-step (username → next → password).
+//
+// Returns WHY it stopped, not just whether it worked. "we submitted credentials"
+// and "there are no credentials to submit" need opposite responses from the
+// caller: the first means wait and look again, the second means stop trying.
+// Collapsing both into false is what made the loop spin.
 async function doLogin(page, snap, taskId, tool) {
-  if (!taskId) { console.log("  login page, but CLI mode has no creds to resolve."); return false; }
+  if (!taskId) { console.log("  login page, but CLI mode has no creds to resolve."); return "no-creds"; }
   const { ok, body } = await api(`/extension/tasks/${taskId}/resolve-cred`, { method: "POST", body: { tool } });
-  if (!ok || !body.fields) { console.log(`  login: no stored creds for ${tool}`); return false; }
+  if (!ok || !body.fields) { console.log(`  login: no stored creds for ${tool}`); return "no-creds"; }
   const { username, password } = body.fields;
   const fill = async (ref, val) => { try { const l = page.locator(`[data-rh="${ref}"]`).first(); await l.click({ timeout: 6000 }); await l.fill(val); } catch (e) {} };
   const click = async (ref) => { try { await page.locator(`[data-rh="${ref}"]`).first().click({ timeout: 6000 }); } catch (e) {} };
@@ -97,7 +105,7 @@ async function doLogin(page, snap, taskId, tool) {
   await page.waitForLoadState("domcontentloaded").catch(() => {});
   await sleep(2500);
   console.log(`  login: submitted ${tool} credentials.`);
-  return true;
+  return "submitted";
 }
 
 // MFA — ask the platform to email the client, poll for the code, enter it.
@@ -155,6 +163,7 @@ async function runA11yLoop(page, goal, { taskId, tool } = {}) {
   let outcome = { ok: false, text: "No result." };
   let handledAuth = false;
   let handledMfa = false;
+  let malformed = 0;
 
   for (let step = 0; step < MAX_STEPS; step++) {
     await sleep(800);
@@ -171,9 +180,66 @@ async function runA11yLoop(page, goal, { taskId, tool } = {}) {
       handledMfa = true;
       await doMfa(page, snap, taskId, tool || "your tool"); history.push({ action: "mfa" }); continue;
     }
-    if (!handledAuth && looksLikeLogin(snap)) { handledAuth = await doLogin(page, snap, taskId, tool || "CoStar"); history.push({ action: "login" }); continue; }
+    // Login, attempted at most once.
+    //
+    // The flag is set BEFORE the attempt, exactly as the MFA branch above does.
+    // It used to be assigned FROM the attempt's result, so a login we could not
+    // perform left the flag false, and `continue` fed straight back into this
+    // same test — the loop then spent its entire step budget re-discovering that
+    // it had no credentials, and ended "No result." It never once reached the
+    // brain, because `continue` skips it.
+    //
+    // Submitting credentials is the only outcome worth re-observing for: the
+    // page should now be changing. When we cannot sign in at all, the honest
+    // move is to hand the brain the page AND the reason, and let it either
+    // report what it can see or fail with something a human can act on.
+    if (!handledAuth && looksLikeLogin(snap)) {
+      handledAuth = true;
+      const how = await doLogin(page, snap, taskId, tool || "CoStar");
+      history.push({ action: "login", note: how });
+      if (how === "submitted") continue;
+      history.push({
+        action: "login-blocked",
+        note: `This is a sign-in page and there are no ${tool || "CoStar"} credentials available, so signing in is not possible. Do not try to sign in. Either report what is visible, or fail saying sign-in is required.`,
+      });
+    }
 
-    const action = await decideA11yAction({ goal, url: snap.url, title: snap.title, elements: snap.elements, text: snap.text, history, stepIndex: step });
+    const action = (await decideA11yAction({ goal, url: snap.url, title: snap.title, elements: snap.elements, text: snap.text, history, stepIndex: step })) || {};
+
+    // An action we cannot carry out must END the run, not fall through it.
+    //
+    // Every branch below is an `if` on a known verb, with no else. So an action
+    // naming no verb — the model calling the tool with no arguments, which it
+    // does when a snapshot comes back empty or garbled — matched nothing, did
+    // nothing, and looped. That is the same livelock as the login one wearing a
+    // different hat: a state with no exit. It printed "step N: undefined" forty
+    // times and finished "No result."
+    //
+    // Two strikes rather than one: a single malformed reply is usually a blip
+    // worth re-asking through, while two in a row is a stuck model or an
+    // unreadable page, and neither improves by asking thirty-eight more times.
+    if (!KNOWN_ACTIONS.has(action.action)) {
+      malformed += 1;
+      console.log(`step ${step + 1}: unusable action from the brain (${JSON.stringify(action).slice(0, 120)})`);
+      if (malformed >= 2) {
+        // Say which of the two it is rather than guessing in the reader's
+        // direction. A near-empty snapshot points at the page; a full one
+        // points at the model, and those need different people to look.
+        const n = snap.elements.length;
+        outcome = {
+          ok: false,
+          text:
+            `The brain returned no usable action twice in a row at ${snap.url}. ` +
+            (n <= 2
+              ? `The page distilled to ${n} interactive elements, so it likely did not render or sits inside a frame we cannot read.`
+              : `The page distilled fine (${n} interactive elements), so this is the model failing to choose, not the page failing to load.`),
+        };
+        break;
+      }
+      continue;
+    }
+    malformed = 0;
+
     const label = snap.elements.find((e) => e.ref === action.ref)?.name;
     console.log(
       `step ${step + 1}: ${action.action}` +
