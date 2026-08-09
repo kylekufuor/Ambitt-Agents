@@ -1,5 +1,7 @@
 import Link from "next/link";
 import prisma from "@/lib/db";
+import { getClientTodos } from "@/lib/client-todos";
+import { NotificationBell } from "./v3-bell";
 import { RailNav, MobileRail, type RailProps } from "./v3-rail";
 import { TIERS, type PricingTier } from "@/lib/pricing-constants";
 
@@ -84,7 +86,12 @@ export async function V3Shell({
   crumbs: Crumb[];
   children: React.ReactNode;
 }) {
-  const rail = await loadRail(user.email);
+  // Loaded here rather than per-page: the bell is chrome on every screen, and
+  // it reads the same source as the rail counts so the two cannot disagree.
+  const [rail, todos] = await Promise.all([
+    loadRail(user.email),
+    getClientTodos(user.email),
+  ]);
   if (!rail) return <>{children}</>;
 
   const initials =
@@ -115,6 +122,7 @@ export async function V3Shell({
             })}
           </nav>
           <span className="flex-1" />
+          <NotificationBell items={todos.items} requiredCount={todos.requiredCount} />
           <Link
             href="/settings"
             className="w-[26px] h-[26px] rounded-full bg-[color:var(--brand-solid)] text-white text-[10.5px] font-semibold grid place-items-center shrink-0"

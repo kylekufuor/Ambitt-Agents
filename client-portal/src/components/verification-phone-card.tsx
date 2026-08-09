@@ -15,9 +15,14 @@ import { prettyPhone } from "@/lib/phone";
 export function VerificationPhoneCard({
   agentName,
   initial,
+  // Drops the panel and the heading when the card sits inside a collapsible
+  // section, which already draws both. Rendering our own would give the
+  // client the same title twice and a box inside a box.
+  chromeless = false,
 }: {
   agentName: string;
   initial: string | null;
+  chromeless?: boolean;
 }) {
   const [saved, setSaved] = useState<string | null>(initial);
   const [value, setValue] = useState("");
@@ -49,13 +54,17 @@ export function VerificationPhoneCard({
     setBusy(false);
   }
 
-  return (
-    <section className="v3-panel p-[17px]">
-      <p className="font-mono text-[11px] font-medium uppercase tracking-[0.09em] text-[color:var(--text-3)]">
-        Where login codes go
-      </p>
+  const Frame = chromeless ? "div" : "section";
 
-      <p className="text-[14px] text-[color:var(--text-2)] mt-2 leading-relaxed max-w-[62ch]">
+  return (
+    <Frame className={chromeless ? "" : "v3-panel p-[17px]"}>
+      {!chromeless && (
+        <p className="font-mono text-[11px] font-medium uppercase tracking-[0.09em] text-[color:var(--text-3)]">
+          Where login codes go
+        </p>
+      )}
+
+      <p className={`text-[14px] text-[color:var(--text-2)] leading-relaxed max-w-[62ch] ${chromeless ? "" : "mt-2"}`}>
         When {agentName} signs in to a site on your behalf and it texts you a one time code, he
         needs it within a minute or the login expires. Email is too slow for that, so give him a
         mobile to text.
@@ -144,6 +153,6 @@ export function VerificationPhoneCard({
           </li>
         ))}
       </ul>
-    </section>
+    </Frame>
   );
 }

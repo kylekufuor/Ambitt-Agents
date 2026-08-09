@@ -1,9 +1,12 @@
 import { notFound } from "next/navigation";
 import { V3Shell } from "@/components/v3-shell";
-import { PageHead, Panel, Eyebrow, Row, AskNote } from "@/components/v3-ui";
+import { PageHead, Row, AskNote } from "@/components/v3-ui";
 import { requirePortalContext } from "@/lib/portal-context";
 import prisma from "@/lib/db";
 import { VerificationPhoneCard } from "@/components/verification-phone-card";
+import { CollapsibleSection } from "@/components/v3-collapsible";
+import { getClientTodos, hasTodo } from "@/lib/client-todos";
+import { prettyPhone } from "@/lib/phone";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +17,12 @@ export const dynamic = "force-dynamic";
    living in shared/. The portal cannot import shared/, so this reads
    defensively and shows today's real behaviour when a role is unset, rather
    than printing "null" or pretending a setting exists.
+
+   Every block is a collapsible section with its own icon. Settled sections
+   start shut and show a one-line summary; the section that needs the client
+   starts open, carries a red rail, and cannot be folded away and forgotten.
+   Before this, the empty mobile-number field looked exactly like the three
+   settled blocks around it, which is most of why it sat unset for days.
    --------------------------------------------------------------------------- */
 
 type Settings = {
@@ -30,14 +39,23 @@ export default async function EmailSetupPage() {
   const { email, client, agent } = await requirePortalContext();
   if (!agent) notFound();
 
-  const acct = await prisma.client.findUnique({
-    where: { id: client.id },
-    select: { verificationPhone: true },
-  });
+  const [acct, todos] = await Promise.all([
+    prisma.client.findUnique({
+      where: { id: client.id },
+      select: { verificationPhone: true },
+    }),
+    getClientTodos(email),
+  ]);
+
+  // Asked of the shared to-do source rather than checked here, so this section
+  // and the notification bell can never disagree about whether the number is
+  // missing. One of them being wrong is worse than neither existing.
+  const phoneNeeded = hasTodo(todos, "verification-phone");
 
   const s = parse(agent.communicationSettings);
   const extra = s.inbound?.allowedSenders ?? [];
   const bcc = s.outbound?.bcc ?? [];
+  const sendsAs = s.outbound?.identity ?? `${client.businessName}, from your own address`;
 
   return (
     <V3Shell user={{ email, name: client.businessName }} crumbs={[{ label: "Email setup" }]}>
@@ -46,22 +64,33 @@ export default async function EmailSetupPage() {
         sub={`Who can reach ${agent.name}, what he signs off as, and who gets a copy. He never changes any of this on his own.`}
       />
 
-      <div className="grid gap-3.5 lg:grid-cols-2 items-start">
-        <Panel>
-          <Eyebrow>His address</Eyebrow>
-          <p className="font-mono text-[14px] mt-2">{agent.email}</p>
+      <div className="grid gap-3">
+        <CollapsibleSection title="His address" icon="mail" summary={agent.email}>
+          <p className="font-mono text-[14px]">{agent.email}</p>
           <p className="text-[13px] text-[color:var(--text-2)] mt-2 leading-relaxed">
-            Write to him here about anything. Put DOCS in the subject to send him a file to work from.
+            Write to him here about anything. Put DOCS in the subject to send him a file to work
+            from.
           </p>
-        </Panel>
+        </CollapsibleSection>
 
-        <Panel>
-          <Eyebrow>Who he answers</Eyebrow>
-          <div className="mt-2.5">
+        <CollapsibleSection
+          title="Who he answers"
+          icon="inbox"
+          summary={
+            extra.length === 0
+              ? "Only you"
+              : `You and ${extra.length} ${extra.length === 1 ? "other" : "others"}`
+          }
+        >
+          <div>
             <Row label="You" value={<span className="font-mono text-[12.5px]">{client.email}</span>} />
             {extra.length > 0 ? (
               extra.map((a) => (
-                <Row key={a} label="Also allowed" value={<span className="font-mono text-[12.5px]">{a}</span>} />
+                <Row
+                  key={a}
+                  label="Also allowed"
+                  value={<span className="font-mono text-[12.5px]">{a}</span>}
+                />
               ))
             ) : (
               <Row label="Anyone else" value="Nobody yet" />
@@ -76,39 +105,53 @@ export default async function EmailSetupPage() {
           <AskNote agentName={agent.name}>
             To let a colleague write to him, reply to one of his emails and say who.
           </AskNote>
-        </Panel>
-      </div>
+        </CollapsibleSection>
 
-      <div className="mt-3.5">
-        <VerificationPhoneCard agentName={agent.name} initial={acct?.verificationPhone ?? null} />
-      </div>
+        {/* The one section that can demand attention. needsYou both forces it
+            open and paints the rail, so the client cannot arrive at this page
+            and miss it. */}
+        <CollapsibleSection
+          title="Where login codes go"
+          icon="shield"
+          needsYou={phoneNeeded}
+          summary={acct?.verificationPhone ? prettyPhone(acct.verificationPhone) : "Not set yet"}
+        >
+          <VerificationPhoneCard
+            agentName={agent.name}
+            initial={acct?.verificationPhone ?? null}
+            chromeless
+          />
+        </CollapsibleSection>
 
-      <Panel className="mt-3.5">
-        <Eyebrow>What goes out in your name</Eyebrow>
-        <div className="mt-2.5">
-          <Row label="Sends as" value={s.outbound?.identity ?? `${client.businessName}, from your own address`} wide />
-          <Row
-            label="Sign off"
-            value={s.outbound?.signature ?? `Your name. Nothing says a machine wrote it, because it is your letter.`}
-            wide
-          />
-          <Row label="Copies to" value={bcc.length > 0 ? bcc.join(", ") : "Nobody"} />
-          <Row
-            label="If a site texts a code"
-            value={
-              s.mfaRelay?.channel
-                ? `He asks you on ${s.mfaRelay.channel} and waits.`
-                : client.whatsappNumber
-                  ? "He texts you for it and waits."
-                  : "He emails you for it and waits."
-            }
-            wide
-          />
-        </div>
-        <p className="text-[12.5px] text-[color:var(--text-3)] mt-3 leading-relaxed">
-          He never asks you for a code you were not expecting.
-        </p>
-      </Panel>
+        <CollapsibleSection title="What goes out in your name" icon="signature" summary={sendsAs}>
+          <div>
+            <Row label="Sends as" value={sendsAs} wide />
+            <Row
+              label="Sign off"
+              value={
+                s.outbound?.signature ??
+                `Your name. Nothing says a machine wrote it, because it is your letter.`
+              }
+              wide
+            />
+            <Row label="Copies to" value={bcc.length > 0 ? bcc.join(", ") : "Nobody"} />
+            <Row
+              label="If a site texts a code"
+              value={
+                s.mfaRelay?.channel
+                  ? `He asks you on ${s.mfaRelay.channel} and waits.`
+                  : client.whatsappNumber
+                    ? "He texts you for it and waits."
+                    : "He emails you for it and waits."
+              }
+              wide
+            />
+          </div>
+          <p className="text-[12.5px] text-[color:var(--text-3)] mt-3 leading-relaxed">
+            He never asks you for a code you were not expecting.
+          </p>
+        </CollapsibleSection>
+      </div>
     </V3Shell>
   );
 }
