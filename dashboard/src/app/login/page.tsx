@@ -8,6 +8,9 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [token, setToken] = useState("");
   const [step, setStep] = useState<"email" | "code">("email");
+  // Ticked by default: this is a single-operator admin tool on Kyle's own
+  // machines, and typing a fresh code every visit was the actual complaint.
+  const [remember, setRemember] = useState(true);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
@@ -38,7 +41,10 @@ export default function LoginPage() {
     setLoading(true);
     setError("");
 
-    const supabase = createClient();
+    // Built HERE, with the checkbox known, because cookie lifetime is fixed
+    // when the client is constructed — this is the write that decides whether
+    // this machine has to do the code dance again tomorrow.
+    const supabase = createClient({ rememberDevice: remember });
     const { error } = await supabase.auth.verifyOtp({
       email,
       token,
@@ -91,15 +97,39 @@ export default function LoginPage() {
                 Code sent to <span className="text-white font-medium">{email}</span>
               </p>
             </div>
+            {/* Length is NOT pinned to six.
+                Supabase issues whatever its project setting says, and this
+                project issues eight. The field capped input at six, so an
+                eight-digit code was silently truncated to its first six digits
+                and then rejected as "Token has expired or is invalid" — a
+                message describing a completely different failure, which is why
+                it read as a broken login rather than a clipped field.
+                Accepts 6-10 and only gates submission on a plausible minimum,
+                so changing the setting in Supabase can never break this again. */}
             <input
               type="text"
+              inputMode="numeric"
+              autoComplete="one-time-code"
               value={token}
-              onChange={(e) => setToken(e.target.value)}
-              placeholder="Enter 6-digit code"
+              onChange={(e) => setToken(e.target.value.replace(/\D/g, ""))}
+              placeholder="Enter the code"
               required
-              maxLength={6}
-              className="w-full bg-[#1c2e35] border border-white/[0.06] rounded-lg px-4 py-3 text-white text-center text-2xl tracking-[0.5em] font-mono placeholder:text-[#8a9ba1] placeholder:text-base placeholder:tracking-normal focus:outline-none focus:border-white/[0.12] transition"
+              maxLength={10}
+              className="w-full bg-[#1c2e35] border border-white/[0.06] rounded-lg px-4 py-3 text-white text-center text-2xl tracking-[0.4em] font-mono placeholder:text-[#8a9ba1] placeholder:text-base placeholder:tracking-normal focus:outline-none focus:border-white/[0.12] transition"
             />
+
+            <label className="flex items-center gap-2.5 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={remember}
+                onChange={(e) => setRemember(e.target.checked)}
+                className="w-4 h-4 cursor-pointer accent-[#0f7c78]"
+              />
+              <span className="text-[#93a7ac] text-sm">
+                Remember this computer for 90 days
+              </span>
+            </label>
+
             {error && <p className="text-red-400 text-sm">{error}</p>}
             <button
               type="submit"
