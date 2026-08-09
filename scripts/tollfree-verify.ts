@@ -411,6 +411,47 @@ async function resubmit(sid: string, reason: string): Promise<void> {
   console.log(`\nCheck it with:  npx tsx scripts/tollfree-verify.ts --status ${sid}\n`);
 }
 
+/**
+ * Point the number's inbound webhook at Oracle.
+ *
+ * Step one of three after approval, and the only one that is fiddly in the
+ * console. Without it Casey's reply with the code arrives at Twilio and stops
+ * there: the relay hears nothing, the login expires, and the whole chain looks
+ * broken for a reason nothing surfaces.
+ *
+ * Deliberately does NOT touch TWILIO_SMS_NUMBER. That switch belongs after this
+ * one — flipping it first points the relay at a number whose replies have
+ * nowhere to go, which is worse than the email fallback it replaces.
+ */
+async function wireWebhook(): Promise<void> {
+  await assertNumberMatches();
+  const { sid } = credentials();
+  const target = `${process.env.ORACLE_URL ?? "https://oracle-production-c0ff.up.railway.app"}/webhooks/sms`;
+
+  const form = new URLSearchParams({ SmsUrl: target, SmsMethod: "POST" });
+  const res = await fetch(
+    `https://api.twilio.com/2010-04-01/Accounts/${sid}/IncomingPhoneNumbers/${TOLLFREE_PHONE_NUMBER_SID}.json`,
+    {
+      method: "POST",
+      headers: twilioHeaders({ "Content-Type": "application/x-www-form-urlencoded" }),
+      body: form,
+    }
+  );
+  const text = await res.text();
+  if (!res.ok) {
+    console.error("\nCould not set the webhook. Nothing changed.\n");
+    console.error(describeFailure(res.status, text));
+    process.exit(1);
+  }
+  const body = JSON.parse(text) as { sms_url?: string; sms_method?: string };
+  console.log("\nInbound webhook set.\n");
+  console.log(`  SmsUrl    : ${body.sms_url}`);
+  console.log(`  SmsMethod : ${body.sms_method}`);
+  console.log(
+    `\nNext, and only now: set TWILIO_SMS_NUMBER=${EXPECTED_NUMBER} on the Railway Oracle service.\n`
+  );
+}
+
 async function status(sid: string): Promise<void> {
   const res = await fetch(`${API}/${sid}`, { headers: twilioHeaders() });
   const text = await res.text();
@@ -455,6 +496,12 @@ async function main(): Promise<void> {
     await resolveCredentials();
     await assertNumberMatches();
     console.log("  Credentials work. Nothing was filed — add --submit to file.\n");
+    return;
+  }
+
+  if (args.includes("--wire-webhook")) {
+    await resolveCredentials();
+    await wireWebhook();
     return;
   }
 
