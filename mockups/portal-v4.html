@@ -101,8 +101,13 @@ h1{font-size:29px;font-weight:500;line-height:1.12;letter-spacing:0}
 .card.flat{box-shadow:var(--sh-1),var(--lit)}
 .pad{padding:20px 22px}
 
-/* ── the funnel — the one object worth remembering ─────────────── */
-.hero{display:grid;grid-template-columns:1fr auto;gap:28px;align-items:end;padding:24px 24px 22px}
+/* ── the funnel — width carries the count, honestly ────────────
+   Height was the wrong axis. At true proportion 47 against 612 is a
+   five-pixel sliver, so the vertical version had to be sized by feel,
+   which is a chart that lies. Horizontally there is room: the same ratio
+   is 43px against 560px, and every bar stays readable. The number sits at
+   the end of its own bar so length and value are read in one place. */
+.hero{display:grid;grid-template-columns:1fr auto;gap:28px;align-items:end;padding:24px 24px 20px}
 .bignum{font-size:52px;font-weight:600;line-height:1;letter-spacing:0;font-variant-numeric:tabular-nums}
 .bignum small{font-size:19px;font-weight:500;color:var(--text-2);margin-left:8px;letter-spacing:0}
 .delta{display:flex;align-items:center;gap:7px;margin-top:11px;font-size:13px;color:var(--text-2)}
@@ -112,18 +117,21 @@ h1{font-size:29px;font-weight:500;line-height:1.12;letter-spacing:0}
   background:var(--surface);box-shadow:var(--sh-1),var(--lit),inset 0 0 0 1px var(--border-strong);
   font-size:13px;font-weight:600;color:var(--text)}
 
-.funnel{display:flex;align-items:flex-end;gap:3px;margin-top:26px;height:104px}
-.stage{position:relative;display:flex;flex-direction:column;justify-content:flex-end;height:100%}
-.stage .bar{border-radius:4px 4px 0 0;background:var(--brand-tint-strong);
-  box-shadow:inset 0 -1px 0 rgba(0,128,126,.22)}
-.stage.final .bar{background:var(--brand-solid)}
-.stage .n{font-size:17px;font-weight:600;font-variant-numeric:tabular-nums;margin-bottom:6px}
-.stage.final .n{color:var(--brand-ink)}
-.stage .lab{font-size:11.5px;color:var(--text-3);margin-top:8px;white-space:nowrap}
-.stage.final .lab{color:var(--text-2);font-weight:600}
-.arrow{align-self:flex-end;margin-bottom:26px;color:var(--text-4);font-size:11px;padding:0 2px}
-.finishtag{position:absolute;top:-4px;left:0;font-size:10px;font-weight:600;letter-spacing:.06em;
-  text-transform:uppercase;color:var(--brand-ink);white-space:nowrap}
+.funnel{padding:2px 24px 22px}
+.fstage{display:flex;align-items:center;gap:13px}
+.flab{width:128px;flex:none;text-align:right;font-size:12.5px;color:var(--text-3);line-height:1.3}
+.fstage.final .flab{color:var(--text-2);font-weight:600}
+.fbarwrap{flex:1;display:flex;align-items:center;gap:11px;min-width:0}
+.fbar{height:26px;border-radius:3px;background:var(--brand-tint-strong);
+  box-shadow:inset 0 -1px 0 rgba(0,128,126,.2);flex:none}
+.fstage.final .fbar{background:var(--brand-solid);box-shadow:none}
+.fnum{font-size:16px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--text)}
+.fstage.final .fnum{color:var(--brand-ink);font-size:18px}
+.ftag{font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--brand-ink);white-space:nowrap}
+.fdrop{display:flex;align-items:center;gap:9px;padding:2px 0 2px 141px;font-size:11.5px;color:var(--text-3)}
+.fdrop i{width:1px;height:13px;background:var(--border);display:block;flex:none;margin-left:6px}
+.fnote{margin:14px 0 0 141px;font-size:12.5px;color:var(--text-2);line-height:1.5;max-width:52ch}
 
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
 .row{display:flex;align-items:flex-start;gap:11px;padding:11px 0;border-bottom:1px solid var(--border)}
@@ -285,22 +293,36 @@ h1{font-size:29px;font-weight:500;line-height:1.12;letter-spacing:0}
           </div>
         </div>
 
-        <div class="pad" style="padding-top:0">
-          <div class="funnel">
-            <div class="stage" style="flex:2.1"><div class="n">612</div><div class="bar" style="height:74px"></div><div class="lab">reviewed</div></div>
-            <span class="arrow">&rarr;</span>
-            <div class="stage" style="flex:1.6"><div class="n">180</div><div class="bar" style="height:56px"></div><div class="lab">worth a call</div></div>
-            <span class="arrow">&rarr;</span>
-            <div class="stage" style="flex:1.4"><div class="n">140</div><div class="bar" style="height:44px"></div><div class="lab">contacted</div></div>
-            <span class="arrow">&rarr;</span>
-            <div class="stage final" style="flex:1.2">
-              <span class="finishtag">Your finish line</span>
-              <div class="n">47</div><div class="bar" style="height:30px"></div><div class="lab">replied &mdash; yours now</div>
-            </div>
-            <div class="stage" style="flex:2.4;opacity:.42">
-              <div class="lab" style="margin:0 0 6px 14px;line-height:1.45">Arthur stops here.<br>You take the conversation.</div>
-            </div>
+        <div class="funnel">
+          <div class="fstage">
+            <span class="flab">reviewed</span>
+            <span class="fbarwrap"><span class="fbar" style="width:88%"></span><span class="fnum">612</span></span>
           </div>
+          <div class="fdrop"><i></i>29% were worth a call</div>
+
+          <div class="fstage">
+            <span class="flab">worth a call</span>
+            <span class="fbarwrap"><span class="fbar" style="width:25.9%"></span><span class="fnum">180</span></span>
+          </div>
+          <div class="fdrop"><i></i>78% of those he could reach</div>
+
+          <div class="fstage">
+            <span class="flab">contacted</span>
+            <span class="fbarwrap"><span class="fbar" style="width:20.1%"></span><span class="fnum">140</span></span>
+          </div>
+          <div class="fdrop"><i></i>34% wrote back</div>
+
+          <div class="fstage final">
+            <span class="flab">replied</span>
+            <span class="fbarwrap">
+              <span class="fbar" style="width:6.8%"></span>
+              <span class="fnum">47</span>
+              <span class="ftag">Your finish line</span>
+            </span>
+          </div>
+
+          <p class="fnote">Arthur stops when an owner writes back. The conversation is yours from there &mdash;
+            he doesn&rsquo;t negotiate and doesn&rsquo;t book anything.</p>
         </div>
       </div>
 
