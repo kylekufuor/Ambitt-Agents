@@ -79,6 +79,57 @@ const smsSends = new Map<string, number[]>();
 // clientId → last cap-alert time (once-per-hour operator-alert dedupe). Shared
 // by the in-memory smsCapExceeded and the durable cap path.
 const capAlertedAt = new Map<string, number>();
+// clientId → an SMS ask we owe a "signed in" answer to. Written when the ask
+// goes out, consumed when the sign-in lands. Keyed on the ASK, not the reply,
+// because the debt is created by us texting them: they might send the code
+// back by email, and they are still sitting there waiting to hear it worked.
+const awaitingSignIn = new Map<
+  string,
+  { phone: string; agentId: string; service: string; at: number }
+>();
+
+/**
+ * How long after asking we will still confirm a sign-in.
+ *
+ * Longer than the code TTL on purpose: the code expires in minutes, but the
+ * browser run that uses it can grind on for a while afterwards, and the
+ * confirmation is only worth sending while the client still remembers texting
+ * us. Twenty minutes covers a slow run; an hour later a sudden "I'm in" reads
+ * as a message from nowhere.
+ */
+export const SIGNIN_CONFIRM_TTL_MS = 20 * 60 * 1000;
+
+/** Note that we owe this client a "signed in" text. Called when the ask goes out. */
+export function recordSmsAsk(
+  clientId: string,
+  entry: { phone: string; agentId: string; service: string },
+  at = Date.now()
+): void {
+  awaitingSignIn.set(clientId, { ...entry, at });
+}
+
+/**
+ * Claim the outstanding confirmation for this client, if there is one.
+ *
+ * Consumed on read, so a client can never be told twice that we're in. That
+ * property is what makes the confirmation structurally incapable of running
+ * away: one ask, one answer, and the entry is gone either way.
+ */
+export function takeSignInConfirmation(
+  clientId: string,
+  now = Date.now()
+): { phone: string; agentId: string; service: string } | null {
+  const entry = awaitingSignIn.get(clientId);
+  if (!entry) return null;
+  awaitingSignIn.delete(clientId);
+  if (now - entry.at >= SIGNIN_CONFIRM_TTL_MS) return null;
+  return { phone: entry.phone, agentId: entry.agentId, service: entry.service };
+}
+
+/** Drop an outstanding confirmation without sending — used when a login fails. */
+export function clearSignInConfirmation(clientId: string): void {
+  awaitingSignIn.delete(clientId);
+}
 
 /**
  * Pull a 4-8 digit verification code out of a reply. Works on SMS bodies and
@@ -498,6 +549,7 @@ export async function relayMfaRequest(
               { clientId, agentId, origin: mode === "worker" ? "worker" : "engine" },
               now
             );
+            recordSmsAsk(clientId, { phone: clientMobile, agentId, service }, now);
             channel = "sms";
           } catch (dryErr) {
             logger.warn("MFA relay: dry-run SMS capture failed, trying next channel", {
@@ -589,6 +641,9 @@ export async function relayMfaRequest(
             { clientId, agentId, origin: mode === "worker" ? "worker" : "engine" },
             now
           );
+          // We have now interrupted this person's day to ask for something.
+          // Record that we owe them the end of the story.
+          recordSmsAsk(clientId, { phone: clientMobile, agentId, service }, now);
           channel = "sms";
         } catch (smsErr) {
           logger.warn("MFA relay: SMS send failed, trying next channel", {
@@ -650,5 +705,132 @@ export async function relayMfaRequest(
     return { channel };
   } finally {
     inFlight.delete(clientId);
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   The end of the story.
+
+   We text a broker mid-afternoon asking for a code off his phone. He stops
+   what he is doing, finds it, texts it back, gets "Got it. Entering your code
+   now." — and then nothing, ever. He has no idea whether it worked, and the
+   only way to find out is to email and ask. That silence is the whole reason
+   this exists: we opened a conversation and never closed it.
+
+   Two rules keep it from becoming noise:
+
+   - It only fires when we ASKED. The debt is recorded when the text goes out,
+     not when a code comes back, because the interruption is what creates it —
+     he might have replied by email and he is still waiting either way. A login
+     that needed no code sends nothing.
+   - It is consumed on read, so one ask gets exactly one answer. That is what
+     makes it structurally incapable of looping, however many times a caller
+     fires it.
+
+   It still goes through the durable cap. A confirmation is bounded by
+   construction, but "never send un-capped SMS" is the rule the rest of this
+   file lives by and punching one hole in it for a nice-to-have is how seatbelts
+   stop working. Over the cap the agent is already halted and the operator
+   already alerted, which is louder than a missing text.
+   --------------------------------------------------------------------------- */
+
+export interface SignedInResult {
+  sent: boolean;
+  /** Why not, when sent is false — for the log and for the tests. */
+  reason?: "no_outstanding_ask" | "not_configured" | "dry_run" | "over_cap" | "send_failed";
+}
+
+export async function notifySignedIn(
+  input: { clientId: string; service: string },
+  deps: RelayDeps = defaultRelayDeps(),
+  now = Date.now()
+): Promise<SignedInResult> {
+  const owed = takeSignInConfirmation(input.clientId, now);
+  if (!owed) return { sent: false, reason: "no_outstanding_ask" };
+
+  const { clientId } = input;
+  const { phone, agentId } = owed;
+  // The service the client was asked about, not whatever the caller happens to
+  // name — the text has to match the one he answered.
+  const service = owed.service || input.service;
+
+  try {
+    const agent = await deps.db.agent.findUnique({
+      where: { id: agentId },
+      select: {
+        name: true,
+        dryRun: true,
+        communicationSettings: true,
+        safetySensitivity: true,
+        client: { select: { businessName: true } },
+      },
+    });
+    if (!agent) return { sent: false, reason: "no_outstanding_ask" };
+
+    // No em dashes: shared/sms.ts scrubs them, but copy that needs scrubbing
+    // is copy that was written wrong. Says who, says it worked, and says the
+    // one thing he actually wants to know — that he is done.
+    const message = `${agent.name} here. I'm signed in to ${service} and getting on with it. Nothing else needed from you, thanks for the code.`;
+
+    if (agent.dryRun) {
+      try {
+        await deps.db.dryRunLog.create({
+          data: {
+            agentId,
+            kind: "sms",
+            payload: { to: phone, message, service, purpose: "2fa_signed_in" },
+          },
+        });
+      } catch {
+        // Capture is best-effort; a dry run must never fail a real login.
+      }
+      return { sent: false, reason: "dry_run" };
+    }
+
+    if (!(await deps.smsConfigured())) return { sent: false, reason: "not_configured" };
+
+    const smsCap = resolveSeatbeltConfig(agent.communicationSettings, agent.safetySensitivity).smsHourlyMax;
+    let overCap = false;
+    try {
+      overCap = await smsCapExceededDurable(deps.db, clientId, smsCap, now);
+    } catch {
+      // Can't verify the cap — fail toward silence. A missing confirmation is a
+      // small harm; an un-capped send is the one this file exists to prevent.
+      overCap = true;
+    }
+    if (overCap) {
+      logger.info("Signed-in confirmation skipped — SMS cap", { clientId, agentId, smsCap });
+      return { sent: false, reason: "over_cap" };
+    }
+
+    await deps.sendSms({ to: phone, message, agentId });
+    try {
+      await deps.db.smsSend.create({
+        data: {
+          clientId,
+          agentId,
+          kind: "sms_2fa_signed_in",
+          status: "sent",
+          toLast4: phoneKey(phone).slice(-4) || null,
+        },
+      });
+    } catch (auditErr) {
+      logger.warn("SmsSend audit row write failed for signed-in confirmation (continuing)", {
+        clientId,
+        agentId,
+        err: auditErr instanceof Error ? auditErr.message : String(auditErr),
+      });
+    }
+
+    logger.info("Signed-in confirmation sent", { clientId, agentId, service });
+    return { sent: true };
+  } catch (err) {
+    // Same contract as the relay: never throw. A failed courtesy text must not
+    // take down a sign-in that actually worked.
+    logger.warn("Signed-in confirmation failed", {
+      clientId,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return { sent: false, reason: "send_failed" };
   }
 }

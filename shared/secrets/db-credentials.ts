@@ -150,4 +150,20 @@ export async function recordCredentialUse(
       },
     })
     .catch(() => {});
+
+  // Close the 2FA loop. If we texted this client for a code, they are sitting
+  // there not knowing whether it worked; this is the only place that knows the
+  // login finished, and it is already called on both the browser-tool and
+  // worker paths. Fire-and-forget and non-throwing: a courtesy text must never
+  // fail a sign-in that actually succeeded. Dynamic import keeps the secrets
+  // module free of a static dependency on the relay.
+  void import("../mfa-relay.js")
+    .then(({ notifySignedIn, clearSignInConfirmation }) => {
+      if (ok) return notifySignedIn({ clientId, service: toolName });
+      // Failed login: drop the debt rather than leave it to fire against some
+      // later, unrelated success. The failure is reported on the Tools page.
+      clearSignInConfirmation(clientId);
+      return undefined;
+    })
+    .catch(() => {});
 }
