@@ -32,6 +32,43 @@ export function VerificationPhoneCard({
   const [consent, setConsent] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  // The test round-trip. "waiting" is the interesting state: the text has gone
+  // and we are watching for the reply, which is the only moment the client
+  // learns anything they did not already believe.
+  const [test, setTest] = useState<
+    | { state: "idle" }
+    | { state: "sending" }
+    | { state: "waiting" }
+    | { state: "arrived"; seconds: number }
+    | { state: "timeout" }
+    | { state: "error"; message: string }
+  >({ state: "idle" });
+
+  async function sendTest() {
+    setTest({ state: "sending" });
+    const res = await fetch("/api/account/verification-phone/test", { method: "POST" });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setTest({ state: "error", message: data.error ?? "That did not send. Try again." });
+      return;
+    }
+    setTest({ state: "waiting" });
+
+    // Poll while they go and find their phone. Two minutes is long enough to
+    // walk to another room and short enough that a forgotten tab stops asking.
+    const started = Date.now();
+    const deadline = started + 120_000;
+    while (Date.now() < deadline) {
+      await new Promise((r) => setTimeout(r, 2000));
+      const p = await fetch("/api/account/verification-phone/test?poll=1", { method: "POST" });
+      const d = await p.json().catch(() => ({}));
+      if (d.replied) {
+        setTest({ state: "arrived", seconds: Math.max(1, Math.round((d.roundTripMs ?? Date.now() - started) / 1000)) });
+        return;
+      }
+    }
+    setTest({ state: "timeout" });
+  }
 
   async function save(next: string, withConsent: boolean) {
     setBusy(true);
@@ -83,6 +120,17 @@ export function VerificationPhoneCard({
             onClick={() => save("", false)}
           >
             Remove
+          </button>
+          <button
+            className="btn btn-secondary btn-sm"
+            disabled={test.state === "sending" || test.state === "waiting"}
+            onClick={sendTest}
+          >
+            {test.state === "sending"
+              ? "Sending…"
+              : test.state === "waiting"
+                ? "Waiting for your reply…"
+                : "Send me a test text"}
           </button>
         </div>
       ) : (
@@ -136,6 +184,30 @@ export function VerificationPhoneCard({
           </label>
 
           {error && <p className="text-[13px] text-[color:var(--red)] mt-2">{error}</p>}
+        </div>
+      )}
+
+      {test.state !== "idle" && test.state !== "sending" && (
+        <div className="mt-3 text-[13px] leading-relaxed">
+          {test.state === "waiting" && (
+            <p className="text-[color:var(--text-2)]">
+              Sent. Reply to it with anything at all and this will update.
+            </p>
+          )}
+          {test.state === "arrived" && (
+            <p className="text-[color:var(--emerald)] font-semibold">
+              Got your reply in {test.seconds} {test.seconds === 1 ? "second" : "seconds"}. This number
+              works.
+            </p>
+          )}
+          {test.state === "timeout" && (
+            <p className="text-[color:var(--amber)]">
+              No reply yet. If the text never arrived, the number may be wrong or your carrier may be
+              blocking it. Change it above and try again, or reply to any of {agentName}&apos;s emails
+              and we will sort it.
+            </p>
+          )}
+          {test.state === "error" && <p className="text-[color:var(--red)]">{test.message}</p>}
         </div>
       )}
 

@@ -52,7 +52,7 @@ const HOUR_MS = 60 * 60 * 1000;
 export const phoneKey = (s: string): string =>
   (s || "").replace(/\D/g, "").slice(-10);
 
-export type PendingOrigin = "worker" | "engine";
+export type PendingOrigin = "worker" | "engine" | "test";
 
 // clientId → the worker task waiting on a code (guards the email-capture
 // branch in /webhooks/email-inbound). Worker origin only.
@@ -87,6 +87,31 @@ const awaitingSignIn = new Map<
   string,
   { phone: string; agentId: string; service: string; at: number }
 >();
+
+// clientId → the outcome of a "does this number work" test, awaiting the
+// portal's poll. In memory on purpose: the client is sitting on the page
+// watching for it, and a result that outlives the page view is noise.
+const testResults = new Map<string, { at: number; reply: string; roundTripMs: number }>();
+
+/** Record that a test reply landed. Called from the SMS webhook. */
+export function recordTestReply(clientId: string, reply: string, askedAt: number, now = Date.now()): void {
+  testResults.set(clientId, { at: now, reply, roundTripMs: now - askedAt });
+}
+
+/** The portal's poll. Consumed on read so a later page view doesn't re-show it. */
+export function takeTestResult(
+  clientId: string,
+  now = Date.now()
+): { reply: string; roundTripMs: number } | null {
+  const r = testResults.get(clientId);
+  if (!r) return null;
+  if (now - r.at >= MFA_TTL_MS) {
+    testResults.delete(clientId);
+    return null;
+  }
+  testResults.delete(clientId);
+  return { reply: r.reply, roundTripMs: r.roundTripMs };
+}
 
 /**
  * How long after asking we will still confirm a sign-in.
@@ -168,6 +193,9 @@ export type PhoneCapture =
   // exactly once per pending request — the caller sends the nudge copy, then
   // subsequent garbage gets silence (no loops with autoresponders).
   | { kind: "no_code"; nudge: boolean }
+  // A "does this number work" test came back. Nothing to resume, nothing to
+  // enter — just tell them it arrived.
+  | { kind: "test_reply"; clientId: string }
   // Unknown sender or expired pending — caller answers with empty TwiML.
   | { kind: "no_match" };
 
@@ -184,6 +212,16 @@ export function capturePhoneCode(from: string, body: string, now = Date.now()): 
     pending2faByPhone.delete(key);
     return { kind: "no_match" };
   }
+  // A test only has to come back. The copy asks for digits, but people reply
+  // "yes" or "got it", and telling them that failed would make a number that
+  // works look broken. Anything at all counts, and it never touches the code
+  // path below.
+  if (pend.origin === "test") {
+    pending2faByPhone.delete(key);
+    recordTestReply(pend.clientId, body.slice(0, 40), pend.at, now);
+    return { kind: "test_reply", clientId: pend.clientId };
+  }
+
   const code = extractMfaCode(body);
   if (!code) {
     const nudge = !pend.nudged;

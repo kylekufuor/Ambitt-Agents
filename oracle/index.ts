@@ -20,7 +20,7 @@ import { nextThrottledFrequency, throttleConfirmation } from "./lib/throttle.js"
 import prisma from "../shared/db.js";
 import logger from "../shared/logger.js";
 import { parseCommunicationSettings } from "../shared/communication-settings.js";
-import { relayMfaRequest, capturePhoneCode, captureEmailCode, takeCode } from "../shared/mfa-relay.js";
+import { relayMfaRequest, capturePhoneCode, captureEmailCode, takeCode, registerPendingByPhone, takeTestResult } from "../shared/mfa-relay.js";
 import {
   webhookAuthMode,
   collectSecrets,
@@ -1768,6 +1768,14 @@ app.post("/webhooks/sms", twilioForm, async (req: Request, res: Response) => {
           });
         });
       }
+      return;
+    }
+
+    if (hit.kind === "test_reply") {
+      logger.info("Verification-number test reply captured", { clientId: hit.clientId });
+      res.type("text/xml").send(
+        "<Response><Message>That's the one. Your number works, nothing else needed.</Message></Response>"
+      );
       return;
     }
 
@@ -6243,6 +6251,108 @@ app.post("/extension/tasks/:taskId/resolve-cred", async (req: Request, res: Resp
 // in seconds), email fallback (captured by the guarded branch in
 // /webhooks/email-inbound). All send + pending logic lives in
 // shared/mfa-relay.ts so the runtime's request_2fa_code shares it.
+// ---------------------------------------------------------------------------
+// "Does this number actually work?" — the client proves it to themselves.
+// ---------------------------------------------------------------------------
+// The moment someone types a mobile number is the moment a typo is cheap to
+// fix and the doubt exists. Without this, the first proof the number is right
+// arrives weeks later, mid-task, when the agent needs a code and gets silence.
+//
+// Auth is the signed chat token the portal already mints from the user's
+// session — NOT an open clientId in the path. An unauthenticated version of
+// this endpoint would be a machine that texts a stranger's phone on demand,
+// which is both an abuse vector and a bill.
+app.post("/clients/verification-phone/test", async (req: Request, res: Response) => {
+  try {
+    const token = String(req.body?.token ?? "");
+    const { verifyChatToken } = await import("../shared/chat-token.js");
+    let clientId: string;
+    try {
+      clientId = verifyChatToken(token).clientId;
+    } catch {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+
+    const client = await prisma.client.findUnique({
+      where: { id: clientId },
+      select: {
+        verificationPhone: true,
+        businessName: true,
+        agents: {
+          where: { status: { not: "killed" } },
+          orderBy: { createdAt: "asc" },
+          take: 1,
+          select: { id: true, name: true },
+        },
+      },
+    });
+    if (!client?.verificationPhone) {
+      res.status(400).json({ error: "Save a mobile number first." });
+      return;
+    }
+
+    const { smsConfigured, sendSms } = await import("../shared/sms.js");
+    if (!smsConfigured()) {
+      res.status(503).json({ error: "Texting is not switched on yet. We are on it." });
+      return;
+    }
+
+    const agent = client.agents[0] ?? null;
+    const who = agent?.name ?? "Your agent";
+    const message = `${who} here, just checking this number reaches you. Text back anything at all and I'll confirm. Nothing else needed.`;
+
+    // Registered BEFORE the send: if the reply somehow beat our own bookkeeping
+    // the webhook would find no pending and answer with silence.
+    registerPendingByPhone(client.verificationPhone, { clientId, agentId: agent?.id, origin: "test" });
+
+    await sendSms({ to: client.verificationPhone, message, agentId: agent?.id });
+    try {
+      await prisma.smsSend.create({
+        data: {
+          clientId,
+          agentId: agent?.id ?? null,
+          kind: "sms_number_test",
+          status: "sent",
+          toLast4: client.verificationPhone.replace(/\D/g, "").slice(-4) || null,
+        },
+      });
+    } catch (auditErr) {
+      logger.warn("SmsSend audit row failed for number test (continuing)", {
+        clientId,
+        err: auditErr instanceof Error ? auditErr.message : String(auditErr),
+      });
+    }
+
+    logger.info("Verification-number test sent", { clientId, agentId: agent?.id ?? null });
+    res.json({ ok: true });
+  } catch (error) {
+    logger.error("verification-phone test failed", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    res.status(500).json({ error: "Could not send the test text." });
+  }
+});
+
+// The portal polls this while the client watches the page. Consumed on read.
+app.post("/clients/verification-phone/test/result", async (req: Request, res: Response) => {
+  try {
+    const token = String(req.body?.token ?? "");
+    const { verifyChatToken } = await import("../shared/chat-token.js");
+    let clientId: string;
+    try {
+      clientId = verifyChatToken(token).clientId;
+    } catch {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+    const result = takeTestResult(clientId);
+    res.json(result ? { replied: true, ...result } : { replied: false });
+  } catch {
+    res.status(500).json({ error: "Could not check." });
+  }
+});
+
 app.post("/extension/tasks/:taskId/need-2fa", async (req: Request, res: Response) => {
   const device = await authExtensionDevice(req, res);
   if (!device) return;
