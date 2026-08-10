@@ -170,6 +170,19 @@ h1{font-size:29px;font-weight:500;line-height:1.12;letter-spacing:0}
 .stop .eyebrow{font-size:10px}
 .stop p{font-size:13.5px;margin-top:5px;line-height:1.45}
 
+.rule.suggested{background:repeating-linear-gradient(-45deg,var(--surface-2),var(--surface-2) 7px,transparent 7px,transparent 14px);
+  margin:0 -20px;padding-left:63px;padding-right:20px}
+.rule.suggested .body{background:var(--surface);box-shadow:var(--sh-1),var(--lit);border-radius:var(--r-lg);
+  padding:12px 14px;width:100%}
+.rule.suggested p{font-size:14px;line-height:1.45}
+.sugtag{display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:600;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--amber);margin-bottom:6px}
+.sugtag i{width:6px;height:6px;border-radius:50%;background:var(--amber);display:block}
+.sugacts{display:flex;gap:8px;margin-top:11px}
+.impactlist{margin-top:10px;display:flex;flex-direction:column;gap:5px}
+.impactlist div{display:flex;gap:8px;font-size:12.5px;line-height:1.45;color:var(--text-2)}
+.impactlist .yes{color:var(--emerald);font-weight:600;flex:none;width:11px}
+.impactlist .no{color:var(--text-4);flex:none;width:11px}
 .chat{display:flex;flex-direction:column;height:560px;overflow:hidden}
 .chat-head{padding:14px 17px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:9px}
 .chat-head b{font-size:13.5px;font-weight:600}
@@ -406,7 +419,7 @@ h1{font-size:29px;font-weight:500;line-height:1.12;letter-spacing:0}
 
     <div class="content">
       <h1>What Arthur does for you</h1>
-      <p class="sub">Everything he&rsquo;s been told, in your words. Change any line and he works to the new one from his next run. He never edits this himself &mdash; he only asks.</p>
+      <p class="sub">Everything he&rsquo;s been told, in your words. Change any line and he works to the new one from his next run. He never changes a line himself &mdash; when he spots something, he asks.</p>
 
       <div class="pb" style="margin-top:20px">
         <div>
@@ -427,6 +440,14 @@ h1{font-size:29px;font-weight:500;line-height:1.12;letter-spacing:0}
               <div class="rule"><div><p>Short and plain. Two paragraphs, no pitch, sign it as me.</p></div><span class="edit">Change</span></div>
               <div class="rule"><div><p>Follow up once after six days, then leave them alone.</p></div><span class="edit">Change</span></div>
               <div class="rule"><div><p>Nothing goes out before 8am or after 6pm, my time.</p></div><span class="edit">Change</span></div>
+              <div class="rule suggested">
+                <div class="body">
+                  <span class="sugtag"><i></i>Arthur noticed &mdash; waiting on you</span>
+                  <p>Don&rsquo;t mention timelines in a first email.</p>
+                  <div class="meta">You cut that line out of my last three drafts. I&rsquo;ll keep writing it until you say.</div>
+                  <div class="sugacts"><span class="btn btn-primary">Add it</span><span class="btn btn-secondary">No, keep asking me</span></div>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -469,7 +490,11 @@ h1{font-size:29px;font-weight:500;line-height:1.12;letter-spacing:0}
             <div class="confirm">
               <div class="lead">Got it. I&rsquo;ll add this to the playbook:</div>
               <p class="quoted">Skip anything under five units.</p>
-              <div class="impact">That cuts about 40% of what I&rsquo;m reviewing &mdash; 23 of the 74 from Monday. It won&rsquo;t touch anyone I&rsquo;ve already written to.</div>
+              <div class="impactlist">
+                <div><span class="yes">&#10003;</span>drops 23 off your board now</div>
+                <div><span class="yes">&#10003;</span>changes what I review from Monday</div>
+                <div><span class="no">&mdash;</span>doesn&rsquo;t touch the 6 I&rsquo;ve already written to</div>
+              </div>
               <div class="acts"><span class="btn btn-primary">Add it</span><span class="btn btn-secondary">Not quite</span></div>
             </div>
             <div class="msg them" style="opacity:.55">Added. Working to it from Monday&rsquo;s run.</div>
