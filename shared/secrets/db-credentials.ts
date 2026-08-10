@@ -1,6 +1,7 @@
 import prisma from "../db.js";
 import { encrypt, decrypt } from "../encryption.js";
 import logger from "../logger.js";
+import { redactSecrets } from "./redact.js";
 
 // ---------------------------------------------------------------------------
 // DB-backed custom-tool credentials
@@ -109,6 +110,14 @@ export async function substituteCustomCredentials(
 /**
  * Record the outcome of a browser login that used a tool's stored credentials,
  * so the Tools page can flag "last sign-in failed — check your login".
+ *
+ * The error text is model-authored and is redacted before it is stored. This
+ * is not belt-and-braces: on 2026-07-10 an agent explained a failed CoStar
+ * sign-in by narrating what it had typed, and a client's password sat readable
+ * in this column for a month — in the same row whose encrypted secret was
+ * working perfectly. Redaction lives HERE rather than at the call sites so a
+ * future caller cannot forget it, and it runs against the client's own stored
+ * values, which catches the secret whatever sentence it was wrapped in.
  */
 export async function recordCredentialUse(
   clientId: string,
@@ -116,13 +125,28 @@ export async function recordCredentialUse(
   ok: boolean,
   error?: string
 ): Promise<void> {
+  let safeError: string | null = null;
+  if (!ok) {
+    const raw = error ?? "Sign-in did not complete";
+    // Only on the failure path, and only to redact — the decrypt never leaves
+    // this function and the plaintext is never logged.
+    let known: string[] = [];
+    try {
+      const fields = await resolveCustomCredentials(clientId, toolName);
+      known = fields ? Object.values(fields).filter((v): v is string => typeof v === "string") : [];
+    } catch {
+      // No stored values to compare against; the labelled-shape pass still runs.
+    }
+    safeError = redactSecrets(raw, known).slice(0, 500);
+  }
+
   await prisma.credential
     .updateMany({
       where: { clientId, toolName },
       data: {
         lastUsedAt: new Date(),
         lastUseStatus: ok ? "ok" : "failed",
-        lastUseError: ok ? null : (error ?? "Sign-in did not complete").slice(0, 500),
+        lastUseError: safeError,
       },
     })
     .catch(() => {});
