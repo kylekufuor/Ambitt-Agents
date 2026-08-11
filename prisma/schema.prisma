@@ -31,6 +31,13 @@ model Client {
   // before an emailed code round-trips, which is the whole reason SMS matters
   // here.
   verificationPhone   String?
+  /// When the client proved this number reaches them by replying to a test
+  /// text. Persisted because the confirmation must outlive the page view that
+  /// produced it — held in memory it vanished on page close, on every deploy,
+  /// and could never answer "is my number confirmed?" the next day.
+  /// The reply BODY is deliberately not stored; only the fact and the timing.
+  verificationPhoneConfirmedAt DateTime?
+  verificationPhoneRoundTripMs Int?
   verificationPhoneAt DateTime? // when the client last set it
 
 

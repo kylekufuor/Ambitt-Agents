@@ -7,6 +7,7 @@ import { VerificationPhoneCard } from "@/components/verification-phone-card";
 import { CollapsibleSection } from "@/components/v3-collapsible";
 import { getClientTodos, hasTodo } from "@/lib/client-todos";
 import { prettyPhone } from "@/lib/phone";
+import { oracleUrl } from "@/lib/agent-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -42,7 +43,11 @@ export default async function EmailSetupPage() {
   const [acct, todos] = await Promise.all([
     prisma.client.findUnique({
       where: { id: client.id },
-      select: { verificationPhone: true },
+      select: {
+        verificationPhone: true,
+        verificationPhoneConfirmedAt: true,
+        verificationPhoneRoundTripMs: true,
+      },
     }),
     getClientTodos(email),
   ]);
@@ -51,6 +56,19 @@ export default async function EmailSetupPage() {
   // and the notification bell can never disagree about whether the number is
   // missing. One of them being wrong is worse than neither existing.
   const phoneNeeded = hasTodo(todos, "verification-phone");
+
+  // Named on the page so the client can save it BEFORE the first text. An
+  // unknown sender asking for a login code is what a phishing text looks like,
+  // and iOS prints "may be spam · Report Spam" underneath it. A saved contact
+  // removes that banner entirely, which matters more here than anywhere else
+  // in the product.
+  let smsFrom: string | null = null;
+  try {
+    const r = await fetch(`${oracleUrl()}/public/sms-number`, { cache: "no-store" });
+    if (r.ok) smsFrom = (await r.json()).number ?? null;
+  } catch {
+    // Non-fatal: the card just omits the "save this number" line.
+  }
 
   const s = parse(agent.communicationSettings);
   const extra = s.inbound?.allowedSenders ?? [];
@@ -114,11 +132,20 @@ export default async function EmailSetupPage() {
           title="Where login codes go"
           icon="shield"
           needsYou={phoneNeeded}
-          summary={acct?.verificationPhone ? prettyPhone(acct.verificationPhone) : "Not set yet"}
+          summary={
+            acct?.verificationPhone
+              ? acct.verificationPhoneConfirmedAt
+                ? `${prettyPhone(acct.verificationPhone)} \u00b7 confirmed working`
+                : `${prettyPhone(acct.verificationPhone)} \u00b7 not tested yet`
+              : "Not set yet"
+          }
         >
           <VerificationPhoneCard
             agentName={agent.name}
             initial={acct?.verificationPhone ?? null}
+            confirmedAt={acct?.verificationPhoneConfirmedAt?.toISOString() ?? null}
+            confirmedRoundTripMs={acct?.verificationPhoneRoundTripMs ?? null}
+            smsFrom={smsFrom}
             chromeless
           />
         </CollapsibleSection>

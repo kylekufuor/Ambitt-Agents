@@ -12,9 +12,24 @@ import { prettyPhone } from "@/lib/phone";
    ever stops being true, this copy has to change first.
    --------------------------------------------------------------------------- */
 
+/**
+ * A round trip in words a person would use. "238 seconds" is arithmetic;
+ * "4 minutes" is what you would say out loud, and this line exists to be
+ * reassuring rather than precise.
+ */
+function humanDuration(ms: number): string {
+  const secs = Math.max(1, Math.round(ms / 1000));
+  if (secs < 60) return `${secs} ${secs === 1 ? "second" : "seconds"}`;
+  const mins = Math.round(secs / 60);
+  return `${mins} ${mins === 1 ? "minute" : "minutes"}`;
+}
+
 export function VerificationPhoneCard({
   agentName,
   initial,
+  confirmedAt,
+  confirmedRoundTripMs,
+  smsFrom,
   // Drops the panel and the heading when the card sits inside a collapsible
   // section, which already draws both. Rendering our own would give the
   // client the same title twice and a box inside a box.
@@ -22,6 +37,11 @@ export function VerificationPhoneCard({
 }: {
   agentName: string;
   initial: string | null;
+  /** ISO timestamp of the last successful test, from the database. */
+  confirmedAt?: string | null;
+  confirmedRoundTripMs?: number | null;
+  /** The number our texts come from, so they can save it before the first one. */
+  smsFrom?: string | null;
   chromeless?: boolean;
 }) {
   const [saved, setSaved] = useState<string | null>(initial);
@@ -39,7 +59,7 @@ export function VerificationPhoneCard({
     | { state: "idle" }
     | { state: "sending" }
     | { state: "waiting" }
-    | { state: "arrived"; seconds: number }
+    | { state: "arrived"; took: string }
     | { state: "timeout" }
     | { state: "error"; message: string }
   >({ state: "idle" });
@@ -54,16 +74,18 @@ export function VerificationPhoneCard({
     }
     setTest({ state: "waiting" });
 
-    // Poll while they go and find their phone. Two minutes is long enough to
-    // walk to another room and short enough that a forgotten tab stops asking.
+    // Poll while they go and find their phone. Five minutes, because two
+    // assumed someone standing at their desk — the first real test came back
+    // in four and the page had already given up and said it failed. The stored
+    // confirmation below is the real safety net; this is just the live update.
     const started = Date.now();
-    const deadline = started + 120_000;
+    const deadline = started + 300_000;
     while (Date.now() < deadline) {
       await new Promise((r) => setTimeout(r, 2000));
       const p = await fetch("/api/account/verification-phone/test?poll=1", { method: "POST" });
       const d = await p.json().catch(() => ({}));
       if (d.replied) {
-        setTest({ state: "arrived", seconds: Math.max(1, Math.round((d.roundTripMs ?? Date.now() - started) / 1000)) });
+        setTest({ state: "arrived", took: humanDuration(d.roundTripMs ?? Date.now() - started) });
         return;
       }
     }
@@ -196,19 +218,38 @@ export function VerificationPhoneCard({
           )}
           {test.state === "arrived" && (
             <p className="text-[color:var(--emerald)] font-semibold">
-              Got your reply in {test.seconds} {test.seconds === 1 ? "second" : "seconds"}. This number
-              works.
+              Got your reply in {test.took}. This number works.
             </p>
           )}
           {test.state === "timeout" && (
             <p className="text-[color:var(--amber)]">
-              No reply yet. If the text never arrived, the number may be wrong or your carrier may be
-              blocking it. Change it above and try again, or reply to any of {agentName}&apos;s emails
-              and we will sort it.
+              No reply yet. If you have already replied, you can leave this page &mdash; we record it
+              either way and this will say confirmed next time you look. If the text never arrived,
+              the number may be wrong, so change it above and try again.
             </p>
           )}
           {test.state === "error" && <p className="text-[color:var(--red)]">{test.message}</p>}
         </div>
+      )}
+
+      {confirmedAt && test.state === "idle" && (
+        <p className="mt-3 text-[13px] text-[color:var(--emerald)] font-semibold">
+          Confirmed working on{" "}
+          {new Date(confirmedAt).toLocaleDateString(undefined, { day: "numeric", month: "long" })}
+          {typeof confirmedRoundTripMs === "number" &&
+            ` \u00b7 you replied in ${humanDuration(confirmedRoundTripMs)}`}
+          .
+        </p>
+      )}
+
+      {smsFrom && (
+        <p className="mt-3 text-[13px] text-[color:var(--text-2)] leading-relaxed max-w-[62ch]">
+          Texts come from{" "}
+          <span className="font-mono text-[color:var(--text)]">{prettyPhone(smsFrom)}</span>. Save it
+          as {agentName} now, before he needs to use it &mdash; a number your phone does not
+          recognise gets a spam warning underneath it, which is the last thing you want on the one
+          message asking for a login code.
+        </p>
       )}
 
       {/* The scope promise. Concrete, and it names what this is NOT. */}

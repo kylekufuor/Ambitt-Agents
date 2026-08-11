@@ -195,7 +195,7 @@ export type PhoneCapture =
   | { kind: "no_code"; nudge: boolean }
   // A "does this number work" test came back. Nothing to resume, nothing to
   // enter — just tell them it arrived.
-  | { kind: "test_reply"; clientId: string }
+  | { kind: "test_reply"; clientId: string; roundTripMs: number }
   // Unknown sender or expired pending — caller answers with empty TwiML.
   | { kind: "no_match" };
 
@@ -219,7 +219,7 @@ export function capturePhoneCode(from: string, body: string, now = Date.now()): 
   if (pend.origin === "test") {
     pending2faByPhone.delete(key);
     recordTestReply(pend.clientId, body.slice(0, 40), pend.at, now);
-    return { kind: "test_reply", clientId: pend.clientId };
+    return { kind: "test_reply", clientId: pend.clientId, roundTripMs: now - pend.at };
   }
 
   const code = extractMfaCode(body);

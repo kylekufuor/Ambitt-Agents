@@ -1773,6 +1773,23 @@ app.post("/webhooks/sms", twilioForm, async (req: Request, res: Response) => {
 
     if (hit.kind === "test_reply") {
       logger.info("Verification-number test reply captured", { clientId: hit.clientId });
+      // Persist the FACT, never the message body. In memory this evaporated on
+      // page close and on every deploy, so a client who replied from the car
+      // came back to a page that still said "not confirmed".
+      void prisma.client
+        .update({
+          where: { id: hit.clientId },
+          data: {
+            verificationPhoneConfirmedAt: new Date(),
+            verificationPhoneRoundTripMs: hit.roundTripMs ?? null,
+          },
+        })
+        .catch((err: unknown) =>
+          logger.warn("Could not persist number confirmation (continuing)", {
+            clientId: hit.clientId,
+            error: err instanceof Error ? err.message : String(err),
+          })
+        );
       res.type("text/xml").send(
         "<Response><Message>That's the one. Your number works, nothing else needed.</Message></Response>"
       );
@@ -6251,6 +6268,15 @@ app.post("/extension/tasks/:taskId/resolve-cred", async (req: Request, res: Resp
 // in seconds), email fallback (captured by the guarded branch in
 // /webhooks/email-inbound). All send + pending logic lives in
 // shared/mfa-relay.ts so the runtime's request_2fa_code shares it.
+// The number our texts come from, so the portal can name it BEFORE the first
+// one arrives. An unknown sender asking for a login code is exactly what a
+// phishing text looks like, and iOS says so underneath it — the fix is for the
+// client to have saved the number as a contact before we ever use it.
+app.get("/public/sms-number", (_req: Request, res: Response) => {
+  const number = process.env.TWILIO_SMS_NUMBER || process.env.TWILIO_WHATSAPP_NUMBER || null;
+  res.json({ number });
+});
+
 // ---------------------------------------------------------------------------
 // "Does this number actually work?" — the client proves it to themselves.
 // ---------------------------------------------------------------------------
