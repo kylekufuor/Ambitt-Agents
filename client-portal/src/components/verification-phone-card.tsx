@@ -223,8 +223,8 @@ export function VerificationPhoneCard({
           )}
           {test.state === "timeout" && (
             <p className="text-[color:var(--amber)]">
-              No reply yet. If you have already replied, you can leave this page &mdash; we record it
-              either way and this will say confirmed next time you look. If the text never arrived,
+              No reply yet. If you have already replied you can leave this page. We record it either
+              way, and this will say confirmed next time you look. If the text never arrived,
               the number may be wrong, so change it above and try again.
             </p>
           )}
@@ -246,9 +246,10 @@ export function VerificationPhoneCard({
         <p className="mt-3 text-[13px] text-[color:var(--text-2)] leading-relaxed max-w-[62ch]">
           Texts come from{" "}
           <span className="font-mono text-[color:var(--text)]">{prettyPhone(smsFrom)}</span>. Save it
-          as {agentName} now, before he needs to use it &mdash; a number your phone does not
-          recognise gets a spam warning underneath it, which is the last thing you want on the one
-          message asking for a login code.
+          as {agentName}{" "}
+          now, so your phone knows him before he ever needs to use it. A number your phone does not
+          recognize gets a spam warning underneath it, which is the last thing you want on the one
+          message asking you for a login code.
         </p>
       )}
 
