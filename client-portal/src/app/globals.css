@@ -5,9 +5,9 @@
    Structure: Databricks' NEUTRAL system — warm oat ground, desaturated navy
    ink, their hairline, their six-stop ink-tinted elevation. Accent stays OUR
    teal. Cards separate by elevation and tone, never by a gray outline.
-   Type: ONE geometric sans, DM Sans, at weight 500 for headings — shared with
-   the marketing site and the operator dashboard. See DESIGN.md before setting
-   any text, and before using any teal.
+   Type: ONE geometric sans, Satoshi, at weight 500 for headings — shared with
+   the marketing site (the operator dashboard stays on DM Sans). See
+   DESIGN.md before setting any text, and before using any teal.
 
    Why a warm ground under a cyan accent: the teal now separates from the page
    by TEMPERATURE as well as hue. On the old cool blue-gray canvas the accent
@@ -87,8 +87,9 @@
     0 32px 40px -12px rgba(27, 49, 57, 0.05);
 
   /* ---------------------------------------------------------------------
-     TYPE — DM Sans throughout. One family, display through legal, shared with
-     the marketing site and the operator dashboard. --font-display is kept as
+     TYPE — Satoshi throughout (2026-09-09, replaced DM Sans so the portal
+     and the marketing site — already on Satoshi — are one typographic
+     system). One family, display through legal. --font-display is kept as
      an alias for the ~12 `.font-display` call-sites; it is the SAME stack.
      Weight and tracking rules live in DESIGN.md — the short version:
        - Display headings (>=20px) are 500. Never 700/800.
@@ -96,9 +97,12 @@
        - Negative tracking only above ~40px. The portal never gets there, so
          the portal has NO negative tracking at all.
        - Heading leading 1.1–1.2, body 1.5–1.6.
+     Satoshi has no opsz axis, so there is nothing for optical sizing to do —
+     see the base `body` rule below, where it has been dropped rather than
+     left set-but-inert.
      --------------------------------------------------------------------- */
-  --font-body: var(--font-dm-sans), var(--font-dm-sans-ext), -apple-system, BlinkMacSystemFont,
-    "Segoe UI", sans-serif;
+  --font-body: var(--font-satoshi), -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
   --font-display: var(--font-body);
   --font-mono: var(--font-dm-mono), "SF Mono", Menlo, monospace;
 
@@ -152,12 +156,13 @@ body {
   color: var(--text);
   font-family: var(--font-body);
   line-height: 1.55;
-  /* DM Sans carries an optical-size axis — let the browser use it so a 30px
-     page title and an 11px eyebrow each get the cut they were drawn for. */
-  font-optical-sizing: auto;
+  /* Satoshi has only a wght axis — no opsz, unlike the DM Sans this replaced.
+     `font-optical-sizing: auto` would be inert (nothing for the browser to
+     act on), so it is intentionally not set. Size contrast between a 30px
+     page title and an 11px eyebrow now comes from size and weight alone. */
 }
 
-/* Display headers — DM Sans at 500, not 600. A product page title does not
+/* Display headers — Satoshi at 500, not 600. A product page title does not
    need to shout to be a title; the size step from 15px body to 22–30px does
    the work, and colour (--text vs --text-2) finishes it.
    No negative tracking: the portal's largest heading is 30px, well under the
@@ -720,7 +725,7 @@ select {
 /* ===========================================================================
    WEIGHT (v3.1)
    ---------------------------------------------------------------------------
-   A step thicker everywhere. DM Sans is a variable face (100-1000), so these
+   A step thicker everywhere. Satoshi is a variable face (300-900), so these
    are real interpolated weights rather than the browser faking a bold, and
    450/580 land between the static cuts we would otherwise be stuck with.
 

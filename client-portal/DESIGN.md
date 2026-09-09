@@ -35,9 +35,9 @@ the friendly read (red is the error colour in every UI convention) for nothing.
    "leverage/robust/seamless."
 
 ## Tokens (locked — in `app/globals.css`)
-- **Type:** **DM Sans** (display + body), one family. See "Type is one family,
-  weight 500" below — it replaced Lexend on 2026-07-28 and the rules changed
-  with it. No serif, no second face.
+- **Type:** **Satoshi** (display + body), one family. See "Type is one family"
+  below — it replaced DM Sans on 2026-09-09 so the portal matches the
+  marketing site, which was already on Satoshi. No serif, no second face.
 - **Palette:** warm oat ground, Databricks neutrals. **Nothing pure black,
   nothing pure white.**
 
@@ -103,26 +103,45 @@ gradient, one surface, stated here so it does not become a licence for more.
 
 ## Type is one family — read this before setting any text
 
-> **Weights updated 2026-07-30 (v3.1).** This section used to say "weight 500".
-> Shipping weights are now **body 450, headings 580**, with Tailwind's
-> `font-medium` at 560 and `font-semibold` at 640. DM Sans is variable
-> (100–1000), so those are real interpolated weights, not synthetic bold. The
-> lift was needed once the rail went dark: it raised the perceived contrast of
-> everything beside it and left the old weights looking thin.
+> **Fonts updated 2026-09-09.** This section used to describe DM Sans. The
+> portal is now on **Satoshi**, matching the marketing site (which was
+> already on it) — the operator dashboard stays on DM Sans, deliberately not
+> touched by this change. The weight table below is unchanged: every shipping
+> weight (body 450, headings 580, `font-medium` 560, `font-semibold` 640,
+> plus the other call-sites' 400/470/500/600/700) sits inside Satoshi's
+> 300–900 range, so nothing needed to move.
 
-**DM Sans, everywhere, 76px down to 10px.** No display/body pairing — the
+**Satoshi, everywhere, 76px down to 10px.** No display/body pairing — the
 cohesion comes from one family used with discipline, not from a second face.
 `DM Mono` where a mono face is genuinely needed (agent addresses, cron strings,
-the login code). Same family in the marketing site and the operator dashboard,
-so a client moving website → email → portal never sees the letterforms change.
+the login code) — Satoshi has no monospace companion of its own. Same family
+as the marketing site, so a client moving website → portal never sees the
+letterforms change; email keeps its own system-font stack on purpose (webfonts
+don't render in Gmail/Outlook), and the operator dashboard is a separate
+surface that still runs DM Sans.
 
 **Self-hosted woff2, always.** `next/font/local`, files in `public/fonts/`,
 licence text beside them. Never a CDN `<link>`, never `next/font/google`. A
 silent fallback to a system face is exactly the failure this system exists to
 prevent, and it fails invisibly — nobody files a bug, the product just quietly
-looks cheap. The file is the variable cut carrying both axes (opsz 9–40,
-wght 100–1000), so `font-optical-sizing: auto` gives each size the cut it was
-drawn for. One 62 kB file is smaller than the three static weights it replaced.
+looks cheap. The file is the variable cut covering wght 300–900, normal style
+only — one 42 kB file, smaller than the 62 kB + 31 kB latin/latin-ext split
+DM Sans needed, because Satoshi's single file already covers latin, latin-1,
+latin-ext and the euro sign with no split required.
+
+**No optical sizing.** DM Sans carried an `opsz` axis and used
+`font-optical-sizing: auto` to let the browser pick a cut per size. Satoshi
+has only a `wght` axis — there is no optical-size cut to select, so that
+property is no longer set anywhere in the portal (`app/globals.css`). Size
+contrast between a 30px title and an 11px eyebrow comes from size and weight
+alone now.
+
+**Italic exists but is not wired in.** `satoshi-italic-var.woff2` is licensed
+and sits in `public/fonts/` unused: `next/font/local` applies one `preload`
+flag to every file in a font's `src` array, so adding italic to the same face
+as the body/heading weight would force-preload it on every route even though
+nothing in the portal renders italic today. Give it its own `src` entry
+(with `preload: false`) the day a surface actually needs it.
 
 | Rule | Value | Why |
 |---|---|---|

@@ -47,7 +47,7 @@
    have a 3:1 boundary (WCAG 1.4.11) — that is what --fa-line is for, and it
    is measured, not guessed.
 
-   TYPE. DM Sans via --font-body, self-hosted (see client-portal/DESIGN.md).
+   TYPE. Satoshi via --font-body, self-hosted (see client-portal/DESIGN.md).
    No font-family is set here on purpose: one family, declared once, in the
    app layout. Display headings sit at 500 and the largest is 30px, so there
    is no negative tracking anywhere on this page. Hierarchy is built from
