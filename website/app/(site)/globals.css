@@ -1,0 +1,2176 @@
+@import "tailwindcss";
+
+/* ===========================================================================
+   Ambitt Agents — website design system
+   Databricks structure, Ambitt accent. ONE typeface: Satoshi, hero to legal
+   (2026-09-10, replaced DM Sans to match the editorial `/` and `/use-cases`
+   pages and the client portal).
+
+   TYPE DISCIPLINE (shared with the portal and the dashboard — see
+   client-portal/DESIGN.md). The premium read comes from restraint, not weight:
+     - Display headings are 500. Never 700/800. This is the biggest lever.
+     - Heading leading 1.1 (110%). Body 1.5–1.6.
+     - Negative letter-spacing ONLY above ~40px, where it is optical
+       correction. Never on small text.
+     - Small headings and UI labels (<20px) sit at 600, not 500 — optical
+       compensation so structure still reads at size, not weight creep.
+   Fonts are self-hosted via next/font/local (see app/(site)/layout.tsx). No CDN.
+
+   COLOUR (2026-07-28). We took Databricks' NEUTRAL system and kept our teal.
+   The ground is warm oat, the ink is a desaturated navy, and the hairline is
+   theirs. What that buys: our teal is a cyan, and a cyan accent on a WARM
+   ground separates by temperature as well as by hue, so it reads as identity
+   rather than as a system colour. On the old cool-slate ground the teal and
+   the neutrals shared a cast and the accent kept dissolving into the page.
+
+   NOTHING IS PURE BLACK, NOTHING IS PURE WHITE. The page is oat, the raised
+   plane is a warm near-white. `#fff` survives only as reversed type and as a
+   label on a saturated fill. That one rule removes the "default browser" feel
+   faster than anything else here.
+   =========================================================================== */
+
+:root {
+  /* Brand — UNCHANGED. Two-step teal, see client-portal/DESIGN.md.
+     Values are identical to the portal and the agent emails on purpose:
+     one hue doing one job across all three surfaces. */
+  --brand: #00b3b3;        /* MARK ONLY — logo, rules, fills. Never text. */
+  --brand-strong: #00807e; /* fill under a white label — 4.78:1 */
+  --brand-btn: #00807e;
+  --brand-btn-h: #00706f;  /* hovered fill — 5.92:1 */
+  --brand-ink: #00706f;    /* teal AS TEXT — 5.54:1 on oat */
+  --link: #00706f;
+
+  /* Ink — Databricks' desaturated navy, never black. Every step measured
+     against oat / surface / surface-2 / surface-3 / wash. */
+  --ink: #3d545c;          /* body — worst plane 6.27:1 */
+  --ink-strong: #25383f;   /* worst 9.58:1 */
+  --ink-max: #1b3139;      /* Databricks Gable Green — worst 10.64:1 */
+  --muted: #52676f;        /* worst 4.66:1 — NOT #5a6f77, which fails on --surface-3 */
+  --faint: #52676f;
+
+  /* Ground — warm oat. The raised plane is warmer-than-white, not white. */
+  --bg: #f9f7f4;           /* Databricks oat */
+  --surface: #fffdfb;      /* raised plane. Elevation is carried by --sh-*, not by tone */
+  --surface-2: #f1ede7;
+  --surface-3: #e8e3db;
+  --wash: #e9f3f1;         /* the one teal-tinted ground */
+  --line: #dce0e2;         /* Databricks hairline */
+  --line-soft: #e7e4de;
+  --dark: #14262c;         /* reversed band */
+  --dark-2: #1b3139;
+  --dark-line: rgba(255, 255, 255, 0.14);
+
+  /* Categorical + state. Each measured on every plane AND on its own 10% chip.
+     Every one of these sits >=33 dE from --brand-ink, so a status can never be
+     mistaken for the brand. See the SEMANTIC COLOUR note below. */
+  --indigo: #4338ca;
+  --teal-deep: #00807e;
+  --amber: #a34a07;
+  --violet: #6d28d9;
+  --rose: #be123c;
+  --good: #16713a;         /* TRUE GREEN. Was #00887a, which sat 3 dE from the
+                              brand teal — "success" and "brand" were the same
+                              colour. Green is now unmistakably not the accent. */
+  --bad: #be123c;
+
+  /* Elevation — Databricks' six-stop ramp, tinted with the ink navy (27,49,57)
+     rather than black. Descending opacity, six stops, is what makes a flat card
+     read as a physical object instead of a cut-out. --sh-4 is their full hero
+     ramp; 1–3 are the same curve scaled for smaller surfaces. */
+  --sh-1: 0 1px 2px rgba(27, 49, 57, 0.05), 0 1px 1px rgba(27, 49, 57, 0.03);
+  --sh-2: 0 2px 3px rgba(27, 49, 57, 0.02), 0 4px 8px rgba(27, 49, 57, 0.025),
+    0 9px 13px rgba(27, 49, 57, 0.03), 0 16px 24px -8px rgba(27, 49, 57, 0.04);
+  --sh-3: 0 2px 3px rgba(27, 49, 57, 0.02), 0 4px 8px rgba(27, 49, 57, 0.025),
+    0 9px 13px rgba(27, 49, 57, 0.035), 0 16px 24px rgba(27, 49, 57, 0.04),
+    0 32px 40px -12px rgba(27, 49, 57, 0.05);
+  --sh-4: 0 2px 3px rgba(27, 49, 57, 0.02), 0 4px 8px rgba(27, 49, 57, 0.02),
+    0 9px 13px rgba(27, 49, 57, 0.035), 0 16px 24px rgba(27, 49, 57, 0.04),
+    0 32px 40px rgba(27, 49, 57, 0.05), 0 72px 104px rgba(27, 49, 57, 0.07);
+  --r: 14px;
+  /* One family. --font-disp is kept as an alias so the handful of `.disp`
+     call-sites keep working — it is deliberately the SAME stack now. */
+  --font-body: var(--font-satoshi), system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-disp: var(--font-body);
+}
+
+/* Tailwind token bridge — repointed to the light palette so the shared
+   /privacy, /terms and /contact pages re-theme cleanly. */
+@theme inline {
+  --color-background: var(--bg);
+  --color-foreground: var(--ink-strong);
+  --color-muted: var(--surface-2);
+  --color-muted-foreground: var(--muted);
+  --color-border: var(--line);
+  --color-accent: var(--brand);
+  --color-accent-dim: var(--brand-strong);
+  --color-accent-foreground: #ffffff;
+  --color-card: var(--surface);
+  --font-sans: var(--font-body);
+}
+
+* {
+  box-sizing: border-box;
+}
+html {
+  scroll-behavior: smooth;
+}
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 17px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  font-variant-numeric: tabular-nums;
+  /* Satoshi has only a wght axis, no opsz (DM Sans, which this replaced, had
+     one). `font-optical-sizing: auto` would be inert, so it is not set. */
+  text-rendering: optimizeLegibility;
+}
+h1,
+h2,
+h3 {
+  font-family: var(--font-disp);
+  color: var(--ink-max);
+  /* Tracking is a display-size correction only — see the @media block below.
+     Small headings keep the designer's default spacing. */
+  letter-spacing: normal;
+  line-height: 1.1;
+  margin: 0;
+  font-weight: 500;
+}
+/* h3-scale headings are UI labels, not display type. Below ~20px, structure
+   has to come from weight because there is no size left to spend — so these
+   sit at 600. That is optical compensation, not weight creep. */
+h3 {
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+/* Optical tracking, display sizes only. Gated on the breakpoint at which the
+   clamped headline sizes actually clear ~40px, the same way Databricks gates
+   theirs on `lg:`. Never applied to body or small text.
+
+   Every h1/h2 on this site is display-scale (36px+), and h3 never is — so the
+   selector is the element, not a list of sections. New sections inherit the
+   correction automatically instead of being forgotten. */
+@media (min-width: 900px) {
+  h1,
+  h2 {
+    letter-spacing: -0.018em;
+  }
+}
+p {
+  margin: 0;
+}
+a {
+  color: inherit;
+  text-decoration: none;
+}
+.wrap {
+  max-width: 1140px;
+  margin: 0 auto;
+  padding: 0 28px;
+}
+.disp {
+  font-family: var(--font-disp);
+}
+
+/* Global visible focus ring — keyboard operability.
+   A focus ring is a STATE INDICATOR, so it has to clear 3:1 against the
+   surface behind it. The mark teal #00b3b3 is only 2.42:1 on oat and 2.59:1
+   on the raised plane, so it fails that test and always did. The solid step
+   (#00807e, 4.47:1 on oat) is the correct token here. Same call the portal
+   makes for its focus border. */
+:focus-visible {
+  outline: 2px solid var(--brand-strong);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+a:focus-visible,
+button:focus-visible,
+summary:focus-visible,
+.btn:focus-visible,
+details.qa summary:focus-visible {
+  outline: 2px solid var(--brand-strong);
+  outline-offset: 3px;
+}
+.on-dark a:focus-visible,
+.on-dark button:focus-visible,
+.trust :focus-visible,
+.mission :focus-visible,
+footer.ft :focus-visible {
+  outline-color: #22d3d3;
+}
+
+/* eyebrow (sentence case, no all-caps) */
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--brand-ink);
+  letter-spacing: 0.005em;
+}
+.eyebrow .tick {
+  width: 9px;
+  height: 9px;
+  border-radius: 3px;
+  background: var(--brand);
+  box-shadow: 0 0 0 4px rgba(0, 179, 179, 0.14);
+  flex: none;
+}
+.eyebrow.c-indigo {
+  color: var(--indigo);
+}
+.eyebrow.c-indigo .tick {
+  background: var(--indigo);
+  box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.14);
+}
+.eyebrow.c-violet {
+  color: var(--violet);
+}
+.eyebrow.c-violet .tick {
+  background: var(--violet);
+  box-shadow: 0 0 0 4px rgba(124, 58, 237, 0.14);
+}
+/* A letterform, so it takes the INK step. #00807e is the FILL step and is
+   only 4.47:1 as 14px text on oat — axe caught it, the eye did not. */
+.eyebrow.c-emerald {
+  color: var(--brand-ink);
+}
+.eyebrow.c-emerald .tick {
+  background: var(--teal-deep);
+  box-shadow: 0 0 0 4px rgba(0, 136, 122, 0.14);
+}
+.eyebrow.c-amber {
+  color: var(--amber);
+}
+.eyebrow.c-amber .tick {
+  background: var(--amber);
+  box-shadow: 0 0 0 4px rgba(180, 83, 9, 0.14);
+}
+
+/* buttons */
+/* Buttons — Databricks' shape and state behaviour, filled with our teal.
+   Their CTAs are squarer than ours were (9px read as a consumer app), sit on
+   a generous horizontal padding, and change state by COLOUR ALONE over 200ms.
+   No lift, no glow. The old teal drop-glow was the loudest non-Databricks
+   thing on the page and it made the button look like it was hovering off the
+   card. Confidence here comes from the fill being solid and the label being
+   set properly, not from elevation. */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  white-space: nowrap;
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 15px;
+  line-height: 1;
+  padding: 14px 26px;
+  border-radius: 4px;
+  cursor: pointer;
+  border: 1.5px solid transparent;
+  transition: background 0.2s ease-in-out, border-color 0.2s ease-in-out, color 0.2s ease-in-out;
+}
+.btn-primary {
+  background: var(--brand-btn);
+  color: #fff;
+}
+.btn-primary:hover {
+  background: var(--brand-btn-h);
+}
+.btn-ghost {
+  background: transparent;
+  color: var(--ink-strong);
+  border-color: var(--line);
+}
+.btn-ghost:hover {
+  border-color: var(--ink-strong);
+  background: transparent;
+}
+.btn-lg {
+  padding: 16px 30px;
+  font-size: 16px;
+}
+.btn .arw {
+  margin-left: -1px;
+}
+.on-dark .btn-ghost {
+  background: transparent;
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.36);
+}
+.on-dark .btn-ghost:hover {
+  border-color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* nav */
+header.nav {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  background: rgba(249, 247, 244, 0.92);
+  border-bottom: 1px solid var(--line-soft);
+}
+@supports (backdrop-filter: blur(2px)) {
+  header.nav {
+    background: rgba(249, 247, 244, 0.86);
+  }
+}
+.nav-in {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  height: 70px;
+}
+.lockup {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.lockup-mark {
+  flex: none;
+}
+.lockup-word {
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 20px;
+  color: var(--am, var(--ink-max));
+}
+.lockup-word b {
+  font-weight: 600;
+  color: var(--ag, var(--brand));
+}
+.nav-links {
+  display: flex;
+  gap: 26px;
+  margin-left: 14px;
+}
+.nav-links a {
+  font-size: 15px;
+  color: var(--muted);
+  font-weight: 500;
+  position: relative;
+  padding: 4px 0;
+  white-space: nowrap;
+}
+.nav-links a:hover {
+  color: var(--ink-strong);
+}
+.nav-cta {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.nav-toggle,
+.nav-panel {
+  display: none;
+}
+
+/* section rhythm */
+section {
+  position: relative;
+}
+.sec {
+  padding: 96px 0;
+}
+.sec-tight {
+  padding: 72px 0;
+}
+.center {
+  text-align: center;
+}
+.lede {
+  color: var(--muted);
+  font-size: 19px;
+  line-height: 1.6;
+  max-width: 620px;
+}
+.h-sub {
+  color: var(--muted);
+  font-size: 18px;
+  margin-top: 16px;
+  max-width: 640px;
+}
+
+/* HERO */
+.hero {
+  padding: 70px 0 88px;
+  position: relative;
+  overflow: hidden;
+}
+/* No hero wash. There were two teal radial gradients here and they were the
+   most generic thing on the page — the "atmospheric glow behind the headline"
+   is a template move, and it fought the flat oat ground. Databricks' hero is
+   one flat colour and lets the type and the product shot carry it. So does
+   ours now. */
+.hero-grid {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: 1.04fr 0.96fr;
+  gap: 56px;
+  align-items: center;
+}
+/* The hero is the whole argument for the weight discipline: 800 at -0.03em
+   shouted; 500 at 110% carries the same line with authority instead of volume.
+   The presence lost to weight is bought back with size (60 → 68) and the
+   breathing room 110% leading gives each line — not by creeping back to 600. */
+h1.hero-h1 {
+  font-size: clamp(40px, 5.4vw, 68px);
+  font-weight: 500;
+  line-height: 1.1;
+}
+h1.hero-h1 .q {
+  color: var(--ink-max);
+}
+h1.hero-h1 .a {
+  display: block;
+  color: var(--brand-ink);
+  margin-top: 6px;
+}
+.hero-quote {
+  font-size: 15px;
+  color: var(--faint);
+  font-weight: 500;
+  margin-bottom: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.hero-quote .qb {
+  width: 22px;
+  height: 2px;
+  background: var(--brand);
+  border-radius: 2px;
+  display: inline-block;
+}
+.hero-sub {
+  font-size: 19px;
+  color: var(--muted);
+  margin-top: 22px;
+  max-width: 540px;
+  line-height: 1.6;
+}
+.hero-sub b {
+  color: var(--ink-strong);
+  font-weight: 600;
+}
+.hero-cta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 30px;
+  flex-wrap: wrap;
+}
+.hero-micro {
+  margin-top: 20px;
+  font-size: 15px;
+  color: var(--faint);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.hero-micro b {
+  color: var(--ink-strong);
+  font-weight: 600;
+}
+.hero-micro .dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--faint);
+  display: inline-block;
+}
+.hero-see {
+  margin-top: 26px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 14px;
+  color: var(--muted);
+  font-weight: 500;
+}
+.hero-see:hover {
+  color: var(--brand-ink);
+}
+.hero-see .dn {
+  transition: transform 0.2s;
+}
+.hero-see:hover .dn {
+  transform: translateY(2px);
+}
+
+/* thread (phone-ish delivery surface) */
+.phone {
+  background: var(--surface);
+  border-radius: 26px;
+  box-shadow: var(--sh-3);
+  padding: 14px;
+  position: relative;
+}
+.phone:after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 26px;
+  box-shadow: inset 0 0 0 1px rgba(27, 49, 57, 0.05);
+  pointer-events: none;
+}
+.thread-top {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 8px 8px 14px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.thread-top .who {
+  line-height: 1.25;
+}
+.thread-top .nm {
+  font-weight: 600;
+  color: var(--ink-strong);
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.thread-top .rl {
+  font-size: 12.5px;
+  color: var(--faint);
+}
+.pill-live {
+  margin-left: auto;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--brand-ink);
+  background: var(--wash);
+  padding: 5px 9px;
+  border-radius: 20px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.pill-live .ld {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--brand);
+  display: inline-block;
+  box-shadow: 0 0 0 0 rgba(0, 179, 179, 0.5);
+}
+.thread {
+  padding: 16px 6px 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.bub {
+  max-width: 82%;
+  padding: 11px 14px;
+  border-radius: 16px;
+  font-size: 14.5px;
+  line-height: 1.5;
+}
+.bub .t {
+  font-size: 11px;
+  color: var(--faint);
+  margin-top: 6px;
+  display: block;
+}
+.bub-me {
+  align-self: flex-end;
+  background: var(--surface-3);
+  color: var(--ink-strong);
+  border-bottom-right-radius: 5px;
+}
+.bub-ag {
+  align-self: flex-start;
+  background: var(--surface);
+  color: var(--ink);
+  border-bottom-left-radius: 5px;
+  box-shadow: var(--sh-1), 0 0 0 1px rgba(27, 49, 57, 0.05);
+}
+.bub-ag .aname {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--brand-ink);
+  margin-bottom: 3px;
+}
+.bub-ag b {
+  color: var(--ink-strong);
+  font-weight: 600;
+}
+.done-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  font-weight: 600;
+  color: var(--brand-ink);
+  font-size: 13.5px;
+}
+.ckdisc {
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+.typing {
+  align-self: flex-start;
+  background: var(--surface);
+  box-shadow: var(--sh-1), 0 0 0 1px rgba(27, 49, 57, 0.05);
+  padding: 12px 15px;
+  border-radius: 16px;
+  border-bottom-left-radius: 5px;
+  display: inline-flex;
+  gap: 5px;
+}
+.typing i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #c0c9cb;
+  display: inline-block;
+  animation: blink 1.3s infinite;
+}
+.typing i:nth-child(2) {
+  animation-delay: 0.18s;
+}
+.typing i:nth-child(3) {
+  animation-delay: 0.36s;
+}
+@keyframes blink {
+  0%,
+  60%,
+  100% {
+    opacity: 0.35;
+    transform: translateY(0);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-2px);
+  }
+}
+
+/* file / attachment chip */
+/* An attachment is its own object, so it gets its own line — deterministically.
+   This was `inline-flex`, which meant the chip only fell below the message
+   because the body copy happened to fill the last line. Change the typeface and
+   that accident breaks: DM Sans is narrower than Lexend, room opened up, and
+   the chip slid up beside the word "attached." `flex` + `fit-content` keeps the
+   internal layout and stops the placement depending on text metrics. */
+.file-chip {
+  display: flex;
+  width: fit-content;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface-2);
+  border-radius: 9px;
+  padding: 7px 11px 7px 8px;
+  margin-top: 10px;
+  max-width: 100%;
+}
+.fx-clip {
+  color: var(--faint);
+  display: inline-flex;
+}
+.fx-badge {
+  font-size: 9.5px;
+  font-weight: 600;
+  color: #fff;
+  padding: 3px 5px;
+  border-radius: 4px;
+  letter-spacing: 0.03em;
+}
+.fx-ico {
+  display: inline-flex;
+}
+.fx-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-strong);
+}
+.fx-meta {
+  font-size: 12px;
+  color: var(--faint);
+}
+
+/* tools strip */
+.tools-band {
+  background: var(--surface);
+  border-top: 1px solid var(--line-soft);
+  border-bottom: 1px solid var(--line-soft);
+}
+.tools-grid {
+  display: grid;
+  grid-template-columns: 0.9fr 1.1fr;
+  gap: 48px;
+  align-items: center;
+  padding: 66px 0;
+}
+.tools-head h2 {
+  font-size: clamp(30px, 3.6vw, 42px);
+  margin-top: 16px;
+}
+.tools-body {
+  color: var(--muted);
+  font-size: 18px;
+  margin-top: 16px;
+  max-width: 460px;
+}
+.objline {
+  margin-top: 22px;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--wash);
+  color: var(--brand-ink);
+  font-weight: 600;
+  font-size: 15.5px;
+  padding: 12px 18px;
+  border-radius: 11px;
+}
+.tok-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.tok {
+  background: var(--surface);
+  box-shadow: var(--sh-1), 0 0 0 1px rgba(27, 49, 57, 0.05);
+  border-radius: 10px;
+  padding: 11px 15px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink-strong);
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+}
+.tok .nd {
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
+  background: var(--brand);
+  opacity: 0.5;
+  display: inline-block;
+}
+.tok-more {
+  background: var(--wash);
+  color: var(--brand-ink);
+  box-shadow: none;
+}
+
+/* JOB SECTIONS */
+.jobs-intro {
+  max-width: 660px;
+}
+.jobs-intro h2 {
+  font-size: clamp(32px, 4vw, 46px);
+  margin-top: 16px;
+}
+.job {
+  display: grid;
+  grid-template-columns: 1fr 1.08fr;
+  gap: 56px;
+  align-items: center;
+  padding: 60px 0;
+}
+.job.flip .job-copy {
+  order: 2;
+}
+.job.flip .job-art {
+  order: 1;
+}
+.job-copy .quote {
+  font-size: clamp(20px, 2.3vw, 25px);
+  line-height: 1.5;
+  color: var(--ink-strong);
+  font-weight: 500;
+  margin-top: 18px;
+}
+.job-copy .quote b {
+  color: var(--ink-max);
+  font-weight: 600;
+}
+.job-role {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 22px;
+}
+.job-role .ric {
+  width: 40px;
+  height: 40px;
+  border-radius: 11px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.job-role .rt {
+  font-weight: 600;
+  color: var(--ink-strong);
+  font-size: 15px;
+}
+.job-role .rt span {
+  color: var(--muted);
+  font-weight: 400;
+}
+.tool-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 16px;
+}
+.tool-tags .tt {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--muted);
+  background: var(--surface-2);
+  padding: 5px 10px;
+  border-radius: 7px;
+}
+
+/* email / mail card artifact */
+.mail {
+  background: var(--surface);
+  border-radius: 16px;
+  box-shadow: var(--sh-3);
+  overflow: hidden;
+}
+.mail-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 18px 14px;
+}
+.mail-from {
+  line-height: 1.3;
+  min-width: 0;
+}
+.mail-from .fn {
+  font-weight: 600;
+  color: var(--ink-strong);
+  font-size: 14.5px;
+}
+.mail-from .fa {
+  font-size: 12.5px;
+  color: var(--faint);
+}
+.mail-date {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--faint);
+  white-space: nowrap;
+  flex: none;
+}
+.mail-subj {
+  padding: 2px 18px 14px;
+  font-family: var(--font-disp);
+  font-weight: 600;
+  color: var(--ink-max);
+  font-size: 17px;
+}
+.mail-body {
+  padding: 16px 18px 18px;
+  border-top: 1px solid var(--line-soft);
+  font-size: 14.5px;
+  color: var(--ink);
+  line-height: 1.6;
+}
+.mail-body p + p {
+  margin-top: 11px;
+}
+.mini-note {
+  font-size: 12.5px;
+  color: var(--faint);
+  margin-top: 4px;
+}
+.sign {
+  margin-top: 12px;
+  font-size: 13.5px;
+  color: var(--muted);
+}
+.sign b {
+  color: var(--ink-strong);
+}
+
+/* ranked table */
+.rank {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 6px;
+  font-size: 13px;
+}
+.rank th {
+  text-align: left;
+  font-weight: 600;
+  color: var(--faint);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  padding: 8px 10px;
+  background: var(--surface-2);
+}
+.rank th:first-child {
+  border-top-left-radius: 8px;
+}
+.rank th:last-child {
+  border-top-right-radius: 8px;
+}
+.rank td {
+  padding: 9px 10px;
+  border-bottom: 1px solid var(--line-soft);
+  vertical-align: top;
+}
+.rank tr:last-child td {
+  border-bottom: none;
+}
+.rank .rk {
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  background: var(--indigo);
+  color: #fff;
+  font-weight: 600;
+  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.rank .addr {
+  font-weight: 600;
+  color: var(--ink-strong);
+}
+.rank .cap {
+  color: var(--teal-deep);
+  font-weight: 600;
+}
+.rank .why {
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+/* csv preview grid */
+.csv {
+  margin-top: 14px;
+  background: var(--surface);
+  border-radius: 12px;
+  box-shadow: var(--sh-2);
+  overflow: hidden;
+}
+.csv-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 13px;
+  background: var(--surface-2);
+  font-size: 12.5px;
+}
+.csv-top .nm {
+  font-weight: 600;
+  color: var(--ink-strong);
+}
+.csv-top .mt {
+  color: var(--faint);
+}
+.csv table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.csv .cc {
+  width: 26px;
+  color: var(--faint);
+  font-size: 10px;
+  text-align: center;
+  background: var(--surface-2);
+  font-weight: 600;
+}
+.csv thead td {
+  color: var(--faint);
+  font-weight: 600;
+  font-size: 10.5px;
+  background: #fffdfb;
+}
+.csv td {
+  padding: 6px 9px;
+  border-right: 1px solid var(--line-soft);
+  border-bottom: 1px solid var(--line-soft);
+  color: var(--ink);
+}
+.csv td.num {
+  color: var(--ink-strong);
+  font-weight: 600;
+}
+.csv tr td:last-child {
+  border-right: none;
+}
+
+/* lead rows (reed) */
+.lead-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+.lead-row:last-child {
+  border-bottom: none;
+}
+.lead-row .lnm {
+  font-weight: 600;
+  color: var(--ink-strong);
+  font-size: 13.5px;
+}
+.lead-row .lco {
+  font-size: 12px;
+  color: var(--faint);
+}
+.lead-row .st {
+  margin-left: auto;
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 4px 9px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+/* Chip label is text sitting on a tint, so: ink step, 5.13:1.
+   Was the fill step at 3.99:1. */
+.st-rep {
+  background: rgba(0, 179, 179, 0.13);
+  color: var(--brand-ink);
+}
+.st-drf {
+  background: var(--surface-3);
+  color: var(--muted);
+}
+
+/* kpi tiles (wren) */
+.kpis {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-top: 4px;
+}
+.kpi {
+  background: var(--surface-2);
+  border-radius: 11px;
+  padding: 13px 13px 12px;
+}
+.kpi .lab {
+  font-size: 11.5px;
+  color: var(--muted);
+  font-weight: 600;
+}
+.kpi .val {
+  font-family: var(--font-disp);
+  font-weight: 600;
+  font-size: 23px;
+  color: var(--ink-max);
+  margin-top: 3px;
+  line-height: 1;
+}
+.kpi .dl {
+  font-size: 11.5px;
+  font-weight: 600;
+  margin-top: 7px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.kpi .dl .lb2 {
+  color: var(--faint);
+  font-weight: 500;
+}
+.dl.up {
+  color: var(--good);
+}
+.dl.warn {
+  color: var(--bad);
+}
+.arrow {
+  font-size: 10px;
+}
+
+/* MEET THE AGENTS roster */
+.roster {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  margin-top: 40px;
+}
+.rcard {
+  background: var(--surface);
+  border-radius: var(--r);
+  box-shadow: var(--sh-2);
+  padding: 22px 22px 20px;
+  display: flex;
+  gap: 16px;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+.rcard:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--sh-3);
+}
+.rcard .rc-av {
+  position: relative;
+  flex: none;
+}
+.rc-badge {
+  position: absolute;
+  right: -5px;
+  bottom: -5px;
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--sh-1), 0 0 0 1px rgba(27, 49, 57, 0.06);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.rc-body {
+  min-width: 0;
+}
+.rc-name {
+  font-family: var(--font-disp);
+  font-weight: 600;
+  font-size: 18px;
+  color: var(--ink-max);
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  flex-wrap: wrap;
+}
+.rc-role {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.rc-desc {
+  font-size: 14px;
+  color: var(--muted);
+  margin-top: 8px;
+  line-height: 1.5;
+}
+.rc-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+}
+.rc-tools .tt {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--ink-strong);
+  background: var(--surface-2);
+  padding: 4px 9px;
+  border-radius: 6px;
+}
+.rc-get {
+  font-size: 12.5px;
+  color: var(--brand-ink);
+  font-weight: 600;
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.rc-get .ck {
+  flex: none;
+}
+.rcard.build {
+  background: var(--wash);
+  align-items: center;
+  text-align: left;
+}
+.rcard.build .bh {
+  font-family: var(--font-disp);
+  font-weight: 600;
+  font-size: 18px;
+  color: var(--ink-max);
+}
+.rcard.build .bp {
+  font-size: 14px;
+  color: var(--muted);
+  margin-top: 6px;
+}
+.rcard.build a.bl {
+  margin-top: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--brand-ink);
+  font-weight: 600;
+  font-size: 14px;
+}
+.build-mark {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: var(--sh-1), 0 0 0 1px rgba(27, 49, 57, 0.05);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+
+/* HOW IT WORKS staircase */
+.stair {
+  margin-top: 44px;
+  position: relative;
+}
+.stair:before {
+  content: "";
+  position: absolute;
+  left: 19px;
+  top: 14px;
+  bottom: 26px;
+  width: 2px;
+  /* A connector rule, so it's a hairline — Databricks uses #DCE0E2 exactly
+     this way for rows and rails. It was a fading teal gradient. */
+  background: var(--line);
+  border-radius: 2px;
+}
+.step {
+  display: grid;
+  grid-template-columns: 40px 1fr 0.9fr;
+  gap: 22px;
+  align-items: start;
+  padding: 20px 0 30px;
+}
+.step .node {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--surface);
+  z-index: 1;
+  box-shadow: var(--sh-1), 0 0 0 1px rgba(27, 49, 57, 0.06);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--brand);
+  font-family: var(--font-disp);
+  font-weight: 600;
+  font-size: 16px;
+}
+.step h3 {
+  font-size: 21px;
+  font-weight: 600;
+  color: var(--ink-max);
+}
+.step p {
+  color: var(--muted);
+  font-size: 15.5px;
+  margin-top: 8px;
+  max-width: 420px;
+}
+.step-art {
+  align-self: center;
+}
+.mini {
+  background: var(--surface);
+  border-radius: 12px;
+  box-shadow: var(--sh-2);
+  padding: 14px 15px;
+  font-size: 13px;
+}
+.mini .ml {
+  font-size: 11px;
+  color: var(--faint);
+  font-weight: 600;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.mini .brief {
+  color: var(--ink);
+  line-height: 1.5;
+}
+.mini .approw {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: 2px;
+}
+.mini .apbtn {
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 6px 11px;
+  border-radius: 7px;
+}
+.apbtn.ok {
+  background: var(--brand-btn);
+  color: #fff;
+}
+.apbtn.no {
+  background: var(--surface-2);
+  color: var(--muted);
+}
+.mini .deliv {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.mini .deliv .dv {
+  font-weight: 600;
+  color: var(--ink-strong);
+}
+.reassure {
+  margin-top: 14px;
+  margin-left: 62px;
+  display: inline-flex;
+  align-items: center;
+  gap: 11px;
+  background: var(--wash);
+  color: var(--brand-ink);
+  font-weight: 600;
+  padding: 12px 18px;
+  border-radius: 11px;
+  font-size: 15px;
+}
+
+/* PROOF */
+.proof-grid {
+  display: grid;
+  grid-template-columns: 0.92fr 1.08fr;
+  gap: 52px;
+  align-items: center;
+  margin-top: 14px;
+}
+.proof-copy h2 {
+  font-size: clamp(30px, 3.8vw, 44px);
+  margin-top: 16px;
+}
+.proof-copy p {
+  color: var(--muted);
+  font-size: 18px;
+  margin-top: 18px;
+  line-height: 1.6;
+}
+.proof-copy p b {
+  color: var(--ink-strong);
+  font-weight: 600;
+}
+.proof-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: 22px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  background: var(--surface);
+  box-shadow: var(--sh-1), 0 0 0 1px rgba(27, 49, 57, 0.05);
+  padding: 8px 13px;
+  border-radius: 9px;
+}
+.proof-label .pd {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--brand);
+}
+.proof-stat {
+  display: flex;
+  gap: 26px;
+  margin-top: 24px;
+  flex-wrap: wrap;
+}
+.proof-stat .ps .n {
+  font-family: var(--font-disp);
+  font-weight: 600;
+  font-size: 27px;
+  color: var(--brand-ink);
+}
+.proof-stat .ps .l {
+  font-size: 13px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+/* TRUST strip */
+.trust {
+  background: var(--dark);
+  color: #fff;
+}
+.trust h2 {
+  color: #fff;
+  font-size: clamp(28px, 3.6vw, 40px);
+  max-width: 760px;
+}
+.trust .eyebrow {
+  color: #7fe3e3;
+}
+.trust .eyebrow .tick {
+  background: #00d4d4;
+  box-shadow: 0 0 0 4px rgba(0, 212, 212, 0.18);
+}
+.trust-rows {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 34px;
+  margin-top: 44px;
+}
+.trust-item {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.trust-item .tic {
+  width: 46px;
+  height: 46px;
+  border-radius: 13px;
+  background: rgba(255, 255, 255, 0.07);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #22c9c9;
+}
+.trust-item h3 {
+  color: #fff;
+  font-size: 18px;
+  font-weight: 600;
+}
+.trust-item p {
+  color: #b0c2c6;
+  font-size: 15px;
+  line-height: 1.55;
+}
+.trust-sep {
+  border: none;
+  border-top: 1px solid var(--dark-line);
+  margin: 0;
+}
+
+/* PLANS */
+.plans {
+  text-align: center;
+}
+.plans h2 {
+  font-size: clamp(32px, 4vw, 46px);
+  margin-top: 16px;
+}
+.plans .lede {
+  margin: 18px auto 0;
+}
+.price-focal {
+  margin: 36px auto 0;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  background: var(--surface);
+  box-shadow: var(--sh-3);
+  border-radius: 18px;
+  padding: 30px 46px;
+  position: relative;
+}
+.price-focal .pv {
+  font-family: var(--font-disp);
+  font-weight: 600;
+  font-size: 52px;
+  color: var(--ink-max);
+  letter-spacing: -0.02em;  /* 52px — display size, optical correction */
+  line-height: 1;
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+}
+.price-focal .pv .cur {
+  font-size: 28px;
+  color: var(--brand-ink);
+}
+.price-focal .pv .per {
+  font-size: 17px;
+  color: var(--muted);
+  font-weight: 600;
+  font-family: var(--font-body);
+}
+.price-focal .pl {
+  font-size: 14.5px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+.price-focal .grow {
+  margin-top: 14px;
+  font-size: 13.5px;
+  color: var(--faint);
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.price-focal .grow .gd {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--brand);
+  opacity: 0.6;
+}
+.plans-cta {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin-top: 32px;
+  flex-wrap: wrap;
+}
+
+/* FAQ */
+.faq {
+  max-width: 820px;
+  margin: 0 auto;
+}
+.faq h2 {
+  text-align: center;
+  font-size: clamp(30px, 3.8vw, 44px);
+}
+.faq-list {
+  margin-top: 36px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+details.qa {
+  background: var(--surface);
+  border-radius: 12px;
+  box-shadow: var(--sh-1), 0 0 0 1px rgba(27, 49, 57, 0.045);
+  overflow: hidden;
+  transition: box-shadow 0.18s;
+}
+details.qa[open] {
+  box-shadow: var(--sh-2);
+}
+details.qa summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 19px 22px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-weight: 600;
+  color: var(--ink-strong);
+  font-size: 16.5px;
+}
+details.qa summary::-webkit-details-marker {
+  display: none;
+}
+.qa .chev {
+  margin-left: auto;
+  flex: none;
+  color: var(--brand);
+  transition: transform 0.2s;
+  display: inline-flex;
+}
+details.qa[open] .chev {
+  transform: rotate(180deg);
+}
+.qa .ans {
+  padding: 0 22px 20px 56px;
+  color: var(--muted);
+  font-size: 15.5px;
+  line-height: 1.62;
+}
+.qa .qn {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: var(--wash);
+  color: var(--brand-ink);
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 13px;
+  font-family: var(--font-disp);
+}
+
+/* MISSION band */
+.mission {
+  background: var(--dark);
+  color: #fff;
+  text-align: center;
+}
+/* Flat dark band, no radial glow. Same reasoning as the hero. */
+.mission .wrap {
+  position: relative;
+  z-index: 1;
+}
+.mission h2 {
+  color: #fff;
+  font-size: clamp(32px, 4.4vw, 50px);
+  max-width: 820px;
+  margin: 0 auto;
+}
+.mission p {
+  color: #bccdd1;
+  font-size: 19px;
+  max-width: 620px;
+  margin: 20px auto 0;
+  line-height: 1.6;
+}
+.mission-cta {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin-top: 34px;
+  flex-wrap: wrap;
+}
+
+/* FOUNDER close */
+.founder {
+  background: var(--surface);
+}
+.founder-card {
+  max-width: 820px;
+  margin: 0 auto;
+  text-align: center;
+}
+.founder .mk {
+  margin: 0 auto 26px;
+  width: 60px;
+  height: 60px;
+}
+.founder-note {
+  font-family: var(--font-disp);
+  font-weight: 600;
+  font-size: clamp(21px, 2.6vw, 27px);
+  line-height: 1.5;
+  color: var(--ink-strong);
+}
+.founder-note b {
+  color: var(--ink-max);
+}
+.sig-wrap {
+  margin-top: 30px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--ink-strong);
+}
+.sig-mark {
+  width: 26px;
+  height: 2px;
+  background: var(--brand);
+  border-radius: 2px;
+  flex: none;
+}
+.sig-name {
+  font-family: var(--font-disp);
+  font-weight: 600;
+  font-size: 17px;
+  color: var(--ink-max);
+}
+.sig-name span {
+  font-family: var(--font-body);
+  font-weight: 500;
+  color: var(--muted);
+  font-size: 14.5px;
+  margin-left: 4px;
+}
+
+/* FOOTER */
+footer.ft {
+  background: var(--dark);
+  color: #c4d0d3;
+}
+.ft-top {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr 1fr;
+  gap: 40px;
+  padding: 64px 0 44px;
+}
+.ft-tag {
+  color: #9db4c6;
+  font-size: 15px;
+  margin-top: 18px;
+  max-width: 320px;
+  line-height: 1.6;
+}
+.ft-col h4 {
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  margin: 0 0 14px;
+}
+.ft-col a {
+  display: block;
+  color: #a7b8bc;
+  font-size: 14.5px;
+  padding: 5px 0;
+}
+.ft-col a:hover {
+  color: #fff;
+}
+.ft-bot {
+  border-top: 1px solid var(--dark-line);
+  padding: 22px 0 34px;
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+.ft-copy {
+  font-size: 13px;
+  color: #93a7ac;
+}
+.ft-disc {
+  font-size: 12px;
+  color: #8fa3a8;
+  max-width: 640px;
+  line-height: 1.5;
+}
+.ft-disc .flag {
+  color: #bcccd0;
+  font-weight: 600;
+}
+
+/* responsive */
+@media (max-width: 920px) {
+  .nav-links,
+  .nav-cta .btn-ghost {
+    display: none;
+  }
+  .nav-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: auto;
+    background: none;
+    border: none;
+    padding: 8px;
+    cursor: pointer;
+    color: var(--ink-strong);
+    border-radius: 8px;
+  }
+  .nav-cta {
+    margin-left: 0;
+  }
+  .nav-panel {
+    display: none;
+    position: absolute;
+    top: 70px;
+    left: 0;
+    right: 0;
+    background: var(--surface);
+    box-shadow: var(--sh-3);
+    flex-direction: column;
+    padding: 14px 28px 22px;
+    gap: 6px;
+    border-top: 1px solid var(--line-soft);
+  }
+  .nav-panel.open {
+    display: flex;
+  }
+  .nav-panel a:not(.btn) {
+    padding: 11px 0;
+    color: var(--ink-strong);
+    font-weight: 500;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .nav-panel .btn {
+    margin-top: 10px;
+    width: 100%;
+  }
+  .hero-grid,
+  .tools-grid,
+  .job,
+  .job.flip,
+  .proof-grid {
+    grid-template-columns: 1fr;
+    gap: 36px;
+  }
+  .job.flip .job-copy,
+  .job.flip .job-art {
+    order: 0;
+  }
+  .roster,
+  .trust-rows,
+  .kpis {
+    grid-template-columns: 1fr;
+  }
+  .kpis {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .step {
+    grid-template-columns: 36px 1fr;
+    gap: 16px;
+  }
+  .step-art {
+    grid-column: 2;
+    margin-top: 14px;
+  }
+  .ft-top {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+@media (max-width: 560px) {
+  body {
+    font-size: 16px;
+  }
+  .wrap {
+    padding: 0 20px;
+  }
+  .nav-in {
+    gap: 12px;
+    height: 64px;
+  }
+  .lockup-word {
+    font-size: 17px;
+  }
+  .nav .btn {
+    padding: 11px 16px;
+    font-size: 14px;
+  }
+  .sec {
+    padding: 64px 0;
+  }
+  .hero {
+    padding: 44px 0 62px;
+  }
+  .kpis {
+    grid-template-columns: 1fr;
+  }
+  .ft-top {
+    grid-template-columns: 1fr;
+  }
+  .roster {
+    gap: 14px;
+  }
+  .price-focal {
+    padding: 26px 30px;
+  }
+  .trust-rows {
+    gap: 26px;
+  }
+  .nav-panel {
+    top: 64px;
+  }
+}
+
+/* motion: one hero moment only, opt-in when motion allowed */
+@media (prefers-reduced-motion: no-preference) {
+  .anim {
+    opacity: 0;
+    transform: translateY(8px);
+    animation: rise 0.5s ease forwards;
+  }
+  .a1 {
+    animation-delay: 0.15s;
+  }
+  .a2 {
+    animation-delay: 0.65s;
+  }
+  .a3 {
+    animation-delay: 1.25s;
+  }
+  .a4 {
+    animation-delay: 2.35s;
+  }
+  .typing.anim {
+    animation: rise 0.4s ease forwards, fade-out 0.3s ease 2.15s forwards;
+  }
+  .pill-live .ld {
+    animation: ping 2s infinite;
+  }
+  @keyframes rise {
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  @keyframes fade-out {
+    to {
+      opacity: 0;
+      height: 0;
+      padding: 0;
+      margin: 0;
+    }
+  }
+  @keyframes ping {
+    0% {
+      box-shadow: 0 0 0 0 rgba(0, 179, 179, 0.5);
+    }
+    70% {
+      box-shadow: 0 0 0 7px rgba(0, 179, 179, 0);
+    }
+    100% {
+      box-shadow: 0 0 0 0 rgba(0, 179, 179, 0);
+    }
+  }
+}
+
+/* ===========================================================================
+   Shared helpers used by /privacy, /terms, /contact (re-themed to light).
+   These pages keep their legal copy; only the surface treatment updates so
+   they sit coherently under the new nav + footer.
+   =========================================================================== */
+.label-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.005em;
+  color: var(--brand-ink);
+  background: var(--wash);
+  border-radius: 999px;
+  padding: 6px 14px;
+}
+.section-glow {
+  position: relative;
+}
+.glass-card {
+  background: var(--surface);
+  box-shadow: var(--sh-2);
+  border-radius: var(--r);
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+.glass-card:hover {
+  box-shadow: var(--sh-3);
+}
+
+/* ===========================================================================
+   DOCUMENTATION (/docs)
+   ---------------------------------------------------------------------------
+   Databricks' three-column docs structure — grouped sidebar, content, on-this-
+   page rail — in our own tokens. Nothing new is invented here: the ground,
+   hairline, ink steps, teal and shadows are all the site's existing values, so
+   the docs read as the same product rather than a bolted-on help site.
+
+   The rails are hairline-separated rather than boxed. A docs sidebar sitting
+   in a card is the tell that someone reached for a component instead of a
+   layout.
+   =========================================================================== */
+
+.docs-grid {
+  display: grid;
+  gap: 0;
+  grid-template-columns: 1fr;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 28px;
+}
+@media (min-width: 1024px) {
+  .docs-grid {
+    grid-template-columns: 216px minmax(0, 1fr);
+    gap: 48px;
+  }
+}
+@media (min-width: 1320px) {
+  /* The on-this-page rail only earns its width when there is width to spare.
+     Below this it would squeeze the measure, and the measure is the page. */
+  .docs-grid {
+    grid-template-columns: 216px minmax(0, 1fr) 190px;
+    gap: 56px;
+  }
+}
+
+/* --- the rails ---------------------------------------------------------- */
+.docs-side,
+.docs-toc {
+  display: none;
+}
+@media (min-width: 1024px) {
+  .docs-side {
+    display: block;
+    position: sticky;
+    top: 96px;
+    align-self: start;
+    max-height: calc(100vh - 128px);
+    overflow-y: auto;
+    padding-right: 8px;
+    border-right: 1px solid var(--line);
+  }
+}
+@media (min-width: 1320px) {
+  .docs-toc {
+    display: block;
+    position: sticky;
+    top: 96px;
+    align-self: start;
+    border-left: 1px solid var(--line);
+    padding-left: 20px;
+  }
+}
+
+.docs-side-group + .docs-side-group {
+  margin-top: 22px;
+}
+.docs-side-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.docs-side ul,
+.docs-toc ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.docs-side a,
+.docs-toc a {
+  display: block;
+  font-size: 13.5px;
+  line-height: 1.35;
+  color: var(--ink);
+  text-decoration: none;
+  padding: 5px 0 5px 11px;
+  /* The active marker is a left rule that is always present and usually
+     transparent, so nothing shifts by a pixel when it lights up. */
+  border-left: 2px solid transparent;
+  margin-left: -13px;
+  transition: color 0.14s ease, border-color 0.14s ease;
+}
+.docs-side a:hover,
+.docs-toc a:hover {
+  color: var(--ink-max);
+}
+.docs-side a.is-here,
+.docs-toc a.is-here {
+  color: var(--brand-ink);
+  border-left-color: var(--brand);
+  font-weight: 500;
+}
+
+/* --- content ------------------------------------------------------------ */
+.docs-body {
+  max-width: 68ch;
+}
+.docs-sec {
+  scroll-margin-top: 96px;
+  padding-top: 40px;
+  margin-top: 40px;
+  border-top: 1px solid var(--line);
+}
+/* first-of-type, NOT first-child: the "jump to a section" disclosure is the
+   first child of the body, so :first-child never matched and the opening
+   section drew a rule directly under the disclosure's own bottom border. Two
+   hairlines a few pixels apart reads as a mistake, because it is one. */
+.docs-sec:first-of-type {
+  padding-top: 0;
+  margin-top: 0;
+  border-top: 0;
+}
+.docs-sec > h2 {
+  font-size: 27px;
+  font-weight: 500;
+  line-height: 1.2;
+  color: var(--ink-max);
+  margin-bottom: 6px;
+}
+.docs-sec > .docs-sec-lede {
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--muted);
+  margin-bottom: 22px;
+}
+.docs-q {
+  margin-top: 26px;
+}
+.docs-q > h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ink-strong);
+  margin-bottom: 6px;
+}
+.docs-q p {
+  font-size: 15px;
+  line-height: 1.65;
+  color: var(--ink);
+}
+.docs-q p + p {
+  margin-top: 10px;
+}
+.docs-q strong {
+  font-weight: 600;
+  color: var(--ink-max);
+}
+
+/* Anchor handle: present for everyone, visible on hover or keyboard focus.
+   Docs get linked to section by section, so the link has to be reachable
+   without guessing the id. */
+.docs-anchor {
+  margin-left: 8px;
+  font-size: 15px;
+  color: var(--brand);
+  text-decoration: none;
+  opacity: 0;
+  transition: opacity 0.14s ease;
+}
+.docs-sec > h2:hover .docs-anchor,
+.docs-anchor:focus-visible {
+  opacity: 1;
+}
+
+/* --- callout ------------------------------------------------------------ */
+/* The one teal-tinted ground, a teal rule, no box. Reserved for things that
+   are true and load-bearing, not for decoration: overuse turns it into
+   wallpaper and the next real warning gets skimmed. */
+.docs-note {
+  background: var(--wash);
+  border-left: 3px solid var(--brand);
+  border-radius: 0 10px 10px 0;
+  padding: 14px 18px;
+  margin-top: 18px;
+}
+.docs-note p {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--ink-strong);
+  margin: 0;
+}
+.docs-note p + p {
+  margin-top: 8px;
+}
+
+/* --- mobile contents ---------------------------------------------------- */
+.docs-jump {
+  display: block;
+  margin-bottom: 8px;
+}
+@media (min-width: 1024px) {
+  .docs-jump {
+    display: none;
+  }
+}
+.docs-jump summary {
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink-strong);
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+.docs-jump ul {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  columns: 2;
+  column-gap: 24px;
+}
+.docs-jump a {
+  display: block;
+  font-size: 14px;
+  padding: 5px 0;
+  color: var(--ink);
+  text-decoration: none;
+}

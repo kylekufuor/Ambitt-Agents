@@ -18,10 +18,9 @@ written consent from the Indian Type Foundry that we do not have.
 satoshi-var.woff2 here is byte-identical to the client portal's copy
 (client-portal/public/fonts/satoshi-var.woff2, git blob b00e833e).
 
-The editorial pages (website/editorial/*.html) also carry Satoshi, as
-Fontshare's four static cuts (400, 500, 700, 900) inlined as base64 data
-URIs. Each decodes byte-for-byte to the file Fontshare's own CSS API
-serves for that weight (sha256 compared 2026-09-10). Base64 is a transport
-encoding, not a change to the font, so the same rule holds: never
-re-export, subset or optimise those cuts. Replace them only with fresh,
-unmodified files from Fontshare.
+The editorial pages (app/(editorial)/, `/` and `/use-cases`) load this same
+file through next/font/local, which copies it into the build unchanged. They
+used to carry Fontshare's four static cuts inlined as base64; those are gone,
+so the whole site now ships exactly one Satoshi file. The rule is unchanged:
+never re-export, subset or optimise it. Replace it only with a fresh,
+unmodified download from Fontshare.

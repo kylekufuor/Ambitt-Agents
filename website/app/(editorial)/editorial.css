@@ -1,0 +1,1069 @@
+/* =====================================================================================
+   AMBITT AGENTS — "THE CASE, MADE IN PRINT"  ·  editorial design system, v2
+   One stylesheet. Two pages. Column discipline over decoration.
+
+   TYPE — the pairing and why it isn't the default AI-editorial move:
+   Satoshi carries every structural voice on the page: nav, labels, captions, running
+   body copy, buttons. Newsreader — a variable optical-size serif built by Production
+   Type for on-screen reading, not a decorative display face — is admitted for exactly
+   two jobs: the argument headlines (roman) and the pull quotes (italic, a true drawn
+   italic, never an obliqued roman). Everywhere else stays Satoshi. That restriction is
+   the point: the common AI "editorial" tell is a display serif dragged into every
+   heading and card title because it "looks literary." Here the serif only shows up
+   where a claim is being MADE — a headline or a quoted sentence — and disappears the
+   rest of the time. font-optical-sizing:auto (MDN, Web/CSS/font-optical-sizing) lets
+   the opsz axis track element font-size automatically, so the same file reads correct
+   at a 13px caption-adjacent quote and a 90px hero line without swapping styles.
+
+   RESEARCHED, NOT RECALLED — techniques and their sources:
+   [R1] text-wrap:pretty prevents runts/orphans on the last line of a paragraph; Chrome/
+        Edge 117+ and Safari 26+ support it, Firefox does not yet (Sept 2026) — used as
+        a no-op progressive enhancement on every <p> and headline.
+        (developer.mozilla.org/en-US/docs/Web/CSS/text-wrap; caniuse.com/mdn-css_properties_text-wrap_pretty)
+   [R2] hanging-punctuation:first is Safari-only; applied to the pull-quote's opening
+        mark so the glyph sits outside the measure instead of indenting the text block —
+        true progressive enhancement, invisible where unsupported.
+        (css-tricks.com/almanac/properties/h/hanging-punctuation)
+   [R3] initial-letter (-webkit-initial-letter fallback) drives the single drop cap on
+        the page, sized 3 lines deep, so it hangs from the cap height rather than being
+        faked with a floated oversized span.
+        (carmenansio.com/articles/editorial-typography-css)
+   [R4] Column measure and grid discipline: body copy capped near 65-70ch; "no
+        three-equal-columns" — one column is made to dominate, others support, per the
+        editorial-grid literature (designmd.app/library/editorial-grid-magazine). We
+        hold to the brief's 65ch spec rather than that source's 72ch.
+   [R5] Layered, hue-matched shadow stacks — opacity falling as blur grows, colour
+        drawn from the ground's own hue rather than hsl(0 0% 0%) — so elevation reads
+        as light, not a grey smear. Standard reference: Josh W. Comeau, "Designing
+        Beautiful Shadows in CSS" (joshwcomeau.com/css/designing-shadows). This is how
+        every card, artifact and callout in this file separates from the page: by
+        elevation, never a grey 1px border.
+   [R6] Restrained entrance-only motion: IntersectionObserver at threshold 0.15 fires a
+        single 8px-rise + fade, no repeat, no scroll-linked transform. Easing is a
+        strong custom ease-out, not the built-in `ease` (too weak for UI motion) — the
+        curve and the "don't use built-in easings" rule are Emil Kowalski's documented
+        animation standards (github.com/emilkowalski/skills, animations.dev). This
+        direction explicitly does NOT use scroll-driven / pinned / parallax techniques;
+        the brief for this direction calls for stillness as the position.
+   ===================================================================================== */
+
+/* ---- type -------------------------------------------------------------------------
+   The faces are declared by next/font in ../layout.tsx, not here: Satoshi (variable,
+   the licensed file byte for byte), Newsreader (variable, roman + italic) and the Roboto
+   the Gmail thread uses. Each arrives as a CSS variable (--font-satoshi,
+   --font-newsreader, --font-roboto-gmail) carrying its own metric-matched fallback. */
+
+/* ---- tokens ------------------------------------------------------------------------
+   Nothing pure black, nothing pure white. Every neutral carries a ~178deg cool cast so
+   the teal reads as native to the palette rather than dropped on top of warm grey. */
+:root{
+  color-scheme:light dark;
+
+  --paper:#eef2f1;
+  --paper-sunk:#e5eae8;
+  --card:#f8fbfa;
+  --card-2:#fdfefe;
+  --ink:#132321;
+  --ink-2:#3d4e4b;
+  --ink-3:#556964;
+  --ink-4:#8b9c96;
+  --rule:hsl(168 12% 80%);
+  --rule-soft:hsl(168 12% 87%);
+
+  --teal:#00b3b3;
+  --teal-fill:#00807e;
+  --teal-ink:#00706f;
+  --teal-wash:hsl(178 46% 93%);
+  --teal-edge:hsl(178 40% 74%);
+  /* photography [POLISH item 1]: settling a photo band means tinting its scrim to
+     the page's own surface, not a foreign dark ink -- so it recomputes per theme
+     automatically off --paper, with a whisper of brand hue rather than a stacked
+     teal multiply layer (the old ::after) fighting the new grayscale/blur pass. */
+  --plate-tint:color-mix(in srgb, var(--paper) 90%, var(--teal-wash) 10%);
+  --ic-hl:var(--teal-fill);
+
+  --flag-ink:#8a4a12;
+  --flag-wash:hsl(32 55% 92%);
+
+  --agent-otto:#00807e;
+  --agent-arthur:#2c5a72;
+  --agent-wade:#7a5a2e;
+  --agent-priya:#5a4d78;
+  --notion-bm:#000000; --zendesk-bm:#03363D; --trello-bm:#0052CC;
+
+  --sh-1:0 1px 2px hsla(172,35%,8%,.06), 0 3px 7px -4px hsla(172,35%,8%,.10);
+  --sh-2:0 1px 3px hsla(172,35%,8%,.06), 0 10px 22px -12px hsla(172,35%,8%,.20);
+  --sh-3:0 3px 6px hsla(172,35%,8%,.05), 0 26px 48px -20px hsla(172,35%,8%,.28);
+
+  /* Framer-grade orchestration, quieter scale [POLISH]: three named curves, never
+     the built-ins (`ease`/`ease-in-out`/`linear` read as mechanical on real UI
+     motion -- Emil Kowalski's animation standards, github.com/emilkowalski/skills,
+     already cited above for [R6]). One curve per JOB, not per element. */
+  --ease-out-expo:cubic-bezier(.19,1,.22,1);  /* entrances: load sequence, masked
+                                                  headline reveals, section handoff */
+  --ease-out-quart:cubic-bezier(.25,1,.5,1);  /* hover / press micro-interactions,
+                                                  150-250ms */
+  --ease-in-out:cubic-bezier(.65,.05,.36,1);  /* discrete state changes: nav scroll
+                                                  state, theme toggle */
+  --e-out:var(--ease-out-quart); /* alias -- every pre-existing micro-interaction
+                                     transition below still reads var(--e-out) and
+                                     is, semantically, a hover-scale curve already */
+
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+  --measure:65ch;
+}
+
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#0c1615;
+    --paper-sunk:#091110;
+    --card:#121d1c;
+    --card-2:#17221f;
+    --ink:#e8f1ee;
+    --ink-2:#adc0ba;
+    --ink-3:#87988f;
+    --ink-4:#576863;
+    --rule:hsl(168 12% 24%);
+    --rule-soft:hsl(168 12% 18%);
+    --teal:#1fd0cf;
+    --teal-ink:#5fe0dd;
+    --teal-wash:hsl(178 40% 14%);
+    --teal-edge:hsl(178 34% 30%);
+    --ic-hl:var(--teal);
+    --flag-ink:#e0a868;
+    --flag-wash:hsl(32 40% 15%);
+    --agent-otto:#2fd6d1;
+    --agent-arthur:#7fb4d1;
+    --agent-wade:#d1a05c;
+    --agent-priya:#b2a0dc;
+    --notion-bm:#e9edee; --zendesk-bm:#8ccfd9; --trello-bm:#88aadd;
+    --sh-1:0 1px 2px hsla(172,60%,1%,.5), 0 3px 8px -4px hsla(172,60%,1%,.55);
+    --sh-2:0 2px 4px hsla(172,60%,1%,.5), 0 14px 30px -14px hsla(172,60%,1%,.6);
+    --sh-3:0 4px 10px hsla(172,60%,1%,.5), 0 34px 60px -22px hsla(172,60%,1%,.65);
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#0c1615; --paper-sunk:#091110; --card:#121d1c; --card-2:#17221f;
+  --ink:#e8f1ee; --ink-2:#adc0ba; --ink-3:#87988f; --ink-4:#576863;
+  --rule:hsl(168 12% 24%); --rule-soft:hsl(168 12% 18%);
+  --teal:#1fd0cf; --teal-ink:#5fe0dd; --teal-wash:hsl(178 40% 14%); --teal-edge:hsl(178 34% 30%);
+  --ic-hl:var(--teal);
+  --flag-ink:#e0a868; --flag-wash:hsl(32 40% 15%);
+  --agent-otto:#2fd6d1; --agent-arthur:#7fb4d1; --agent-wade:#d1a05c; --agent-priya:#b2a0dc;
+  --notion-bm:#e9edee; --zendesk-bm:#8ccfd9; --trello-bm:#88aadd;
+  --sh-1:0 1px 2px hsla(172,60%,1%,.5), 0 3px 8px -4px hsla(172,60%,1%,.55);
+  --sh-2:0 2px 4px hsla(172,60%,1%,.5), 0 14px 30px -14px hsla(172,60%,1%,.6);
+  --sh-3:0 4px 10px hsla(172,60%,1%,.5), 0 34px 60px -22px hsla(172,60%,1%,.65);
+}
+
+/* ---- reset / base ------------------------------------------------------------------ */
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0; background:var(--paper); color:var(--ink);
+  font-family:var(--font-satoshi);
+  font-size:16px; line-height:1.5;
+  -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+  overflow-x:hidden;
+}
+img,svg{display:block; max-width:100%}
+a{color:inherit}
+button{font:inherit; color:inherit}
+::selection{background:var(--teal-wash); color:var(--ink)}
+:focus-visible{outline:2.5px solid var(--teal); outline-offset:3px; border-radius:3px}
+
+.wrap{max-width:1180px; margin-inline:auto; padding-inline:32px}
+@media (max-width:720px){ .wrap{padding-inline:20px} }
+
+.scroller{overflow-x:auto; -webkit-overflow-scrolling:touch}
+
+/* ---- typography ---------------------------------------------------------------------
+   Satoshi headings hold the brand rule: weight 500, ~110% leading, one accent word.
+   Newsreader headings run a parallel rule of their own: roman body, ONE word in the
+   italic cut for emphasis instead of colour — contrast carried by letterform, not ink. */
+.kicker{
+  font-size:.75rem; font-weight:500; letter-spacing:.09em; text-transform:uppercase;
+  color:var(--teal-ink);
+}
+.dek{
+  font-size:1.125rem; line-height:1.55; color:var(--ink-2); max-width:46ch;
+  text-wrap:pretty;
+}
+h1,h2,h3,h4{ margin:0; font-weight:500; text-wrap:pretty }
+.serif{ font-family:var(--font-newsreader); font-optical-sizing:auto }
+.serif em, em.accent{
+  font-style:italic; font-weight:450; color:inherit;
+}
+
+.h1{
+  font-family:var(--font-newsreader); font-optical-sizing:auto;
+  font-weight:440; line-height:1.03;
+  font-size:clamp(2.75rem, 2.05rem + 3.4vw, 5rem);
+  letter-spacing:clamp(-0.01em, -0.012em, -0.03em);
+  color:var(--ink);
+}
+.h2{
+  font-family:var(--font-newsreader); font-optical-sizing:auto;
+  font-weight:440; line-height:1.08;
+  font-size:clamp(2rem, 1.6rem + 1.9vw, 3rem);
+  letter-spacing:-0.012em;
+  color:var(--ink);
+}
+.h3{
+  font-family:var(--font-satoshi); font-weight:500; line-height:1.16;
+  font-size:clamp(1.375rem, 1.2rem + .8vw, 1.75rem);
+  letter-spacing:-0.006em;
+}
+.h4{ font-family:var(--font-satoshi); font-weight:500; line-height:1.2; font-size:1.125rem }
+
+p{ margin:0 0 1em; }
+.lead{ font-size:1.1875rem; line-height:1.6; color:var(--ink-2); max-width:var(--measure); text-wrap:pretty }
+.body-copy{ font-size:1rem; line-height:1.68; color:var(--ink-2); max-width:var(--measure); text-wrap:pretty }
+.body-copy:last-child{ margin-bottom:0 }
+.meta{ font-size:.8125rem; color:var(--ink-3); font-variant-numeric:tabular-nums }
+.mono{ font-family:var(--mono); font-size:.8125rem; letter-spacing:-.01em }
+
+/* drop cap — [R3]; used exactly once, on the opening paragraph of the opening spread */
+.drop::first-letter{
+  font-family:var(--font-newsreader); font-weight:460;
+  float:left; line-height:.86; margin:.02em .06em -.04em 0; color:var(--ink);
+  -webkit-initial-letter:3; initial-letter:3;
+  font-size:4.4em;
+}
+@supports not (initial-letter:3){
+  .drop::first-letter{ font-size:3.4em; }
+}
+
+/* pull quotes — [R2] hanging-punctuation, Newsreader italic, no colour bar */
+blockquote.pull{
+  margin:0; padding:0;
+  font-family:var(--font-newsreader); font-optical-sizing:auto;
+  font-style:italic; font-weight:440; color:var(--ink);
+  font-size:clamp(1.375rem, 1.15rem + 1vw, 1.75rem);
+  line-height:1.32; letter-spacing:-.006em;
+  hanging-punctuation:first allow-end;
+  text-wrap:pretty;
+}
+blockquote.pull cite{
+  display:block; margin-top:14px; font-style:normal; font-family:var(--font-satoshi);
+  font-size:.8125rem; font-weight:500; letter-spacing:.02em; color:var(--ink-3);
+}
+
+/* ---- icon system --------------------------------------------------------------------
+   Phosphor Duotone (MIT), swapped in for the hand-drawn stroke set — see the
+   sprite's own header comment for the full ruleset. Each symbol already carries
+   fill="currentColor" on itself, so colour comes from CSS `color`, never `fill`;
+   deliberately no `fill` declared here. --ic-hl (below, in :root) is now dead:
+   it belonged to the retired single-highlight stroke system and nothing in the
+   new sprite reads it. Left in place rather than hunted down across three
+   theme blocks for a variable that costs nothing sitting unused. */
+.ic{ width:22px; height:22px; flex:none }
+.ic-lg{ width:30px; height:30px }
+
+/* vendor marks — official multicolour logos (logo-sprite-color), never redrawn.
+   Deliberately no `fill` here either: these carry their own real brand colours
+   baked into each symbol, and a `fill` on the wrapper flattens them to one hue. */
+.brandmark{ width:22px; height:22px; transition:filter .22s var(--e-out) }
+
+/* ---- agent head avatar (from LOGO.html, tinted per agent — sanctioned reuse) -------
+   Same cross-use-boundary rule as above: body/eye colour is wired as fill="var(--av)"
+   / fill="var(--eye)" inside the symbol; this stylesheet only sets those two vars. */
+.avatar{ width:1em; height:1em; display:block; --eye:var(--card-2) }
+
+/* ---- nav ------------------------------------------------------------------------- */
+.masthead{
+  position:sticky; top:0; z-index:40;
+  background:color-mix(in srgb, var(--paper) 88%, transparent);
+  backdrop-filter:none; /* no glassmorphism — a plain hairline, not a blur */
+  border-bottom:1px solid transparent;
+  transition:background-color .25s var(--ease-in-out), border-color .25s var(--ease-in-out), box-shadow .25s var(--ease-in-out);
+}
+/* nav reacts [POLISH]: a quick, small state change once you leave the hero -- tighter,
+   more opaque, a hairline that only shows up once there is something to divide from.
+   Toggled by a rAF-throttled scroll listener (see _components/motion.tsx); the untouched state above
+   is already a complete, correct nav, so nothing depends on this firing. */
+.masthead.is-scrolled{
+  background:color-mix(in srgb, var(--paper) 97%, transparent);
+  border-bottom-color:var(--rule-soft);
+  box-shadow:var(--sh-1);
+}
+.masthead .wrap{
+  display:flex; align-items:center; justify-content:space-between; height:76px; gap:24px;
+  transition:height .25s var(--ease-in-out);
+}
+.masthead.is-scrolled .wrap{ height:60px }
+@media (prefers-reduced-motion:reduce){
+  .masthead, .masthead .wrap{ transition:none }
+}
+.brand{ display:inline-flex; align-items:center; gap:.6em; text-decoration:none; --logo-size:40px; flex:none; font-size:var(--logo-size); transition:font-size .25s var(--ease-in-out) }
+.masthead.is-scrolled .brand{ --logo-size:32px }
+.brand svg{ width:auto; height:1em; display:block; flex:none }
+/* 500, not the 420 this once said: the approved build loaded four static Satoshi faces
+   (400/500/700/900), and CSS font matching rounds a 420 request UP to the 500 face. On the
+   variable file 420 would render as a real, lighter 420, so 500 keeps the wordmark as approved. */
+.brand-word{ font-size:.8em; letter-spacing:-.02em; white-space:nowrap; color:var(--ink); font-weight:500 }
+.brand-word b{ font-weight:700; color:var(--teal-ink) }
+
+.navlinks{ display:flex; align-items:center; gap:30px; font-size:.9375rem }
+.navlinks a:not(.btn){ text-decoration:none; color:var(--ink-2); position:relative; padding:4px 0; white-space:nowrap }
+.navlinks a:not(.btn)::after{
+  content:""; position:absolute; left:0; right:100%; bottom:-2px; height:1.5px; background:var(--teal-ink);
+  transition:right .28s var(--e-out);
+}
+@media (hover:hover) and (pointer:fine){
+  .navlinks a:not(.btn):hover::after{ right:0 }
+  .navlinks a:not(.btn):hover{ color:var(--ink) }
+}
+.navlinks a[aria-current]{ color:var(--ink); font-weight:500 }
+.navspacer{ flex:1 }
+.themebtn{
+  border:1px solid var(--rule); background:var(--card); border-radius:7px;
+  padding:6px 11px; font-size:.75rem; color:var(--ink-3); cursor:pointer;
+  transition:border-color .2s, color .2s, background .2s;
+}
+.themebtn:hover{ border-color:var(--teal-edge); color:var(--teal-ink) }
+/* The label names the theme a click switches TO. It is pure CSS, driven by the same
+   data-theme / prefers-color-scheme pair as the palette, so it is correct before any
+   script runs rather than corrected after hydration. */
+.themebtn .to-light{ display:none }
+:root[data-theme="dark"] .themebtn .to-dark{ display:none }
+:root[data-theme="dark"] .themebtn .to-light{ display:inline }
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]) .themebtn .to-dark{ display:none }
+  :root:not([data-theme="light"]) .themebtn .to-light{ display:inline }
+}
+
+.btn{
+  display:inline-flex; align-items:center; gap:.5em; text-decoration:none;
+  font-size:.9375rem; font-weight:500; padding:11px 20px; border-radius:8px;
+  transition:transform .22s var(--e-out), box-shadow .22s var(--e-out), background .2s;
+  border:1px solid transparent; cursor:pointer;
+}
+.btn-primary{ background:var(--teal-fill); color:#f4fbfa; box-shadow:var(--sh-1) }
+.btn-primary:hover{ transform:translateY(-1.5px); box-shadow:var(--sh-2); background:var(--teal-ink) }
+.btn-primary:active{ transform:translateY(0) scale(.98) }
+.btn-ghost{ border-color:var(--rule); color:var(--ink-2); background:transparent }
+.btn-ghost:hover{ border-color:var(--teal-edge); color:var(--teal-ink) }
+.btn-ghost:active{ transform:scale(.98) }
+.btn-ghost .ic{ transition:transform .25s var(--ease-out-quart) }
+@media (hover:hover) and (pointer:fine){
+  .btn-ghost:hover .ic{ transform:translateX(3px) }
+}
+
+/* ---- section rhythm ----------------------------------------------------------------
+   Vertical gaps tied to viewport via clamp() rather than fixed breakpoints —
+   editorial-grid spacing rhythm [R4]. */
+.section{ padding-block:clamp(64px,9vw,128px) }
+.section-head{ margin-bottom:clamp(32px,5vw,56px); max-width:640px }
+.section + .section{ border-top:1px solid var(--rule-soft) }
+
+/* ---- section handoff [POLISH]: a short rule draws itself in at the top of most major
+   sections, rather than every block independently fading up (the template tell the
+   brief calls out). The static hairline above (.section + .section) is the honest,
+   always-present boundary; this is a small, livelier flourish layered on top of it,
+   never a replacement -- so a no-JS or reduced-motion visitor still sees a complete
+   72px rule, just not the draw. ---- */
+.rule-draw{
+  width:72px; height:2px; background:var(--teal-edge);
+  margin-bottom:clamp(28px,4vw,44px); transform-origin:0 50%;
+}
+html.js-anim .reveal.rule-draw{ transform:scaleX(0); transition:transform .8s var(--ease-out-expo) }
+html.js-anim .reveal.rule-draw.in{ transform:scaleX(1) }
+
+/* asymmetric grid — never three equal columns [R4] */
+.spread{ display:grid; grid-template-columns:0.86fr 1.14fr; gap:clamp(28px,4vw,64px); align-items:start }
+/* grid items default to min-width:auto (their min-content size); a wide non-wrapping
+   descendant -- the Gmail component's fixed-format meta row, in practice -- can then
+   force the whole 1fr track wider than the viewport. This is the standard fix. */
+.spread > *{ min-width:0 }
+.spread.rev{ grid-template-columns:1.14fr 0.86fr }
+.spread.rev > :first-child{ order:2 }
+@media (max-width:900px){
+  .spread,.spread.rev{ grid-template-columns:1fr }
+  .spread.rev > :first-child{ order:0 }
+}
+.label-col{ display:grid; gap:18px; align-content:start; position:sticky; top:100px }
+@media (max-width:900px){ .label-col{ position:static } }
+
+/* ---- reveal (entrance-only motion, [R6]) ---------------------------------------
+   Progressive enhancement, deliberately: content is visible by default. Only once
+   the JS confirms IntersectionObserver support and no reduced-motion preference does
+   it add .js-anim to <html> and pre-hide .reveal elements for the fade-up. No-JS,
+   slow-JS and reduced-motion visitors simply see the page — nothing ever depends on
+   a script to become visible. */
+html.js-anim .reveal{
+  opacity:0; transform:translateY(10px);
+  transition:opacity .6s var(--ease-out-expo), transform .6s var(--ease-out-expo);
+}
+html.js-anim .reveal.in{ opacity:1; transform:none }
+
+/* ---- staggered children [POLISH]: a .seq container hands its own fade off to its
+   direct children, each stepping in ~80-90ms after the last. Reuses the SAME
+   IntersectionObserver as .reveal (see _components/motion.tsx) rather than
+   a second motion system -- for above-the-fold content this delivers the "page
+   performs once on load" sequence for free, since the observer reports an
+   in-viewport element within a frame or two of first paint. .seq-cont is the same
+   ladder shifted later, for a second .seq picking the cascade up where a first one
+   left off (used once, hero copy -> hero artifact). ---- */
+html.js-anim .reveal.seq{ opacity:1; transform:none; transition:none }
+html.js-anim .reveal.seq > *{
+  opacity:0; transform:translateY(10px);
+  transition:opacity .6s var(--ease-out-expo), transform .6s var(--ease-out-expo);
+}
+html.js-anim .reveal.seq.in > *{ opacity:1; transform:none }
+html.js-anim .reveal.seq.in > *:nth-child(1){ transition-delay:.02s }
+html.js-anim .reveal.seq.in > *:nth-child(2){ transition-delay:.10s }
+html.js-anim .reveal.seq.in > *:nth-child(3){ transition-delay:.19s }
+html.js-anim .reveal.seq.in > *:nth-child(4){ transition-delay:.28s }
+html.js-anim .reveal.seq.in > *:nth-child(5){ transition-delay:.37s }
+html.js-anim .reveal.seq.in > *:nth-child(6){ transition-delay:.46s }
+html.js-anim .reveal.seq-cont.in > *:nth-child(1){ transition-delay:.36s }
+html.js-anim .reveal.seq-cont.in > *:nth-child(2){ transition-delay:.45s }
+
+/* ---- masked headline reveal [POLISH]: the one unmistakably "Framer" signature,
+   admitted into an otherwise-still page because it is typographic rather than
+   decorative -- a caption technique, not an effect. Each line sits in its own
+   overflow-hidden box and rises from below its own baseline; never an opacity
+   fade. Shares the .reveal/.in trigger, so hero lines are simply the first thing
+   the observer reports and every later h2/h3 repeats the same move as it scrolls
+   in. Resting state (no .js-anim) is translateY(0) -- fully composed, nothing
+   clipped -- so reduced-motion and no-JS visitors just read the words. ---- */
+.mask-line{ display:block; overflow:hidden; padding-block:.18em .1em; margin-block:-.18em -.1em }
+.mask-line > span{ display:block }
+html.js-anim .reveal .mask-line > span{
+  transform:translateY(112%);
+  transition:transform .75s var(--ease-out-expo);
+}
+html.js-anim .reveal.in .mask-line > span{ transform:translateY(0) }
+html.js-anim .reveal.in .mask-line:nth-of-type(2) > span{ transition-delay:.08s }
+html.js-anim .reveal.in .mask-line:nth-of-type(3) > span{ transition-delay:.16s }
+
+/* ---- the page performs once: the hero load sequence --------------------------------
+   Same rise, same curve and the same per-element delays as the hero's .reveal/.in pass
+   in the original single-file build, but as keyframes on .enter. The page is React now
+   and React hydrates after first paint; a JS-triggered entrance would paint the hero,
+   blank it, then replay it. Keyframes start on first paint with no script at all.
+   Everything below the fold keeps the .reveal/.in observer. Delays are inline
+   animation-delay values, exactly where the original set transition-delay. */
+@keyframes enter-rise{ from{ opacity:0; transform:translateY(10px) } to{ opacity:1; transform:none } }
+@keyframes enter-mask{ from{ transform:translateY(112%) } to{ transform:translateY(0) } }
+@media (prefers-reduced-motion:no-preference){
+  .enter{ animation:enter-rise .6s var(--ease-out-expo) both }
+  .enter .mask-line > span{ animation:enter-mask .75s var(--ease-out-expo) both }
+}
+
+/* ---- figures / artifacts --------------------------------------------------------- */
+figure{ margin:0 }
+figcaption{
+  margin-top:12px; font-size:.8125rem; color:var(--ink-3); display:flex; gap:8px; align-items:baseline;
+}
+figcaption .fno{ font-variant-numeric:tabular-nums; color:var(--ink-4); flex:none }
+
+.artifact{
+  background:var(--card); border-radius:11px; box-shadow:var(--sh-2);
+  overflow:hidden; position:relative;
+  transition:box-shadow .3s var(--ease-out-quart), transform .3s var(--ease-out-quart);
+}
+/* hover life [POLISH]: every card responds, including the illustrative product
+   shots -- a small lift and a deeper shadow, the same curve as the tool plates. */
+@media (hover:hover) and (pointer:fine){
+  .artifact:hover{ box-shadow:var(--sh-3); transform:translateY(-3px) }
+}
+.artifact::before{ /* specular edge, R5 */
+  content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none;
+  box-shadow:inset 0 1px 0 hsla(0,0%,100%,.5), inset 0 0 0 1px hsla(172,25%,10%,.05);
+}
+:root[data-theme="dark"] .artifact::before{ box-shadow:inset 0 1px 0 hsla(172,60%,80%,.06), inset 0 0 0 1px hsla(172,60%,90%,.07) }
+@media (prefers-color-scheme:dark){ :root:not([data-theme="light"]) .artifact::before{ box-shadow:inset 0 1px 0 hsla(172,60%,80%,.06), inset 0 0 0 1px hsla(172,60%,90%,.07) } }
+
+/* ---- product screenshot plate (real portal UI — see PORTAL.md) -------------------
+   Same elevation language as .artifact: card surface, sh-2 shadow, specular edge.
+   Deliberately NOT run through the .photo-plate pipeline: no grayscale, no blur, no
+   scrim. These are evidence, crisp and true-colour (the real teal, not desaturated),
+   never atmosphere. Aspect ratio is set per instance to match the native crop. */
+.shot{
+  background-color:var(--card); background-image:var(--shot-src, none);
+  border-radius:11px; box-shadow:var(--sh-2);
+  overflow:hidden; position:relative; background-size:cover; background-position:top center;
+  transition:box-shadow .3s var(--ease-out-quart), transform .3s var(--ease-out-quart);
+}
+@media (hover:hover) and (pointer:fine){
+  .shot:hover{ box-shadow:var(--sh-3); transform:translateY(-3px) }
+}
+.shot::before{
+  content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none;
+  box-shadow:inset 0 1px 0 hsla(0,0%,100%,.5), inset 0 0 0 1px hsla(172,25%,10%,.05);
+}
+:root[data-theme="dark"] .shot::before{ box-shadow:inset 0 1px 0 hsla(172,60%,80%,.06), inset 0 0 0 1px hsla(172,60%,90%,.07) }
+@media (prefers-color-scheme:dark){ :root:not([data-theme="light"]) .shot::before{ box-shadow:inset 0 1px 0 hsla(172,60%,80%,.06), inset 0 0 0 1px hsla(172,60%,90%,.07) } }
+/* a screenshot cannot reflow -- below ~700px a wide crop just softens, so swap for a
+   pre-cropped narrower one instead of shrinking (see PORTAL.md). Pairs of .shot-wide /
+   .shot-narrow toggle on viewport width; use only where a narrower crop of the same
+   claim actually exists. */
+.shot-narrow{ display:none }
+@media (max-width:700px){
+  .shot-wide{ display:none }
+  .shot-narrow{ display:block }
+}
+
+/* email-thread artifact chrome */
+.mail{ font-size:.875rem }
+.mail-head{ padding:16px 20px; border-bottom:1px solid var(--rule-soft); display:grid; gap:3px }
+.mail-subj{ font-weight:500; color:var(--ink); font-size:.9375rem }
+.mail-line{ color:var(--ink-3); font-size:.78125rem; display:flex; gap:6px; flex-wrap:wrap }
+.mail-line b{ color:var(--ink-2); font-weight:500 }
+.mail-quoted{
+  margin:14px 20px 0; padding:10px 14px; border-radius:8px; background:var(--paper-sunk);
+  color:var(--ink-3); font-size:.8125rem; line-height:1.55;
+}
+.mail-body{ padding:16px 20px 20px; color:var(--ink-2); line-height:1.62; font-size:.90625rem }
+.mail-body p{ margin:0 0 .85em }
+.mail-body p:last-child{ margin-bottom:0 }
+.mail-sign{ margin-top:14px; color:var(--ink-3); font-size:.84375rem }
+.chip{
+  display:inline-flex; align-items:center; gap:6px; padding:5px 10px 5px 8px; border-radius:999px;
+  background:var(--teal-wash); color:var(--teal-ink); font-size:.75rem; font-weight:500;
+  border:1px solid var(--teal-edge);
+}
+.attach{
+  display:flex; align-items:center; gap:10px; margin-top:12px; padding:10px 12px;
+  border-radius:8px; border:1px solid var(--rule); background:var(--card-2);
+}
+.attach .ic{ color:var(--teal-ink) }
+.attach b{ display:block; font-size:.8125rem; color:var(--ink); font-weight:500 }
+.attach span{ font-size:.71875rem; color:var(--ink-4) }
+.mail-stamp{ margin-top:14px; display:flex; align-items:center; gap:8px; color:var(--ink-4); font-size:.75rem }
+.mail-stamp .ic{ width:15px; height:15px; color:var(--teal-ink) }
+
+/* annotation markers on the hero artifact — figure callouts, R4/editorial-figure use */
+.callouts{ list-style:none; margin:20px 0 0; padding:0; display:grid; gap:11px }
+.callouts li{ display:grid; grid-template-columns:26px 1fr; gap:12px; align-items:baseline }
+.callouts .num{
+  width:26px; height:26px; border-radius:50%; border:1px solid var(--teal-edge);
+  color:var(--teal-ink); font-size:.75rem; font-weight:500; display:grid; place-items:center;
+  font-variant-numeric:tabular-nums;
+}
+.callouts .txt{ font-size:.875rem; color:var(--ink-2); line-height:1.5 }
+.callouts .txt b{ color:var(--ink); font-weight:500 }
+
+/* ---- hero inbox: four short threads, one artifact — [revision] replaces the single
+   Otto/invoices artifact so the first five seconds read as "this works across
+   industries," not "this chases invoices." Same card chrome as .mail (.artifact,
+   .mail-head) so it still reads as one real, coherent piece of software. */
+.hero-inbox{ font-size:.875rem }
+.hi-list{ list-style:none; margin:0; padding:0 }
+.hi-row{ display:flex; gap:13px; padding:15px 20px; border-bottom:1px solid var(--rule-soft); align-items:flex-start }
+.hi-row:last-child{ border-bottom:none }
+.hi-row .agent-av{ margin-top:1px }
+.hi-copy{ min-width:0; flex:1 }
+.hi-top{ display:flex; align-items:baseline; gap:9px; flex-wrap:wrap }
+.hi-top b{ font-weight:500; color:var(--ink); font-size:.875rem }
+.hi-tag{ font-size:.6875rem; font-weight:500; letter-spacing:.03em; text-transform:uppercase }
+.hi-time{ margin-left:auto; font-size:.71875rem; color:var(--ink-4); font-variant-numeric:tabular-nums }
+.hi-subj{ margin:3px 0 0; font-weight:500; color:var(--ink); font-size:.84375rem; text-wrap:pretty }
+.hi-snip{ margin:3px 0 0; color:var(--ink-2); font-size:.8125rem; line-height:1.5; text-wrap:pretty }
+
+/* ---- job vignette (first-person + artifact) ------------------------------------ */
+.vignette{ display:grid; gap:20px }
+.vignette-kicker{ display:flex; align-items:center; gap:10px }
+.agent-av{ width:var(--av,84px); height:auto; flex:none; display:block }
+.vignette-name{ font-weight:500; color:var(--ink); font-size:.9375rem }
+.vignette-role{ color:var(--ink-3); font-size:.8125rem }
+.vignette .stat{ margin-top:6px; display:inline-flex; gap:6px; align-items:baseline; font-size:.8125rem; color:var(--ink-3) }
+.vignette .stat b{ font-variant-numeric:tabular-nums; color:var(--teal-ink); font-weight:500 }
+
+/* ---- aside / callout box (what we won't do) -------------------------------------- */
+.aside{
+  background:var(--card); border-radius:11px; padding:22px 24px; box-shadow:var(--sh-1);
+  position:relative; transition:box-shadow .3s var(--ease-out-quart), transform .3s var(--ease-out-quart);
+}
+@media (hover:hover) and (pointer:fine){
+  .aside:hover{ box-shadow:var(--sh-2); transform:translateY(-2px) }
+}
+.aside::before{ content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none;
+  box-shadow:inset 0 1px 0 hsla(0,0%,100%,.5), inset 0 0 0 1px hsla(172,25%,10%,.05); }
+:root[data-theme="dark"] .aside::before{ box-shadow:inset 0 1px 0 hsla(172,60%,80%,.06), inset 0 0 0 1px hsla(172,60%,90%,.07) }
+@media (prefers-color-scheme:dark){ :root:not([data-theme="light"]) .aside::before{ box-shadow:inset 0 1px 0 hsla(172,60%,80%,.06), inset 0 0 0 1px hsla(172,60%,90%,.07) } }
+.aside h4{ display:flex; align-items:center; gap:9px; margin-bottom:12px }
+.aside h4 .ic{ color:var(--teal-ink) }
+.aside ul{ margin:0; padding:0; list-style:none; display:grid; gap:10px }
+.aside li{ font-size:.875rem; color:var(--ink-2); line-height:1.5; padding-left:16px; position:relative }
+.aside li::before{ content:"·"; position:absolute; left:0; color:var(--teal-ink); font-weight:700 }
+
+/* ---- logo plate (vendor marks) --------------------------------------------------- */
+.plate{ display:flex; flex-wrap:wrap; gap:10px }
+.plate-item{
+  display:inline-flex; align-items:center; gap:9px; padding:10px 14px; border-radius:9px;
+  background:var(--card); box-shadow:var(--sh-1); font-size:.84375rem; color:var(--ink-2);
+  transition:box-shadow .24s var(--e-out), transform .24s var(--e-out);
+}
+.plate-item .brandmark{ filter:grayscale(1) opacity(.72) }
+@media (hover:hover) and (pointer:fine){
+  .plate-item:hover{ box-shadow:var(--sh-2); transform:translateY(-1px) }
+  .plate-item:hover .brandmark{ filter:none }
+}
+
+/* ---- ledger (pricing exhibit) ---------------------------------------------------- */
+.ledger{ width:100%; border-collapse:collapse; font-size:.9375rem }
+.ledger th{ text-align:left; font-weight:500; font-size:.75rem; letter-spacing:.05em; text-transform:uppercase;
+  color:var(--ink-3); padding:0 14px 12px; border-bottom:1px solid var(--rule) }
+.ledger td{ padding:18px 14px; border-bottom:1px solid var(--rule-soft); vertical-align:top; transition:background-color .2s var(--ease-out-quart) }
+@media (hover:hover) and (pointer:fine){
+  .ledger tbody tr:hover td{ background:var(--card) }
+}
+.ledger tr:last-of-type td{ border-bottom:1px solid var(--rule) }
+.ledger .tier{ font-weight:500; color:var(--ink); font-size:1rem }
+.ledger .tfor{ color:var(--ink-3); font-size:.8125rem; margin-top:3px }
+.ledger .price{ font-variant-numeric:tabular-nums; font-weight:500; color:var(--ink); font-size:1.0625rem }
+.ledger .per{ color:var(--ink-4); font-weight:400; font-size:.8125rem }
+.ledger .against{ color:var(--ink-3) }
+.ledger .against s{ color:var(--ink-4); text-decoration-color:var(--rule) }
+.ledger-foot{ font-size:.8125rem; color:var(--ink-3); margin-top:14px }
+
+/* ---- footer ----------------------------------------------------------------------- */
+footer{ border-top:1px solid var(--rule-soft); padding-block:44px; background:var(--paper-sunk) }
+.foot-grid{ display:flex; flex-wrap:wrap; gap:28px; justify-content:space-between; align-items:flex-start }
+.foot-links{ display:flex; gap:22px; flex-wrap:wrap; font-size:.84375rem }
+.foot-links a{ text-decoration:none; color:var(--ink-3); position:relative; padding-bottom:2px }
+.foot-links a::after{
+  content:""; position:absolute; left:0; right:100%; bottom:0; height:1px; background:var(--teal-ink);
+  transition:right .28s var(--ease-out-quart);
+}
+@media (hover:hover) and (pointer:fine){
+  .foot-links a:hover{ color:var(--teal-ink) }
+  .foot-links a:hover::after{ right:0 }
+}
+.legal{ margin-top:22px; font-size:.75rem; color:var(--ink-4); line-height:1.6; max-width:74ch }
+
+@media (max-width:860px){
+  .navlinks{ gap:10px; font-size:.84375rem }
+  .navlinks .hide-mobile{ display:none }
+  .navlinks .btn-primary{ padding:9px 14px; font-size:.8125rem; white-space:nowrap }
+  .themebtn{ padding:6px 9px; font-size:.71875rem }
+  .h1{ font-size:clamp(2.25rem,1.8rem+4vw,3.25rem) }
+  /* --logo-size scales the whole lockup (icon + wordmark, both em-relative to it);
+     40px reads as clearly branded with room to spare on desktop, but at a 390px
+     nav budget shared with "The cases" + Dark + Talk to us, it has to come down
+     or the lockup alone eats two-thirds of the viewport. Breakpoint widened from
+     720 to 780: at 40px the full-link desktop nav no longer fit down to 720. */
+  .brand{ --logo-size:30px }
+  .masthead.is-scrolled .brand{ --logo-size:25px }
+}
+@media (max-width:460px){
+  .navlinks{ gap:4px }
+  .brand{ --logo-size:20px }
+  .brand-word{ font-size:.56em }
+  .masthead.is-scrolled .brand{ --logo-size:18px }
+}
+
+
+.skip-link{
+  position:fixed; top:-60px; left:12px; z-index:100; background:var(--teal-fill); color:#f4fbfa;
+  padding:10px 16px; border-radius:8px; text-decoration:none; font-size:.875rem; font-weight:500;
+  transition:top .2s var(--e-out);
+}
+.skip-link:focus{ top:12px }
+.vh{ position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden;
+  clip:rect(0,0,0,0); white-space:nowrap; border:0 }
+
+/* ---- photography — editorial plates -------------------------------------------------
+   Full-bleed photo bands, additive only: each sits before an existing spread and never
+   overlaps a mail-artifact card or body copy, so the safe-zone rule only has to govern
+   one short caption. Scrim is tinted to --ink (never flat black) and the caption colour
+   stays fixed regardless of the light/dark toggle, the way a magazine caption would.
+   See PHOTOS.md — atmosphere only, no photo is ever captioned as a client or quoted. */
+.photo-plate{
+  position:relative; isolation:isolate; overflow:hidden;
+  height:clamp(280px,36vw,460px); margin-bottom:clamp(32px,4.5vw,48px);
+  background:var(--paper-sunk); /* fallback plate tone, never a flash of transparent */
+  display:flex; align-items:flex-end;
+  --photo-op:.30; --photo-blur:1.4px; --parallax:0px;
+}
+.photo-plate.breakout{ width:100vw; margin-inline:calc(50% - 50vw) }
+/* settled photography [POLISH item 1]: level C, not level A. The photo itself sits on
+   its own ::before layer -- quiet, desaturated, faintly blurred -- so it reads as
+   atmosphere the section sits in front of, never as a backdrop copy has to fight. Scaled
+   up slightly so blur + a little scroll parallax never expose an edge. Opacity/blur are
+   custom properties (--photo-op/--photo-blur) so one plate -- the hero's, which is
+   genuinely dark -- can be tuned brighter without a second ruleset; see the hero's own
+   inline style. Reconciles what used to be two stacked treatments (a teal multiply wash
+   AND a dark scrim) into the ONE recipe below: a single paper-toned scrim carrying the
+   brand's teal as a 10% mix (--plate-tint) rather than a second layer. */
+.photo-plate::before{
+  content:""; position:absolute; inset:0; z-index:0;
+  background-image:var(--photo-src); background-size:cover; background-position:var(--pos,center);
+  opacity:var(--photo-op); filter:grayscale(.8) saturate(.55) blur(var(--photo-blur));
+  transform:scale(1.06) translate3d(0,var(--parallax),0);
+  transition:opacity .3s var(--ease-out-quart), filter .3s var(--ease-out-quart);
+}
+@media (hover:hover) and (pointer:fine){
+  /* hover life [POLISH item 2]: the plate perks up a little under the cursor -- the photo
+     stays settled at rest, this is a small reward for engaging, not a second visual mode. */
+  .photo-plate:hover::before{ opacity:calc(var(--photo-op) + .08); filter:grayscale(.7) saturate(.6) blur(calc(var(--photo-blur) * .5)) }
+}
+.photo-plate::after{
+  content:""; position:absolute; inset:0; z-index:1;
+  background:linear-gradient(100deg,
+    var(--plate-tint) 0%,
+    color-mix(in srgb, var(--plate-tint) 90%, transparent) 40%,
+    color-mix(in srgb, var(--plate-tint) 55%, transparent) 72%,
+    color-mix(in srgb, var(--plate-tint) 15%, transparent) 100%);
+}
+@media (max-width:640px){
+  .photo-plate::after{
+    background:linear-gradient(180deg,
+      color-mix(in srgb, var(--plate-tint) 15%, transparent) 0%,
+      color-mix(in srgb, var(--plate-tint) 60%, transparent) 45%,
+      var(--plate-tint) 100%);
+  }
+}
+.photo-plate .wrap{ position:relative; z-index:2; width:100%; padding-block:22px }
+.photo-cap{
+  margin:0; max-width:var(--cap-w,360px);
+  font-family:var(--font-newsreader); font-optical-sizing:auto;
+  font-style:italic; font-weight:440; font-size:1.0625rem; line-height:1.42;
+  color:var(--ink); text-wrap:pretty;
+}
+@media (max-width:640px){ .photo-cap{ max-width:min(var(--cap-w,360px),78%) } }
+@media (max-width:900px){ .photo-plate{ --parallax:0px !important } }
+
+/* portal panel mock */
+.portal-mock{ display:grid; grid-template-columns:118px 1fr }
+.portal-rail{ border-right:1px solid var(--rule-soft); padding:16px 10px; display:grid; gap:6px; align-content:start }
+.portal-rail a{ display:flex; align-items:center; gap:8px; padding:8px 9px; border-radius:7px; font-size:.8125rem;
+  color:var(--ink-3); text-decoration:none }
+.portal-rail a .ic{ width:17px; height:17px }
+.portal-rail a[aria-current]{ background:var(--teal-wash); color:var(--teal-ink) }
+.portal-list{ padding:14px 18px; display:grid; gap:2px }
+.portal-row{ display:flex; align-items:center; gap:11px; padding:10px 0; border-bottom:1px solid var(--rule-soft) }
+.portal-row:last-child{ border-bottom:none }
+.portal-row .ic{ color:var(--teal-ink) }
+.portal-row b{ font-size:.84375rem; font-weight:500; color:var(--ink); display:block }
+.portal-row span{ font-size:.71875rem; color:var(--ink-4) }
+.portal-row .meta{ margin-left:auto }
+@media (max-width:480px){ .portal-mock{ grid-template-columns:1fr } .portal-rail{ display:flex; border-right:0; border-bottom:1px solid var(--rule-soft); flex-direction:row } }
+
+
+/* ---- Gmail thread component — copied verbatim from GMAIL.html (see that file's KNOBS
+   and LOAD-BEARING DETAIL comments before editing). Dark mode keeps the open message on a
+   light --gm-msg-* card on purpose: real Gmail never fully darkens mail content. ---- */
+
+.gmail-embed{
+  --gm-font:var(--font-roboto-gmail);
+  font-family:var(--gm-font);
+  color-scheme:light;
+  /* light tokens (default) */
+  --gm-bg:#f2f6fc;
+  --gm-surface:#ffffff;
+  --gm-search-bg:#eef2fa;
+  --gm-hover:#f6f9fe;
+  --gm-text:#202124;
+  --gm-text-2:#5f6368;
+  --gm-text-3:#80868b;
+  --gm-border:#e3e6ea;
+  --gm-border-strong:#dadce0;
+  --gm-accent:#1a73e8;
+  --gm-star:#b37a00; /* deepened from Gmail's actual ~#f2b400: real Gmail gold fails WCAG
+    1.4.11 (non-text contrast) at ~1.8:1 on white; this hits 3.7:1 and still reads gold */
+  --gm-icon:#5f6368;
+  --gm-icon-hover-bg:rgba(95,99,104,.10);
+  --gm-shadow-1:0 1px 2px rgba(60,64,67,.30),0 1px 3px 1px rgba(60,64,67,.15);
+  --gm-shadow-2:0 1px 3px rgba(60,64,67,.30),0 4px 8px 3px rgba(60,64,67,.15);
+  --gm-radius:16px;
+  --gm-chip-blue-bg:#1a73e8;
+  --gm-chip-blue-ink:#ffffff;
+  /* message-card tokens: constant across themes on purpose, see LOAD-BEARING DETAIL above */
+  --gm-msg-bg:#ffffff;
+  --gm-msg-text:#202124;
+  --gm-msg-text-2:#5f6368;
+  --gm-msg-border:#e3e6ea;
+  --gm-msg-hover:rgba(95,99,104,.08);
+  --gm-msg-shadow:0 1px 2px rgba(60,64,67,.15);
+  max-width:100%;
+}
+@media (prefers-color-scheme:dark){
+  .gmail-embed:not([data-theme="light"]){
+    color-scheme:dark;
+    --gm-bg:#131314; --gm-surface:#1e1f20; --gm-search-bg:#28292c; --gm-hover:#28292c;
+    --gm-text:#e8eaed; --gm-text-2:#9aa0a6; --gm-text-3:#80868b;
+    --gm-border:rgba(255,255,255,.10); --gm-border-strong:rgba(255,255,255,.18);
+    --gm-accent:#8ab4f8; --gm-star:#fdd663; --gm-icon:#c4c7c5;
+    --gm-icon-hover-bg:rgba(232,234,237,.12);
+    --gm-shadow-1:0 1px 2px rgba(0,0,0,.55),0 1px 3px 1px rgba(0,0,0,.35);
+    --gm-shadow-2:0 1px 3px rgba(0,0,0,.55),0 4px 10px 3px rgba(0,0,0,.4);
+    --gm-chip-blue-bg:#a8c7fa; --gm-chip-blue-ink:#062e6f;
+    --gm-msg-shadow:0 2px 10px rgba(0,0,0,.45),0 1px 2px rgba(0,0,0,.3);
+  }
+}
+:root[data-theme="dark"] .gmail-embed:not([data-theme]),
+.gmail-embed[data-theme="dark"]{
+  color-scheme:dark;
+  --gm-bg:#131314; --gm-surface:#1e1f20; --gm-search-bg:#28292c; --gm-hover:#28292c;
+  --gm-text:#e8eaed; --gm-text-2:#9aa0a6; --gm-text-3:#80868b;
+  --gm-border:rgba(255,255,255,.10); --gm-border-strong:rgba(255,255,255,.18);
+  --gm-accent:#8ab4f8; --gm-star:#fdd663; --gm-icon:#c4c7c5;
+  --gm-icon-hover-bg:rgba(232,234,237,.12);
+  --gm-shadow-1:0 1px 2px rgba(0,0,0,.55),0 1px 3px 1px rgba(0,0,0,.35);
+  --gm-shadow-2:0 1px 3px rgba(0,0,0,.55),0 4px 10px 3px rgba(0,0,0,.4);
+  --gm-chip-blue-bg:#a8c7fa; --gm-chip-blue-ink:#062e6f;
+  --gm-msg-shadow:0 2px 10px rgba(0,0,0,.45),0 1px 2px rgba(0,0,0,.3);
+}
+
+.gmail-embed *{box-sizing:border-box}
+/* every icon defaults to inheriting text colour; file-type glyphs and the Gmail/Drive
+   marks override this locally with their own baked-in fills, which win regardless
+   (an explicit fill on a path always beats an inherited one). Do NOT drop this rule:
+   without it, referenced <use> icons fall back to SVG's initial fill (opaque black)
+   instead of following .gmail-row.is-starred / .is-starred / etc colour changes. */
+.gmail-embed svg{ fill:currentColor }
+.gmail-embed svg.gm-icon{width:20px;height:20px;flex:none;display:block}
+
+/* ---------- panel + window chrome ---------- */
+.gmail-panel{
+  border-radius:var(--gm-radius);
+  overflow:hidden;
+  box-shadow:var(--gm-shadow-2);
+  background:var(--gm-bg);
+}
+.gmail-window{
+  display:flex; align-items:center; gap:16px;
+  padding:10px 18px;
+  background:var(--gm-bg);
+  border-bottom:1px solid var(--gm-border);
+}
+.gmail-window__brand{ display:flex; align-items:center; gap:8px; flex:none }
+.gmail-window__brand svg{ width:22px; height:auto; display:block }
+.gmail-window__brand span{ font-size:21px; color:var(--gm-text-2); letter-spacing:-.2px; font-weight:400 }
+.gmail-window__search{
+  flex:1; max-width:640px; margin:0 auto; min-width:0;
+  display:flex; align-items:center; gap:10px;
+  height:38px; padding:0 16px; border-radius:999px;
+  background:var(--gm-search-bg); color:var(--gm-text-3);
+}
+.gmail-window__search svg{ width:18px; height:18px; flex:none }
+.gmail-window__search span{ font-size:14.5px; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+.gmail-window__icons{ display:flex; align-items:center; gap:2px; flex:none; margin-left:auto }
+.gmail-window__iconbtn{
+  width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+  color:var(--gm-icon); flex:none;
+}
+.gmail-window__iconbtn svg{ width:19px; height:19px }
+.gmail-avatar{
+  border-radius:50%; display:inline-flex; align-items:center; justify-content:center;
+  color:#fff; font-family:var(--gm-font); flex:none; font-weight:500;
+  background:var(--gm-av-bg,#7b5ec7);
+}
+.gmail-avatar--sm{ width:28px; height:28px; font-size:12.5px }
+.gmail-avatar--md{ width:34px; height:34px; font-size:14px }
+
+@media (max-width:640px){
+  .gmail-window__search{ display:none }
+  .gmail-window{ gap:10px }
+}
+@media (max-width:420px){
+  .gmail-window__icons .gmail-window__iconbtn:not(:last-child){ display:none }
+}
+
+/* ---------- thread ---------- */
+.gmail-thread{ background:var(--gm-bg) }
+.gmail-thread__toolbar{
+  display:flex; align-items:center; gap:2px;
+  padding:6px 10px;
+}
+.gmail-iconbtn{
+  width:36px; height:36px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  color:var(--gm-icon); flex:none;
+}
+.gmail-thread__toolbar .gmail-iconbtn:last-child{ margin-left:auto }
+
+.gmail-thread__subject{
+  padding:6px 22px 14px;
+  display:flex; align-items:baseline; gap:10px; flex-wrap:wrap;
+}
+.gmail-thread__subject h1,
+.gmail-thread__subject h2,
+.gmail-thread__subject h3{
+  all:unset;
+  font-size:clamp(18px,2.6vw,22px); font-weight:400; color:var(--gm-text); line-height:1.3;
+}
+.gmail-chip{
+  display:inline-flex; align-items:center; height:20px; padding:0 9px;
+  border-radius:4px; font-size:11.5px; font-weight:500; letter-spacing:.15px;
+  background:var(--gm-chip-blue-bg); color:var(--gm-chip-blue-ink); white-space:nowrap;
+}
+
+.gmail-message--collapsed{
+  display:flex; align-items:center; gap:12px;
+  margin:0 10px; padding:9px 12px;
+  border-radius:8px; color:var(--gm-text);
+}
+.gmail-message--collapsed .gmail-message__name{ font-weight:500; font-size:13.5px; flex:none; max-width:32%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+.gmail-message--collapsed .gmail-message__snippet{ flex:1; min-width:0; font-size:13.5px; color:var(--gm-text-2); overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+.gmail-message--collapsed time{ flex:none; font-size:12.5px; color:var(--gm-text-2) }
+
+.gmail-message--open{ margin:6px 10px 4px }
+.gmail-message__card{
+  background:var(--gm-msg-bg); color:var(--gm-msg-text);
+  border:1px solid var(--gm-msg-border); border-radius:12px;
+  box-shadow:var(--gm-msg-shadow);
+  padding:18px 20px 20px;
+}
+/* wraps by itself under real width pressure (no fixed breakpoint): meta (time + star
+   + reply + more) drops to its own right-aligned line under the name/to-line instead
+   of the two columns fighting for space and overlapping. */
+.gmail-message__header{ display:flex; align-items:flex-start; gap:14px; flex-wrap:wrap }
+.gmail-message__avatar{
+  width:40px; height:40px; border-radius:50%; overflow:hidden; flex:none;
+  position:relative; background:#e8eaed;
+}
+.gmail-message__avatar svg{ position:absolute; top:-9%; left:-9%; width:118%; height:118% }
+.gmail-message__who{ flex:1 1 180px; min-width:0 }
+.gmail-message__name{ font-size:14.5px; font-weight:500; color:var(--gm-msg-text) }
+.gmail-message__name .addr{ font-weight:400; color:var(--gm-msg-text-2); font-size:13px; margin-left:6px }
+.gmail-message__to{
+  display:inline-flex; align-items:center; gap:2px; margin-top:2px;
+  font-size:12.5px; color:var(--gm-msg-text-2); background:none; border:0; padding:0; font-family:var(--gm-font);
+}
+.gmail-message__to svg{ width:14px; height:14px }
+.gmail-message__meta{ display:flex; align-items:center; gap:0; flex:0 0 auto; margin-left:auto }
+.gmail-message__meta time{ font-size:12.5px; color:var(--gm-msg-text-2); white-space:nowrap; margin-right:4px }
+.gmail-message__meta .gmail-iconbtn{ width:32px; height:32px; color:var(--gm-msg-text-2) }
+.gmail-message__meta .gmail-iconbtn svg{ width:18px; height:18px }
+.gmail-message__meta .is-starred{ color:var(--gm-star) }
+
+.gmail-message__body{
+  padding-left:54px; margin-top:14px;
+  font-size:14.5px; line-height:1.66; color:var(--gm-msg-text);
+}
+.gmail-message__body p{ margin:0 0 12px }
+.gmail-message__body p:last-child{ margin-bottom:0 }
+
+.gmail-message__attachments{ padding-left:54px; margin-top:16px }
+.gmail-attach-label{
+  display:flex; align-items:center; gap:6px; margin-bottom:9px;
+  font-size:12.5px; color:var(--gm-msg-text-2);
+}
+.gmail-attach-label svg{ width:14px; height:14px }
+.gmail-attach-row{ display:flex; flex-wrap:wrap; gap:10px }
+.gmail-attach-card{
+  width:200px; border:1px solid var(--gm-msg-border); border-radius:8px; overflow:hidden;
+  background:#fff; position:relative;
+}
+.gmail-attach-card__thumb{
+  height:104px; display:flex; align-items:center; justify-content:center;
+  background:var(--thumb-bg,#f1f3f4);
+}
+.gmail-attach-card__thumb svg{ width:44px; height:44px }
+.gmail-attach-card__actions{
+  position:absolute; top:8px; right:8px; display:flex; gap:6px; opacity:0;
+}
+.gmail-attach-card__actions button{
+  width:26px; height:26px; border-radius:50%; background:rgba(255,255,255,.96);
+  box-shadow:0 1px 2px rgba(60,64,67,.3); display:flex; align-items:center; justify-content:center;
+  color:#3c4043;
+}
+.gmail-attach-card__actions svg{ width:15px; height:15px }
+.gmail-attach-card__info{ padding:8px 10px 9px; border-top:1px solid var(--gm-msg-border) }
+.gmail-attach-card__name{ font-size:12.5px; font-weight:500; color:var(--gm-msg-text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
+.gmail-attach-card__size{ font-size:11px; color:var(--gm-msg-text-2); margin-top:2px }
+
+.gmail-thread__actions{
+  display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+  padding:18px 20px 24px; margin:0 10px;
+}
+.gmail-pill{
+  height:36px; padding:0 20px 0 16px; border-radius:999px;
+  border:1px solid var(--gm-border-strong); background:transparent; color:var(--gm-text);
+  font-family:var(--gm-font); font-size:14px; font-weight:500;
+  display:inline-flex; align-items:center; gap:8px;
+}
+.gmail-pill svg{ width:18px; height:18px }
+.gmail-reactions{ display:flex; gap:6px; margin-left:2px }
+.gmail-reactions button{
+  width:32px; height:32px; border-radius:50%; border:1px solid var(--gm-border-strong);
+  background:transparent; font-size:15px; display:flex; align-items:center; justify-content:center;
+}
+
+@media (prefers-reduced-motion:no-preference){
+  .gmail-message--collapsed,.gmail-row,.gmail-iconbtn,.gmail-window__iconbtn,
+  .gmail-attach-card,.gmail-attach-card__actions,.gmail-pill,.gmail-reactions button{
+    transition:background-color .12s ease,box-shadow .12s ease,border-color .12s ease,transform .12s ease,opacity .12s ease;
+  }
+}
+.gmail-message--collapsed:hover{ background:var(--gm-hover) }
+.gmail-iconbtn:hover,.gmail-window__iconbtn:hover{ background:var(--gm-icon-hover-bg) }
+.gmail-message__meta .gmail-iconbtn:hover{ background:var(--gm-msg-hover) }
+.gmail-attach-card:hover{ box-shadow:var(--gm-shadow-1); border-color:var(--gm-border-strong) }
+.gmail-attach-card:hover .gmail-attach-card__actions{ opacity:1 }
+.gmail-attach-card__actions button:hover{ background:#fff }
+.gmail-pill:hover{ background:var(--gm-hover) }
+.gmail-reactions button:hover{ background:var(--gm-hover) }
+
+@media (max-width:640px){
+  .gmail-thread__subject{ padding:6px 16px 12px }
+  .gmail-message--collapsed{ margin:0 6px }
+  .gmail-message--open{ margin:6px 6px 4px }
+  .gmail-message__card{ padding:16px 14px 18px }
+  .gmail-message__body,.gmail-message__attachments{ padding-left:0; margin-top:12px }
+  .gmail-thread__actions{ margin:0 6px }
+}
+@media (max-width:420px){
+  .gmail-message--collapsed .gmail-message__name{ max-width:40% }
+  .gmail-attach-card{ width:100% }
+}
+
+/* ---------- inbox list ---------- */
+.gmail-list{
+  background:var(--gm-surface); border-radius:var(--gm-radius);
+  overflow:hidden; box-shadow:var(--gm-shadow-2);
+}
+.gmail-row{
+  display:flex; align-items:center; gap:12px;
+  padding:11px 16px; border-bottom:1px solid var(--gm-border);
+  color:var(--gm-text);
+}
+.gmail-list .gmail-row:last-child{ border-bottom:none }
+.gmail-row:hover{
+  background:var(--gm-hover); box-shadow:var(--gm-shadow-1); border-radius:8px;
+  border-bottom-color:transparent; position:relative; z-index:1;
+}
+.gmail-row__check{ width:18px; height:18px; color:var(--gm-border-strong); flex:none }
+.gmail-row__star{ width:18px; height:18px; color:var(--gm-text-3); flex:none }
+.gmail-row.is-starred .gmail-row__star{ color:var(--gm-star) }
+.gmail-row__sender{
+  flex:0 0 128px; font-size:14px; font-weight:400; color:var(--gm-text);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.gmail-row.is-unread .gmail-row__sender{ font-weight:700 }
+.gmail-row__content{
+  flex:1; min-width:0; display:flex; align-items:baseline; gap:6px;
+  white-space:nowrap; overflow:hidden;
+}
+.gmail-row__subject{ color:var(--gm-text); flex:none }
+.gmail-row.is-unread .gmail-row__subject{ font-weight:700 }
+.gmail-row__dot{ color:var(--gm-text-3); flex:none }
+.gmail-row__snippet{ color:var(--gm-text-2); overflow:hidden; text-overflow:ellipsis; font-weight:400 }
+.gmail-row__attach{
+  display:inline-flex; align-items:center; gap:4px; flex:none;
+  height:22px; padding:0 8px 0 6px; margin-left:4px;
+  border:1px solid var(--gm-border-strong); border-radius:6px;
+  color:var(--gm-text-2); font-size:11.5px;
+}
+.gmail-row__attach svg{ width:13px; height:13px }
+.gmail-row__date{
+  flex:0 0 auto; min-width:52px; text-align:right;
+  font-size:12.5px; color:var(--gm-text-2);
+}
+.gmail-row.is-unread .gmail-row__date{ font-weight:700; color:var(--gm-text) }
+
+@media (max-width:560px){
+  .gmail-row__check{ display:none }
+  .gmail-row__attach{ display:none }
+}
+@media (max-width:480px){
+  .gmail-row{ flex-wrap:wrap; row-gap:4px }
+  .gmail-row__sender{ flex:1 1 auto; max-width:none }
+  .gmail-row__content{ flex:1 1 100%; order:3 }
+}
+

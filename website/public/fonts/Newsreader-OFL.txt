@@ -1,6 +1,8 @@
-Newsreader, embedded in the editorial pages (website/editorial/*.html) as
-base64 woff2: a Latin subset, roman and italic. The OFL permits subsetting
-(a Modified Version) provided this licence travels with the font.
+Newsreader, used by the editorial pages (app/(editorial)/, `/` and
+`/use-cases`): newsreader-roman.woff2 and newsreader-italic.woff2 in this
+directory, a Latin subset of each, loaded through next/font/local. The OFL
+permits subsetting (a Modified Version) provided this licence travels with
+the font.
 
 Copyright 2020 The Newsreader Project Authors (http://github.com/productiontype/Newsreader)
 
