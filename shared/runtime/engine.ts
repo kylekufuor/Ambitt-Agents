@@ -13,6 +13,7 @@ import { runBrowserTask } from "../platform-tools/browser.js";
 import { requestReview } from "../platform-tools/review.js";
 import { httpRequest, formatHttpResult } from "../platform-tools/http-request.js";
 import { spawnProspect } from "../platform-tools/spawn-prospect.js";
+import { sendEmailForOperator } from "../platform-tools/operator-send.js";
 import { sendMailMerge, type MailMergeRow } from "../platform-tools/mail-merge.js";
 import {
   pipelineSummary,
@@ -91,6 +92,7 @@ const BUILTIN_TOOLS = new Set([
   "request_review",
   "http_request",
   "spawn_prospect",
+  "send_email_for_operator",
   "pipeline_summary",
   "list_prospects",
   "get_prospect",
@@ -658,6 +660,28 @@ const BUILTIN_CLAUDE_TOOLS: Anthropic.Messages.Tool[] = [
       required: ["name", "email"],
     },
   },
+  // --- send_email_for_operator — Atlas emails anyone the operator names ---
+  // Authorization is enforced in the handler against the run's sender, not by
+  // the prompt. See shared/platform-tools/operator-send.ts.
+  {
+    name: "send_email_for_operator",
+    description:
+      "OPERATOR-ONLY. Send a personalized email FROM you TO a person the platform operator names, when the operator asks you to write to someone about what an Ambitt agent could do for their business. This is not an onboarding invitation; use spawn_prospect for that. Research the recipient's business first with web_search and browse so the email is specific to them. Write it as a short, plain, genuinely useful note in the first person: two to four short paragraphs, concrete about their business, no hype, no pitch-deck language. Make clear that you are Atlas and that a business working with us would get its own agent, named for them, doing this kind of work for them. The recipient cannot reply to you; replies go to the operator. The call is refused unless the operator started this run.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        to_name: { type: "string", description: "Recipient's full name, e.g. 'Dale Whitlock'." },
+        to_email: { type: "string", description: "Recipient's email address." },
+        subject: { type: "string", description: "A plain, specific subject line. No clickbait." },
+        body: {
+          type: "string",
+          description:
+            "The email body in plain text. Blank lines separate paragraphs. Do not include a greeting or sign-off; those are added. Under 4000 characters.",
+        },
+      },
+      required: ["to_name", "to_email", "subject", "body"],
+    },
+  },
   // --- Ops query tools — OPERATOR-ONLY ---
   // Read-only views into the business state. Available to Atlas in
   // operator-mode (sender === OPERATOR_EMAIL). Soft-gated via the operator-mode
@@ -754,7 +778,8 @@ async function executeBuiltinTool(
   agentName: string,
   clientName: string,
   clientBusinessName: string,
-  attachments: EmailAttachment[]
+  attachments: EmailAttachment[],
+  senderEmail?: string
 ): Promise<{ content: string; isError: boolean; isPause?: boolean }> {
   try {
     if (toolName === "web_search") {
@@ -1302,6 +1327,25 @@ async function executeBuiltinTool(
       };
     }
 
+    if (toolName === "send_email_for_operator") {
+      const { to_name, to_email, subject, body } = args as {
+        to_name: string;
+        to_email: string;
+        subject: string;
+        body: string;
+      };
+      const result = await sendEmailForOperator({
+        toName: to_name,
+        toEmail: to_email,
+        subject,
+        body,
+        senderEmail,
+        callerAgentId: agentId,
+        callerAgentName: agentName,
+      });
+      return { content: result.message, isError: result.status !== "sent" };
+    }
+
     // --- Ops query tools (operator-only, read-only) ---
     if (toolName === "pipeline_summary") {
       return { content: await pipelineSummary(), isError: false };
@@ -1601,7 +1645,8 @@ export async function runAgent(input: RuntimeInput): Promise<RuntimeOutput> {
         ctx.agentName,
         ctx.clientName,
         ctx.clientBusinessName,
-        attachments
+        attachments,
+        input.senderEmail
       );
       builtinResults.push({
         type: "tool_result",

@@ -21,6 +21,12 @@ interface SendEmailOptions {
   subject: string;
   html: string;
   replyToAgentId?: string;
+  // Explicit Reply-To address. Overrides the agent reply-routing address when
+  // set. Used by operator-requested outreach: the recipient is neither a
+  // prospect nor a client, so a reply to the agent's own reply-{id} address
+  // would be dropped by inbound auth and silently lost. Routing it to a human
+  // means a reply always reaches someone.
+  replyToAddress?: string;
   attachments?: EmailAttachment[];
   // Audit-trail links — optional. If known at call site, pass them so the
   // EmailSend row is queryable per-prospect / per-client and the dashboard
@@ -161,9 +167,11 @@ export async function sendEmail(
     .slice(0, 32) || "agent";       // hard cap; fallback if name was all symbols
   const fromAddress = agentInboxAddress ?? `${fromSlug}@${domain}`;
   const from = `${agentName} <${fromAddress}>`;
-  const replyTo = replyToAgentId
-    ? `reply-${replyToAgentId}@${domain}`
-    : `reply-${agentId}@${domain}`;
+  const replyTo = options.replyToAddress
+    ? options.replyToAddress
+    : replyToAgentId
+      ? `reply-${replyToAgentId}@${domain}`
+      : `reply-${agentId}@${domain}`;
 
   const client = getClient();
 
