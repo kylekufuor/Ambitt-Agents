@@ -69,8 +69,37 @@ export function splitFragment(html: string): EditorialFragment {
   return { title, style: styleMatch[0], body: body.trim() };
 }
 
+/**
+ * Remove developer notes from what a visitor receives.
+ *
+ * The design files carry ~18 KB of comments per page: design rationale, source
+ * citations, notes about avoiding tells that a page was machine-made, and in
+ * places the operator's name. They are worth keeping in the SOURCE for whoever
+ * works on this next, and they must not ship in the public HTML, where anyone
+ * can read them with View Source. So they are stripped here, at render, rather
+ * than deleted from the files.
+ *
+ * HTML comments are removed outside <script>, and CSS comments inside <style>.
+ * <script> bodies are left exactly as written: a JavaScript string or regex can
+ * legitimately contain "<!--" or "/*", and rewriting code is not worth the risk
+ * to shave a few bytes. Their comments were checked and carry nothing sensitive.
+ */
+export function stripDeveloperComments(html: string): string {
+  // Split on <script> blocks, keeping them as odd-indexed parts, untouched.
+  const parts = html.split(/(<script\b[^>]*>[\s\S]*?<\/script>)/i);
+  return parts
+    .map((part, i) => {
+      if (i % 2 === 1) return part; // a <script> block: leave it alone
+      const noHtmlComments = part.replace(/<!--[\s\S]*?-->/g, "");
+      return noHtmlComments.replace(/(<style\b[^>]*>)([\s\S]*?)(<\/style>)/gi, (_m, open: string, css: string, close: string) =>
+        open + css.replace(/\/\*[\s\S]*?\*\//g, "") + close,
+      );
+    })
+    .join("");
+}
+
 export function renderEditorialDocument(fragment: string, meta: EditorialMeta): string {
-  const { title, style, body } = splitFragment(fragment);
+  const { title, style, body } = splitFragment(stripDeveloperComments(fragment));
   const url = SITE_URL + meta.path;
   const image = SITE_URL + SHARE_IMAGE.path;
   const t = escapeHtml(title);

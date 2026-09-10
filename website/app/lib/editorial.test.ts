@@ -145,7 +145,10 @@ async function main(): Promise<void> {
   // static import would fail that build's type check.
   const constantsPath = join(websiteRoot, "..", "shared", "pricing-constants.ts");
   check("shared/pricing-constants.ts is reachable", existsSync(constantsPath), true);
-  const { TIERS } = (await import(pathToFileURL(constantsPath).href)) as { TIERS: Record<string, Tier> };
+  const { TIERS, SECOND_AGENT_DISCOUNT_PCT } = (await import(pathToFileURL(constantsPath).href)) as {
+    TIERS: Record<string, Tier>;
+    SECOND_AGENT_DISCOUNT_PCT: number;
+  };
 
   const usd = (cents: number): string => {
     if (cents % 100 !== 0) throw new Error(`ledger shows whole dollars; got ${cents} cents`);
@@ -175,6 +178,27 @@ async function main(): Promise<void> {
   check("Growth and Scale share one flat build", TIERS.growth.setupFeeCentsMin === TIERS.scale.setupFeeCentsMin && TIERS.growth.setupFeeCentsMin === TIERS.growth.setupFeeCentsMax && TIERS.scale.setupFeeCentsMin === TIERS.scale.setupFeeCentsMax, true);
   check("ledger foot states the flat build", foot.includes(`It's a flat ${usd(TIERS.growth.setupFeeCentsMin)} on Growth and Scale.`), true);
   check("ledger foot states Starter's range", foot.includes(`On Starter it's ${usd(TIERS.starter.setupFeeCentsMin)} to ${usd(TIERS.starter.setupFeeCentsMax)}`), true);
+
+  // Billing is per agent, first at plan price, each after that discounted. The
+  // page once said "no per-seat charge" beside "as many agents as fit", which
+  // read as agents being free and was false against recalcClientRetainers.
+  check("no false 'no per-seat charge' claim", /no per-seat charge/i.test(pages["/"]), false);
+  check("states the additional-agent discount", foot.includes(`each one you add after that is ${SECOND_AGENT_DISCOUNT_PCT}% off`), true);
+
+  // --- developer notes never reach a visitor --------------------------------
+  // The design files carry design rationale and, in places, the operator's
+  // name and notes about avoiding machine-made tells. Kept in source, stripped
+  // at render. Assert against what is actually served.
+  for (const [path, html] of Object.entries(pages)) {
+    const served = renderEditorialDocument(html, { path, description: "d" });
+    const outsideScripts = served.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, "");
+    const css = (/<style\b[^>]*>([\s\S]*?)<\/style>/i.exec(served)?.[1]) ?? "";
+    check(`${path}: no HTML comments served`, /<!--/.test(outsideScripts), false);
+    check(`${path}: no CSS comments served`, /\/\*/.test(css), false);
+    check(`${path}: operator not named in served HTML`, /\bkyle\b/i.test(served), false);
+    check(`${path}: scripts still ship intact`, (served.match(/<script\b/gi) ?? []).length === (html.match(/<script\b/gi) ?? []).length, true);
+    check(`${path}: styles still ship`, css.length > 10_000, true);
+  }
 }
 
 main()
