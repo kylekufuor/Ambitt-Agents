@@ -4,7 +4,7 @@ import { FigCaption, Icon, MaskLine, RuleDraw } from "../primitives";
 /** The portal is real, shown with real screenshots, and optional. */
 export function PortalSection() {
   return (
-    <section className="section">
+    <section className="section tone-alt">
       <RuleDraw />
       <div className="wrap">
         <div className="section-head reveal" style={{ maxWidth: "640px" }}>

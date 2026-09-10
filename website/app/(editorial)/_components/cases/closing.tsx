@@ -3,7 +3,7 @@ import { Icon, MaskLine } from "../primitives";
 /** The close of the cases page. */
 export function CasesClosing() {
   return (
-    <section className="section" style={{ paddingBottom: "clamp(72px,10vw,132px)" }}>
+    <section className="section tone-ink" style={{ paddingBottom: "clamp(72px,10vw,132px)" }}>
       <div className="wrap reveal">
         <div className="rule-draw" aria-hidden="true" style={{ marginBottom: "clamp(28px,4vw,44px)", transform: "none" }} />
         <div style={{ maxWidth: "640px" }}>

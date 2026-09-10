@@ -3,7 +3,7 @@ import { Icon, MaskLine, RuleDraw, ToolPlate } from "../primitives";
 /** The client's own logins and tools, and what an agent won't do with them. */
 export function ToolsSection() {
   return (
-    <section className="section">
+    <section className="section tone-teal">
       <RuleDraw />
       <div className="wrap">
         <div className="section-head reveal">

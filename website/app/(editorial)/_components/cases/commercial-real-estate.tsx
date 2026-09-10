@@ -5,7 +5,7 @@ import { FigCaption, Icon, MailArtifact, MaskLine, PullQuote } from "../primitiv
 /** Case 2 of 4: Arthur, acquisitions screening. */
 export function CommercialRealEstateCase() {
   return (
-    <section className="section" id="commercial-real-estate">
+    <section className="section tone-alt" id="commercial-real-estate">
       <PhotoPlate photo="commercialRealEstate" style={{ "--pos": "center 38%", "--cap-w": "380px" }}>
         Comparing notes on the sidewalk, phone in hand.
       </PhotoPlate>

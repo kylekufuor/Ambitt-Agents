@@ -21,22 +21,29 @@ const CALLOUTS: Array<[lead: string, rest: string]> = [
 /** The opening: four agents' work landing in one inbox, so the first screen reads as every industry, not one. */
 export function Hero() {
   return (
-    <section className="section" style={{ paddingTop: "clamp(40px,7vw,84px)" }}>
-      <PhotoPlate photo="hero" style={{ "--pos": "center 30%", "--cap-w": "400px", "--photo-op": ".44", "--photo-blur": ".7px" }}>
-        Four different businesses. The same idea, every time.
-      </PhotoPlate>
-      <div className="wrap spread">
+    <section className="section hero">
+      {/* On two-column screens the photograph sits BEHIND the headline (see .hero-top in
+          editorial.css); on phones it stays a band above it. Either way the headline is on
+          the first screen. */}
+      <div className="hero-top">
+        <PhotoPlate photo="hero" style={{ "--pos": "center 30%", "--cap-w": "400px", "--photo-op": ".44", "--photo-blur": ".7px" }}>
+          Four different businesses. The same idea, every time.
+        </PhotoPlate>
         {/* The load sequence, the one moment the page performs: kicker, masked headline (two
             lines), dek, calls to action, then the artifact and its callouts, each ~80-90ms after
             the last on one curve (--ease-out-expo). CSS keyframes (.enter), so it plays on first
             paint; everything below the fold uses .reveal and fires on scroll instead. */}
-        <div className="label-col">
+        <div className="wrap hero-head">
           <p className="kicker enter" style={{ animationDelay: ".02s" }}>An AI workforce</p>
           <h1 className="h1 enter" style={{ animationDelay: ".10s" }}>
             <MaskLine delay=".11s">You hired someone.</MaskLine>
             <MaskLine delay=".19s">Not a <em className="accent">seat</em>.</MaskLine>
           </h1>
-          <p className="dek enter" style={{ marginTop: "18px", animationDelay: ".19s" }}>
+        </div>
+      </div>
+      <div className="wrap spread hero-body">
+        <div className="label-col">
+          <p className="dek enter" style={{ animationDelay: ".19s" }}>
             Every agent has a name, an inbox, and a standing job. Roofing, real estate, tax season, the
             invoices nobody wants to chase: it's the same idea each time. Ask once, and the finished
             work comes back in the inbox you already read.

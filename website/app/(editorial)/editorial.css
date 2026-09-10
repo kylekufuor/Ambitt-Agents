@@ -357,6 +357,58 @@ blockquote.pull cite{
 .section-head{ margin-bottom:clamp(32px,5vw,56px); max-width:640px }
 .section + .section{ border-top:1px solid var(--rule-soft) }
 
+/* ---- section grounds -----------------------------------------------------------------
+   Kyle, 2026-09-10: "It's the same background color throughout! I need some variety."
+   Three grounds besides paper, each a local re-definition of the palette tokens rather than
+   a painted background, so everything inside (type, rules, cards, buttons, the photo
+   scrim) follows the ground without per-component overrides:
+     .tone-alt   a deeper, cooler stone: the portal screenshots and alternate cases sit on it
+     .tone-teal  the brand wash: the one section about the client's own tools
+     .tone-ink   a reversed green-black band: the close and the footer, so the page ends
+                 on one dark block instead of fading out
+   --plate-tint is re-declared in each on purpose: a custom property that references
+   another is resolved where it is declared, so without this the photo scrim would keep
+   the page's paper tone on top of a different ground. */
+.tone-alt, .tone-teal, .tone-ink{ background:var(--paper); color:var(--ink) }
+.tone-alt{
+  --paper:#e1e8e5; --paper-sunk:#d7dfdb; --rule-soft:hsl(168 12% 82%);
+  --plate-tint:color-mix(in srgb, var(--paper) 90%, var(--teal-wash) 10%);
+}
+.tone-teal{
+  --paper:hsl(176 34% 90%); --paper-sunk:hsl(176 28% 86%);
+  --card:#f6fbfa; --card-2:#fbfefd;
+  --rule:hsl(176 20% 76%); --rule-soft:hsl(176 22% 83%);
+  --teal-wash:hsl(178 46% 96%);
+  --plate-tint:color-mix(in srgb, var(--paper) 90%, var(--teal-wash) 10%);
+}
+.tone-ink{
+  color-scheme:dark;
+  --paper:#10211f; --paper-sunk:#0c1a18; --card:#152725; --card-2:#1a2d2a;
+  --ink:#e8f1ee; --ink-2:#b3c5bf; --ink-3:#93a79f; --ink-4:#7d918a;
+  --rule:hsl(168 14% 26%); --rule-soft:hsl(168 14% 20%);
+  --teal:#1fd0cf; --teal-ink:#5fe0dd; --teal-wash:hsl(178 40% 16%); --teal-edge:hsl(178 34% 34%);
+  --agent-otto:#2fd6d1; --agent-arthur:#7fb4d1; --agent-wade:#d1a05c; --agent-priya:#b2a0dc;
+  --plate-tint:color-mix(in srgb, var(--paper) 90%, var(--teal-wash) 10%);
+  --sh-1:0 1px 2px hsla(172,60%,1%,.5), 0 3px 8px -4px hsla(172,60%,1%,.55);
+  --sh-2:0 2px 4px hsla(172,60%,1%,.5), 0 14px 30px -14px hsla(172,60%,1%,.6);
+  --sh-3:0 4px 10px hsla(172,60%,1%,.5), 0 34px 60px -22px hsla(172,60%,1%,.65);
+}
+/* In dark mode the page is already near-black, so the grounds step the other way: alt and
+   teal lift slightly, ink turns a deeper, more saturated teal-black, and each still reads as
+   its own band. */
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]) .tone-alt{ --paper:#111d1b; --paper-sunk:#0d1716; --rule-soft:hsl(168 12% 20%) }
+  :root:not([data-theme="light"]) .tone-teal{ --paper:hsl(178 34% 11%); --paper-sunk:hsl(178 34% 9%); --card:#132624; --card-2:#172b28; --rule:hsl(176 20% 26%); --rule-soft:hsl(176 20% 20%); --teal-wash:hsl(178 40% 18%) }
+  :root:not([data-theme="light"]) .tone-ink{ --paper:#08201e; --paper-sunk:#061917; --card:#0e2a27; --card-2:#12302c }
+}
+:root[data-theme="dark"] .tone-alt{ --paper:#111d1b; --paper-sunk:#0d1716; --rule-soft:hsl(168 12% 20%) }
+:root[data-theme="dark"] .tone-teal{ --paper:hsl(178 34% 11%); --paper-sunk:hsl(178 34% 9%); --card:#132624; --card-2:#172b28; --rule:hsl(176 20% 26%); --rule-soft:hsl(176 20% 20%); --teal-wash:hsl(178 40% 18%) }
+:root[data-theme="dark"] .tone-ink{ --paper:#08201e; --paper-sunk:#061917; --card:#0e2a27; --card-2:#12302c }
+/* A change of ground is the boundary; the hairline between sections would only fuss it. */
+.section.tone-alt, .section.tone-teal, .section.tone-ink,
+.tone-alt + .section, .tone-teal + .section, .tone-ink + .section,
+.section + footer.tone-ink{ border-top-color:transparent }
+
 /* ---- section handoff [POLISH]: a short rule draws itself in at the top of most major
    sections, rather than every block independently fading up (the template tell the
    brief calls out). The static hairline above (.section + .section) is the honest,
@@ -562,6 +614,41 @@ figcaption .fno{ font-variant-numeric:tabular-nums; color:var(--ink-4); flex:non
 .hi-time{ margin-left:auto; font-size:.71875rem; color:var(--ink-4); font-variant-numeric:tabular-nums }
 .hi-subj{ margin:3px 0 0; font-weight:500; color:var(--ink); font-size:.84375rem; text-wrap:pretty }
 .hi-snip{ margin:3px 0 0; color:var(--ink-2); font-size:.8125rem; line-height:1.5; text-wrap:pretty }
+
+/* ---- hero: the headline over the settled photograph ---------------------------------
+   The photograph used to be a 460px band ABOVE the headline, which left the headline on the
+   bottom edge of a laptop's first screen and the buttons below it (Kyle, 2026-09-10). On
+   two-column screens it now sits BEHIND the headline, full bleed: the same settled plate
+   (desaturated, blurred, paper scrim strongest on the left where the words are), with the
+   subject's face landing to the right of the headline, fading out at the bottom so the dek
+   and the inbox start on clean paper. The caption moves to the bottom right, clear of the
+   headline. Phones keep the band above the text: one column, and the plate's vertical scrim
+   there is built for words below a photograph, not over it. */
+.hero{ padding-top:clamp(40px,7vw,84px) }
+.hero-head{ display:grid; gap:18px }
+.hero-body{ margin-top:36px }
+@media (min-width:901px){
+  .hero{ padding-top:0 }
+  .hero-top{
+    position:relative; isolation:isolate;
+    padding-block:clamp(40px,4.4vw,64px) clamp(28px,2.6vw,36px);
+  }
+  .hero-top > .photo-plate{
+    position:absolute; inset:0; z-index:-1; height:auto; margin:0; pointer-events:none;
+    background:none;
+  }
+  .hero-top > .photo-plate::before,
+  .hero-top > .photo-plate::after{
+    /* Fully clear well before the edge: the photo layer is scaled 1.06 and shifted by the
+       parallax, so a fade that only reaches transparent at its own bottom still shows a
+       faint line where the plate clips it. */
+    -webkit-mask-image:linear-gradient(to bottom, #000 40%, transparent 88%);
+            mask-image:linear-gradient(to bottom, #000 40%, transparent 88%);
+  }
+  .hero-top > .photo-plate .wrap{ display:flex; justify-content:flex-end }
+  .hero-top > .photo-plate .photo-cap{ text-align:right }
+  .hero-body{ margin-top:0 }
+}
 
 /* ---- job vignette (first-person + artifact) ------------------------------------ */
 .vignette{ display:grid; gap:20px }

@@ -3,7 +3,7 @@ import { BrandLockup } from "./brand-mark";
 export function Footer({ page }: { page: "home" | "cases" }) {
   const home = page === "home" ? "" : "/";
   return (
-    <footer>
+    <footer className="tone-ink">
       <div className="wrap">
         <div className="foot-grid">
           <div>

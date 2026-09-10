@@ -11,7 +11,7 @@ const ROSTER: Array<[AgentName, string]> = [
 /** The close: how to reach us, and the roster so far. */
 export function Contact() {
   return (
-    <section className="section" id="contact" style={{ paddingBottom: "clamp(72px,10vw,132px)" }}>
+    <section className="section tone-ink" id="contact" style={{ paddingBottom: "clamp(72px,10vw,132px)" }}>
       <RuleDraw />
       <div className="wrap">
         <div className="spread reveal">
