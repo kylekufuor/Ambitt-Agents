@@ -42,8 +42,12 @@ export const TIERS: Record<PricingTier, TierConfig> = {
     maxAgents: 2,
     interactionsPerMonth: 3000,
     overageRateCents: 40,
-    setupFeeCentsMin: 100000,
-    setupFeeCentsMax: 325000,
+    // $5,000 build, flat (Kyle, 2026-09-10). The custom build is real work, so it
+    // is a fixed price rather than a quoted range; Starter keeps its small setup
+    // fee so there is still an entry point. Monthly prices are unchanged on purpose:
+    // recurring revenue is what the business is valued on.
+    setupFeeCentsMin: 500000,
+    setupFeeCentsMax: 500000,
   },
   scale: {
     tier: "scale",
@@ -52,8 +56,12 @@ export const TIERS: Record<PricingTier, TierConfig> = {
     maxAgents: 3,
     interactionsPerMonth: 10000,
     overageRateCents: 30,
-    setupFeeCentsMin: 100000,
-    setupFeeCentsMax: 325000,
+    // $5,000 build, flat (Kyle, 2026-09-10). The custom build is real work, so it
+    // is a fixed price rather than a quoted range; Starter keeps its small setup
+    // fee so there is still an entry point. Monthly prices are unchanged on purpose:
+    // recurring revenue is what the business is valued on.
+    setupFeeCentsMin: 500000,
+    setupFeeCentsMax: 500000,
   },
   enterprise: {
     tier: "enterprise",
