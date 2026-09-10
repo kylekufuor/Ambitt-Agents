@@ -46,6 +46,22 @@ export interface InboundLogDb {
   };
 }
 
+/** The claim-row fields a human needs to find and re-run an unanswered email. */
+export interface UnansweredRow {
+  emailId: string | null;
+  fromAddr: string | null;
+  toAddr: string | null;
+  subject: string | null;
+  agentId: string | null;
+}
+
+export interface InboundSweepDb {
+  inboundEmailLog: {
+    findMany(args: any): Promise<Array<UnansweredRow & { id: string; createdAt: Date }>>;
+    updateMany(args: any): Promise<{ count: number }>;
+  };
+}
+
 export interface ClaimResult {
   /** True when a prior delivery of this emailId was already recorded — the
    * caller must respond and stop, not process the message. */
@@ -60,11 +76,14 @@ export interface ClaimResult {
 export async function claimDelivery(
   db: InboundLogDb,
   emailId: string,
-  seed: { toAddr: string | null }
+  seed: { toAddr: string | null; fromAddr?: string | null; subject?: string | null }
 ): Promise<ClaimResult> {
+  // Oldest first: that row is the original delivery's claim, whose disposition
+  // is the real outcome. Newest-first would report "duplicate_delivery" from
+  // the second redelivery on, because each short-circuit logs its own row.
   const prior = await db.inboundEmailLog.findFirst({
     where: { emailId },
-    orderBy: { createdAt: "desc" },
+    orderBy: { createdAt: "asc" },
     select: { id: true, disposition: true },
   });
   if (prior) {
@@ -73,7 +92,13 @@ export async function claimDelivery(
 
   try {
     const claimed = await db.inboundEmailLog.create({
-      data: { emailId, toAddr: seed.toAddr, disposition: "processing" },
+      data: {
+        emailId,
+        toAddr: seed.toAddr,
+        fromAddr: seed.fromAddr ?? null,
+        subject: seed.subject ?? null,
+        disposition: "processing",
+      },
     });
     return { duplicate: false, claimedId: claimed.id };
   } catch {
@@ -94,4 +119,48 @@ export async function finalizeDelivery(
   } else {
     await db.inboundEmailLog.create({ data });
   }
+}
+
+/**
+ * Deliveries a previous Oracle process claimed and never finished. A deploy or
+ * crash killed the run, so the row still says "processing", and it still
+ * blocks Resend's redelivery (by design: it may have sent something before it
+ * died). Marks them "interrupted" so each is reported once, and returns them
+ * so the caller can tell a human.
+ *
+ * `bootedAt` must be this process's start time: rows this process claims are
+ * newer and are never touched. Rows older than `lookbackMs` are left alone;
+ * they predate this sweep and nobody can act on them now.
+ */
+export async function sweepInterruptedDeliveries(
+  db: InboundSweepDb,
+  bootedAt: Date,
+  lookbackMs = 3 * 24 * 60 * 60 * 1000
+): Promise<Array<UnansweredRow & { createdAt: Date }>> {
+  const rows = await db.inboundEmailLog.findMany({
+    where: { disposition: "processing", createdAt: { lt: bootedAt, gt: new Date(bootedAt.getTime() - lookbackMs) } },
+    orderBy: { createdAt: "asc" },
+    select: { id: true, emailId: true, fromAddr: true, toAddr: true, subject: true, agentId: true, createdAt: true },
+  });
+  if (rows.length === 0) return [];
+  await db.inboundEmailLog.updateMany({
+    where: { id: { in: rows.map((r) => r.id) }, disposition: "processing" },
+    data: { disposition: "interrupted" },
+  });
+  return rows.map(({ id: _id, ...rest }) => rest);
+}
+
+/** Operator alert text for an inbound email that will not be answered automatically. */
+export function describeUnanswered(input: UnansweredRow & { reason: string }): string {
+  const lines = [
+    "An email to an agent was not answered, and Resend's retry will be skipped (it could send twice).",
+    `Why: ${input.reason}`,
+    `From: ${input.fromAddr ?? "unknown"}`,
+    `To: ${input.toAddr ?? "unknown"}`,
+    `Subject: ${input.subject ?? "(none)"}`,
+    `Agent: ${input.agentId ?? "not resolved yet"}`,
+    `Resend email id: ${input.emailId ?? "unknown"}`,
+    "To re-run it: check nothing already went out for it, delete the InboundEmailLog rows with that email id, then replay the webhook from Resend.",
+  ];
+  return lines.join("\n");
 }

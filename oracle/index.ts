@@ -8,7 +8,8 @@ import { runImprovementCycle } from "./improve.js";
 import { handleStripeWebhook } from "./billing.js";
 import { onboardClient } from "./onboard.js";
 import { classifyAutomatedInbound } from "./lib/inbound-classify.js";
-import { claimDelivery, finalizeDelivery } from "./lib/inbound-idempotency.js";
+import { claimDelivery, describeUnanswered, finalizeDelivery, sweepInterruptedDeliveries } from "./lib/inbound-idempotency.js";
+import { alertOperator } from "../shared/alert-operator.js";
 import { forwardUnroutedInbound } from "./lib/forwardUnrouted.js";
 import {
   buildThanksEmail,
@@ -1827,6 +1828,10 @@ app.post("/webhooks/sms", twilioForm, async (req: Request, res: Response) => {
 // handler. Everything after it, including the `from` address the auth checks
 // compare against, comes out of the request body, so without a verified
 // signature an anonymous POST can claim to be any client and drive their agent.
+// When this process started. The interrupted-inbound sweep at boot only takes
+// "processing" rows claimed before this moment, i.e. by a previous process.
+const ORACLE_BOOTED_AT = new Date();
+
 app.post("/webhooks/email-inbound", async (req: Request, res: Response) => {
   const t0 = Date.now();
   const ilog: Record<string, unknown> = { disposition: "received" };
@@ -1905,17 +1910,11 @@ app.post("/webhooks/email-inbound", async (req: Request, res: Response) => {
     // We claim the emailId here, before any side effect runs — see
     // oracle/lib/inbound-idempotency.ts for the full account, the race-window
     // caveat, and why a redelivery isn't auto-retried even after an error.
-    const claim = await claimDelivery(prisma, emailId, { toAddr: ilog.toAddr as string | null });
-    if (claim.duplicate) {
-      logger.info("Inbound webhook — redelivered emailId short-circuited", {
-        emailId,
-        priorDisposition: claim.priorDisposition,
-      });
-      res.json({ status: "duplicate_delivery", emailId, priorDisposition: claim.priorDisposition });
-      return;
-    }
-    claimedLogId = claim.claimedId;
-
+    //
+    // The claim row records who wrote and about what, so a delivery that never
+    // finishes (a deploy or crash mid-run) is still attributable when the boot
+    // sweep reports it. That is why the side-effect-free parse below sits
+    // above the claim.
     // Read sender/subject straight off the payload. Do NOT reintroduce a
     // GET /emails/{id} here: that endpoint only returns OUTBOUND email (re_…
     // ids), inbound ids are UUIDs, and it 502'd every time. The body is a
@@ -1930,6 +1929,36 @@ app.post("/webhooks/email-inbound", async (req: Request, res: Response) => {
     const subject = ((typeof emailData.subject === "string" ? emailData.subject : "") || "").toUpperCase().trim();
     ilog.fromAddr = from || null;
     ilog.subject = typeof emailData.subject === "string" ? emailData.subject : null;
+
+    let claim: Awaited<ReturnType<typeof claimDelivery>>;
+    try {
+      claim = await claimDelivery(prisma, emailId, {
+        toAddr: ilog.toAddr as string | null,
+        fromAddr: ilog.fromAddr as string | null,
+        subject: ilog.subject as string | null,
+      });
+    } catch (claimErr) {
+      // The duplicate check itself failed (a DB error), so we cannot tell
+      // whether this email was already handled. Don't run it: that could send
+      // twice. And don't log a row keyed on this emailId: it would make
+      // Resend's retry look like a duplicate, when a retry is exactly right
+      // here (nothing ran). 503 so Resend redelivers.
+      ilog.emailId = null;
+      ilog.disposition = "claim_check_failed";
+      ilog.errorMsg = `claim_check_failed for emailId ${emailId}: ${claimErr instanceof Error ? claimErr.message : String(claimErr)}`;
+      logger.error("Inbound webhook — duplicate check failed, asking Resend to retry", { emailId, error: ilog.errorMsg });
+      res.status(503).json({ error: "Temporarily unable to check for a duplicate delivery" });
+      return;
+    }
+    if (claim.duplicate) {
+      logger.info("Inbound webhook — redelivered emailId short-circuited", {
+        emailId,
+        priorDisposition: claim.priorDisposition,
+      });
+      res.json({ status: "duplicate_delivery", emailId, priorDisposition: claim.priorDisposition });
+      return;
+    }
+    claimedLogId = claim.claimedId;
 
     // Resolve agentId from the recipient(s). Two paths:
     //   1) reply-{agentId}@ambitt.agency — used by Reply-To when clients hit
@@ -2474,6 +2503,9 @@ app.post("/webhooks/email-inbound", async (req: Request, res: Response) => {
     });
 
     if (!agent || agent.status !== "active") {
+      // Final: a redelivery short-circuits on this emailId, so a paused agent
+      // does not pick this email up if it is resumed later. Record why.
+      ilog.disposition = `agent_inactive:${agent?.status ?? "missing"}`;
       res.status(404).json({ error: "Agent not found or inactive" });
       return;
     }
@@ -2535,6 +2567,19 @@ app.post("/webhooks/email-inbound", async (req: Request, res: Response) => {
     ilog.disposition = "error";
     ilog.errorMsg = error instanceof Error ? error.message : String(error);
     res.status(500).json({ error: "Inbound processing failed" });
+    // This delivery was claimed, so Resend's retry will be short-circuited as
+    // a duplicate (see inbound-idempotency.ts for why). The email is now
+    // unanswered unless someone acts, so say so. alertOperator never throws.
+    if (claimedLogId) {
+      void alertOperator(describeUnanswered({
+        reason: `an error stopped the run: ${ilog.errorMsg}`,
+        emailId: ilog.emailId as string | null,
+        fromAddr: ilog.fromAddr as string | null,
+        toAddr: ilog.toAddr as string | null,
+        subject: ilog.subject as string | null,
+        agentId: ilog.agentId as string | null,
+      }));
+    }
   } finally {
     // One row per emailId claim, always — captures every drop-off point +
     // latency. If we claimed a row early (the idempotency block above), that
@@ -6789,6 +6834,21 @@ app.post("/cron/improvement", async (_req: Request, res: Response) => {
 const PORT = parseInt(process.env.PORT || "3000", 10);
 app.listen(PORT, async () => {
   logger.info(`Oracle running on port ${PORT}`);
+
+  // Inbound emails a previous Oracle process claimed but never finished: a
+  // deploy or crash killed the run. Their claim rows still block Resend's
+  // redelivery (that is what stops double sends), so without this sweep those
+  // emails would go unanswered and nobody would know. Every push to main
+  // restarts Oracle, so this is not a rare case.
+  try {
+    const interrupted = await sweepInterruptedDeliveries(prisma, ORACLE_BOOTED_AT);
+    for (const row of interrupted) {
+      void alertOperator(describeUnanswered({ ...row, reason: "Oracle restarted (deploy or crash) while it was running" }));
+    }
+    if (interrupted.length) logger.warn("Inbound emails interrupted by a restart", { count: interrupted.length });
+  } catch (error) {
+    logger.error("Interrupted-inbound sweep failed", { error: error instanceof Error ? error.message : String(error) });
+  }
 
   // Initialize agent scheduler — registers cron jobs for all active agents
   try {

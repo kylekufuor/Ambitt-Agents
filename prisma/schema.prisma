@@ -1204,7 +1204,10 @@ model LocalTask {
 // guessing — and measures inbound latency.
 model InboundEmailLog {
   id          String  @id @default(cuid())
-  emailId     String? // Resend email_id (UUID for inbound)
+  // Resend email_id (UUID for inbound). Also the redelivery dedupe key: a row
+  // with this emailId stops a redelivered webhook from running the agent (and
+  // its sends) again. Do not prune recent rows, or double sends come back.
+  emailId     String?
   fromAddr    String?
   toAddr      String? // comma-joined recipients
   subject     String?
@@ -1215,6 +1218,9 @@ model InboundEmailLog {
   bodyFetched String? // "ok" | "failed:<status>" | "skipped:had_body" | null (not attempted)
   // "received" (default) then overwritten by the response status:
   // ignored | 2fa_captured | documents_stored | action_processed | replied | error
+  // Redelivery idempotency (oracle/lib/inbound-idempotency.ts) adds:
+  // processing (claimed, run in flight) | duplicate_delivery | interrupted
+  // (a restart killed the run) | claim_check_failed | agent_inactive:<status>
   disposition String  @default("received")
   errorMsg    String? @db.Text
   ms          Int? // total handler time in milliseconds
