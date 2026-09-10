@@ -3,50 +3,31 @@ import localFont from "next/font/local";
 import "./globals.css";
 
 /* ---------------------------------------------------------------------------
-   DM Sans — ONE family, display through legal. No display/body pairing.
-   Self-hosted woff2 (SIL OFL 1.1, licence in public/fonts/DM-Sans-OFL.txt).
-   Never a CDN <link>: a silent webfont fallback is the failure we design
-   against, so the bytes ship with the app.
+   Satoshi — ONE family, display through legal. No display/body pairing.
+   Matches the editorial homepage and use-cases pages (which carry their own
+   inline Satoshi) and the client portal, so a visitor moving from `/` to
+   /docs or the legal pages never sees the letterforms change.
 
-   Variable file carries BOTH axes (opsz 9–40, wght 100–1000), so
-   `font-optical-sizing: auto` gives the hero a true display cut rather than
-   text shapes scaled up. One 62 kB file is smaller than the three static
-   weights (400/500/600) it replaces.
+   Self-hosted woff2 (ITF Free Font License v2.0, note in
+   public/fonts/Satoshi-FFL.txt). Never a CDN <link>: a silent webfont
+   fallback is the failure we design against, so the bytes ship with the app.
+   The file is the portal's, byte for byte. The licence forbids subsetting or
+   re-compressing it, so never run it through a font tool.
 
-   Split latin / latin-ext by unicode-range: the ext file is only fetched when
-   a client or agent name actually needs it, and is not preloaded.
+   One variable file, wght 300–900, normal style only. It covers basic latin,
+   92 of 96 Latin-1 and 115 of 128 Latin Extended-A codepoints plus the euro
+   sign in one file, so the latin / latin-ext unicode-range split DM Sans
+   needed is gone (42 kB replaces 62 kB + 31 kB).
+   Satoshi has no opsz axis, so optical sizing is dropped too (globals.css).
+   The site never loaded DM Mono, so there is no mono face to carry over.
    --------------------------------------------------------------------------- */
-const dmSansExt = localFont({
-  src: "../public/fonts/dm-sans-ext.woff2",
-  weight: "100 1000",
+const satoshi = localFont({
+  src: "../public/fonts/satoshi-var.woff2",
+  weight: "300 900",
+  style: "normal",
   display: "swap",
-  preload: false,
-  variable: "--font-dm-sans-ext",
-  adjustFontFallback: false,
-  declarations: [
-    {
-      prop: "unicode-range",
-      // Inlined, not a const: next/font parses these arguments statically and
-      // silently drops anything it cannot resolve at build time.
-      value:
-        "U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF",
-    },
-  ],
-});
-
-const dmSans = localFont({
-  src: "../public/fonts/dm-sans.woff2",
-  weight: "100 1000",
-  display: "swap",
-  variable: "--font-dm-sans",
+  variable: "--font-satoshi",
   fallback: ["system-ui", "-apple-system", "Segoe UI", "Roboto", "sans-serif"],
-  declarations: [
-    {
-      prop: "unicode-range",
-      value:
-        "U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD",
-    },
-  ],
 });
 
 export const metadata: Metadata = {
@@ -76,7 +57,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${dmSans.variable} ${dmSansExt.variable}`}>
+    <html lang="en" className={satoshi.variable}>
       <body>{children}</body>
     </html>
   );

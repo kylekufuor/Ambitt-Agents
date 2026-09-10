@@ -2,7 +2,9 @@
 
 /* ===========================================================================
    Ambitt Agents — website design system
-   Databricks structure, Ambitt accent. ONE typeface: DM Sans, hero to legal.
+   Databricks structure, Ambitt accent. ONE typeface: Satoshi, hero to legal
+   (2026-09-10, replaced DM Sans to match the editorial `/` and `/use-cases`
+   pages and the client portal).
 
    TYPE DISCIPLINE (shared with the portal and the dashboard — see
    client-portal/DESIGN.md). The premium read comes from restraint, not weight:
@@ -87,8 +89,7 @@
   --r: 14px;
   /* One family. --font-disp is kept as an alias so the handful of `.disp`
      call-sites keep working — it is deliberately the SAME stack now. */
-  --font-body: var(--font-dm-sans), var(--font-dm-sans-ext), system-ui, -apple-system, "Segoe UI",
-    Roboto, sans-serif;
+  --font-body: var(--font-satoshi), system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-disp: var(--font-body);
 }
 
@@ -122,9 +123,8 @@ body {
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   font-variant-numeric: tabular-nums;
-  /* DM Sans carries an optical-size axis (9–40). Let the browser use it: the
-     hero gets a real display cut, 12px legal gets the text cut. */
-  font-optical-sizing: auto;
+  /* Satoshi has only a wght axis, no opsz (DM Sans, which this replaced, had
+     one). `font-optical-sizing: auto` would be inert, so it is not set. */
   text-rendering: optimizeLegibility;
 }
 h1,

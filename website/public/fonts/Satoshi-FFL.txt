@@ -1,0 +1,27 @@
+Satoshi (satoshi-var.woff2)
+Foundry: Indian Type Foundry, distributed via Fontshare (https://www.fontshare.com/fonts/satoshi)
+
+This Font Software is licensed under the ITF Free Font License (FFL),
+Version 2.0, dated 17 Aug 2026.
+https://www.fontshare.com/licenses/itf-ffl
+
+Self-hosting these files (bundling the woff2 with this application and
+serving them from our own domain, as done here via next/font/local) is
+expressly permitted under Section 01 of the license.
+
+Modification and subsetting of the Font Software are prohibited under
+Section 02 of the license. These files must be shipped exactly as
+downloaded from Fontshare: do not re-subset, re-compress, or otherwise
+transform them; doing so creates a Derivative Work, which requires
+written consent from the Indian Type Foundry that we do not have.
+
+satoshi-var.woff2 here is byte-identical to the client portal's copy
+(client-portal/public/fonts/satoshi-var.woff2, git blob b00e833e).
+
+The editorial pages (website/editorial/*.html) also carry Satoshi, as
+Fontshare's four static cuts (400, 500, 700, 900) inlined as base64 data
+URIs. Each decodes byte-for-byte to the file Fontshare's own CSS API
+serves for that weight (sha256 compared 2026-09-10). Base64 is a transport
+encoding, not a change to the font, so the same rule holds: never
+re-export, subset or optimise those cuts. Replace them only with fresh,
+unmodified files from Fontshare.

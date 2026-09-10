@@ -1,4 +1,8 @@
-Copyright 2014 The DM Sans Project Authors (https://github.com/googlefonts/dm-fonts) DMSans-Italic[opsz,wght].ttf: Copyright 2014 The DM Sans Project Authors (https://github.com/googlefonts/dm-fonts)
+Newsreader, embedded in the editorial pages (website/editorial/*.html) as
+base64 woff2: a Latin subset, roman and italic. The OFL permits subsetting
+(a Modified Version) provided this licence travels with the font.
+
+Copyright 2020 The Newsreader Project Authors (http://github.com/productiontype/Newsreader)
 
 This Font Software is licensed under the SIL Open Font License, Version 1.1.
 This license is copied below, and is also available with a FAQ at:
