@@ -8,6 +8,7 @@ import { runImprovementCycle } from "./improve.js";
 import { handleStripeWebhook } from "./billing.js";
 import { onboardClient } from "./onboard.js";
 import { classifyAutomatedInbound } from "./lib/inbound-classify.js";
+import { claimDelivery, finalizeDelivery } from "./lib/inbound-idempotency.js";
 import { forwardUnroutedInbound } from "./lib/forwardUnrouted.js";
 import {
   buildThanksEmail,
@@ -1829,6 +1830,10 @@ app.post("/webhooks/sms", twilioForm, async (req: Request, res: Response) => {
 app.post("/webhooks/email-inbound", async (req: Request, res: Response) => {
   const t0 = Date.now();
   const ilog: Record<string, unknown> = { disposition: "received" };
+  // Set once we've written an early "claim" row for this emailId (see the
+  // idempotency block below) — the finally() at the bottom UPDATES that same
+  // row instead of creating a second one when this is set.
+  let claimedLogId: string | null = null;
   // Auto-capture the final disposition from whatever {status} we respond with,
   // so we don't have to touch every return point. The finally below writes one
   // InboundEmailLog row per webhook — always, even on early drops or errors.
@@ -1887,6 +1892,29 @@ app.post("/webhooks/email-inbound", async (req: Request, res: Response) => {
       res.status(400).json({ error: "Missing email_id in webhook payload" });
       return;
     }
+
+    // Idempotency — Resend redelivers when our response is slow or our
+    // container restarts mid-run, and this handler holds the connection open
+    // for the whole agent run (see the processInboundMessage call below), so
+    // it repeats EVERY side effect on a redelivery, including a second send
+    // of an email that already went out. This happened in production twice:
+    // a deploy killed a run mid-flight and the repeat run re-sent; and on
+    // 2026-09-10 one operator request to Atlas ("email this prospect") ran
+    // three times over two and a half hours, because a ~2.5-minute run never
+    // answers in time and each redelivery sent the prospect email again.
+    // We claim the emailId here, before any side effect runs — see
+    // oracle/lib/inbound-idempotency.ts for the full account, the race-window
+    // caveat, and why a redelivery isn't auto-retried even after an error.
+    const claim = await claimDelivery(prisma, emailId, { toAddr: ilog.toAddr as string | null });
+    if (claim.duplicate) {
+      logger.info("Inbound webhook — redelivered emailId short-circuited", {
+        emailId,
+        priorDisposition: claim.priorDisposition,
+      });
+      res.json({ status: "duplicate_delivery", emailId, priorDisposition: claim.priorDisposition });
+      return;
+    }
+    claimedLogId = claim.claimedId;
 
     // Read sender/subject straight off the payload. Do NOT reintroduce a
     // GET /emails/{id} here: that endpoint only returns OUTBOUND email (re_…
@@ -2508,24 +2536,42 @@ app.post("/webhooks/email-inbound", async (req: Request, res: Response) => {
     ilog.errorMsg = error instanceof Error ? error.message : String(error);
     res.status(500).json({ error: "Inbound processing failed" });
   } finally {
-    // One row per webhook, always — captures every drop-off point + latency.
+    // One row per emailId claim, always — captures every drop-off point +
+    // latency. If we claimed a row early (the idempotency block above), that
+    // row's mere EXISTENCE is what short-circuits a redelivery, so it must be
+    // UPDATED in place here rather than left stale while a second row is
+    // created — otherwise the short-circuit above would find a "processing"
+    // row forever and the real disposition would never be recorded. Requests
+    // that returned before a claim could be attempted (bad signature, wrong
+    // event type, missing email_id, or the duplicate-delivery short-circuit
+    // itself, which deliberately does not claim) still get a fresh row here.
+    //
+    // Note this means a genuinely transient error on the FIRST delivery of an
+    // emailId (a DB blip, an upstream API hiccup) is not auto-retried by a
+    // Resend redelivery either — the claim row already exists with
+    // disposition "error", so the redelivery short-circuits same as a
+    // successful repeat would. That trade-off is deliberate: distinguishing
+    // "safe to retry, nothing sent yet" from "already sent, don't repeat"
+    // would need send-level tracking this schema doesn't have, and the
+    // failure mode we're fixing (double-send) is strictly worse than the one
+    // we're accepting (a failed run needs a manual nudge instead of an
+    // automatic one).
     try {
-      await prisma.inboundEmailLog.create({
-        data: {
-          emailId: (ilog.emailId as string | null) ?? null,
-          fromAddr: (ilog.fromAddr as string | null) ?? null,
-          toAddr: (ilog.toAddr as string | null) ?? null,
-          subject: (ilog.subject as string | null) ?? null,
-          agentId: (ilog.agentId as string | null) ?? null,
-          clientId: (ilog.clientId as string | null) ?? null,
-          routingPath: (ilog.routingPath as string | null) ?? null,
-          authResult: (ilog.authResult as string | null) ?? null,
-          bodyFetched: (ilog.bodyFetched as string | null) ?? null,
-          disposition: (ilog.disposition as string) || "received",
-          errorMsg: (ilog.errorMsg as string | null) ?? null,
-          ms: Date.now() - t0,
-        },
-      });
+      const data = {
+        emailId: (ilog.emailId as string | null) ?? null,
+        fromAddr: (ilog.fromAddr as string | null) ?? null,
+        toAddr: (ilog.toAddr as string | null) ?? null,
+        subject: (ilog.subject as string | null) ?? null,
+        agentId: (ilog.agentId as string | null) ?? null,
+        clientId: (ilog.clientId as string | null) ?? null,
+        routingPath: (ilog.routingPath as string | null) ?? null,
+        authResult: (ilog.authResult as string | null) ?? null,
+        bodyFetched: (ilog.bodyFetched as string | null) ?? null,
+        disposition: (ilog.disposition as string) || "received",
+        errorMsg: (ilog.errorMsg as string | null) ?? null,
+        ms: Date.now() - t0,
+      };
+      await finalizeDelivery(prisma, claimedLogId, data);
     } catch (logErr) {
       logger.warn("InboundEmailLog write failed", { error: logErr instanceof Error ? logErr.message : String(logErr) });
     }
