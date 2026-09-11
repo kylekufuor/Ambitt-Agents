@@ -52,8 +52,8 @@ export async function HomePage() {
   // Only claim what actually happened this week. A sentence that says "sourced
   // 0 owners and sent 0 letters" is worse than saying he has not run.
   const did: string[] = [];
-  if (leadsThisWeek > 0) did.push(`added ${leadsThisWeek} ${leadsThisWeek === 1 ? "owner" : "owners"} to your book`);
-  if (sentThisWeek > 0) did.push(`wrote ${sentThisWeek} ${sentThisWeek === 1 ? "letter" : "letters"}`);
+  if (leadsThisWeek > 0) did.push(`${leadsThisWeek} new ${leadsThisWeek === 1 ? "lead" : "leads"} in your book`);
+  if (sentThisWeek > 0) did.push(`${sentThisWeek} ${sentThisWeek === 1 ? "email" : "emails"} sent by ${name}`);
 
   return (
     <V3Shell user={{ email, name: client.businessName }} crumbs={[{ label: "Home" }]}>
@@ -75,15 +75,15 @@ export async function HomePage() {
               </b>{" "}
               {did.length > 0 ? (
                 <>
-                  This week he {did.join(" and ")}.
+                  This week: {did.join(" and ")}.
                 </>
               ) : (
-                <>He has not logged anything new in the last seven days.</>
+                <>No new leads or emails in the last seven days.</>
               )}
             </p>
             <p className="text-[13px] text-[color:var(--text-3)] mt-1.5">
               {status.line}
-              {agent.status === "active" && ` Runs ${describeSchedule(agent.schedule).toLowerCase()}.`}
+              {agent.status === "active" && ` Schedule: ${describeSchedule(agent.schedule)} (${agent.timezone}).`}
             </p>
           </div>
         </div>
@@ -101,7 +101,7 @@ export async function HomePage() {
                 </b>
               </p>
               <p className="text-[13px] text-[color:var(--text-2)] mt-1.5 leading-relaxed">
-                {name} has stopped and will not go ahead until you say so.
+                These actions are waiting for your approval. Review them to decide what happens next.
               </p>
               <Link href="/approvals" className="btn btn-primary btn-sm mt-3 inline-flex no-underline">
                 Look at them
@@ -113,7 +113,7 @@ export async function HomePage() {
               <p className="text-[13px] text-[color:var(--text-2)] mt-1.5 leading-relaxed">
                 {agent.status === "active"
                   ? `${name} will email you when something needs a decision. You do not have to check.`
-                  : `${name} is not running, so nothing new will arrive until he is.`}
+                  : `${name} is not running, so nothing new will arrive until work resumes.`}
               </p>
             </>
           )}
@@ -123,7 +123,7 @@ export async function HomePage() {
           <Eyebrow>Your book</Eyebrow>
           <p className="text-[16px] mt-2">
             <b className="font-medium">
-              {leadsTotal} {leadsTotal === 1 ? "owner" : "owners"}
+              {leadsTotal} {leadsTotal === 1 ? "lead" : "leads"}
             </b>{" "}
             {leadsTotal === 0 ? "so far." : "in your book."}
           </p>
@@ -145,7 +145,7 @@ export async function HomePage() {
           ) : (
             <p className="text-[13px] text-[color:var(--text-2)] mt-1.5 leading-relaxed">
               {leadsTotal === 0
-                ? `${name} has not logged an owner yet.`
+                ? `${name} has not logged a lead yet.`
                 : `None of them are hot right now. ${name} moves one up the moment somebody answers.`}
             </p>
           )}

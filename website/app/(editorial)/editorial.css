@@ -194,7 +194,15 @@ blockquote.pull cite{ display:block; margin-top:12px; font-style:normal; font-fa
 .navlinks a[aria-current]{ color:var(--ink) }
 .navspacer{ flex:1 }
 .nav-cta{ display:flex; align-items:center; gap:6px }
-@media (max-width:860px){ .hide-mobile{ display:none } .masthead .bar{ gap:12px; padding:0 8px 0 14px } .brand{ --logo-size:28px } }
+.mobile-menu{ display:none; position:relative; margin-left:auto; color:var(--ink) }
+.mobile-menu summary{ cursor:pointer; list-style:none; display:flex; align-items:center; gap:10px; min-height:44px; padding:0 12px; font-size:14px; border-radius:10px }
+.mobile-menu summary::-webkit-details-marker{ display:none }
+.mobile-menu[open] summary{ background:rgba(248,248,248,.08) }
+.mobile-menu nav{ position:absolute; top:calc(100% + 12px); right:0; width:240px; padding:8px; display:grid; background:#0d1514; border:1px solid var(--rule-strong); border-radius:14px; box-shadow:var(--sh-2) }
+.mobile-menu nav a{ padding:13px 14px; min-height:44px; text-decoration:none; border-radius:8px; font-size:15px }
+.mobile-menu nav a:hover{ background:rgba(248,248,248,.08) }
+section[id]{ scroll-margin-top:100px }
+@media (max-width:860px){ .mobile-menu{ display:block } .navlinks{ display:none } .hide-mobile{ display:none } .masthead .bar{ gap:12px; padding:0 8px 0 14px } .brand{ --logo-size:28px } }
 @media (max-width:560px){ .navlinks a:not(.btn){ display:none } .pill{ white-space:normal; text-align:center; padding:6px 12px 6px 6px } }
 /* the bar drops in from above the viewport on a spring, like Xtract's */
 @media (prefers-reduced-motion:no-preference){
@@ -823,7 +831,7 @@ footer{ position:relative; border-top:1px solid var(--rule-soft); padding-block:
 .gmail-attach-card__actions{
   position:absolute; top:8px; right:8px; display:flex; gap:6px; opacity:0;
 }
-.gmail-attach-card__actions button{
+.gmail-attach-card__actions > span{
   width:26px; height:26px; border-radius:50%; background:rgba(255,255,255,.96);
   box-shadow:0 1px 2px rgba(60,64,67,.3); display:flex; align-items:center; justify-content:center;
   color:#3c4043;
@@ -861,7 +869,7 @@ footer{ position:relative; border-top:1px solid var(--rule-soft); padding-block:
 .gmail-message__meta .gmail-iconbtn:hover{ background:var(--gm-msg-hover) }
 .gmail-attach-card:hover{ box-shadow:var(--gm-shadow-1); border-color:var(--gm-border-strong) }
 .gmail-attach-card:hover .gmail-attach-card__actions{ opacity:1 }
-.gmail-attach-card__actions button:hover{ background:#fff }
+.gmail-attach-card__actions > span:hover{ background:#fff }
 .gmail-pill:hover{ background:var(--gm-hover) }
 .gmail-reactions button:hover{ background:var(--gm-hover) }
 

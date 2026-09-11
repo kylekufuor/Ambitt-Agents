@@ -14,13 +14,13 @@ const CARDS: Array<{ icon: IconName; title: string; body: string }> = [
   },
   {
     icon: "list-checks",
-    title: "A playbook you can read",
-    body: "Every rule you give it lands in a list you can see and change. Tell it once. It doesn't ask again.",
+    title: "Rules you can direct",
+    body: "Set the job, tone and boundaries together. Review how your agent works in the portal and send changes by email.",
   },
   {
     icon: "gauge",
-    title: "A ceiling you set",
-    body: "Spend, sends and hours have limits you choose. It asks before it goes over, and one reply pauses it.",
+    title: "Clear usage and controls",
+    body: "Check included interactions and extra charges in Billing. Set the working schedule and pause your agent from the portal.",
   },
 ];
 

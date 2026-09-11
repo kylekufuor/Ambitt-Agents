@@ -1,3 +1,4 @@
+import { missingCustomTools } from "@/lib/tool-setup";
 import Link from "next/link";
 import prisma from "@/lib/db";
 import { getClientTodos } from "@/lib/client-todos";
@@ -29,7 +30,7 @@ async function loadRail(email: string): Promise<RailProps | null> {
         where: { status: { not: "killed" } },
         orderBy: { createdAt: "asc" },
         select: {
-          id: true, name: true, status: true, nextScheduledRun: true,
+          id: true, name: true, status: true, nextScheduledRun: true, timezone: true,
           pausedBy: true, customTools: true, pricingTier: true,
         },
       },
@@ -48,16 +49,15 @@ async function loadRail(email: string): Promise<RailProps | null> {
     agent
       ? prisma.recommendation.count({ where: { agentId: agent.id, status: "pending" } })
       : Promise.resolve(0),
-    prisma.credential.count({ where: { client: { email }, secretsEncrypted: { not: null } } }),
+    prisma.credential.findMany({ where: { client: { email }, secretsEncrypted: { not: null } }, select: { toolName: true } }),
   ]);
 
   // "Needs setup" means the agent has browser tools configured that have no
   // stored credentials behind them.
-  const customTools = Array.isArray(agent?.customTools) ? (agent!.customTools as unknown[]) : [];
-  const toolsNeedSetup = customTools.length > credentials;
+  const toolsNeedSetup = missingCustomTools(agent?.customTools, credentials) > 0;
 
   const tier = (agent?.pricingTier ?? "growth") as PricingTier;
-  const planLabel = TIERS[tier] ? `${TIERS[tier].label} plan` : "Your plan";
+  const planLabel = agent ? (TIERS[tier] ? `${TIERS[tier].label} plan` : "Your plan") : "Getting started";
 
   return {
     businessName: client.businessName,
@@ -68,6 +68,7 @@ async function loadRail(email: string): Promise<RailProps | null> {
           name: agent.name,
           status: agent.status,
           nextScheduledRun: agent.nextScheduledRun?.toISOString() ?? null,
+          timezone: agent.timezone,
           pausedBy: agent.pausedBy ?? null,
         }
       : null,

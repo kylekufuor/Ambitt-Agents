@@ -165,9 +165,7 @@ async function main(): Promise<void> {
       [theirs.monthlyCents, theirs.maxAgents, theirs.interactionsPerMonth, theirs.overageRateCents, theirs.setupFeeCentsMin, theirs.setupFeeCentsMax],
     );
     check(`${key}: yearly price matches Oracle's getAnnualPrice`, mine.monthlyCents * pricing.ANNUAL_MONTHS, shared.getAnnualPrice(key));
-    // The ledger foot claims every tier's first year, build included, is under a
-    // $55,000 coordinator. Keep that true or change the sentence.
-    check(`${key}: first year with build stays under the coordinator`, theirs.monthlyCents * 12 + theirs.setupFeeCentsMax < pricing.COORDINATOR_SALARY * 100, true);
+
   }
   check("discount mirror matches Oracle", pricing.SECOND_AGENT_DISCOUNT_PCT, shared.SECOND_AGENT_DISCOUNT_PCT);
 
@@ -184,9 +182,9 @@ async function main(): Promise<void> {
         ? `${usd(tier.setupFeeCentsMin)} flat`
         : `${usd(tier.setupFeeCentsMin)} to ${usd(tier.setupFeeCentsMax)}`;
     check(`${key}: card shows the build fee`, text(card).includes(`One-time build: ${build}`), true);
-    check(`${key}: card shows the interaction allowance`, text(card).includes(`${tier.interactionsPerMonth.toLocaleString("en-US")} interactions a month`), true);
+    check(`${key}: card shows the interaction allowance`, text(card).includes(`${tier.interactionsPerMonth.toLocaleString("en-US")} interactions per agent a month`), true);
   }
-  check("Growth is the featured plan", /<div class="plan featured">[\s\S]*?Most popular/.test(section), true);
+  check("Growth is the featured plan", /<div class="plan featured">[\s\S]*?For growing teams/.test(section), true);
   const foot = text(section);
   const { growth, scale, starter } = shared.TIERS;
   check("Growth and Scale share one flat build", growth.setupFeeCentsMin === scale.setupFeeCentsMin && growth.setupFeeCentsMin === growth.setupFeeCentsMax && scale.setupFeeCentsMin === scale.setupFeeCentsMax, true);

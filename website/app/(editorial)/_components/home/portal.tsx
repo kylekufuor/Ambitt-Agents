@@ -37,11 +37,11 @@ export function PortalSection() {
               </li>
               <li>
                 <span className="num"><Ic name="gauge" /></span>
-                <span className="txt"><b>A ceiling you set.</b> It asks before it goes over.</span>
+                <span className="txt"><b>Usage you can see.</b> Included interactions and extra charges, explained in Billing.</span>
               </li>
             </ul>
             <div className="stack-wrap rv" style={{ "--d": ".5s" }}>
-              <Kicker plain>The week's numbers, as they land</Kicker>
+              <Kicker plain>Illustrative weekly results</Kicker>
               <div className="stack" aria-label="Examples of the figures an agent reports each week">
                 {METRICS.map((m, i) => (
                   <div key={m.k} className="m" style={{ "--i": i }}>
@@ -67,11 +67,11 @@ export function PortalSection() {
                 <PortalShot shot="homeLeads" className="shot-narrow" style={{ aspectRatio: "950/448", borderRadius: 0, boxShadow: "none" }} />
               </div>
               <FigCaption fig="03" className="shot-wide">
-                The funnel, straight from the portal you don't have to open: 612 reviewed down to 47 replied, with the
+                An example portal view with sample data: 612 reviewed down to 47 replied, with the
                 drop-off named at every stage.
               </FigCaption>
               <FigCaption fig="03" className="shot-narrow">
-                This week's replies, straight from the portal you don't have to open.
+                An example portal view showing replies, using sample data.
               </FigCaption>
             </figure>
           </div>

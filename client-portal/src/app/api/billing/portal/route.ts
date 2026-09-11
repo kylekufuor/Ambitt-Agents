@@ -48,15 +48,18 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const stripe = new Stripe(key);
+    const stripe = new Stripe(key, { maxNetworkRetries: 3 });
     const session = await stripe.billingPortal.sessions.create({
       customer: client.stripeCustomerId,
       return_url: new URL("/billing", publicOrigin(req)).toString(),
     });
+    if (req.headers.get("accept")?.includes("application/json")) {
+      return NextResponse.json({ url: session.url }, { headers: { "Cache-Control": "no-store" } });
+    }
     return NextResponse.redirect(session.url, { status: 303 });
-  } catch (err) {
+  } catch {
     // Never leak Stripe's error text to the client; it names internal ids.
-    console.error("[billing/portal] stripe session failed:", err);
+    console.error("[billing/portal] stripe session failed");
     return NextResponse.json(
       { error: "We could not open your billing just now. Write to support@ambitt.agency." },
       { status: 502 },

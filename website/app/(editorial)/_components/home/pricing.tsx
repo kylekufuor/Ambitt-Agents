@@ -24,9 +24,6 @@ export const SECOND_AGENT_DISCOUNT_PCT = 20;
 /** A year is billed as this many months (mirrors getAnnualPrice: two months free). */
 export const ANNUAL_MONTHS = 10;
 
-/** The comparison every price is measured against, in whole dollars. */
-export const COORDINATOR_SALARY = 55_000;
-
 /** Whole dollars with thousands separators: 150000 cents -> "$1,500". */
 export function usd(cents: number): string {
   return "$" + String(Math.round(cents / 100)).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
@@ -34,8 +31,8 @@ export function usd(cents: number): string {
 
 function features(t: (typeof TIERS)[keyof typeof TIERS]): string[] {
   return [
-    t.maxAgents === 1 ? "1 agent, 1 standing job" : `Up to ${t.maxAgents} agents`,
-    `${t.interactionsPerMonth.toLocaleString("en-US")} interactions a month`,
+    t.maxAgents === 1 ? "1 agent, 1 standing job" : `Add up to ${t.maxAgents - 1} more ${t.maxAgents === 2 ? "agent" : "agents"} at extra cost`,
+    `${t.interactionsPerMonth.toLocaleString("en-US")} interactions per agent a month`,
     `Then ${(t.overageRateCents / 100).toFixed(2).replace(/^/, "$")} each`,
     "Own inbox, own memory",
     "Portal with work log and playbook",
@@ -60,12 +57,11 @@ export function Pricing() {
         <div className="section-head center">
           <Kicker>Pricing</Kicker>
           <h2 className="h2 rv-words">
-            <Words text={"What a coordinator costs, and what this costs."} accent="this" />
+            <Words text={"A standing job. A clear monthly price."} accent="clear" />
           </h2>
           <p className="dek rv">
-            A full-time coordinator runs {usd(COORDINATOR_SALARY * 100)} a year before benefits, before the desk,
-            before the laptop. Every tier here still comes in under that, and the agent's on the clock before your
-            coffee's cold.
+            Prices below are for your first agent. Each additional agent is billed separately at 20% off.
+            Every plan includes a monthly interaction allowance, with the extra rate shown up front.
           </p>
         </div>
 
@@ -89,14 +85,14 @@ export function Pricing() {
             const perMonth = yearly ? Math.round((t.monthlyCents * ANNUAL_MONTHS) / 12) : t.monthlyCents;
             return (
               <div key={key} className={key === "growth" ? "plan featured" : "plan"}>
-                {key === "growth" ? <span className="tag">Most popular</span> : null}
+                {key === "growth" ? <span className="tag">For growing teams</span> : null}
                 <div>
                   <div className="name">{t.label}</div>
                   <div className="for">{t.for}</div>
                 </div>
                 <div className="price">
                   <span className="amt" data-plan={key}>{usd(perMonth)}</span>
-                  <span className="per">/mo</span>
+                  <span className="per">/mo per agent</span>
                 </div>
                 <div className="billed">{yearly ? `Billed ${usd(t.monthlyCents * ANNUAL_MONTHS)} a year` : "Billed monthly"}</div>
                 <div className="build">
@@ -126,8 +122,7 @@ export function Pricing() {
         <p className="ledger-foot rv" style={{ marginTop: "12px" }}>
           The build is billed once, at the start, not every month. It's a flat {usd(growth.setupFeeCentsMin)} on
           Growth and Scale. On Starter it's {usd(starter.setupFeeCentsMin)} to {usd(starter.setupFeeCentsMax)},
-          quoted once we know the job. Count it into the first year and every tier still comes in under a
-          coordinator.
+          quoted once we know the job.
         </p>
       </div>
     </section>

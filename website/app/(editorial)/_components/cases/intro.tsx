@@ -14,8 +14,8 @@ export function CasesIntro() {
             <MaskLine delay=".19s">One <em className="accent">workforce</em>.</MaskLine>
           </h1>
           <p className="dek enter" style={{ marginTop: "18px", maxWidth: "56ch", animationDelay: ".19s" }}>
-            What the client asked for, in plain English. What the agent actually does about it. What
-            lands in the inbox, with the kind of numbers you'd see on an ordinary week, not a best one.
+            Illustrative examples of the jobs an agent can take on and the work it can deliver.
+            Names, messages and results are composites, not customer testimonials or promised outcomes.
           </p>
         </div>
       </div>

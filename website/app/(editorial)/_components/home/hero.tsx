@@ -51,7 +51,7 @@ export function Hero() {
           <div className="window inbox">
             <div className="window-bar">
               <span className="dots"><i /><i /><i /></span>
-              <span className="title">Inbox · this week</span>
+              <span className="title">Example inbox · one working week</span>
               <span className="right">
                 <Ic name="magnifying-glass" size={14} />
                 <Ic name="bell" size={14} />

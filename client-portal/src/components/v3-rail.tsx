@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { formatNextRun } from "@/lib/agent-presentation";
 import { BrandLockup } from "./brand-mark";
 
 /* ---------------------------------------------------------------------------
@@ -112,6 +113,7 @@ export interface RailAgent {
   name: string;
   status: string;
   nextScheduledRun: string | null;
+  timezone: string;
   pausedBy: string | null;
 }
 
@@ -131,18 +133,14 @@ export interface RailProps {
 function agentLine(a: RailAgent): { dot: string; line: string } {
   switch (a.status) {
     case "active": {
-      const next = a.nextScheduledRun
-        ? new Date(a.nextScheduledRun).toLocaleString("en-GB", {
-            weekday: "short", hour: "numeric", minute: "2-digit", hour12: true,
-          })
-        : null;
-      return { dot: "#34d17d", line: next ? `Working. Next run ${next}` : "Working" };
+      const next = a.nextScheduledRun ? formatNextRun(a.nextScheduledRun, a.timezone) : null;
+      return { dot: "#34d17d", line: next ? `Active. Next run ${next}` : "Active" };
     }
     case "paused":
       // Who paused decides what the client can do about it, so it is in the words.
       return {
         dot: "#9fb4bc",
-        line: a.pausedBy === "client" ? "Paused by you" : "Stopped by us",
+        line: a.pausedBy === "client" ? "Paused by you" : "On hold",
       };
     case "building":
     case "pending_approval":
@@ -237,7 +235,7 @@ export function RailNav({ businessName, planLabel, agent, counts, toolsNeedSetup
         {agent && (
           <>
             <p className="v3-navs">{agent.name}</p>
-            <NavItem href="/agent/how" label="How he works" icon="cfg" active={is("/agent/how")} />
+            <NavItem href="/agent/how" label="How they work" icon="cfg" active={is("/agent/how")} />
             <NavItem href="/agent/tools" label="Tools" icon="tools" dot={toolsNeedSetup} active={is("/agent/tools")} />
             <NavItem href="/agent/email" label="Email setup" icon="mail" active={is("/agent/email")} />
           </>
@@ -269,26 +267,39 @@ export function RailNav({ businessName, planLabel, agent, counts, toolsNeedSetup
 /** Mobile: the rail becomes a drawer behind a hamburger. Same items, same URLs. */
 export function MobileRail(props: RailProps) {
   const [open, setOpen] = useState(false);
-  return (
-    <>
-      <button
-        onClick={() => setOpen(true)}
-        className="lg:hidden h-9 w-9 grid place-items-center rounded-[5px] border border-[color:var(--border)] bg-[color:var(--surface)]"
-        aria-label="Open navigation"
-        aria-expanded={open}
-      >
-        <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-        </svg>
-      </button>
-      {open && (
-        <div className="lg:hidden fixed inset-0 z-50 flex">
-          <div className="absolute inset-0 bg-[rgba(27,49,57,0.4)]" onClick={() => setOpen(false)} />
-          <aside className="v3-rail relative w-[268px] max-w-[86vw] h-full flex flex-col py-2.5 overflow-y-auto">
-            <RailNav {...props} />
-          </aside>
-        </div>
-      )}
-    </>
-  );
+  const dialog = useRef<HTMLDialogElement>(null);
+  const pathname = usePathname();
+  useEffect(() => { dialog.current?.close(); setOpen(false); }, [pathname]);
+  useEffect(() => {
+    if (!open) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const media = window.matchMedia("(min-width: 1024px)");
+    const closeDesktop = () => { if (media.matches) dialog.current?.close(); };
+    media.addEventListener("change", closeDesktop);
+    return () => { document.body.style.overflow = previous; media.removeEventListener("change", closeDesktop); };
+  }, [open]);
+  return <>
+    <button type="button" onClick={() => { dialog.current?.showModal(); setOpen(true); }}
+      className="lg:hidden h-11 w-11 grid place-items-center rounded-[5px] border border-[color:var(--border-strong)] bg-[color:var(--surface)]"
+      aria-label="Open navigation" aria-expanded={open} aria-controls="portal-navigation">
+      <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>
+    </button>
+    <dialog ref={dialog} id="portal-navigation" aria-label="Portal navigation" onClose={() => setOpen(false)}
+      onKeyDown={(event) => {
+        if (event.key !== "Tab") return;
+        const items = event.currentTarget.querySelectorAll<HTMLElement>("a[href], button:not([disabled])");
+        const first = items[0], last = items[items.length - 1];
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+      }}
+      onClick={(event) => { if (event.target === event.currentTarget) dialog.current?.close(); }}
+      className="m-0 h-dvh max-h-none w-full max-w-none bg-transparent p-0 backdrop:bg-[rgba(27,49,57,0.4)]">
+      <div className="v3-rail relative w-[286px] max-w-[86vw] h-full flex flex-col py-2.5 overflow-y-auto"
+        onClick={(event) => { if (event.target instanceof Element && event.target.closest("a")) dialog.current?.close(); }}>
+        <button type="button" autoFocus onClick={() => dialog.current?.close()} className="self-end mr-3 mb-1 min-h-11 px-3 rounded text-[13px] text-white" aria-label="Close navigation">Close ×</button>
+        <RailNav {...props} />
+      </div>
+    </dialog>
+  </>;
 }

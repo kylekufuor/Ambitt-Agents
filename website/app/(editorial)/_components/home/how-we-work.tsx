@@ -8,11 +8,11 @@ export function HowWeWork() {
     <section className="section ruled" id="work">
       <div className="wrap">
         <div className="section-head">
-          <Kicker>In their own words</Kicker>
+          <Kicker>The work, illustrated</Kicker>
           <h2 className="h2 rv-words">
             <Words text={"Each agent tells you what it did, not what it can do."} accent="did," />
           </h2>
-          <p className="dek rv">Two jobs, as the agents describe them. Four more live at the cases page.</p>
+          <p className="dek rv">Two examples of what an agent can deliver. Explore all four industries on the cases page. The names, messages and results shown here are illustrative.</p>
         </div>
 
         <div className="spread">
@@ -46,9 +46,9 @@ export function HowWeWork() {
                   Outreach drafted · held for your approval
                 </span>
               </MailArtifact>
-              <FigCaption fig="01">Arthur's Wednesday digest to a Raleigh-area broker.</FigCaption>
+              <FigCaption fig="01">Example: Arthur's Wednesday digest for a Raleigh-area broker.</FigCaption>
             </figure>
-            <PullQuote cite="Arthur, on file" style={{ marginTop: "22px" }}>
+            <PullQuote cite="Arthur, example brief" style={{ marginTop: "22px" }}>
               I draft the note. I don't send it until you say go.
             </PullQuote>
           </div>
@@ -99,9 +99,9 @@ export function HowWeWork() {
                 <p>Full 42-address route is attached, ranked the same way.</p>
                 <p>Wade</p>
               </GmailThread>
-              <FigCaption fig="02">Wade's route for a North Texas storm crew, in the inbox it actually lands in.</FigCaption>
+              <FigCaption fig="02">Example: Wade's route for a North Texas storm crew, shown in Gmail.</FigCaption>
             </figure>
-            <PullQuote cite="Wade, on file" style={{ marginTop: "22px" }}>
+            <PullQuote cite="Wade, example brief" style={{ marginTop: "22px" }}>
               I never knock on a door that hasn't already opened one to us.
             </PullQuote>
           </div>

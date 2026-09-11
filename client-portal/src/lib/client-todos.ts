@@ -1,3 +1,4 @@
+import { missingCustomTools } from "@/lib/tool-setup";
 import prisma from "@/lib/db";
 
 /* ---------------------------------------------------------------------------
@@ -67,8 +68,9 @@ export async function getClientTodos(email: string): Promise<ClientTodos> {
     agent
       ? prisma.recommendation.count({ where: { agentId: agent.id, status: "pending" } })
       : Promise.resolve(0),
-    prisma.credential.count({
+    prisma.credential.findMany({
       where: { clientId: client.id, secretsEncrypted: { not: null } },
+      select: { toolName: true },
     }),
   ]);
 
@@ -81,7 +83,7 @@ export async function getClientTodos(email: string): Promise<ClientTodos> {
     items.push({
       id: "approvals",
       label: approvals === 1 ? "Answer one decision" : `Answer ${approvals} decisions`,
-      why: `${name} has stopped and will not go ahead until you say.`,
+      why: `${name} has actions waiting for your approval.`,
       href: "/approvals",
       urgency: "required",
     });
@@ -90,7 +92,7 @@ export async function getClientTodos(email: string): Promise<ClientTodos> {
   // The mobile number. Required rather than suggested: without it the agent
   // cannot finish a sign-in that asks for a texted code, which is not a
   // preference but a dead end mid-task.
-  if (!client.verificationPhone) {
+  if (agent && !client.verificationPhone) {
     items.push({
       id: "verification-phone",
       label: "Add your mobile number",
@@ -100,9 +102,8 @@ export async function getClientTodos(email: string): Promise<ClientTodos> {
     });
   }
 
-  const customTools = Array.isArray(agent?.customTools) ? (agent.customTools as unknown[]) : [];
-  if (customTools.length > credentials) {
-    const missing = customTools.length - credentials;
+  const missing = missingCustomTools(agent?.customTools, credentials);
+  if (missing > 0) {
     items.push({
       id: "tools",
       label: missing === 1 ? "Connect one more tool" : `Connect ${missing} more tools`,

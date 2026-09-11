@@ -17,10 +17,10 @@ export function Logos() {
         </div>
       </div>
       {rows.map((row, r) => (
-        <div key={r} className={r === 1 ? "marquee reverse" : "marquee"} aria-hidden={r === 1 ? true : undefined}>
+        <div key={r} className={r === 1 ? "marquee reverse" : "marquee"}>
           <ul>
             {[...row, ...row].map(([id, label], i) => (
-              <li key={`${id}-${i}`}>
+              <li key={`${id}-${i}`} aria-hidden={i >= row.length ? true : undefined}>
                 <BrandMark id={id} />
                 {label}
               </li>

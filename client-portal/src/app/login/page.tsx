@@ -2,7 +2,7 @@
 
 import { createClient } from "@/lib/supabase-browser";
 import { nextFromLocation } from "@/lib/safe-next";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BrandLockup } from "@/components/brand-mark";
 
@@ -26,66 +26,55 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [remember, setRemember] = useState(true);
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [busy, setBusy] = useState<"sign-in" | "reset" | null>(null);
+  const loading = busy !== null;
+  const emailField = useRef<HTMLInputElement>(null);
   const [linkSent, setLinkSent] = useState(false);
   const router = useRouter();
 
   async function handleSignIn(e: React.FormEvent) {
     e.preventDefault();
-    setLoading(true);
+    setBusy("sign-in");
     setError("");
-
-    // Built HERE, with the checkbox already known, because the cookie lifetime
-    // is fixed when the client is constructed.
-    const supabase = createClient({ rememberDevice: remember });
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-
-    if (error) {
-      // Supabase returns "Invalid login credentials" both for a wrong password
-      // and for an account that has none set — it cannot tell us which, and
-      // deliberately so. Every client who has not been through the setup link
-      // lands here, so the failure has to carry the fix with it rather than
-      // pointing at a link further down that reads like it is for people who
-      // forgot something.
-      setError(
-        /invalid login credentials/i.test(error.message)
+    try {
+      const supabase = createClient({ rememberDevice: remember });
+      const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+      if (error) {
+        setError(/invalid login credentials/i.test(error.message)
           ? "That did not match. If you have not chosen a password yet, use the button below."
-          : error.message
-      );
-      setLoading(false);
-      return;
+          : "We couldn't sign you in just now. Please try again.");
+        return;
+      }
+      router.push(nextFromLocation());
+      router.refresh();
+    } catch {
+      setError("We couldn't connect. Check your connection and try again.");
+    } finally {
+      setBusy(null);
     }
-
-    router.push(nextFromLocation());
-    router.refresh();
   }
 
-  /**
-   * Send the set-password link without making them retype the address.
-   *
-   * Deliberately says the same thing whether or not the address is one of
-   * ours — otherwise this becomes a way to test which businesses are clients.
-   */
   async function handleSendSetupLink() {
-    setLoading(true);
+    if (!emailField.current?.reportValidity()) return;
+    setBusy("reset");
     setError("");
-    const supabase = createClient();
-    // Carry the destination through the email round-trip, so someone who
-    // clicked a tools link and had to set a password on the way still arrives
-    // at the tools page.
-    const next = nextFromLocation();
-    const back = new URL("/login/new-password", window.location.origin);
-    if (next !== "/") back.searchParams.set("next", next);
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: back.toString(),
-    });
-    if (error && /rate|too many/i.test(error.message)) {
-      setError("Too many attempts just now. Give it a minute and try again.");
-      setLoading(false);
-      return;
+    try {
+      const next = nextFromLocation();
+      const back = new URL("/login/new-password", window.location.origin);
+      if (next !== "/") back.searchParams.set("next", next);
+      const { error } = await createClient().auth.resetPasswordForEmail(email.trim(), { redirectTo: back.toString() });
+      if (error) {
+        setError(/rate|too many/i.test(error.message)
+          ? "Too many attempts just now. Give it a minute and try again."
+          : "We couldn't send the link just now. Please try again.");
+        return;
+      }
+      setLinkSent(true);
+    } catch {
+      setError("We couldn't connect. Check your connection and try again.");
+    } finally {
+      setBusy(null);
     }
-    setLinkSent(true);
-    setLoading(false);
   }
 
   return (
@@ -116,11 +105,12 @@ export default function LoginPage() {
               <label className="field-label" htmlFor="email">Email</label>
               <input
                 id="email"
+                ref={emailField}
                 name="email"
                 type="email"
                 autoComplete="username"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => { setEmail(e.target.value); setLinkSent(false); setError(""); }}
                 placeholder="you@yourbusiness.com"
                 autoFocus
                 required
@@ -152,10 +142,10 @@ export default function LoginPage() {
               <span className="text-[13.5px] text-[color:var(--text-2)]">Remember this device</span>
             </label>
 
-            {error && <p className="text-[13px] text-[color:var(--red)] leading-relaxed">{error}</p>}
+            {error && <p role="alert" className="text-[13px] text-[color:var(--red)] leading-relaxed">{error}</p>}
 
             <button type="submit" disabled={loading} className="btn-primary w-full">
-              {loading ? "Signing in…" : "Sign in"}
+              {busy === "sign-in" ? "Signing in…" : "Sign in"}
             </button>
 
             {/* The first-time path, visible from the start rather than waiting
@@ -166,7 +156,7 @@ export default function LoginPage() {
                 for people who forgot one. */}
             <div className="pt-1 border-t border-[color:var(--border)]">
               {linkSent ? (
-                <p className="text-[13px] text-[color:var(--text-2)] leading-relaxed pt-4">
+                <p role="status" className="text-[13px] text-[color:var(--text-2)] leading-relaxed pt-4">
                   Sent. If <span className="text-[color:var(--text)] font-medium">{email}</span> is
                   on an account with us, there is now a link in that inbox to choose a password. It
                   is good for one hour.
@@ -183,7 +173,7 @@ export default function LoginPage() {
                     disabled={loading || !email}
                     className="btn-secondary w-full"
                   >
-                    {loading ? "Sending…" : "Email me a link to set my password"}
+                    {busy === "reset" ? "Sending…" : "Email me a link to set my password"}
                   </button>
                   {!email && (
                     <p className="text-[12.5px] text-[color:var(--text-3)]">

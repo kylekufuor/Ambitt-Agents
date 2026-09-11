@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { BrandLockup } from "./brand-mark";
 import { Btn } from "./primitives";
 
@@ -13,6 +13,27 @@ type Page = "home" | "cases";
  */
 export function Masthead({ page }: { page: Page }) {
   const [scrolled, setScrolled] = useState(false);
+  const menu = useRef<HTMLDetailsElement>(null);
+
+  useEffect(() => {
+    const dismiss = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && menu.current?.open) {
+        menu.current.open = false;
+        menu.current.querySelector("summary")?.focus();
+      }
+    };
+    const outside = (event: PointerEvent) => {
+      if (event.target instanceof Node && !menu.current?.contains(event.target) && menu.current) {
+        menu.current.open = false;
+      }
+    };
+    document.addEventListener("keydown", dismiss);
+    document.addEventListener("pointerdown", outside);
+    return () => {
+      document.removeEventListener("keydown", dismiss);
+      document.removeEventListener("pointerdown", outside);
+    };
+  }, []);
 
   useEffect(() => {
     let ticking = false;
@@ -60,6 +81,19 @@ export function Masthead({ page }: { page: Page }) {
             </Btn>
           </span>
         </nav>
+        <details className="mobile-menu" ref={menu}>
+          <summary aria-label="Navigation menu">Menu <span aria-hidden="true">☰</span></summary>
+          <nav aria-label="Mobile navigation" onClick={(event) => {
+            if (event.target instanceof Element && event.target.closest("a") && menu.current) menu.current.open = false;
+          }}>
+            <a href={`${home}#how`}>How it works</a>
+            <a href="/use-cases" aria-current={page === "cases" ? "page" : undefined}>The cases</a>
+            <a href={`${home}#pricing`}>Pricing</a>
+            <a href={`${home}#faq`}>FAQ</a>
+            <a href="https://portal.ambitt.agency">Log in</a>
+            <a href={`${home}#contact`}>Talk to us</a>
+          </nav>
+        </details>
       </div>
     </header>
   );

@@ -39,12 +39,11 @@ export default async function PeoplePage() {
             <span className="pill pill-emerald ml-auto shrink-0">You</span>
           </div>
           <p className="text-[13px] text-[color:var(--text-2)] mt-3.5 leading-relaxed">
-            One login today, and it is yours. We have not built shared logins yet, so rather than
-            show you an invite button that does nothing, here is the honest version: tell us who
-            should have access and we will set them up.
+            This workspace currently has one account holder. If your team needs more access,
+            contact us to discuss what is available for your account.
           </p>
-          <a className="btn btn-primary btn-sm mt-3 inline-flex no-underline" href="mailto:support@ambitt.agency?subject=Add%20someone%20to%20our%20portal">
-            Ask us to add someone
+          <a className="btn btn-primary btn-sm mt-3 inline-flex no-underline" href="mailto:support@ambitt.agency?subject=Team%20access%20options">
+            Discuss team access
           </a>
         </Panel>
 
@@ -53,13 +52,13 @@ export default async function PeoplePage() {
           <div className="mt-2.5">
             <Row label="By email" value={<span className="font-mono text-[12.5px]">{client.email}</span>} />
             {client.whatsappNumber && (
-              <Row label="By WhatsApp" value={<span className="font-mono text-[12.5px]">{client.whatsappNumber}</span>} />
+              <Row label="Contact number" value={<span className="font-mono text-[12.5px]">{client.whatsappNumber}</span>} />
             )}
             <Row label="Invoices go to" value={<span className="font-mono text-[12.5px]">{client.billingEmail}</span>} />
           </div>
           <p className="text-[13px] text-[color:var(--text-2)] mt-3.5 leading-relaxed">
             Mail from anybody {name} does not know is ignored rather than answered, so a stranger
-            cannot give him instructions by writing to him. Adding a colleague there is a separate
+            cannot give your agent instructions by email. Adding a colleague there is a separate
             thing from portal access, and lives on Email setup.
           </p>
         </Panel>

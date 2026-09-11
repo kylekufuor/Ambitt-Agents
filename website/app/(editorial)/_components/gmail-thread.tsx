@@ -111,12 +111,12 @@ export function GmailThread({ viewer, subject, label, earlier, agent, avatarUid,
                     {from.name}
                     <span className="addr">{`<${from.address}>`}</span>
                   </div>
-                  <button className="gmail-message__to">
+                  <span className="gmail-message__to">
                     {`to ${to}`}
                     <svg>
                       <use href="#gm-expand" />
                     </svg>
-                  </button>
+                  </span>
                 </div>
                 <div className="gmail-message__meta">
                   <time>{date}</time>
@@ -140,17 +140,17 @@ export function GmailThread({ viewer, subject, label, earlier, agent, avatarUid,
                         <use href="#gm-file-pdf" />
                       </svg>
                     </div>
-                    <div className="gmail-attach-card__actions">
-                      <button>
+                    <div className="gmail-attach-card__actions" aria-hidden="true">
+                      <span>
                         <svg>
                           <use href="#gm-download" />
                         </svg>
-                      </button>
-                      <button>
+                      </span>
+                      <span>
                         <svg viewBox="0 0 256 238">
                           <use href="#lgc-googledrive" />
                         </svg>
-                      </button>
+                      </span>
                     </div>
                     <div className="gmail-attach-card__info">
                       <div className="gmail-attach-card__name">{attachment.name}</div>
@@ -162,18 +162,18 @@ export function GmailThread({ viewer, subject, label, earlier, agent, avatarUid,
             </div>
           </div>
           <div className="gmail-thread__actions">
-            <button className="gmail-pill">
+            <span className="gmail-pill">
               <svg>
                 <use href="#gm-reply" />
               </svg>
               Reply
-            </button>
-            <button className="gmail-pill">
+            </span>
+            <span className="gmail-pill">
               <svg>
                 <use href="#gm-forward" />
               </svg>
               Forward
-            </button>
+            </span>
           </div>
         </div>
       </div>
