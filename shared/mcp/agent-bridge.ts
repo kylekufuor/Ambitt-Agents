@@ -3,6 +3,7 @@ import { decrypt } from "../encryption.js";
 import logger from "../logger.js";
 import { mcpManager } from "./client.js";
 import { getServerDefinition } from "./registry.js";
+import { HIGHLEVEL_ID } from "./highlevel.js";
 import {
   executeTool as composioExecute,
   getTools as composioGetTools,
@@ -56,7 +57,7 @@ export async function executeAgentTool(
   }
 
   // Try Composio first
-  if (USE_COMPOSIO) {
+  if (USE_COMPOSIO && serverId !== HIGHLEVEL_ID) {
     try {
       const connected = await isAppConnected(agent.clientId, serverId);
       if (connected) {
@@ -88,7 +89,7 @@ export async function listAllAgentTools(agentId: string): Promise<MCPToolInfo[]>
   for (const serverId of agent.tools) {
     try {
       // Try Composio first
-      if (USE_COMPOSIO) {
+      if (USE_COMPOSIO && serverId !== HIGHLEVEL_ID) {
         const connected = await isAppConnected(agent.clientId, serverId);
         if (connected) {
           const tools = await composioGetTools(serverId);
@@ -131,7 +132,7 @@ export async function checkAgentToolHealth(agentId: string): Promise<
 
   for (const serverId of agent.tools) {
     // Check Composio
-    if (USE_COMPOSIO) {
+    if (USE_COMPOSIO && serverId !== HIGHLEVEL_ID) {
       try {
         const connected = await isAppConnected(agent.clientId, serverId);
         if (connected) {
@@ -283,7 +284,7 @@ async function loadCredential(
     where: { clientId_toolName: { clientId, toolName: serverId } },
   });
 
-  if (!cred) return null;
+  if (!cred || cred.status !== "active" || (cred.expiresAt && cred.expiresAt <= new Date())) return null;
 
   const encrypted = credentialField === "oauthToken"
     ? cred.oauthToken

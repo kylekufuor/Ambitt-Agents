@@ -312,6 +312,10 @@ app.use(
   })
 );
 
+// Portal connection requests carry short-lived, body-bound authentication.
+import { createHighLevelRouter } from "./lib/highlevel-connection.js";
+app.use(createHighLevelRouter());
+
 function param(req: Request, key: string): string {
   const val = req.params[key];
   return Array.isArray(val) ? val[0] : val;
@@ -5296,6 +5300,10 @@ app.post("/credentials/:clientId", async (req: Request, res: Response) => {
     const { storeCredentials } = await import("./onboard.js");
     const clientId = param(req, "clientId");
     const { toolName, apiKey, oauthToken, refreshToken } = req.body;
+    if (toolName === "highlevel") {
+      res.status(403).json({ error: "Connect GoHighLevel through the authenticated portal Tools page." });
+      return;
+    }
     await storeCredentials(clientId, toolName, { apiKey, oauthToken, refreshToken });
     res.json({ status: "stored" });
   } catch (error) {
@@ -5738,6 +5746,7 @@ app.get("/agents/:id/tools", async (req: Request, res: Response) => {
     // connected yet, so there's nothing to click. Surface each declared tool
     // as a "needs_setup" OAuth row so the client has a Connect button.
     for (const slug of agent.tools) {
+      if (slug === "highlevel") continue; // dedicated PIT connection card below
       const key = normalize(slug);
       if (usedComposioKeys.has(key)) continue; // already connected
       if (tools.some((t) => normalize(t.name) === key)) continue; // already listed
@@ -5753,6 +5762,17 @@ app.get("/agents/:id/tools", async (req: Request, res: Response) => {
         credentials: null,
       });
       usedComposioKeys.add(key);
+    }
+
+    if (agent.tools.includes("highlevel")) {
+      const credential = await prisma.credential.findUnique({
+        where: { clientId_toolName: { clientId, toolName: "highlevel" } },
+        select: { status: true, expiresAt: true },
+      });
+      tools.push({ id: "direct:highlevel", name: "GoHighLevel", logoUrl: "https://logos.composio.dev/api/highlevel",
+        category: "crm", authMethods: ["credentials"],
+        status: credential?.status === "active" && (!credential.expiresAt || credential.expiresAt > new Date()) ? "connected" : "needs_setup",
+        oauth: null, credentials: null });
     }
 
     // Custom (non-Composio) tools — CoStar, Crexi, etc. The agent reaches these
@@ -6583,6 +6603,10 @@ app.post("/agents/:id/run", async (req: Request, res: Response) => {
 app.post("/tools/test", async (req: Request, res: Response) => {
   try {
     const { serverId, credential } = req.body;
+    if (serverId === "highlevel") {
+      res.status(403).json({ error: "Test GoHighLevel through the authenticated portal Tools page." });
+      return;
+    }
     if (!serverId || !credential) {
       res.status(400).json({ error: "Missing serverId or credential" });
       return;

@@ -3,6 +3,7 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import logger from "../logger.js";
+import { HIGHLEVEL_ID, highLevelHeaders, parseHighLevelCredential, credentialFingerprint, createHighLevelFetch, bindHighLevelLocation } from "./highlevel.js";
 import type {
   MCPConnectionConfig,
   MCPConnectionState,
@@ -26,7 +27,7 @@ interface ActiveConnection {
   tools: MCPToolInfo[];
 }
 
-class MCPClientManager {
+export class MCPClientManager {
   private connections = new Map<string, ActiveConnection>();
 
   // -------------------------------------------------------------------------
@@ -58,16 +59,26 @@ class MCPClientManager {
       transport = await this.connectStdio(server, credential, config.additionalEnv);
     }
 
-    await client.connect(transport);
-
-    // Discover available tools
-    const toolsResult = await client.listTools();
-    const tools: MCPToolInfo[] = (toolsResult.tools ?? []).map((t) => ({
-      name: t.name,
-      description: t.description,
-      inputSchema: t.inputSchema as Record<string, unknown> | undefined,
-      serverId: server.id,
-    }));
+    const tools: MCPToolInfo[] = [];
+    try {
+      await client.connect(transport);
+      // Include every page of scoped tools.
+      let cursor: string | undefined;
+      do {
+        const toolsResult = await client.listTools(cursor ? { cursor } : undefined);
+        tools.push(...(toolsResult.tools ?? []).map((t) => ({
+          name: t.name,
+          description: t.description,
+          inputSchema: t.inputSchema as Record<string, unknown> | undefined,
+          serverId: server.id,
+        })));
+        cursor = toolsResult.nextCursor;
+      } while (cursor);
+    } catch (error) {
+      await client.close().catch(() => undefined);
+      if (server.id === HIGHLEVEL_ID) throw new Error("We couldn't connect to GoHighLevel. Check your token, Location ID and permissions.");
+      throw error;
+    }
 
     this.connections.set(key, {
       client,
@@ -108,10 +119,16 @@ class MCPClientManager {
     if (!conn) throw new Error(`Not connected to MCP server: ${serverId}`);
 
     try {
+      if (serverId === HIGHLEVEL_ID) bindHighLevelLocation(args, parseHighLevelCredential(credential).locationId);
       const result = await conn.client.callTool({
         name: toolName,
         arguments: args,
       });
+
+      if (serverId === HIGHLEVEL_ID && result.isError) return {
+        success: false, isError: true,
+        content: [{ type: "text", text: "GoHighLevel declined that action. Check the selected location and permissions." }],
+      };
 
       return {
         success: !result.isError,
@@ -120,7 +137,9 @@ class MCPClientManager {
         rawResult: result,
       };
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = serverId === HIGHLEVEL_ID
+        ? "GoHighLevel couldn't complete that action. Check the connection and its location before trying again."
+        : error instanceof Error ? error.message : String(error);
       logger.error("MCP tool call failed", { serverId, toolName, error: message });
       return {
         success: false,
@@ -204,8 +223,13 @@ class MCPClientManager {
     const url = new URL(server.url);
 
     // Build auth headers
-    const headers: Record<string, string> = {};
-    if (server.auth === "bearer" || server.auth === "api_key_header") {
+    const headers: Record<string, string> = server.id === HIGHLEVEL_ID ? highLevelHeaders(credential) : {};
+    if (server.id === HIGHLEVEL_ID) {
+      return new StreamableHTTPClientTransport(url, {
+        requestInit: { headers },
+        fetch: createHighLevelFetch(parseHighLevelCredential(credential).locationId),
+      });
+    } else if (server.auth === "bearer" || server.auth === "api_key_header") {
       headers[server.authHeader ?? "Authorization"] = server.auth === "bearer"
         ? `Bearer ${credential}`
         : credential;
@@ -266,7 +290,7 @@ class MCPClientManager {
 
   private connectionKey(serverId: string, credential: string): string {
     // Hash the credential to avoid storing it as a map key
-    const credHash = credential.slice(0, 8) + "..." + credential.slice(-4);
+    const credHash = credentialFingerprint(credential);
     return `${serverId}:${credHash}`;
   }
 

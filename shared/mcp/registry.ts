@@ -1,4 +1,5 @@
 import type { MCPServerDefinition } from "./types.js";
+import { HIGHLEVEL_DOCS, HIGHLEVEL_URL } from "./highlevel.js";
 
 // ---------------------------------------------------------------------------
 // MCP Server Registry — all 15 launch tools
@@ -13,6 +14,20 @@ import type { MCPServerDefinition } from "./types.js";
 
 export const MCP_SERVERS: Record<string, MCPServerDefinition> = {
   // === CRM ===
+
+  highlevel: {
+    id: "highlevel",
+    name: "GoHighLevel",
+    description: "Contacts, conversations, calendars and sales pipelines in your GoHighLevel location.",
+    category: "crm",
+    logoUrl: "https://logos.composio.dev/api/highlevel",
+    transport: "http",
+    url: HIGHLEVEL_URL,
+    auth: "bearer",
+    credentialField: "apiKey", // encrypted JSON { pit, locationId }
+    docsUrl: HIGHLEVEL_DOCS,
+    officialServer: true,
+  },
 
   salesforce: {
     id: "salesforce",

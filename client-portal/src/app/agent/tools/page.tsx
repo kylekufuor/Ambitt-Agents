@@ -7,6 +7,7 @@ import { PageHead, Panel } from "@/components/v3-ui";
 import { requirePortalContext } from "@/lib/portal-context";
 import { ToolsList } from "@/app/agents/[id]/tools/tools-list";
 import { WhatsAppCard } from "@/app/agents/[id]/tools/whatsapp-card";
+import { HighLevelCard } from "@/app/agents/[id]/tools/highlevel-card";
 
 export const dynamic = "force-dynamic";
 
@@ -148,7 +149,8 @@ export default async function AgentToolsPage({
       )}
 
       <WhatsAppCard agentId={agent.id} agentName={agent.name} initial={waState} />
-      <ToolsList agentId={agent.id} agentName={agent.name} initialData={data} />
+      <HighLevelCard key={agent.id} agentId={agent.id} agentName={agent.name} />
+      <ToolsList agentId={agent.id} agentName={agent.name} initialData={{ ...data, tools: data.tools.filter((tool) => tool.id !== "direct:highlevel") }} />
     </V3Shell>
   );
 }

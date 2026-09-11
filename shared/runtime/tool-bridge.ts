@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { listAllAgentTools, executeAgentTool } from "../mcp/agent-bridge.js";
 import logger from "../logger.js";
 import type { MCPToolInfo } from "../mcp/types.js";
+import { HIGHLEVEL_ID, isHighLevelReadTool } from "../mcp/highlevel.js";
 
 // ---------------------------------------------------------------------------
 // Tool Bridge — connects Claude's tool_use to MCP servers
@@ -74,8 +75,9 @@ export async function executeToolCalls(
 
   // One lookup per batch, not per block. Cached in agent var; if dryRun
   // isn't found (e.g. agent deleted mid-loop) we default to false (live)
-  // and let the call proceed normally.
+  // for legacy integrations. GoHighLevel fails closed if this lookup fails.
   let dryRun = false;
+  let dryRunKnown = false;
   try {
     const { default: prisma } = await import("../db.js");
     const agent = await prisma.agent.findUnique({
@@ -83,6 +85,7 @@ export async function executeToolCalls(
       select: { dryRun: true },
     });
     dryRun = Boolean(agent?.dryRun);
+    dryRunKnown = !!agent;
   } catch {
     /* default false on lookup error */
   }
@@ -91,8 +94,13 @@ export async function executeToolCalls(
     const { serverId, toolName } = parseToolName(block.name);
     const input = (block.input as Record<string, unknown>) ?? {};
 
+    if (serverId === HIGHLEVEL_ID && !dryRunKnown) {
+      results.push({ type: "tool_result", tool_use_id: block.id, content: "Couldn't verify the agent's run mode. No GoHighLevel action was taken.", is_error: true });
+      continue;
+    }
+
     // Dry-run intercept — stub write-like tools, log them for operator review.
-    if (dryRun && !isReadOnlyTool(toolName)) {
+    if (dryRun && !(serverId === HIGHLEVEL_ID ? isHighLevelReadTool(toolName) : isReadOnlyTool(toolName))) {
       try {
         const { default: prisma } = await import("../db.js");
         const captured = await prisma.dryRunLog.create({
@@ -122,13 +130,16 @@ export async function executeToolCalls(
         });
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
-        logger.warn("Dry-run capture failed, falling through to live execution", {
+        logger.warn(serverId === HIGHLEVEL_ID ? "GoHighLevel dry-run capture failed; execution blocked" : "Dry-run capture failed, falling through to live execution", {
           agentId,
           serverId,
           toolName,
           err: message,
         });
-        // Fall through to live execution below — better to act than block on a DB hiccup.
+        // GoHighLevel must never perform a real write when a dry-run capture fails.
+        if (serverId === HIGHLEVEL_ID) {
+          results.push({ type: "tool_result", tool_use_id: block.id, content: "Couldn't save the dry-run preview. No GoHighLevel action was taken.", is_error: true });
+        }
       }
       if (results[results.length - 1]?.tool_use_id === block.id) {
         continue; // captured successfully; move to next block
