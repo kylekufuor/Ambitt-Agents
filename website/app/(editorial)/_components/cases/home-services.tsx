@@ -5,7 +5,7 @@ import { FigCaption, Icon, MailArtifact, MaskLine, PullQuote } from "../primitiv
 /** Case 3 of 4: Wade, storm response. */
 export function HomeServicesCase() {
   return (
-    <section className="section" id="home-services">
+    <section className="section ruled" id="home-services">
       <PhotoPlate photo="homeServices" style={{ "--pos": "center 55%", "--cap-w": "300px" }}>
         Storm season doesn't wait for the office to open.
       </PhotoPlate>

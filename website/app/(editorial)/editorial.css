@@ -1,152 +1,70 @@
 /* =====================================================================================
-   AMBITT AGENTS — "THE CASE, MADE IN PRINT"  ·  editorial design system, v2
-   One stylesheet. Two pages. Column discipline over decoration.
+   AMBITT AGENTS — website stylesheet, v3 ("the Framer build")
+   One stylesheet, two pages (/ and /use-cases). Dark ground with two light rooms.
 
-   TYPE — the pairing and why it isn't the default AI-editorial move:
-   Satoshi carries every structural voice on the page: nav, labels, captions, running
-   body copy, buttons. Newsreader — a variable optical-size serif built by Production
-   Type for on-screen reading, not a decorative display face — is admitted for exactly
-   two jobs: the argument headlines (roman) and the pull quotes (italic, a true drawn
-   italic, never an obliqued roman). Everywhere else stays Satoshi. That restriction is
-   the point: the common AI "editorial" tell is a display serif dragged into every
-   heading and card title because it "looks literary." Here the serif only shows up
-   where a claim is being MADE — a headline or a quoted sentence — and disappears the
-   rest of the time. font-optical-sizing:auto (MDN, Web/CSS/font-optical-sizing) lets
-   the opsz axis track element font-size automatically, so the same file reads correct
-   at a 13px caption-adjacent quote and a 90px hero line without swapping styles.
+   REFERENCES, measured rather than eyeballed (Sept 2026, headless Chrome, 1440x900):
+   - Xtract (xtract.framer.ai): black ground, starfield canvas, blurred rotating orb behind
+     a centred hero; headline words blur in (10px to 0, 2.8s spring) after the nav drops
+     from -150px on a spring (stiffness 320, damping 60); buttons roll their label up on
+     hover; 60s logo marquee. Figtree 70px/600/-2.2px.
+   - Seonovu (seonovu.framer.ai): #121113 ground, sections separated by DOTTED hairlines
+     (a 7x7 dot tile), product "windows" on a radial glow, per-word blur-in on scroll
+     (6px, 700ms, cubic-bezier(.12,.23,.17,.98)), the hero panel rising 60px (1s,
+     cubic-bezier(.12,.23,.17,.99), delay .4s), a stack of metric cards that cycles
+     (scale .95 + blur .8px out of focus, 2s per step), pricing with a Monthly/Yearly
+     toggle. Geist Mono headlines, Inter Display body.
+   - Nuera (nuera.framer.website): #fafafa ground, floating white pill nav (sticky, top
+     16px, 1180 wide, radius 14), 96px/600/-4px headline, blocks rise 34px + scale .98
+     + blur 8px to 0 (780ms, cubic-bezier(.16,1,.3,1), delay .33s), two-row logo marquee
+     in opposite directions, Lenis smooth scroll, +/- FAQ accordion, nav links
+     fade colour 180ms cubic-bezier(.44,0,.56,1), buttons lighten on hover.
 
-   RESEARCHED, NOT RECALLED — techniques and their sources:
-   [R1] text-wrap:pretty prevents runts/orphans on the last line of a paragraph; Chrome/
-        Edge 117+ and Safari 26+ support it, Firefox does not yet (Sept 2026) — used as
-        a no-op progressive enhancement on every <p> and headline.
-        (developer.mozilla.org/en-US/docs/Web/CSS/text-wrap; caniuse.com/mdn-css_properties_text-wrap_pretty)
-   [R2] hanging-punctuation:first is Safari-only; applied to the pull-quote's opening
-        mark so the glyph sits outside the measure instead of indenting the text block —
-        true progressive enhancement, invisible where unsupported.
-        (css-tricks.com/almanac/properties/h/hanging-punctuation)
-   [R3] initial-letter (-webkit-initial-letter fallback) drives the single drop cap on
-        the page, sized 3 lines deep, so it hangs from the cap height rather than being
-        faked with a floated oversized span.
-        (carmenansio.com/articles/editorial-typography-css)
-   [R4] Column measure and grid discipline: body copy capped near 65-70ch; "no
-        three-equal-columns" — one column is made to dominate, others support, per the
-        editorial-grid literature (designmd.app/library/editorial-grid-magazine). We
-        hold to the brief's 65ch spec rather than that source's 72ch.
-   [R5] Layered, hue-matched shadow stacks — opacity falling as blur grows, colour
-        drawn from the ground's own hue rather than hsl(0 0% 0%) — so elevation reads
-        as light, not a grey smear. Standard reference: Josh W. Comeau, "Designing
-        Beautiful Shadows in CSS" (joshwcomeau.com/css/designing-shadows). This is how
-        every card, artifact and callout in this file separates from the page: by
-        elevation, never a grey 1px border.
-   [R6] Restrained entrance-only motion: IntersectionObserver at threshold 0.15 fires a
-        single 8px-rise + fade, no repeat, no scroll-linked transform. Easing is a
-        strong custom ease-out, not the built-in `ease` (too weak for UI motion) — the
-        curve and the "don't use built-in easings" rule are Emil Kowalski's documented
-        animation standards (github.com/emilkowalski/skills, animations.dev). This
-        direction explicitly does NOT use scroll-driven / pinned / parallax techniques;
-        the brief for this direction calls for stillness as the position.
+   OURS: their structure and motion, our identity. Teal (#00b3b3) everywhere they use
+   purple or lime, Satoshi where they use Figtree/Inter, Geist Mono for labels and UI
+   mock text only (Kyle's call: "Satoshi + mono labels"). Dark for hero, product and
+   pricing; Nuera's light room for the FAQ and the closing call to action.
+
+   MOTION RULES: entrance only, one shot, never scroll-scrubbed. Everything is visible
+   without JS (the .js-anim gate) and still without motion (prefers-reduced-motion).
+   The springs below are Framer's own sampled curves, downsampled to ~28 stops.
    ===================================================================================== */
 
-/* ---- type -------------------------------------------------------------------------
-   The faces are declared by next/font in ../layout.tsx, not here: Satoshi (variable,
-   the licensed file byte for byte), Newsreader (variable, roman + italic) and the Roboto
-   the Gmail thread uses. Each arrives as a CSS variable (--font-satoshi,
-   --font-newsreader, --font-roboto-gmail) carrying its own metric-matched fallback. */
-
-/* ---- tokens ------------------------------------------------------------------------
-   Nothing pure black, nothing pure white. Every neutral carries a ~178deg cool cast so
-   the teal reads as native to the palette rather than dropped on top of warm grey. */
+/* ---- easings ------------------------------------------------------------------------ */
 :root{
-  color-scheme:light dark;
+  --spring-drop:linear(0 0%, 0.13 4.26%, 0.264 7.45%, 0.419 11.7%, 0.514 14.9%, 0.617 19.1%, 0.699 23.4%, 0.748 26.6%, 0.802 30.9%, 0.844 35.1%, 0.87 38.3%, 0.897 42.6%, 0.914 45.7%, 0.932 50%, 0.947 54.3%, 0.956 57.4%, 0.965 61.7%, 0.971 64.9%, 0.977 69.1%, 0.982 73.4%, 0.985 76.6%, 0.988 80.9%, 0.991 85.1%, 0.992 88.3%, 0.994 92.6%, 0.995 95.7%, 1 100%);
+  --spring-soft:linear(0 0%, 0.0583 4.2%, 0.16 7.56%, 0.316 11.8%, 0.442 15.1%, 0.588 19.3%, 0.689 22.7%, 0.792 26.9%, 0.87 31.1%, 0.917 34.5%, 0.959 38.7%, 0.982 42%, 1 46.2%, 1.01 50.4%, 1.01 53.8%, 1.02 58%, 1.01 61.3%, 1.01 65.5%, 1.01 68.9%, 1.01 73.1%, 1.01 77.3%, 1 80.7%, 1 84.9%, 1 88.2%, 1 92.4%, 1 95.8%, 1 100%);
+  --spring-long:linear(0 0%, 0.341 3.94%, 0.566 7.53%, 0.726 11.5%, 0.827 15.4%, 0.891 19.4%, 0.928 22.9%, 0.955 26.9%, 0.972 30.8%, 0.982 34.8%, 0.988 38.4%, 0.993 42.3%, 0.995 46.2%, 0.997 50.2%, 0.998 53.8%, 0.999 57.7%, 0.999 61.6%, 1 65.2%, 1 69.2%, 1 73.1%, 1 77.1%, 1 80.6%, 1 84.6%, 1 88.5%, 1 92.5%, 1 96.1%, 1 100%);
+  --spring-pop:linear(0 0%, 0.0488 3.7%, 0.161 7.41%, 0.298 11.1%, 0.437 14.8%, 0.565 18.5%, 0.675 22.2%, 0.804 27.8%, 0.866 31.5%, 0.913 35.2%, 0.947 38.9%, 0.971 42.6%, 0.987 46.3%, 0.997 50%, 1 53.7%, 1.01 57.4%, 1.01 61.1%, 1.01 63%, 1.01 64.8%, 1.01 68.5%, 1.01 72.2%, 1 77.8%, 1 81.5%, 1 85.2%, 1 88.9%, 1 92.6%, 1 96.3%, 1 100%);
+  --settle-2s:linear(0 0%, 0.054 4.02%, 0.154 7.54%, 0.289 11.6%, 0.421 15.6%, 0.526 19.1%, 0.629 23.1%, 0.714 27.1%, 0.774 30.7%, 0.829 34.7%, 0.872 38.7%, 0.901 42.2%, 0.926 46.2%, 0.946 50.3%, 0.958 53.8%, 0.97 57.8%, 0.977 61.3%, 0.983 65.3%, 0.988 69.3%, 0.991 72.9%, 0.993 76.9%, 0.995 80.9%, 0.996 84.4%, 0.997 88.4%, 0.998 92.5%, 0.999 96%, 1 100%);
+  --settle-1s:linear(0 0%, 0.0545 4.04%, 0.172 8.08%, 0.274 11.1%, 0.408 15.2%, 0.529 19.2%, 0.632 23.2%, 0.716 27.3%, 0.769 30.3%, 0.825 34.3%, 0.869 38.4%, 0.902 42.4%, 0.927 46.5%, 0.947 50.5%, 0.958 53.5%, 0.969 57.6%, 0.977 61.6%, 0.984 65.7%, 0.988 69.7%, 0.991 72.7%, 0.993 76.8%, 0.995 80.8%, 0.997 84.8%, 0.998 88.9%, 0.998 91.9%, 0.999 96%, 1 100%);
+  --ease-out-expo:cubic-bezier(.16,1,.3,1);      /* Nuera rises, Xtract orb */
+  --ease-word:cubic-bezier(.12,.23,.17,.98);     /* Seonovu per-word blur-in */
+  --ease-panel:cubic-bezier(.12,.23,.17,.99);    /* Seonovu hero panel rise */
+  --ease-out-quart:cubic-bezier(.25,1,.5,1);     /* hover / press */
+  --ease-nav:cubic-bezier(.44,0,.56,1);          /* Nuera link colour fade */
+  --ease-in-out:cubic-bezier(.65,.05,.36,1);
+  --e-out:var(--ease-out-quart);
+}
+@supports not (animation-timing-function: linear(0, 1)){
+  :root{ --spring-drop:var(--ease-out-expo); --spring-soft:var(--ease-out-expo); --spring-long:var(--ease-out-expo); --spring-pop:var(--ease-out-expo); --settle-2s:var(--ease-out-expo); --settle-1s:var(--ease-out-expo) }
+}
 
-  --paper:#eef2f1;
-  --paper-sunk:#e5eae8;
-  --card:#f8fbfa;
-  --card-2:#fdfefe;
-  --ink:#132321;
-  --ink-2:#3d4e4b;
-  --ink-3:#556964;
-  --ink-4:#8b9c96;
-  --rule:hsl(168 12% 80%);
-  --rule-soft:hsl(168 12% 87%);
-
-  --teal:#00b3b3;
-  --teal-fill:#00807e;
-  --teal-ink:#00706f;
-  --teal-wash:hsl(178 46% 93%);
-  --teal-edge:hsl(178 40% 74%);
-  /* photography [POLISH item 1]: settling a photo band means tinting its scrim to
-     the page's own surface, not a foreign dark ink -- so it recomputes per theme
-     automatically off --paper, with a whisper of brand hue rather than a stacked
-     teal multiply layer (the old ::after) fighting the new grayscale/blur pass. */
+/* ---- tokens: the dark ground ---------------------------------------------------------
+   Every neutral carries the teal's hue so the accent reads as native. Nothing pure black
+   (Xtract's #000 is the one thing we do not copy: it crushes the orb and the photos). */
+:root{
+  color-scheme:dark;
+  --bg:#0a100f;            /* page */
+  --bg-2:#0d1514;          /* alternate section */
+  --paper:var(--bg); --paper-sunk:var(--bg-2);
+  --card:#111a19; --card-2:#16211f; --card-3:#1c2926;
+  --ink:#eef3f1; --ink-2:#aeb9b5; --ink-3:#7f8d89; --ink-4:#5b6865;
+  --rule:rgba(238,243,241,.10); --rule-soft:rgba(238,243,241,.06); --rule-strong:rgba(238,243,241,.16);
+  --dot:rgba(238,243,241,.24);
+  --teal:#00b3b3; --teal-bright:#2fd6d1; --teal-ink:#5fe0dd;
+  --teal-fill:#00b3b3; --teal-fill-hover:#19c9c7; --on-teal:#06110f;
+  --teal-wash:rgba(0,179,179,.10); --teal-edge:rgba(0,179,179,.34); --teal-glow:rgba(0,179,179,.35);
   --plate-tint:color-mix(in srgb, var(--paper) 90%, var(--teal-wash) 10%);
-  --ic-hl:var(--teal-fill);
-
-  --flag-ink:#8a4a12;
-  --flag-wash:hsl(32 55% 92%);
-
-  --agent-otto:#00807e;
-  --agent-arthur:#2c5a72;
-  --agent-wade:#7a5a2e;
-  --agent-priya:#5a4d78;
-  --notion-bm:#000000; --zendesk-bm:#03363D; --trello-bm:#0052CC;
-
-  --sh-1:0 1px 2px hsla(172,35%,8%,.06), 0 3px 7px -4px hsla(172,35%,8%,.10);
-  --sh-2:0 1px 3px hsla(172,35%,8%,.06), 0 10px 22px -12px hsla(172,35%,8%,.20);
-  --sh-3:0 3px 6px hsla(172,35%,8%,.05), 0 26px 48px -20px hsla(172,35%,8%,.28);
-
-  /* Framer-grade orchestration, quieter scale [POLISH]: three named curves, never
-     the built-ins (`ease`/`ease-in-out`/`linear` read as mechanical on real UI
-     motion -- Emil Kowalski's animation standards, github.com/emilkowalski/skills,
-     already cited above for [R6]). One curve per JOB, not per element. */
-  --ease-out-expo:cubic-bezier(.19,1,.22,1);  /* entrances: load sequence, masked
-                                                  headline reveals, section handoff */
-  --ease-out-quart:cubic-bezier(.25,1,.5,1);  /* hover / press micro-interactions,
-                                                  150-250ms */
-  --ease-in-out:cubic-bezier(.65,.05,.36,1);  /* discrete state changes: nav scroll
-                                                  state, theme toggle */
-  --e-out:var(--ease-out-quart); /* alias -- every pre-existing micro-interaction
-                                     transition below still reads var(--e-out) and
-                                     is, semantically, a hover-scale curve already */
-
-  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
-  --measure:65ch;
-}
-
-@media (prefers-color-scheme:dark){
-  :root:not([data-theme="light"]){
-    --paper:#0c1615;
-    --paper-sunk:#091110;
-    --card:#121d1c;
-    --card-2:#17221f;
-    --ink:#e8f1ee;
-    --ink-2:#adc0ba;
-    --ink-3:#87988f;
-    --ink-4:#576863;
-    --rule:hsl(168 12% 24%);
-    --rule-soft:hsl(168 12% 18%);
-    --teal:#1fd0cf;
-    --teal-ink:#5fe0dd;
-    --teal-wash:hsl(178 40% 14%);
-    --teal-edge:hsl(178 34% 30%);
-    --ic-hl:var(--teal);
-    --flag-ink:#e0a868;
-    --flag-wash:hsl(32 40% 15%);
-    --agent-otto:#2fd6d1;
-    --agent-arthur:#7fb4d1;
-    --agent-wade:#d1a05c;
-    --agent-priya:#b2a0dc;
-    --notion-bm:#e9edee; --zendesk-bm:#8ccfd9; --trello-bm:#88aadd;
-    --sh-1:0 1px 2px hsla(172,60%,1%,.5), 0 3px 8px -4px hsla(172,60%,1%,.55);
-    --sh-2:0 2px 4px hsla(172,60%,1%,.5), 0 14px 30px -14px hsla(172,60%,1%,.6);
-    --sh-3:0 4px 10px hsla(172,60%,1%,.5), 0 34px 60px -22px hsla(172,60%,1%,.65);
-  }
-}
-:root[data-theme="dark"]{
-  --paper:#0c1615; --paper-sunk:#091110; --card:#121d1c; --card-2:#17221f;
-  --ink:#e8f1ee; --ink-2:#adc0ba; --ink-3:#87988f; --ink-4:#576863;
-  --rule:hsl(168 12% 24%); --rule-soft:hsl(168 12% 18%);
-  --teal:#1fd0cf; --teal-ink:#5fe0dd; --teal-wash:hsl(178 40% 14%); --teal-edge:hsl(178 34% 30%);
   --ic-hl:var(--teal);
   --flag-ink:#e0a868; --flag-wash:hsl(32 40% 15%);
   --agent-otto:#2fd6d1; --agent-arthur:#7fb4d1; --agent-wade:#d1a05c; --agent-priya:#b2a0dc;
@@ -154,379 +72,423 @@
   --sh-1:0 1px 2px hsla(172,60%,1%,.5), 0 3px 8px -4px hsla(172,60%,1%,.55);
   --sh-2:0 2px 4px hsla(172,60%,1%,.5), 0 14px 30px -14px hsla(172,60%,1%,.6);
   --sh-3:0 4px 10px hsla(172,60%,1%,.5), 0 34px 60px -22px hsla(172,60%,1%,.65);
+  --mono:var(--font-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+  --measure:62ch;
+  --nav-h:64px;
+}
+/* The light room: FAQ and the close, Nuera's page. Same token names, so every component
+   inside follows without its own rules. */
+.room-light{
+  color-scheme:light;
+  --bg:#fafafa; --bg-2:#ffffff; --paper:#fafafa; --paper-sunk:#f2f2f2;
+  --card:#ffffff; --card-2:#ffffff; --card-3:#f4f4f4;
+  --ink:#0a0a0a; --ink-2:#3a3f3c; --ink-3:#5b5f57; --ink-4:#8a8f8a;
+  --rule:rgba(10,10,10,.10); --rule-soft:rgba(10,10,10,.06); --rule-strong:rgba(10,10,10,.18);
+  --dot:rgba(10,10,10,.28);
+  --teal-ink:#00706f; --teal-wash:rgba(0,179,179,.09); --teal-edge:rgba(0,179,179,.42);
+  --sh-1:0 1px 2px hsla(172,35%,8%,.06), 0 3px 7px -4px hsla(172,35%,8%,.10);
+  --sh-2:0 1px 3px hsla(172,35%,8%,.06), 0 10px 22px -12px hsla(172,35%,8%,.20);
+  --sh-3:0 3px 6px hsla(172,35%,8%,.05), 0 26px 48px -20px hsla(172,35%,8%,.28);
+  background:var(--bg); color:var(--ink);
 }
 
 /* ---- reset / base ------------------------------------------------------------------ */
-*,*::before,*::after{box-sizing:border-box}
-html{-webkit-text-size-adjust:100%}
+*,*::before,*::after{ box-sizing:border-box }
+html{ -webkit-text-size-adjust:100%; scroll-padding-top:calc(var(--nav-h) + 24px) }
+html.lenis, html.lenis body{ height:auto }
+.lenis.lenis-smooth{ scroll-behavior:auto !important }
+.lenis.lenis-smooth [data-lenis-prevent]{ overscroll-behavior:contain }
 body{
-  margin:0; background:var(--paper); color:var(--ink);
-  font-family:var(--font-satoshi);
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:var(--font-satoshi), system-ui, sans-serif;
   font-size:16px; line-height:1.5;
   -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
-  overflow-x:hidden;
+  overflow-x:clip;
 }
-img,svg{display:block; max-width:100%}
-a{color:inherit}
-button{font:inherit; color:inherit}
-::selection{background:var(--teal-wash); color:var(--ink)}
-:focus-visible{outline:2.5px solid var(--teal); outline-offset:3px; border-radius:3px}
+img,svg{ display:block; max-width:100% }
+a{ color:inherit }
+button{ font:inherit; color:inherit; background:none; border:0; padding:0; cursor:pointer }
+::selection{ background:var(--teal); color:var(--on-teal) }
+:focus-visible{ outline:2px solid var(--teal); outline-offset:3px; border-radius:4px }
+.wrap{ max-width:1180px; margin-inline:auto; padding-inline:32px }
+@media (max-width:720px){ .wrap{ padding-inline:20px } }
+.scroller{ overflow-x:auto; -webkit-overflow-scrolling:touch }
+.vh{ position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0 }
+.skip-link{ position:fixed; top:-60px; left:12px; z-index:100; background:var(--teal-fill); color:var(--on-teal); padding:10px 16px; border-radius:8px; text-decoration:none; font-size:.875rem; font-weight:500; transition:top .2s var(--e-out) }
+.skip-link:focus{ top:12px }
 
-.wrap{max-width:1180px; margin-inline:auto; padding-inline:32px}
-@media (max-width:720px){ .wrap{padding-inline:20px} }
-
-.scroller{overflow-x:auto; -webkit-overflow-scrolling:touch}
-
-/* ---- typography ---------------------------------------------------------------------
-   Satoshi headings hold the brand rule: weight 500, ~110% leading, one accent word.
-   Newsreader headings run a parallel rule of their own: roman body, ONE word in the
-   italic cut for emphasis instead of colour — contrast carried by letterform, not ink. */
+/* ---- typography ----------------------------------------------------------------------
+   Satoshi for everything read; Geist Mono for everything labelled. Headlines are 600
+   (the references all run bold), tracked tight above 40px only. */
 .kicker{
-  font-size:.75rem; font-weight:500; letter-spacing:.09em; text-transform:uppercase;
-  color:var(--teal-ink);
+  font-family:var(--mono); font-size:.75rem; font-weight:500; letter-spacing:.1em;
+  text-transform:uppercase; color:var(--teal-ink);
+  display:inline-flex; align-items:center; gap:10px;
 }
-.dek{
-  font-size:1.125rem; line-height:1.55; color:var(--ink-2); max-width:46ch;
-  text-wrap:pretty;
-}
-h1,h2,h3,h4{ margin:0; font-weight:500; text-wrap:pretty }
-.serif{ font-family:var(--font-newsreader); font-optical-sizing:auto }
-.serif em, em.accent{
-  font-style:italic; font-weight:450; color:inherit;
-}
-
-.h1{
-  font-family:var(--font-newsreader); font-optical-sizing:auto;
-  font-weight:440; line-height:1.03;
-  font-size:clamp(2.75rem, 2.05rem + 3.4vw, 5rem);
-  letter-spacing:clamp(-0.01em, -0.012em, -0.03em);
-  color:var(--ink);
-}
-.h2{
-  font-family:var(--font-newsreader); font-optical-sizing:auto;
-  font-weight:440; line-height:1.08;
-  font-size:clamp(2rem, 1.6rem + 1.9vw, 3rem);
-  letter-spacing:-0.012em;
-  color:var(--ink);
-}
-.h3{
-  font-family:var(--font-satoshi); font-weight:500; line-height:1.16;
-  font-size:clamp(1.375rem, 1.2rem + .8vw, 1.75rem);
-  letter-spacing:-0.006em;
-}
-.h4{ font-family:var(--font-satoshi); font-weight:500; line-height:1.2; font-size:1.125rem }
-
-p{ margin:0 0 1em; }
-.lead{ font-size:1.1875rem; line-height:1.6; color:var(--ink-2); max-width:var(--measure); text-wrap:pretty }
+.kicker::before{ content:""; width:6px; height:6px; border-radius:50%; background:var(--teal); box-shadow:0 0 0 4px var(--teal-wash) }
+.kicker.plain::before{ display:none }
+h1,h2,h3,h4{ margin:0; font-weight:600; text-wrap:balance }
+.h1{ font-size:clamp(2.75rem, 1.6rem + 5.2vw, 5.5rem); line-height:1.02; letter-spacing:-0.035em; color:var(--ink) }
+.h2{ font-size:clamp(2rem, 1.35rem + 2.6vw, 3.25rem); line-height:1.06; letter-spacing:-0.03em; color:var(--ink) }
+.h3{ font-size:clamp(1.25rem, 1.1rem + .7vw, 1.625rem); line-height:1.18; letter-spacing:-0.015em; font-weight:500 }
+.h4{ font-size:1.0625rem; line-height:1.3; font-weight:500 }
+.mono-h{ font-family:var(--mono); font-weight:500; letter-spacing:-0.02em }
+.accent{ color:var(--teal-ink) }
+p{ margin:0 0 1em }
+.dek{ font-size:clamp(1.0625rem, 1rem + .35vw, 1.25rem); line-height:1.55; color:var(--ink-2); max-width:52ch; text-wrap:pretty }
 .body-copy{ font-size:1rem; line-height:1.68; color:var(--ink-2); max-width:var(--measure); text-wrap:pretty }
 .body-copy:last-child{ margin-bottom:0 }
-.meta{ font-size:.8125rem; color:var(--ink-3); font-variant-numeric:tabular-nums }
-.mono{ font-family:var(--mono); font-size:.8125rem; letter-spacing:-.01em }
+.meta{ font-family:var(--mono); font-size:.78125rem; color:var(--ink-3); letter-spacing:.01em }
+.stat{ font-size:.9375rem; color:var(--ink-2) }
+.stat b{ font-family:var(--mono); font-weight:500; color:var(--ink); letter-spacing:-.02em }
+.section-head{ max-width:640px; margin-bottom:clamp(36px,5vw,64px); display:grid; gap:18px; justify-items:start }
+.section-head.center{ margin-inline:auto; text-align:center; justify-items:center }
+.section-head .dek{ margin:0 }
+blockquote.pull{ margin:0; padding:0 0 0 18px; border-left:2px solid var(--teal); font-size:clamp(1.125rem,1rem + .6vw,1.4rem); line-height:1.4; letter-spacing:-.01em; color:var(--ink); text-wrap:pretty }
+blockquote.pull cite{ display:block; margin-top:12px; font-style:normal; font-family:var(--mono); font-size:.75rem; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-3) }
 
-/* drop cap — [R3]; used exactly once, on the opening paragraph of the opening spread */
-.drop::first-letter{
-  font-family:var(--font-newsreader); font-weight:460;
-  float:left; line-height:.86; margin:.02em .06em -.04em 0; color:var(--ink);
-  -webkit-initial-letter:3; initial-letter:3;
-  font-size:4.4em;
-}
-@supports not (initial-letter:3){
-  .drop::first-letter{ font-size:3.4em; }
-}
-
-/* pull quotes — [R2] hanging-punctuation, Newsreader italic, no colour bar */
-blockquote.pull{
-  margin:0; padding:0;
-  font-family:var(--font-newsreader); font-optical-sizing:auto;
-  font-style:italic; font-weight:440; color:var(--ink);
-  font-size:clamp(1.375rem, 1.15rem + 1vw, 1.75rem);
-  line-height:1.32; letter-spacing:-.006em;
-  hanging-punctuation:first allow-end;
-  text-wrap:pretty;
-}
-blockquote.pull cite{
-  display:block; margin-top:14px; font-style:normal; font-family:var(--font-satoshi);
-  font-size:.8125rem; font-weight:500; letter-spacing:.02em; color:var(--ink-3);
-}
-
-/* ---- icon system --------------------------------------------------------------------
-   Phosphor Duotone (MIT), swapped in for the hand-drawn stroke set — see the
-   sprite's own header comment for the full ruleset. Each symbol already carries
-   fill="currentColor" on itself, so colour comes from CSS `color`, never `fill`;
-   deliberately no `fill` declared here. --ic-hl (below, in :root) is now dead:
-   it belonged to the retired single-highlight stroke system and nothing in the
-   new sprite reads it. Left in place rather than hunted down across three
-   theme blocks for a variable that costs nothing sitting unused. */
-.ic{ width:22px; height:22px; flex:none }
-.ic-lg{ width:30px; height:30px }
-
-/* vendor marks — official multicolour logos (logo-sprite-color), never redrawn.
-   Deliberately no `fill` here either: these carry their own real brand colours
-   baked into each symbol, and a `fill` on the wrapper flattens them to one hue. */
-.brandmark{ width:22px; height:22px; transition:filter .22s var(--e-out) }
-
-/* ---- agent head avatar (from LOGO.html, tinted per agent — sanctioned reuse) -------
-   Same cross-use-boundary rule as above: body/eye colour is wired as fill="var(--av)"
-   / fill="var(--eye)" inside the symbol; this stylesheet only sets those two vars. */
-.avatar{ width:1em; height:1em; display:block; --eye:var(--card-2) }
-
-/* ---- nav ------------------------------------------------------------------------- */
-.masthead{
-  position:sticky; top:0; z-index:40;
-  background:color-mix(in srgb, var(--paper) 88%, transparent);
-  backdrop-filter:none; /* no glassmorphism — a plain hairline, not a blur */
-  border-bottom:1px solid transparent;
-  transition:background-color .25s var(--ease-in-out), border-color .25s var(--ease-in-out), box-shadow .25s var(--ease-in-out);
-}
-/* nav reacts [POLISH]: a quick, small state change once you leave the hero -- tighter,
-   more opaque, a hairline that only shows up once there is something to divide from.
-   Toggled by a rAF-throttled scroll listener (see _components/motion.tsx); the untouched state above
-   is already a complete, correct nav, so nothing depends on this firing. */
-.masthead.is-scrolled{
-  background:color-mix(in srgb, var(--paper) 97%, transparent);
-  border-bottom-color:var(--rule-soft);
-  box-shadow:var(--sh-1);
-}
-.masthead .wrap{
-  display:flex; align-items:center; justify-content:space-between; height:76px; gap:24px;
-  transition:height .25s var(--ease-in-out);
-}
-.masthead.is-scrolled .wrap{ height:60px }
-@media (prefers-reduced-motion:reduce){
-  .masthead, .masthead .wrap{ transition:none }
-}
-.brand{ display:inline-flex; align-items:center; gap:.6em; text-decoration:none; --logo-size:40px; flex:none; font-size:var(--logo-size); transition:font-size .25s var(--ease-in-out) }
-.masthead.is-scrolled .brand{ --logo-size:32px }
-.brand svg{ width:auto; height:1em; display:block; flex:none }
-/* 500, not the 420 this once said: the approved build loaded four static Satoshi faces
-   (400/500/700/900), and CSS font matching rounds a 420 request UP to the 500 face. On the
-   variable file 420 would render as a real, lighter 420, so 500 keeps the wordmark as approved. */
-.brand-word{ font-size:.8em; letter-spacing:-.02em; white-space:nowrap; color:var(--ink); font-weight:500 }
-.brand-word b{ font-weight:700; color:var(--teal-ink) }
-
-.navlinks{ display:flex; align-items:center; gap:30px; font-size:.9375rem }
-.navlinks a:not(.btn){ text-decoration:none; color:var(--ink-2); position:relative; padding:4px 0; white-space:nowrap }
-.navlinks a:not(.btn)::after{
-  content:""; position:absolute; left:0; right:100%; bottom:-2px; height:1.5px; background:var(--teal-ink);
-  transition:right .28s var(--e-out);
-}
-@media (hover:hover) and (pointer:fine){
-  .navlinks a:not(.btn):hover::after{ right:0 }
-  .navlinks a:not(.btn):hover{ color:var(--ink) }
-}
-.navlinks a[aria-current]{ color:var(--ink); font-weight:500 }
-.navspacer{ flex:1 }
-.themebtn{
-  border:1px solid var(--rule); background:var(--card); border-radius:7px;
-  padding:6px 11px; font-size:.75rem; color:var(--ink-3); cursor:pointer;
-  transition:border-color .2s, color .2s, background .2s;
-}
-.themebtn:hover{ border-color:var(--teal-edge); color:var(--teal-ink) }
-/* The label names the theme a click switches TO. It is pure CSS, driven by the same
-   data-theme / prefers-color-scheme pair as the palette, so it is correct before any
-   script runs rather than corrected after hydration. */
-.themebtn .to-light{ display:none }
-:root[data-theme="dark"] .themebtn .to-dark{ display:none }
-:root[data-theme="dark"] .themebtn .to-light{ display:inline }
-@media (prefers-color-scheme:dark){
-  :root:not([data-theme="light"]) .themebtn .to-dark{ display:none }
-  :root:not([data-theme="light"]) .themebtn .to-light{ display:inline }
-}
-
+/* ---- buttons: Xtract's label roll, Nuera's lighten ---------------------------------- */
 .btn{
-  display:inline-flex; align-items:center; gap:.5em; text-decoration:none;
-  font-size:.9375rem; font-weight:500; padding:11px 20px; border-radius:8px;
-  transition:transform .22s var(--e-out), box-shadow .22s var(--e-out), background .2s;
-  border:1px solid transparent; cursor:pointer;
+  display:inline-flex; align-items:center; gap:.5em; text-decoration:none; white-space:nowrap;
+  font-size:.9375rem; font-weight:500; padding:12px 20px; border-radius:10px; line-height:1.2;
+  transition:background-color .2s var(--e-out), color .2s var(--e-out), border-color .2s var(--e-out), box-shadow .25s var(--e-out), transform .2s var(--e-out);
 }
-.btn-primary{ background:var(--teal-fill); color:#f4fbfa; box-shadow:var(--sh-1) }
-.btn-primary:hover{ transform:translateY(-1.5px); box-shadow:var(--sh-2); background:var(--teal-ink) }
-.btn-primary:active{ transform:translateY(0) scale(.98) }
-.btn-ghost{ border-color:var(--rule); color:var(--ink-2); background:transparent }
-.btn-ghost:hover{ border-color:var(--teal-edge); color:var(--teal-ink) }
-.btn-ghost:active{ transform:scale(.98) }
-.btn-ghost .ic{ transition:transform .25s var(--ease-out-quart) }
-@media (hover:hover) and (pointer:fine){
-  .btn-ghost:hover .ic{ transform:translateX(3px) }
+.btn .ic{ width:15px; height:15px; flex:none; transition:transform .3s var(--ease-out-quart) }
+.btn-primary{ background:var(--teal-fill); color:var(--on-teal); box-shadow:0 0 0 1px rgba(255,255,255,.06) inset, 0 8px 24px -10px var(--teal-glow) }
+.btn-primary:hover{ background:var(--teal-fill-hover); box-shadow:0 0 0 1px rgba(255,255,255,.1) inset, 0 12px 30px -10px var(--teal-glow) }
+.btn-primary:hover .ic{ transform:translate(2px,-2px) }
+.btn-ghost{ background:var(--card-2); color:var(--ink); border:1px solid var(--rule) }
+.btn-ghost:hover{ border-color:var(--rule-strong); background:var(--card-3) }
+.room-light .btn-ghost{ background:#fff; border-color:rgba(10,10,10,.16) }
+.room-light .btn-ghost:hover{ border-color:#0a0a0a; background:#fff }
+.btn-lg{ padding:14px 24px; font-size:1rem; border-radius:12px }
+.btn-sm{ padding:9px 14px; font-size:.875rem; border-radius:8px }
+.roll{ display:inline-grid; overflow:hidden; line-height:1.2 }
+.roll > span{ grid-area:1/1; display:block; transition:transform .35s var(--ease-out-quart) }
+.roll > span + span{ transform:translateY(115%) }
+@media (hover:hover){
+  .btn:hover .roll > span:first-child{ transform:translateY(-115%) }
+  .btn:hover .roll > span + span{ transform:none }
 }
+.btn:active{ transform:translateY(1px) }
 
-/* ---- section rhythm ----------------------------------------------------------------
-   Vertical gaps tied to viewport via clamp() rather than fixed breakpoints —
-   editorial-grid spacing rhythm [R4]. */
-.section{ padding-block:clamp(64px,9vw,128px) }
-.section-head{ margin-bottom:clamp(32px,5vw,56px); max-width:640px }
-.section + .section{ border-top:1px solid var(--rule-soft) }
+/* ---- pill nav (Nuera's floating bar, in dark glass) -------------------------------- */
+.masthead{ position:fixed; top:16px; left:0; right:0; z-index:40; pointer-events:none }
+.masthead .bar{
+  pointer-events:auto; max-width:1180px; margin-inline:auto; height:var(--nav-h);
+  display:flex; align-items:center; gap:28px; padding:0 8px 0 18px;
+  background:rgba(13,21,20,.72); border:1px solid var(--rule); border-radius:16px;
+  backdrop-filter:blur(14px) saturate(140%); -webkit-backdrop-filter:blur(14px) saturate(140%);
+  box-shadow:0 1px 0 rgba(255,255,255,.04) inset, var(--sh-2);
+  transition:background-color .3s var(--ease-in-out), box-shadow .3s var(--ease-in-out), border-color .3s var(--ease-in-out);
+}
+.masthead.is-scrolled .bar{ background:rgba(13,21,20,.9); border-color:var(--rule-strong) }
+@media (max-width:1240px){ .masthead .bar{ margin-inline:16px } }
+.brand{ display:inline-flex; align-items:center; gap:.55em; text-decoration:none; --logo-size:32px; font-size:var(--logo-size); flex:none }
+.brand svg{ width:auto; height:1em; display:block }
+.brand-word{ font-size:.7em; letter-spacing:-.02em; white-space:nowrap; color:var(--ink); font-weight:500 }
+.brand-word b{ font-weight:700; color:var(--teal-ink) }
+.navlinks{ display:flex; align-items:center; gap:4px; font-size:.9375rem; flex:1 }
+.navlinks a:not(.btn){ text-decoration:none; color:var(--ink-2); padding:8px 12px; border-radius:9px; transition:color .18s var(--ease-nav), background-color .18s var(--ease-nav) }
+.navlinks a:not(.btn):hover{ color:var(--ink); background:rgba(248,248,248,.047) }
+.navlinks a[aria-current]{ color:var(--ink) }
+.navspacer{ flex:1 }
+.nav-cta{ display:flex; align-items:center; gap:6px }
+@media (max-width:860px){ .hide-mobile{ display:none } .masthead .bar{ gap:12px; padding:0 8px 0 14px } .brand{ --logo-size:28px } }
+@media (max-width:560px){ .navlinks a:not(.btn){ display:none } .pill{ white-space:normal; text-align:center; padding:6px 12px 6px 6px } }
+/* the bar drops in from above the viewport on a spring, like Xtract's */
+@media (prefers-reduced-motion:no-preference){
+  html.js-anim .masthead{ animation:nav-drop .95s var(--spring-drop) .2s both }
+}
+@keyframes nav-drop{ from{ opacity:0; transform:translateY(-150px) } to{ opacity:1; transform:none } }
 
-/* ---- section grounds -----------------------------------------------------------------
-   Kyle, 2026-09-10: "It's the same background color throughout! I need some variety."
-   Three grounds besides paper, each a local re-definition of the palette tokens rather than
-   a painted background, so everything inside (type, rules, cards, buttons, the photo
-   scrim) follows the ground without per-component overrides:
-     .tone-alt   a deeper, cooler stone: the portal screenshots and alternate cases sit on it
-     .tone-teal  the brand wash: the one section about the client's own tools
-     .tone-ink   a reversed green-black band: the close and the footer, so the page ends
-                 on one dark block instead of fading out
-   --plate-tint is re-declared in each on purpose: a custom property that references
-   another is resolved where it is declared, so without this the photo scrim would keep
-   the page's paper tone on top of a different ground. */
-.tone-alt, .tone-teal, .tone-ink{ background:var(--paper); color:var(--ink) }
-.tone-alt{
-  --paper:#e1e8e5; --paper-sunk:#d7dfdb; --rule-soft:hsl(168 12% 82%);
-  --plate-tint:color-mix(in srgb, var(--paper) 90%, var(--teal-wash) 10%);
-}
-.tone-teal{
-  --paper:hsl(176 34% 90%); --paper-sunk:hsl(176 28% 86%);
-  --card:#f6fbfa; --card-2:#fbfefd;
-  --rule:hsl(176 20% 76%); --rule-soft:hsl(176 22% 83%);
-  --teal-wash:hsl(178 46% 96%);
-  --plate-tint:color-mix(in srgb, var(--paper) 90%, var(--teal-wash) 10%);
-}
-.tone-ink{
-  color-scheme:dark;
-  --paper:#10211f; --paper-sunk:#0c1a18; --card:#152725; --card-2:#1a2d2a;
-  --ink:#e8f1ee; --ink-2:#b3c5bf; --ink-3:#93a79f; --ink-4:#7d918a;
-  --rule:hsl(168 14% 26%); --rule-soft:hsl(168 14% 20%);
-  --teal:#1fd0cf; --teal-ink:#5fe0dd; --teal-wash:hsl(178 40% 16%); --teal-edge:hsl(178 34% 34%);
-  --agent-otto:#2fd6d1; --agent-arthur:#7fb4d1; --agent-wade:#d1a05c; --agent-priya:#b2a0dc;
-  --plate-tint:color-mix(in srgb, var(--paper) 90%, var(--teal-wash) 10%);
-  --sh-1:0 1px 2px hsla(172,60%,1%,.5), 0 3px 8px -4px hsla(172,60%,1%,.55);
-  --sh-2:0 2px 4px hsla(172,60%,1%,.5), 0 14px 30px -14px hsla(172,60%,1%,.6);
-  --sh-3:0 4px 10px hsla(172,60%,1%,.5), 0 34px 60px -22px hsla(172,60%,1%,.65);
-}
-/* In dark mode the page is already near-black, so the grounds step the other way: alt and
-   teal lift slightly, ink turns a deeper, more saturated teal-black, and each still reads as
-   its own band. */
-@media (prefers-color-scheme:dark){
-  :root:not([data-theme="light"]) .tone-alt{ --paper:#111d1b; --paper-sunk:#0d1716; --rule-soft:hsl(168 12% 20%) }
-  :root:not([data-theme="light"]) .tone-teal{ --paper:hsl(178 34% 11%); --paper-sunk:hsl(178 34% 9%); --card:#132624; --card-2:#172b28; --rule:hsl(176 20% 26%); --rule-soft:hsl(176 20% 20%); --teal-wash:hsl(178 40% 18%) }
-  :root:not([data-theme="light"]) .tone-ink{ --paper:#08201e; --paper-sunk:#061917; --card:#0e2a27; --card-2:#12302c }
-}
-:root[data-theme="dark"] .tone-alt{ --paper:#111d1b; --paper-sunk:#0d1716; --rule-soft:hsl(168 12% 20%) }
-:root[data-theme="dark"] .tone-teal{ --paper:hsl(178 34% 11%); --paper-sunk:hsl(178 34% 9%); --card:#132624; --card-2:#172b28; --rule:hsl(176 20% 26%); --rule-soft:hsl(176 20% 20%); --teal-wash:hsl(178 40% 18%) }
-:root[data-theme="dark"] .tone-ink{ --paper:#08201e; --paper-sunk:#061917; --card:#0e2a27; --card-2:#12302c }
-/* A change of ground is the boundary; the hairline between sections would only fuss it. */
-.section.tone-alt, .section.tone-teal, .section.tone-ink,
-.tone-alt + .section, .tone-teal + .section, .tone-ink + .section,
-.section + footer.tone-ink{ border-top-color:transparent }
+/* ---- section rhythm + Seonovu's dotted hairlines ------------------------------------ */
+.section{ position:relative; padding-block:clamp(72px,10vw,128px) }
+.section.tight{ padding-block:clamp(48px,6vw,80px) }
+.hair{ height:1px; background:radial-gradient(circle, var(--dot) .7px, transparent 1.1px) 0 0/5px 1px repeat-x }
+.section.ruled::before{ content:""; position:absolute; left:0; right:0; top:0; height:1px; background:radial-gradient(circle, var(--dot) .7px, transparent 1.1px) 0 0/5px 1px repeat-x }
+.frame{ position:relative }
+.frame::before, .frame::after{ content:""; position:absolute; top:0; bottom:0; width:1px; background:radial-gradient(circle, var(--dot) .7px, transparent 1.1px) 0 0/1px 5px repeat-y; pointer-events:none }
+.frame::before{ left:0 } .frame::after{ right:0 }
+@media (max-width:1240px){ .frame::before, .frame::after{ display:none } }
 
-/* ---- section handoff [POLISH]: a short rule draws itself in at the top of most major
-   sections, rather than every block independently fading up (the template tell the
-   brief calls out). The static hairline above (.section + .section) is the honest,
-   always-present boundary; this is a small, livelier flourish layered on top of it,
-   never a replacement -- so a no-JS or reduced-motion visitor still sees a complete
-   72px rule, just not the draw. ---- */
-.rule-draw{
-  width:72px; height:2px; background:var(--teal-edge);
-  margin-bottom:clamp(28px,4vw,44px); transform-origin:0 50%;
+/* ---- entrance motion --------------------------------------------------------------- */
+/* Hero: keyframes, so it plays on first paint and never waits for hydration. */
+@keyframes rise-in{ from{ opacity:0; transform:translateY(14px) } to{ opacity:1; transform:none } }
+@keyframes word-in{ from{ opacity:0; filter:blur(10px); transform:translateY(10px) } to{ opacity:1; filter:blur(0); transform:none } }
+@keyframes panel-in{ from{ opacity:0; transform:translateY(60px) } to{ opacity:1; transform:none } }
+@keyframes orb-in{ from{ opacity:0; transform:translate(-50%,-50%) translateY(80px) scale(.9) } to{ opacity:.6; transform:translate(-50%,-50%) } }
+@media (prefers-reduced-motion:no-preference){
+  html.js-anim .enter{ animation:rise-in 1.2s var(--spring-soft) both; animation-delay:var(--t0,.9s) }
+  html.js-anim .enter-words .w > span{ animation:word-in 2.8s var(--spring-long) both; animation-delay:calc(var(--t0,.25s) + var(--i,0) * 60ms) }
+  html.js-anim .enter-panel{ animation:panel-in 1s var(--ease-panel) 1s both }
+  html.js-anim .enter-orb{ animation:orb-in 2s var(--ease-out-expo) .4s both }
 }
+/* Below the fold: the observer adds .in. Visible by default; hidden only once JS proves
+   it is running (html.js-anim), so nothing ever depends on a script to be readable. */
+.w{ display:inline-block; white-space:pre-wrap }
+.w > span{ display:inline-block }
+html.js-anim .rv{ opacity:0; transform:translateY(34px) scale(.98); filter:blur(8px); transition:opacity .78s var(--ease-out-expo), transform .78s var(--ease-out-expo), filter .78s var(--ease-out-expo); transition-delay:var(--d,.33s) }
+html.js-anim .rv.in{ opacity:1; transform:none; filter:blur(0) }
+html.js-anim .rv-words .w > span{ opacity:0; filter:blur(6px); transform:translateY(6px); transition:opacity .7s var(--ease-word), filter .7s var(--ease-word), transform .7s var(--ease-word); transition-delay:calc(.15s + var(--i,0) * 45ms) }
+html.js-anim .rv-words.in .w > span{ opacity:1; filter:blur(0); transform:none }
+html.js-anim .rv-seq > *{ opacity:0; transform:translateY(24px); transition:opacity .7s var(--ease-out-expo), transform .7s var(--ease-out-expo) }
+html.js-anim .rv-seq.in > *{ opacity:1; transform:none }
+html.js-anim .rv-seq.in > :nth-child(1){ transition-delay:.05s } html.js-anim .rv-seq.in > :nth-child(2){ transition-delay:.15s }
+html.js-anim .rv-seq.in > :nth-child(3){ transition-delay:.25s } html.js-anim .rv-seq.in > :nth-child(4){ transition-delay:.35s }
+html.js-anim .rv-seq.in > :nth-child(5){ transition-delay:.45s } html.js-anim .rv-seq.in > :nth-child(6){ transition-delay:.55s }
+html.js-anim .rv-seq.in > :nth-child(7){ transition-delay:.65s } html.js-anim .rv-seq.in > :nth-child(8){ transition-delay:.75s }
+/* legacy names the cases page still uses */
+html.js-anim .reveal{ opacity:0; transform:translateY(24px); transition:opacity .7s var(--ease-out-expo), transform .7s var(--ease-out-expo) }
+html.js-anim .reveal.in{ opacity:1; transform:none }
+.mask-line{ display:block }
+.rule-draw{ width:56px; height:2px; background:var(--teal); margin-bottom:clamp(24px,3vw,36px); transform-origin:0 50% }
 html.js-anim .reveal.rule-draw{ transform:scaleX(0); transition:transform .8s var(--ease-out-expo) }
 html.js-anim .reveal.rule-draw.in{ transform:scaleX(1) }
-
-/* asymmetric grid — never three equal columns [R4] */
-.spread{ display:grid; grid-template-columns:0.86fr 1.14fr; gap:clamp(28px,4vw,64px); align-items:start }
-/* grid items default to min-width:auto (their min-content size); a wide non-wrapping
-   descendant -- the Gmail component's fixed-format meta row, in practice -- can then
-   force the whole 1fr track wider than the viewport. This is the standard fix. */
-.spread > *{ min-width:0 }
-.spread.rev{ grid-template-columns:1.14fr 0.86fr }
-.spread.rev > :first-child{ order:2 }
-@media (max-width:900px){
-  .spread,.spread.rev{ grid-template-columns:1fr }
-  .spread.rev > :first-child{ order:0 }
+@media (prefers-reduced-motion:reduce){
+  html.js-anim .rv, html.js-anim .rv-words .w > span, html.js-anim .rv-seq > *, html.js-anim .reveal{ opacity:1; transform:none; filter:none; transition:none }
+  html.js-anim .reveal.rule-draw{ transform:none }
+  *{ animation-duration:.001s !important; animation-iteration-count:1 !important; animation-delay:0s !important }
 }
-.label-col{ display:grid; gap:18px; align-content:start; position:sticky; top:100px }
-@media (max-width:900px){ .label-col{ position:static } }
 
-/* ---- reveal (entrance-only motion, [R6]) ---------------------------------------
-   Progressive enhancement, deliberately: content is visible by default. Only once
-   the JS confirms IntersectionObserver support and no reduced-motion preference does
-   it add .js-anim to <html> and pre-hide .reveal elements for the fade-up. No-JS,
-   slow-JS and reduced-motion visitors simply see the page — nothing ever depends on
-   a script to become visible. */
-html.js-anim .reveal{
-  opacity:0; transform:translateY(10px);
-  transition:opacity .6s var(--ease-out-expo), transform .6s var(--ease-out-expo);
+/* ---- hero: Xtract's night sky, our orb ---------------------------------------------- */
+.hero{ position:relative; overflow:hidden; padding-top:calc(var(--nav-h) + 16px + clamp(64px,9vw,120px)); padding-bottom:0; isolation:isolate }
+.hero .sky{ position:absolute; inset:0; z-index:-2; pointer-events:none }
+.hero .sky canvas{ width:100%; height:100%; display:block }
+.hero .fade{ position:absolute; left:0; right:0; bottom:0; height:38%; z-index:-1; background:linear-gradient(to bottom, transparent, var(--bg)); pointer-events:none }
+.orb{
+  position:absolute; left:50%; top:52%; z-index:-1; width:clamp(300px,36vw,500px); aspect-ratio:1;
+  transform:translate(-50%,-50%); pointer-events:none; opacity:.6; filter:blur(10px);
 }
-html.js-anim .reveal.in{ opacity:1; transform:none }
-
-/* ---- staggered children [POLISH]: a .seq container hands its own fade off to its
-   direct children, each stepping in ~80-90ms after the last. Reuses the SAME
-   IntersectionObserver as .reveal (see _components/motion.tsx) rather than
-   a second motion system -- for above-the-fold content this delivers the "page
-   performs once on load" sequence for free, since the observer reports an
-   in-viewport element within a frame or two of first paint. .seq-cont is the same
-   ladder shifted later, for a second .seq picking the cascade up where a first one
-   left off (used once, hero copy -> hero artifact). ---- */
-html.js-anim .reveal.seq{ opacity:1; transform:none; transition:none }
-html.js-anim .reveal.seq > *{
-  opacity:0; transform:translateY(10px);
-  transition:opacity .6s var(--ease-out-expo), transform .6s var(--ease-out-expo);
+.orb::before, .orb::after{ content:""; position:absolute; inset:0; border-radius:50% }
+.orb::before{
+  background:
+    radial-gradient(circle at 34% 30%, rgba(160,255,250,.75) 0, rgba(0,179,179,.55) 22%, rgba(0,120,120,.35) 45%, rgba(0,30,30,0) 68%),
+    conic-gradient(from 210deg, rgba(0,179,179,0) 0deg, rgba(0,179,179,.55) 90deg, rgba(20,80,90,.2) 180deg, rgba(0,179,179,.6) 300deg, rgba(0,179,179,0) 360deg);
+  animation:orb-spin 23s linear infinite;
 }
-html.js-anim .reveal.seq.in > *{ opacity:1; transform:none }
-html.js-anim .reveal.seq.in > *:nth-child(1){ transition-delay:.02s }
-html.js-anim .reveal.seq.in > *:nth-child(2){ transition-delay:.10s }
-html.js-anim .reveal.seq.in > *:nth-child(3){ transition-delay:.19s }
-html.js-anim .reveal.seq.in > *:nth-child(4){ transition-delay:.28s }
-html.js-anim .reveal.seq.in > *:nth-child(5){ transition-delay:.37s }
-html.js-anim .reveal.seq.in > *:nth-child(6){ transition-delay:.46s }
-html.js-anim .reveal.seq-cont.in > *:nth-child(1){ transition-delay:.36s }
-html.js-anim .reveal.seq-cont.in > *:nth-child(2){ transition-delay:.45s }
-
-/* ---- masked headline reveal [POLISH]: the one unmistakably "Framer" signature,
-   admitted into an otherwise-still page because it is typographic rather than
-   decorative -- a caption technique, not an effect. Each line sits in its own
-   overflow-hidden box and rises from below its own baseline; never an opacity
-   fade. Shares the .reveal/.in trigger, so hero lines are simply the first thing
-   the observer reports and every later h2/h3 repeats the same move as it scrolls
-   in. Resting state (no .js-anim) is translateY(0) -- fully composed, nothing
-   clipped -- so reduced-motion and no-JS visitors just read the words. ---- */
-.mask-line{ display:block; overflow:hidden; padding-block:.18em .1em; margin-block:-.18em -.1em }
-.mask-line > span{ display:block }
-html.js-anim .reveal .mask-line > span{
-  transform:translateY(112%);
-  transition:transform .75s var(--ease-out-expo);
+.orb::after{ inset:18%; background:radial-gradient(circle at 60% 60%, rgba(6,17,15,.9), rgba(6,17,15,0) 70%); animation:orb-spin 31s linear reverse infinite }
+@keyframes orb-spin{ to{ transform:rotate(360deg) } }
+.hero-inner{ position:relative; text-align:center; display:grid; justify-items:center; gap:22px; max-width:900px; margin-inline:auto }
+.pill{
+  display:inline-flex; align-items:center; gap:8px; padding:5px 12px 5px 5px; border-radius:999px;
+  background:rgba(13,21,20,.7); border:1px solid var(--rule); font-size:.8125rem; color:var(--ink-2);
+  backdrop-filter:blur(8px); font-family:var(--mono); letter-spacing:.01em; text-decoration:none;
+  transition:border-color .2s var(--e-out), color .2s var(--e-out);
 }
-html.js-anim .reveal.in .mask-line > span{ transform:translateY(0) }
-html.js-anim .reveal.in .mask-line:nth-of-type(2) > span{ transition-delay:.08s }
-html.js-anim .reveal.in .mask-line:nth-of-type(3) > span{ transition-delay:.16s }
+.pill:hover{ border-color:var(--teal-edge); color:var(--ink) }
+.pill b{ font-weight:500; color:var(--on-teal); background:var(--teal); padding:3px 9px; border-radius:999px; font-size:.75rem; letter-spacing:.04em; text-transform:uppercase }
+.hero .h1{ max-width:16ch }
+.hero .dek{ text-align:center; max-width:46ch; margin:0 }
+.hero-ctas{ display:flex; gap:12px; flex-wrap:wrap; justify-content:center; margin-top:6px }
+.hero-window{ margin-top:clamp(48px,7vw,84px) }
 
-/* ---- the page performs once: the hero load sequence --------------------------------
-   Same rise, same curve and the same per-element delays as the hero's .reveal/.in pass
-   in the original single-file build, but as keyframes on .enter. The page is React now
-   and React hydrates after first paint; a JS-triggered entrance would paint the hero,
-   blank it, then replay it. Keyframes start on first paint with no script at all.
-   Everything below the fold keeps the .reveal/.in observer. Delays are inline
-   animation-delay values, exactly where the original set transition-delay. */
-@keyframes enter-rise{ from{ opacity:0; transform:translateY(10px) } to{ opacity:1; transform:none } }
-@keyframes enter-mask{ from{ transform:translateY(112%) } to{ transform:translateY(0) } }
+/* ---- product windows (Seonovu's dashboard frame) ----------------------------------- */
+.window{
+  position:relative; border-radius:16px; background:var(--card); border:1px solid var(--rule);
+  box-shadow:var(--sh-3), 0 0 0 1px rgba(0,0,0,.4), 0 -1px 0 rgba(255,255,255,.06) inset;
+  overflow:hidden;
+}
+.window::before{ content:""; position:absolute; inset:-1px; border-radius:inherit; pointer-events:none; background:radial-gradient(600px 240px at 50% -10%, var(--teal-wash), transparent 70%) }
+.window-bar{ display:flex; align-items:center; gap:10px; padding:12px 16px; border-bottom:1px solid var(--rule-soft); font-family:var(--mono); font-size:.75rem; color:var(--ink-3); letter-spacing:.02em }
+.window-bar .dots{ display:flex; gap:6px } .window-bar .dots i{ width:9px; height:9px; border-radius:50%; background:var(--rule-strong) }
+.window-bar .dots i:first-child{ background:rgba(255,120,110,.7) } .window-bar .dots i:nth-child(2){ background:rgba(255,200,90,.7) } .window-bar .dots i:nth-child(3){ background:rgba(90,210,130,.7) }
+.window-bar .title{ margin-left:6px; color:var(--ink-2) }
+.window-bar .right{ margin-left:auto; display:flex; gap:8px; align-items:center }
+.glow-panel{ position:relative; border-radius:16px; background:linear-gradient(rgb(20,32,30) 0%, var(--bg-2) 95%); border:1px solid var(--rule-soft); padding:clamp(18px,2.4vw,28px); overflow:hidden }
+.glow-panel::before{ content:""; position:absolute; inset:0; background:radial-gradient(420px 220px at 50% 0%, var(--teal-wash), transparent 70%); pointer-events:none }
+
+/* the week inbox: four industries, one artifact */
+.inbox{ font-size:.875rem }
+.inbox-body{ display:grid; grid-template-columns:200px 1fr }
+.inbox-rail{ border-right:1px solid var(--rule-soft); padding:16px 12px; display:grid; gap:4px; align-content:start; font-family:var(--mono); font-size:.75rem; color:var(--ink-3) }
+.inbox-rail span{ display:flex; align-items:center; gap:9px; padding:8px 10px; border-radius:8px; color:inherit }
+.inbox-rail span[aria-current]{ background:var(--teal-wash); color:var(--teal-ink) }
+.inbox-rail .ic{ width:15px; height:15px }
+.hi-list{ list-style:none; margin:0; padding:0 }
+.hi-row{ display:flex; gap:14px; padding:16px 22px; border-bottom:1px solid var(--rule-soft); align-items:flex-start; transition:background-color .2s var(--e-out) }
+.hi-row:hover{ background:rgba(248,248,248,.03) }
+.hi-row:last-child{ border-bottom:none }
+.hi-row .agent-av{ margin-top:1px }
+.hi-copy{ min-width:0; flex:1 }
+.hi-top{ display:flex; align-items:baseline; gap:9px; flex-wrap:wrap }
+.hi-top b{ font-weight:500; color:var(--ink) }
+.hi-tag{ font-family:var(--mono); font-size:.6875rem; font-weight:500; letter-spacing:.04em; text-transform:uppercase }
+.hi-time{ margin-left:auto; font-family:var(--mono); font-size:.71875rem; color:var(--ink-4) }
+.hi-subj{ margin:4px 0 0; font-weight:500; color:var(--ink); text-wrap:pretty }
+.hi-snip{ margin:3px 0 0; color:var(--ink-2); font-size:.8125rem; line-height:1.5; text-wrap:pretty }
+.hi-mark{ display:inline-flex; align-items:center; gap:5px; font-family:var(--mono); font-size:.6875rem; color:var(--teal-ink); white-space:nowrap; margin-top:2px }
+.hi-mark .ic{ width:13px; height:13px }
+@media (max-width:760px){ .inbox-body{ grid-template-columns:1fr } .inbox-rail{ display:none } .hi-row{ padding:14px 16px } }
 @media (prefers-reduced-motion:no-preference){
-  .enter{ animation:enter-rise .6s var(--ease-out-expo) both }
-  .enter .mask-line > span{ animation:enter-mask .75s var(--ease-out-expo) both }
+  html.js-anim .hero-window .hi-row{ animation:rise-in .9s var(--ease-out-expo) both; animation-delay:calc(1.5s + var(--i,0) * 120ms) }
 }
+.agent-av{ width:var(--av,32px); height:auto; flex:none }
 
-/* ---- figures / artifacts --------------------------------------------------------- */
+/* ---- logo marquee (Nuera: two rows, opposite directions) --------------------------- */
+.marquee{ overflow:hidden; -webkit-mask-image:linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent); mask-image:linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent) }
+.marquee + .marquee{ margin-top:12px }
+.marquee ul{ display:flex; gap:12px; list-style:none; margin:0; padding:0; width:max-content; animation:marquee 60s linear infinite }
+.marquee.reverse ul{ animation-direction:reverse }
+.marquee:hover ul{ animation-play-state:paused }
+.marquee li{ display:inline-flex; align-items:center; gap:10px; padding:10px 16px; border-radius:10px; border:1px solid var(--rule-soft); background:var(--card); font-size:.875rem; color:var(--ink-2); white-space:nowrap }
+.marquee .brandmark{ width:18px; height:18px }
+@keyframes marquee{ to{ transform:translateX(-50%) } }
+@media (prefers-reduced-motion:reduce){ .marquee ul{ animation:none; flex-wrap:wrap; width:auto } .marquee{ -webkit-mask-image:none; mask-image:none } }
+.logos-label{ text-align:center; margin-bottom:22px }
+
+/* ---- bento (Seonovu's four cards) -------------------------------------------------- */
+.bento{ display:grid; grid-template-columns:repeat(4,1fr); border:1px solid var(--rule-soft); border-radius:16px; overflow:hidden; background:var(--bg-2) }
+.bento > div{ position:relative; padding:clamp(22px,2.6vw,32px); min-height:250px; display:flex; flex-direction:column; gap:14px; justify-content:flex-end; background:var(--bg-2); transition:background-color .3s var(--e-out) }
+.bento > div + div{ border-left:1px solid var(--rule-soft) }
+.bento > div:hover{ background:var(--card) }
+.bento .ic{ width:26px; height:26px; color:var(--ink-3); position:absolute; top:22px; right:22px; transition:color .3s var(--e-out) }
+.bento > div:hover .ic{ color:var(--teal-ink) }
+.bento h3{ font-family:var(--mono); font-size:1.0625rem; font-weight:500; letter-spacing:-.01em; color:var(--ink) }
+.bento p{ margin:0; font-size:.9375rem; line-height:1.6; color:var(--ink-2) }
+@media (max-width:980px){ .bento{ grid-template-columns:1fr 1fr } .bento > div:nth-child(3){ border-left:0 } .bento > div:nth-child(n+3){ border-top:1px solid var(--rule-soft) } }
+@media (max-width:560px){ .bento{ grid-template-columns:1fr } .bento > div{ border-left:0 !important; min-height:0 } .bento > div + div{ border-top:1px solid var(--rule-soft) } }
+
+/* ---- how it works (Nuera's 01 / 02 / 03) ------------------------------------------- */
+.steps{ display:grid; grid-template-columns:repeat(3,1fr); gap:16px }
+.step{ position:relative; padding:clamp(22px,2.4vw,28px); border-radius:16px; background:var(--card); border:1px solid var(--rule-soft); display:grid; gap:14px; align-content:start; transition:border-color .3s var(--e-out), transform .3s var(--e-out) }
+.step:hover{ border-color:var(--teal-edge); transform:translateY(-3px) }
+.step .num{ font-family:var(--mono); font-size:.75rem; letter-spacing:.1em; color:var(--teal-ink) }
+.step h3{ font-size:1.25rem; font-weight:500; letter-spacing:-.01em }
+.step p{ margin:0; color:var(--ink-2); line-height:1.6; font-size:.9375rem }
+.mini{ margin-top:8px; border-radius:10px; background:var(--bg-2); border:1px solid var(--rule-soft); padding:12px 14px; font-size:.8125rem; display:grid; gap:8px }
+.mini .ml{ display:flex; gap:8px; align-items:center; font-family:var(--mono); font-size:.6875rem; color:var(--ink-3); letter-spacing:.04em; text-transform:uppercase }
+.mini .ml i{ width:6px; height:6px; border-radius:50%; background:var(--teal) }
+.mini .brief{ color:var(--ink); line-height:1.5 }
+.apbtn{ display:inline-flex; align-items:center; gap:6px; padding:5px 10px; border-radius:7px; font-size:.75rem; font-weight:500; border:1px solid var(--rule); color:var(--ink-2) }
+.apbtn.ok{ background:var(--teal-wash); color:var(--teal-ink); border-color:var(--teal-edge) }
+.approw{ display:flex; gap:8px; align-items:center; flex-wrap:wrap }
+.deliv{ display:flex; align-items:center; gap:9px; color:var(--ink) }
+.deliv .ic{ color:var(--teal-ink); width:18px; height:18px }
+@media (max-width:900px){ .steps{ grid-template-columns:1fr } }
+
+/* ---- two-column features (Seonovu's SEO/Content panels) ---------------------------- */
+.spread{ display:grid; grid-template-columns:0.9fr 1.1fr; gap:clamp(28px,4vw,64px); align-items:start }
+.spread > *{ min-width:0 }
+.spread.rev{ grid-template-columns:1.1fr 0.9fr }
+.spread.rev > :first-child{ order:2 }
+@media (max-width:900px){ .spread,.spread.rev{ grid-template-columns:1fr } .spread.rev > :first-child{ order:0 } }
+.spread + .spread{ margin-top:clamp(56px,8vw,112px) }
+.label-col{ display:grid; gap:18px; align-content:start; position:sticky; top:calc(var(--nav-h) + 40px) }
+@media (max-width:900px){ .label-col{ position:static } }
+.vignette{ display:grid; gap:14px }
+.vignette-kicker{ display:flex; align-items:center; gap:12px }
+.vignette-name{ font-weight:500; color:var(--ink) }
+.vignette-role{ font-family:var(--mono); font-size:.75rem; color:var(--ink-3); letter-spacing:.02em }
+.artifact{ position:relative; border-radius:14px; background:var(--card); border:1px solid var(--rule); box-shadow:var(--sh-2); overflow:hidden }
 figure{ margin:0 }
-figcaption{
-  margin-top:12px; font-size:.8125rem; color:var(--ink-3); display:flex; gap:8px; align-items:baseline;
-}
-figcaption .fno{ font-variant-numeric:tabular-nums; color:var(--ink-4); flex:none }
+figcaption{ margin-top:12px; font-size:.8125rem; color:var(--ink-3); display:flex; gap:8px; align-items:baseline }
+figcaption .fno{ font-family:var(--mono); font-size:.6875rem; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-4); flex:none }
+.chip{ display:inline-flex; align-items:center; gap:6px; padding:5px 10px 5px 8px; border-radius:999px; background:var(--teal-wash); color:var(--teal-ink); font-size:.75rem; font-weight:500; border:1px solid var(--teal-edge) }
+.ic{ width:22px; height:22px; flex:none }
+.brandmark{ width:22px; height:22px }
+.callouts{ list-style:none; margin:20px 0 0; padding:0; display:grid; gap:11px }
+.callouts li{ display:grid; grid-template-columns:28px 1fr; gap:12px; align-items:baseline }
+.callouts .num{ width:28px; height:28px; border-radius:8px; border:1px solid var(--teal-edge); background:var(--teal-wash); color:var(--teal-ink); font-family:var(--mono); font-size:.75rem; display:grid; place-items:center }
+.callouts .num .ic{ width:15px; height:15px }
+.callouts .txt{ font-size:.9375rem; color:var(--ink-2); line-height:1.5 }
+.callouts .txt b{ color:var(--ink); font-weight:500 }
+.aside{ border-radius:14px; background:var(--card); border:1px solid var(--rule); padding:22px 24px; box-shadow:var(--sh-1) }
+.aside h4{ display:flex; align-items:center; gap:9px; font-size:1rem; font-weight:500; margin-bottom:12px }
+.aside h4 .ic{ width:18px; height:18px; color:var(--teal-ink) }
+.aside ul{ margin:0; padding-left:18px; color:var(--ink-2); font-size:.9375rem; line-height:1.6; display:grid; gap:6px }
 
-.artifact{
-  background:var(--card); border-radius:11px; box-shadow:var(--sh-2);
-  overflow:hidden; position:relative;
-  transition:box-shadow .3s var(--ease-out-quart), transform .3s var(--ease-out-quart);
+/* ---- metric stack (Seonovu's cycling cards) ---------------------------------------- */
+.stack-wrap{ display:grid; gap:14px }
+.stack{ position:relative; height:250px }
+.stack .m{
+  position:absolute; left:0; right:0; top:0; padding:14px 18px; border-radius:12px; background:var(--card-2); border:1px solid var(--rule);
+  display:flex; align-items:center; gap:14px; box-shadow:var(--sh-2);
+  animation:stack-cycle 8s var(--settle-2s) infinite; animation-delay:calc(var(--i,0) * -2s);
 }
-/* hover life [POLISH]: every card responds, including the illustrative product
-   shots -- a small lift and a deeper shadow, the same curve as the tool plates. */
-@media (hover:hover) and (pointer:fine){
-  .artifact:hover{ box-shadow:var(--sh-3); transform:translateY(-3px) }
+.stack .m .k{ font-family:var(--mono); font-size:.75rem; color:var(--ink-3); flex:1 }
+.stack .m .v{ font-family:var(--mono); font-size:1.0625rem; color:var(--ink); font-weight:500; display:flex; align-items:center; gap:10px }
+.stack .m .v .ic{ width:14px; height:14px; color:var(--teal-ink) }
+.stack .m .v .from{ color:var(--ink-4); font-weight:400 }
+@keyframes stack-cycle{
+  0%{ transform:translateY(0) scale(.9); filter:blur(1.2px); opacity:.35; z-index:1 }
+  25%{ transform:translateY(64px) scale(1); filter:blur(0); opacity:1; z-index:4 }
+  50%{ transform:translateY(128px) scale(.95); filter:blur(.8px); opacity:.65; z-index:3 }
+  75%{ transform:translateY(184px) scale(.9); filter:blur(1.2px); opacity:.35; z-index:2 }
+  88%{ transform:translateY(184px) scale(.9); opacity:0; z-index:1 }
+  89%{ transform:translateY(0) scale(.9); opacity:0; z-index:1 }
+  100%{ transform:translateY(0) scale(.9); filter:blur(1.2px); opacity:.35; z-index:1 }
 }
-.artifact::before{ /* specular edge, R5 */
-  content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none;
-  box-shadow:inset 0 1px 0 hsla(0,0%,100%,.5), inset 0 0 0 1px hsla(172,25%,10%,.05);
-}
-:root[data-theme="dark"] .artifact::before{ box-shadow:inset 0 1px 0 hsla(172,60%,80%,.06), inset 0 0 0 1px hsla(172,60%,90%,.07) }
-@media (prefers-color-scheme:dark){ :root:not([data-theme="light"]) .artifact::before{ box-shadow:inset 0 1px 0 hsla(172,60%,80%,.06), inset 0 0 0 1px hsla(172,60%,90%,.07) } }
+@media (prefers-reduced-motion:reduce){ .stack{ height:auto; display:grid; gap:10px } .stack .m{ position:static; animation:none; transform:none; filter:none; opacity:1 } }
+
+/* ---- tool tiles (Seonovu's integration grid) --------------------------------------- */
+.tiles{ display:grid; grid-template-columns:repeat(auto-fill, minmax(112px,1fr)); gap:10px }
+.tile{ display:grid; gap:10px; justify-items:center; padding:16px 10px 12px; border-radius:12px; background:var(--card); border:1px solid var(--rule-soft); font-size:.75rem; color:var(--ink-2); transition:border-color .25s var(--e-out), transform .25s var(--e-out), background-color .25s var(--e-out) }
+.tile:hover{ border-color:var(--teal-edge); transform:translateY(-3px); background:var(--card-2) }
+.tile .brandmark{ width:24px; height:24px }
+
+/* ---- pricing (Seonovu's toggle and cards) ------------------------------------------ */
+.toggle-row{ display:flex; justify-content:center }
+.toggle{ display:inline-flex; padding:4px; border-radius:12px; background:var(--card); border:1px solid var(--rule); position:relative; font-size:.9375rem }
+.toggle button{ position:relative; z-index:1; padding:9px 18px; border-radius:9px; color:var(--ink-2); display:inline-flex; align-items:center; gap:8px; transition:color .25s var(--e-out); min-width:118px; justify-content:center }
+.toggle button[aria-pressed="true"]{ color:var(--ink) }
+.toggle .thumb{ position:absolute; top:4px; bottom:4px; left:4px; width:calc(50% - 4px); border-radius:9px; background:var(--card-3); border:1px solid var(--rule); transition:transform .3s var(--ease-out-quart) }
+.toggle[data-yearly="true"] .thumb{ transform:translateX(100%) }
+.toggle .save{ font-family:var(--mono); font-size:.6875rem; padding:2px 7px; border-radius:6px; background:var(--teal-wash); color:var(--teal-ink); border:1px solid var(--teal-edge); letter-spacing:.02em }
+.plans{ display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-top:clamp(28px,4vw,44px) }
+.plan{ position:relative; display:grid; gap:18px; align-content:start; padding:clamp(22px,2.6vw,30px); border-radius:18px; background:var(--card); border:1px solid var(--rule-soft); transition:border-color .3s var(--e-out), transform .3s var(--e-out) }
+.plan:hover{ border-color:var(--rule-strong); transform:translateY(-3px) }
+.plan.featured{ border-color:var(--teal-edge); background:linear-gradient(var(--card-2), var(--card)); box-shadow:0 0 0 1px var(--teal-edge), 0 30px 60px -30px var(--teal-glow) }
+.plan .tag{ position:absolute; top:-13px; left:50%; transform:translateX(-50%); font-family:var(--mono); font-size:.6875rem; letter-spacing:.06em; text-transform:uppercase; padding:5px 10px; border-radius:6px; background:var(--teal); color:var(--on-teal); white-space:nowrap }
+.plan .name{ font-family:var(--mono); font-size:1.0625rem; font-weight:500 }
+.plan .for{ color:var(--ink-3); font-size:.9375rem; margin-top:4px }
+.plan .price{ display:flex; align-items:baseline; gap:6px; font-family:var(--mono); letter-spacing:-.02em }
+.plan .price .amt{ font-size:2.25rem; font-weight:500; color:var(--ink); transition:opacity .3s var(--e-out), filter .3s var(--e-out) }
+.plan .price .per{ color:var(--ink-3); font-size:.875rem }
+.plan .billed{ font-family:var(--mono); font-size:.75rem; color:var(--ink-3); min-height:1.2em; margin-top:-8px }
+.plan .build{ font-size:.875rem; color:var(--ink-2); padding:10px 12px; border-radius:9px; background:var(--bg-2); border:1px solid var(--rule-soft) }
+.plan .build b{ font-family:var(--mono); font-weight:500; color:var(--ink) }
+.plan ul{ list-style:none; margin:0; padding:16px 0 0; border-top:1px dashed var(--rule); display:grid; gap:11px; font-size:.9375rem; color:var(--ink-2) }
+.plan li{ display:flex; gap:10px; align-items:flex-start }
+.plan li .ic{ width:16px; height:16px; color:var(--teal-ink); margin-top:3px }
+.plans[data-switching="true"] .amt{ opacity:.35; filter:blur(3px) }
+.plan .btn{ justify-content:center }
+.ledger-foot{ margin:clamp(24px,3vw,36px) auto 0; max-width:66ch; text-align:center; font-size:.9375rem; color:var(--ink-3); line-height:1.6 }
+@media (max-width:980px){ .plans{ grid-template-columns:1fr } .plan.featured{ order:-1 } }
+
+/* ---- FAQ (Nuera's) --------------------------------------------------------------- */
+.faq-list{ border-top:1px solid var(--rule) }
+.qa{ border-bottom:1px solid var(--rule) }
+.qa button{ width:100%; display:flex; align-items:center; justify-content:space-between; gap:24px; padding:26px 30px; text-align:left; font-size:clamp(1.125rem,1rem + .6vw,1.5rem); font-weight:500; letter-spacing:-.01em; color:var(--ink); transition:color .2s var(--e-out) }
+.qa button:hover{ color:var(--teal-ink) }
+.qa .pm{ position:relative; width:18px; height:18px; flex:none }
+.qa .pm::before, .qa .pm::after{ content:""; position:absolute; background:currentColor; border-radius:1px; transition:transform .35s var(--ease-out-quart) }
+.qa .pm::before{ left:0; right:0; top:8px; height:2px }
+.qa .pm::after{ top:0; bottom:0; left:8px; width:2px }
+.qa[data-open="true"] .pm::after{ transform:scaleY(0) }
+.qa .ans{ display:grid; grid-template-rows:0fr; transition:grid-template-rows .4s var(--ease-out-expo) }
+.qa[data-open="true"] .ans{ grid-template-rows:1fr }
+.qa .ans > div{ overflow:hidden; padding:0 30px }
+.qa .ans p{ margin:0; padding-bottom:28px; color:var(--ink-2); font-size:1.0625rem; line-height:1.6; max-width:70ch }
+@media (max-width:640px){ .qa button, .qa .ans > div{ padding-inline:8px } }
+
+/* ---- the close (Nuera's) ----------------------------------------------------------- */
+.close .wrap{ display:grid; justify-items:center; text-align:center; gap:18px }
+.close .h2{ font-size:clamp(2.25rem,1.5rem + 3vw,3.75rem) }
+.close .dek{ text-align:center }
+.close .ctas{ display:flex; gap:12px; flex-wrap:wrap; justify-content:center; margin-top:8px }
+
+/* ---- footer ------------------------------------------------------------------------ */
+footer{ position:relative; border-top:1px solid var(--rule-soft); padding-block:52px 40px; background:var(--bg) }
+.foot-grid{ display:flex; flex-wrap:wrap; gap:28px; justify-content:space-between; align-items:flex-start }
+.foot-links{ display:flex; gap:22px; flex-wrap:wrap; font-size:.875rem }
+.foot-links a{ text-decoration:none; color:var(--ink-3); transition:color .18s var(--ease-nav) }
+.foot-links a:hover{ color:var(--ink) }
+.legal{ margin-top:26px; font-size:.75rem; color:var(--ink-4); line-height:1.6; max-width:78ch }
+
+/* ---- cases page ------------------------------------------------------------------- */
+.case-head{ padding-top:calc(var(--nav-h) + 16px + clamp(56px,8vw,96px)) }
+.case-head .h1{ max-width:14ch }
 
 /* ---- product screenshot plate (real portal UI — see PORTAL.md) -------------------
    Same elevation language as .artifact: card surface, sh-2 shadow, specular edge.
@@ -587,172 +549,6 @@ figcaption .fno{ font-variant-numeric:tabular-nums; color:var(--ink-4); flex:non
 .mail-stamp{ margin-top:14px; display:flex; align-items:center; gap:8px; color:var(--ink-4); font-size:.75rem }
 .mail-stamp .ic{ width:15px; height:15px; color:var(--teal-ink) }
 
-/* annotation markers on the hero artifact — figure callouts, R4/editorial-figure use */
-.callouts{ list-style:none; margin:20px 0 0; padding:0; display:grid; gap:11px }
-.callouts li{ display:grid; grid-template-columns:26px 1fr; gap:12px; align-items:baseline }
-.callouts .num{
-  width:26px; height:26px; border-radius:50%; border:1px solid var(--teal-edge);
-  color:var(--teal-ink); font-size:.75rem; font-weight:500; display:grid; place-items:center;
-  font-variant-numeric:tabular-nums;
-}
-.callouts .txt{ font-size:.875rem; color:var(--ink-2); line-height:1.5 }
-.callouts .txt b{ color:var(--ink); font-weight:500 }
-
-/* ---- hero inbox: four short threads, one artifact — [revision] replaces the single
-   Otto/invoices artifact so the first five seconds read as "this works across
-   industries," not "this chases invoices." Same card chrome as .mail (.artifact,
-   .mail-head) so it still reads as one real, coherent piece of software. */
-.hero-inbox{ font-size:.875rem }
-.hi-list{ list-style:none; margin:0; padding:0 }
-.hi-row{ display:flex; gap:13px; padding:15px 20px; border-bottom:1px solid var(--rule-soft); align-items:flex-start }
-.hi-row:last-child{ border-bottom:none }
-.hi-row .agent-av{ margin-top:1px }
-.hi-copy{ min-width:0; flex:1 }
-.hi-top{ display:flex; align-items:baseline; gap:9px; flex-wrap:wrap }
-.hi-top b{ font-weight:500; color:var(--ink); font-size:.875rem }
-.hi-tag{ font-size:.6875rem; font-weight:500; letter-spacing:.03em; text-transform:uppercase }
-.hi-time{ margin-left:auto; font-size:.71875rem; color:var(--ink-4); font-variant-numeric:tabular-nums }
-.hi-subj{ margin:3px 0 0; font-weight:500; color:var(--ink); font-size:.84375rem; text-wrap:pretty }
-.hi-snip{ margin:3px 0 0; color:var(--ink-2); font-size:.8125rem; line-height:1.5; text-wrap:pretty }
-
-/* ---- hero: the headline over the settled photograph ---------------------------------
-   The photograph used to be a 460px band ABOVE the headline, which left the headline on the
-   bottom edge of a laptop's first screen and the buttons below it (Kyle, 2026-09-10). On
-   two-column screens it now sits BEHIND the headline, full bleed: the same settled plate
-   (desaturated, blurred, paper scrim strongest on the left where the words are), with the
-   subject's face landing to the right of the headline, fading out at the bottom so the dek
-   and the inbox start on clean paper. The caption moves to the bottom right, clear of the
-   headline. Phones keep the band above the text: one column, and the plate's vertical scrim
-   there is built for words below a photograph, not over it. */
-.hero{ padding-top:clamp(40px,7vw,84px) }
-.hero-head{ display:grid; gap:18px }
-.hero-body{ margin-top:36px }
-@media (min-width:901px){
-  .hero{ padding-top:0 }
-  .hero-top{
-    position:relative; isolation:isolate;
-    padding-block:clamp(40px,4.4vw,64px) clamp(28px,2.6vw,36px);
-  }
-  .hero-top > .photo-plate{
-    position:absolute; inset:0; z-index:-1; height:auto; margin:0; pointer-events:none;
-    background:none;
-  }
-  .hero-top > .photo-plate::before,
-  .hero-top > .photo-plate::after{
-    /* Fully clear well before the edge: the photo layer is scaled 1.06 and shifted by the
-       parallax, so a fade that only reaches transparent at its own bottom still shows a
-       faint line where the plate clips it. */
-    -webkit-mask-image:linear-gradient(to bottom, #000 40%, transparent 88%);
-            mask-image:linear-gradient(to bottom, #000 40%, transparent 88%);
-  }
-  .hero-top > .photo-plate .wrap{ display:flex; justify-content:flex-end }
-  .hero-top > .photo-plate .photo-cap{ text-align:right }
-  .hero-body{ margin-top:0 }
-}
-
-/* ---- job vignette (first-person + artifact) ------------------------------------ */
-.vignette{ display:grid; gap:20px }
-.vignette-kicker{ display:flex; align-items:center; gap:10px }
-.agent-av{ width:var(--av,84px); height:auto; flex:none; display:block }
-.vignette-name{ font-weight:500; color:var(--ink); font-size:.9375rem }
-.vignette-role{ color:var(--ink-3); font-size:.8125rem }
-.vignette .stat{ margin-top:6px; display:inline-flex; gap:6px; align-items:baseline; font-size:.8125rem; color:var(--ink-3) }
-.vignette .stat b{ font-variant-numeric:tabular-nums; color:var(--teal-ink); font-weight:500 }
-
-/* ---- aside / callout box (what we won't do) -------------------------------------- */
-.aside{
-  background:var(--card); border-radius:11px; padding:22px 24px; box-shadow:var(--sh-1);
-  position:relative; transition:box-shadow .3s var(--ease-out-quart), transform .3s var(--ease-out-quart);
-}
-@media (hover:hover) and (pointer:fine){
-  .aside:hover{ box-shadow:var(--sh-2); transform:translateY(-2px) }
-}
-.aside::before{ content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none;
-  box-shadow:inset 0 1px 0 hsla(0,0%,100%,.5), inset 0 0 0 1px hsla(172,25%,10%,.05); }
-:root[data-theme="dark"] .aside::before{ box-shadow:inset 0 1px 0 hsla(172,60%,80%,.06), inset 0 0 0 1px hsla(172,60%,90%,.07) }
-@media (prefers-color-scheme:dark){ :root:not([data-theme="light"]) .aside::before{ box-shadow:inset 0 1px 0 hsla(172,60%,80%,.06), inset 0 0 0 1px hsla(172,60%,90%,.07) } }
-.aside h4{ display:flex; align-items:center; gap:9px; margin-bottom:12px }
-.aside h4 .ic{ color:var(--teal-ink) }
-.aside ul{ margin:0; padding:0; list-style:none; display:grid; gap:10px }
-.aside li{ font-size:.875rem; color:var(--ink-2); line-height:1.5; padding-left:16px; position:relative }
-.aside li::before{ content:"·"; position:absolute; left:0; color:var(--teal-ink); font-weight:700 }
-
-/* ---- logo plate (vendor marks) --------------------------------------------------- */
-.plate{ display:flex; flex-wrap:wrap; gap:10px }
-.plate-item{
-  display:inline-flex; align-items:center; gap:9px; padding:10px 14px; border-radius:9px;
-  background:var(--card); box-shadow:var(--sh-1); font-size:.84375rem; color:var(--ink-2);
-  transition:box-shadow .24s var(--e-out), transform .24s var(--e-out);
-}
-.plate-item .brandmark{ filter:grayscale(1) opacity(.72) }
-@media (hover:hover) and (pointer:fine){
-  .plate-item:hover{ box-shadow:var(--sh-2); transform:translateY(-1px) }
-  .plate-item:hover .brandmark{ filter:none }
-}
-
-/* ---- ledger (pricing exhibit) ---------------------------------------------------- */
-.ledger{ width:100%; border-collapse:collapse; font-size:.9375rem }
-.ledger th{ text-align:left; font-weight:500; font-size:.75rem; letter-spacing:.05em; text-transform:uppercase;
-  color:var(--ink-3); padding:0 14px 12px; border-bottom:1px solid var(--rule) }
-.ledger td{ padding:18px 14px; border-bottom:1px solid var(--rule-soft); vertical-align:top; transition:background-color .2s var(--ease-out-quart) }
-@media (hover:hover) and (pointer:fine){
-  .ledger tbody tr:hover td{ background:var(--card) }
-}
-.ledger tr:last-of-type td{ border-bottom:1px solid var(--rule) }
-.ledger .tier{ font-weight:500; color:var(--ink); font-size:1rem }
-.ledger .tfor{ color:var(--ink-3); font-size:.8125rem; margin-top:3px }
-.ledger .price{ font-variant-numeric:tabular-nums; font-weight:500; color:var(--ink); font-size:1.0625rem }
-.ledger .per{ color:var(--ink-4); font-weight:400; font-size:.8125rem }
-.ledger .against{ color:var(--ink-3) }
-.ledger .against s{ color:var(--ink-4); text-decoration-color:var(--rule) }
-.ledger-foot{ font-size:.8125rem; color:var(--ink-3); margin-top:14px }
-
-/* ---- footer ----------------------------------------------------------------------- */
-footer{ border-top:1px solid var(--rule-soft); padding-block:44px; background:var(--paper-sunk) }
-.foot-grid{ display:flex; flex-wrap:wrap; gap:28px; justify-content:space-between; align-items:flex-start }
-.foot-links{ display:flex; gap:22px; flex-wrap:wrap; font-size:.84375rem }
-.foot-links a{ text-decoration:none; color:var(--ink-3); position:relative; padding-bottom:2px }
-.foot-links a::after{
-  content:""; position:absolute; left:0; right:100%; bottom:0; height:1px; background:var(--teal-ink);
-  transition:right .28s var(--ease-out-quart);
-}
-@media (hover:hover) and (pointer:fine){
-  .foot-links a:hover{ color:var(--teal-ink) }
-  .foot-links a:hover::after{ right:0 }
-}
-.legal{ margin-top:22px; font-size:.75rem; color:var(--ink-4); line-height:1.6; max-width:74ch }
-
-@media (max-width:860px){
-  .navlinks{ gap:10px; font-size:.84375rem }
-  .navlinks .hide-mobile{ display:none }
-  .navlinks .btn-primary{ padding:9px 14px; font-size:.8125rem; white-space:nowrap }
-  .themebtn{ padding:6px 9px; font-size:.71875rem }
-  .h1{ font-size:clamp(2.25rem,1.8rem+4vw,3.25rem) }
-  /* --logo-size scales the whole lockup (icon + wordmark, both em-relative to it);
-     40px reads as clearly branded with room to spare on desktop, but at a 390px
-     nav budget shared with "The cases" + Dark + Talk to us, it has to come down
-     or the lockup alone eats two-thirds of the viewport. Breakpoint widened from
-     720 to 780: at 40px the full-link desktop nav no longer fit down to 720. */
-  .brand{ --logo-size:30px }
-  .masthead.is-scrolled .brand{ --logo-size:25px }
-}
-@media (max-width:460px){
-  .navlinks{ gap:4px }
-  .brand{ --logo-size:20px }
-  .brand-word{ font-size:.56em }
-  .masthead.is-scrolled .brand{ --logo-size:18px }
-}
-
-
-.skip-link{
-  position:fixed; top:-60px; left:12px; z-index:100; background:var(--teal-fill); color:#f4fbfa;
-  padding:10px 16px; border-radius:8px; text-decoration:none; font-size:.875rem; font-weight:500;
-  transition:top .2s var(--e-out);
-}
-.skip-link:focus{ top:12px }
-.vh{ position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden;
-  clip:rect(0,0,0,0); white-space:nowrap; border:0 }
-
 /* ---- photography — editorial plates -------------------------------------------------
    Full-bleed photo bands, additive only: each sits before an existing spread and never
    overlaps a mail-artifact card or body copy, so the safe-zone rule only has to govern
@@ -807,29 +603,11 @@ footer{ border-top:1px solid var(--rule-soft); padding-block:44px; background:va
 .photo-plate .wrap{ position:relative; z-index:2; width:100%; padding-block:22px }
 .photo-cap{
   margin:0; max-width:var(--cap-w,360px);
-  font-family:var(--font-newsreader); font-optical-sizing:auto;
-  font-style:italic; font-weight:440; font-size:1.0625rem; line-height:1.42;
+  font-family:var(--mono); font-size:.75rem; letter-spacing:.06em; text-transform:uppercase; line-height:1.5;
   color:var(--ink); text-wrap:pretty;
 }
 @media (max-width:640px){ .photo-cap{ max-width:min(var(--cap-w,360px),78%) } }
 @media (max-width:900px){ .photo-plate{ --parallax:0px !important } }
-
-/* portal panel mock */
-.portal-mock{ display:grid; grid-template-columns:118px 1fr }
-.portal-rail{ border-right:1px solid var(--rule-soft); padding:16px 10px; display:grid; gap:6px; align-content:start }
-.portal-rail a{ display:flex; align-items:center; gap:8px; padding:8px 9px; border-radius:7px; font-size:.8125rem;
-  color:var(--ink-3); text-decoration:none }
-.portal-rail a .ic{ width:17px; height:17px }
-.portal-rail a[aria-current]{ background:var(--teal-wash); color:var(--teal-ink) }
-.portal-list{ padding:14px 18px; display:grid; gap:2px }
-.portal-row{ display:flex; align-items:center; gap:11px; padding:10px 0; border-bottom:1px solid var(--rule-soft) }
-.portal-row:last-child{ border-bottom:none }
-.portal-row .ic{ color:var(--teal-ink) }
-.portal-row b{ font-size:.84375rem; font-weight:500; color:var(--ink); display:block }
-.portal-row span{ font-size:.71875rem; color:var(--ink-4) }
-.portal-row .meta{ margin-left:auto }
-@media (max-width:480px){ .portal-mock{ grid-template-columns:1fr } .portal-rail{ display:flex; border-right:0; border-bottom:1px solid var(--rule-soft); flex-direction:row } }
-
 
 /* ---- Gmail thread component — copied verbatim from GMAIL.html (see that file's KNOBS
    and LOAD-BEARING DETAIL comments before editing). Dark mode keeps the open message on a
@@ -1153,4 +931,5 @@ footer{ border-top:1px solid var(--rule-soft); padding-block:44px; background:va
   .gmail-row__sender{ flex:1 1 auto; max-width:none }
   .gmail-row__content{ flex:1 1 100%; order:3 }
 }
+
 

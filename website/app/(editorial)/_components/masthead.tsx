@@ -2,27 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { BrandLockup } from "./brand-mark";
-import { THEME_KEY } from "./theme-key";
+import { Btn } from "./primitives";
 
 type Page = "home" | "cases";
 
-/** Flips the theme and remembers it. The button's label is CSS, keyed off the same attribute. */
-function toggleTheme() {
-  const root = document.documentElement;
-  const system = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-  const next = (root.getAttribute("data-theme") || system) === "dark" ? "light" : "dark";
-  root.setAttribute("data-theme", next);
-  try {
-    localStorage.setItem(THEME_KEY, next);
-  } catch {
-    // Storage blocked (private mode, site data off): the switch still works for this visit.
-  }
-}
-
 /**
- * The top bar. Once the page has moved past the top it tightens (the logo
- * steps down a size): one discrete state change, read at most once a frame,
- * never a value scrubbed per scroll event.
+ * Nuera's floating pill bar, in dark glass. Fixed 16px from the top, drops in
+ * on Xtract's spring at load (CSS), and firms up its glass once the page has
+ * moved: one discrete state, read at most once a frame.
  */
 export function Masthead({ page }: { page: Page }) {
   const [scrolled, setScrolled] = useState(false);
@@ -48,10 +35,10 @@ export function Masthead({ page }: { page: Page }) {
   const home = page === "home" ? "" : "/";
   return (
     <header className={scrolled ? "masthead is-scrolled" : "masthead"} id="top">
-      <div className="wrap">
+      <div className="bar">
         <BrandLockup href={page === "home" ? "#top" : "/"} />
         <nav className="navlinks" aria-label="Primary">
-          <a href={`${home}#how`} className="hide-mobile" aria-current={page === "home" ? "page" : undefined}>
+          <a href={`${home}#how`} className="hide-mobile">
             How it works
           </a>
           <a href="/use-cases" aria-current={page === "cases" ? "page" : undefined}>
@@ -60,17 +47,18 @@ export function Masthead({ page }: { page: Page }) {
           <a href={`${home}#pricing`} className="hide-mobile">
             Pricing
           </a>
+          <a href={`${home}#faq`} className="hide-mobile">
+            FAQ
+          </a>
           <span className="navspacer" />
-          <button className="themebtn" type="button" aria-label="Toggle colour theme" onClick={toggleTheme}>
-            <span className="to-dark">Dark</span>
-            <span className="to-light">Light</span>
-          </button>
-          <a href="https://portal.ambitt.agency" className="hide-mobile">
-            Log in
-          </a>
-          <a href={`${home}#contact`} className="btn btn-primary">
-            Talk to us
-          </a>
+          <span className="nav-cta">
+            <a href="https://portal.ambitt.agency" className="hide-mobile">
+              Log in
+            </a>
+            <Btn href={`${home}#contact`} size="sm">
+              Talk to us
+            </Btn>
+          </span>
         </nav>
       </div>
     </header>

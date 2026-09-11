@@ -1,28 +1,24 @@
 "use client";
 
+import Lenis from "lenis";
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 
 /**
- * The page's scroll motion, run once for the whole document. Renders nothing.
+ * The page's motion runtime, mounted once per document. Renders nothing.
  *
- * Entrance reveals: restrained and one-shot. An 8px rise and fade as each
- * .reveal block enters (threshold 0.15), never repeated, no scroll-scrubbed
- * transforms. It is progressive enhancement throughout: the server renders
- * every block visible, and only here, once we know IntersectionObserver
- * exists and motion isn't reduced, does <html> get .js-anim, which pre-hides
- * what is still below the fold. Anything already on screen was painted in its
- * final state before this ran, so it is marked .in first and never blinks.
- * The hero is not in this pass at all: its load sequence is CSS (.enter in
- * editorial.css) so it plays on first paint rather than after hydration.
+ * 1. Lenis smooth scroll (Nuera uses it): wraps native scroll, so anchors,
+ *    sticky and accessibility keep working. Skipped for reduced motion.
+ * 2. Entrance reveals: `.rv` (rise + settle + unblur), `.rv-words` (each word
+ *    blurs in on a stagger), `.rv-seq` (children in turn) and the older
+ *    `.reveal`. All render visible; only here, once we know the observer
+ *    exists and motion isn't reduced, does <html> keep .js-anim (set before
+ *    first paint by motion-boot.tsx, confirmed here with .js-ok), which
+ *    pre-hides what is still below the fold. Anything already on screen is
+ *    marked .in first, so it fades in once rather than blinking. The hero is
+ *    pure CSS keyframes and is not in this pass at all.
  *
- * Keyed on the pathname: links between the editorial pages are plain anchors
- * (full page loads), but if one ever becomes a next/link, a soft navigation
- * would otherwise leave the new page's .reveal blocks hidden and unobserved.
- *
- * Settled photo parallax: transform only, above 900px only, where it reads as
- * depth rather than motion for its own sake. Reduced-motion visitors never run
- * the loop; --parallax stays at its CSS default of 0.
+ * Keyed on the pathname so a soft navigation, if one is ever added, re-arms.
  */
 export function Motion() {
   const pathname = usePathname();
@@ -32,7 +28,12 @@ export function Motion() {
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const cleanup: Array<() => void> = [];
 
-    const items = Array.from(document.querySelectorAll<HTMLElement>(".reveal"));
+    if (!reduced) {
+      const lenis = new Lenis({ autoRaf: true, anchors: true, lerp: 0.1 });
+      cleanup.push(() => lenis.destroy());
+    }
+
+    const items = Array.from(document.querySelectorAll<HTMLElement>(".rv, .rv-words, .rv-seq, .reveal"));
     if (!reduced && "IntersectionObserver" in window && items.length) {
       const vh = window.innerHeight;
       const pending = items.filter((el) => {
@@ -42,7 +43,9 @@ export function Motion() {
         if (onScreen) el.classList.add("in");
         return !onScreen;
       });
+      // motion-boot.tsx normally set this before first paint; this is the fallback.
       root.classList.add("js-anim");
+      root.classList.add("js-ok");
       const io = new IntersectionObserver(
         (entries) => {
           for (const entry of entries) {
@@ -52,43 +55,13 @@ export function Motion() {
             }
           }
         },
-        { threshold: 0.15, rootMargin: "0px 0px -6% 0px" },
+        { threshold: 0.12, rootMargin: "0px 0px -8% 0px" },
       );
       pending.forEach((el) => io.observe(el));
       cleanup.push(() => io.disconnect());
-    }
-
-    const plates = Array.from(document.querySelectorAll<HTMLElement>(".photo-plate"));
-    const wide = window.matchMedia("(min-width: 900px)");
-    if (!reduced && plates.length && wide.matches) {
-      let ticking = false;
-      const setParallax = () => {
-        const vh = window.innerHeight;
-        for (const el of plates) {
-          const box = el.getBoundingClientRect();
-          const fromCenter = (box.top + box.height / 2 - vh / 2) / vh; // -0.5..0.5 across the viewport
-          const shift = Math.max(-1, Math.min(1, fromCenter)) * (box.height * 0.08);
-          el.style.setProperty("--parallax", `${shift.toFixed(1)}px`);
-        }
-        ticking = false;
-      };
-      const onScroll = () => {
-        if (!ticking) {
-          ticking = true;
-          window.requestAnimationFrame(setParallax);
-        }
-      };
-      const onResize = () => {
-        if (!wide.matches) plates.forEach((el) => el.style.setProperty("--parallax", "0px"));
-        else setParallax();
-      };
-      setParallax();
-      window.addEventListener("scroll", onScroll, { passive: true });
-      window.addEventListener("resize", onResize);
-      cleanup.push(() => {
-        window.removeEventListener("scroll", onScroll);
-        window.removeEventListener("resize", onResize);
-      });
+    } else {
+      // Reduced motion, or no observer: the page is simply composed.
+      root.classList.remove("js-anim");
     }
 
     return () => cleanup.forEach((fn) => fn());

@@ -1,6 +1,7 @@
 import { AgentAvatar, AGENT_LABEL, type AgentName } from "../agent-avatar";
-import { PhotoPlate } from "../photos";
-import { FigCaption, Icon, MaskLine } from "../primitives";
+import { Ic } from "../icons";
+import { Btn, Words } from "../primitives";
+import { Starfield } from "../starfield";
 
 // One working week across four industries. Four rows, not one invoice thread,
 // so the first screen reads as "this works for my business", whatever it is.
@@ -11,58 +12,62 @@ const WEEK: Array<{ agent: AgentName; industry: string; sent: string; subject: s
   { agent: "otto", industry: "Bookkeeping", sent: "Mon 7:04am", subject: "Monday recap: two invoices worth a call", snippet: "Related Renovations: $8,400, 52 days. Full aging report attached." },
 ];
 
-const CALLOUTS: Array<[lead: string, rest: string]> = [
-  ["The ask, in plain English.", "No form to fill in, whatever the business."],
-  ["The specific thing that needs you.", "Not the whole spreadsheet, not a queue to sort through."],
-  ["Real work, attached.", "A report, a route, a document list: whatever the job calls for."],
-  ["Nothing left to do.", "Each agent runs it again on its own, on schedule."],
-];
-
-/** The opening: four agents' work landing in one inbox, so the first screen reads as every industry, not one. */
+/**
+ * Xtract's hero: a night sky, a slow orb, and a centred headline whose words
+ * blur in one after another. Then Seonovu's move: the product rises into view
+ * beneath it. Ours is the delivery itself, a week of finished work landing in
+ * one inbox. The whole sequence is CSS keyframes, so it plays on first paint.
+ */
 export function Hero() {
   return (
     <section className="section hero">
-      {/* On two-column screens the photograph sits BEHIND the headline (see .hero-top in
-          editorial.css); on phones it stays a band above it. Either way the headline is on
-          the first screen. */}
-      <div className="hero-top">
-        <PhotoPlate photo="hero" style={{ "--pos": "center 30%", "--cap-w": "400px", "--photo-op": ".44", "--photo-blur": ".7px" }}>
-          Four different businesses. The same idea, every time.
-        </PhotoPlate>
-        {/* The load sequence, the one moment the page performs: kicker, masked headline (two
-            lines), dek, calls to action, then the artifact and its callouts, each ~80-90ms after
-            the last on one curve (--ease-out-expo). CSS keyframes (.enter), so it plays on first
-            paint; everything below the fold uses .reveal and fires on scroll instead. */}
-        <div className="wrap hero-head">
-          <p className="kicker enter" style={{ animationDelay: ".02s" }}>An AI workforce</p>
-          <h1 className="h1 enter" style={{ animationDelay: ".10s" }}>
-            <MaskLine delay=".11s">You hired someone.</MaskLine>
-            <MaskLine delay=".19s">Not a <em className="accent">seat</em>.</MaskLine>
+      <Starfield />
+      <div className="fade" aria-hidden="true" />
+      <div className="wrap">
+        <div className="hero-inner">
+          <div className="orb enter-orb" aria-hidden="true" />
+          <a href="/use-cases" className="pill enter" style={{ "--t0": ".15s" }}>
+            <b>New</b> The cases: four industries, one workforce
+          </a>
+          <h1 className="h1 enter-words">
+            <Words text={"You hired someone.\nNot a seat."} accent="seat" />
           </h1>
-        </div>
-      </div>
-      <div className="wrap spread hero-body">
-        <div className="label-col">
-          <p className="dek enter" style={{ animationDelay: ".19s" }}>
+          <p className="dek enter" style={{ "--t0": ".8s" }}>
             Every agent has a name, an inbox, and a standing job. Roofing, real estate, tax season, the
             invoices nobody wants to chase: it's the same idea each time. Ask once, and the finished
             work comes back in the inbox you already read.
           </p>
-          <div className="enter" style={{ display: "flex", gap: "14px", marginTop: "26px", flexWrap: "wrap", animationDelay: ".27s" }}>
-            <a href="#contact" className="btn btn-primary">Talk to us</a>
-            <a href="/use-cases" className="btn btn-ghost">Read the four cases<Icon name="arrow" size={15} /></a>
+          <div className="hero-ctas enter" style={{ "--t0": "1s" }}>
+            <Btn href="#contact" size="lg" icon="arrow-up-right">
+              Talk to us
+            </Btn>
+            <Btn href="/use-cases" kind="ghost" size="lg">
+              Read the four cases
+            </Btn>
           </div>
         </div>
-        <div>
-          <figure className="enter" style={{ animationDelay: ".35s" }}>
-            <div className="artifact hero-inbox">
-              <div className="mail-head">
-                <div className="mail-subj">This week, four different industries</div>
-                <div className="mail-line">One ask in. Finished work back. Never the same business twice.</div>
+
+        <div className="hero-window enter-panel">
+          <div className="window inbox">
+            <div className="window-bar">
+              <span className="dots"><i /><i /><i /></span>
+              <span className="title">Inbox · this week</span>
+              <span className="right">
+                <Ic name="magnifying-glass" size={14} />
+                <Ic name="bell" size={14} />
+              </span>
+            </div>
+            <div className="inbox-body">
+              <div className="inbox-rail" aria-hidden="true">
+                <span aria-current="page"><Ic name="envelope-simple" />Inbox</span>
+                <span><Ic name="seal-check" />Approvals</span>
+                <span><Ic name="list-checks" />Playbook</span>
+                <span><Ic name="plugs-connected" />Tools</span>
+                <span><Ic name="gear-six" />Settings</span>
               </div>
               <ul className="hi-list">
-                {WEEK.map((row) => (
-                  <li key={row.agent} className="hi-row">
+                {WEEK.map((row, i) => (
+                  <li key={row.agent} className="hi-row" style={{ "--i": i }}>
                     <AgentAvatar agent={row.agent} uid={`hero-${row.agent}`} size="30px" />
                     <div className="hi-copy">
                       <div className="hi-top">
@@ -73,22 +78,12 @@ export function Hero() {
                       <p className="hi-subj">{row.subject}</p>
                       <p className="hi-snip">{row.snippet}</p>
                     </div>
+                    <span className="hi-mark"><Ic name="check" />Done</span>
                   </li>
                 ))}
               </ul>
             </div>
-            <FigCaption fig="01">Four agents, four industries, one working week.</FigCaption>
-          </figure>
-          <ul className="callouts enter" style={{ animationDelay: ".43s" }}>
-            {CALLOUTS.map(([lead, rest], i) => (
-              <li key={lead}>
-                <span className="num">{i + 1}</span>
-                <span className="txt">
-                  <b>{lead}</b> {rest}
-                </span>
-              </li>
-            ))}
-          </ul>
+          </div>
         </div>
       </div>
     </section>

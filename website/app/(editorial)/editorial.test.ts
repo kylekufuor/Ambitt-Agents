@@ -2,11 +2,11 @@
 //   node_modules/.bin/tsx --tsconfig website/tsconfig.json "website/app/(editorial)/editorial.test.ts"
 // (--tsconfig picks up the website's automatic JSX runtime; the root config has none.)
 //
-// Renders the two editorial pages (`/`, `/use-cases`) to static HTML with React
+// Renders the two marketing pages (`/`, `/use-cases`) to static HTML with React
 // and checks what a visitor would actually get: links that go nowhere, icons
-// that point at a symbol the sprite no longer carries, prices that disagree
-// with what Oracle bills, copy glued together by a whitespace bug, and
-// anything that should never reach a public page.
+// that point at a symbol no sprite carries, prices that disagree with what
+// Oracle bills, copy glued together by a whitespace bug, and anything that
+// should never reach a public page.
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -35,6 +35,9 @@ const websiteRoot = resolve(here, "../..");
 
 interface Tier {
   monthlyCents: number;
+  maxAgents: number;
+  interactionsPerMonth: number;
+  overageRateCents: number;
   setupFeeCentsMin: number;
   setupFeeCentsMax: number;
 }
@@ -61,9 +64,11 @@ async function main(): Promise<void> {
   const home = await import("./page");
   const cases = await import("./use-cases/page");
   const { Sprites } = await import("./_components/sprites");
+  const { IconSprite } = await import("./_components/icons");
   const pricing = await import("./_components/home/pricing");
+  const { QA } = await import("./_components/home/faq");
 
-  const sprites = renderToStaticMarkup(createElement(Sprites));
+  const sprites = renderToStaticMarkup(createElement(Sprites)) + renderToStaticMarkup(createElement(IconSprite));
   const render = (page: () => ReactElement): string => sprites + renderToStaticMarkup(createElement(page));
   const pages = { "/": render(home.default), "/use-cases": render(cases.default) } as const;
   type PagePath = keyof typeof pages;
@@ -108,7 +113,11 @@ async function main(): Promise<void> {
     const refs = [...html.matchAll(/<use\s[^>]*?href="#([^"]+)"/g)].map((m) => m[1]);
     check(`${path}: every icon has its symbol`, [...new Set(refs.filter((r) => !ids[path].has(r)))], []);
 
-    const ctas = [...html.matchAll(/<a href="([^"]*)" class="btn btn-primary">Talk to us<\/a>/g)].map((m) => m[1]);
+    // Every primary "Talk to us" lands on the contact section.
+    const ctas = [...html.matchAll(/<a href="([^"]*)" class="btn btn-primary[^"]*">([\s\S]*?)<\/a>/g)]
+      .filter((m) => text(m[2]).startsWith("Talk to us"))
+      .map((m) => m[1]);
+    check(`${path}: has a primary Talk to us`, ctas.length > 0, true);
     check(`${path}: primary CTA goes to the contact section`, [...new Set(ctas)], [path === "/" ? "#contact" : "/#contact"]);
 
     const copy = text(html.replace(sprites, ""));
@@ -121,57 +130,71 @@ async function main(): Promise<void> {
     check(`${path}: no figure glued to a word`, copy.match(/\$[\d,]+(?![km]\b)[a-z]/g) ?? [], []);
     check(`${path}: no word glued across a value`, html.match(/.{0,24}[A-Za-z0-9]<!-- -->[A-Za-z].{0,24}/g) ?? [], []);
     check(`${path}: operator not named`, /\bkyle\b/i.test(html), false);
+    // The word splitter must not eat spaces: two words never touch in the copy.
+    check(`${path}: headline words keep their spaces`, copy.includes("hiredsomeone") || copy.includes("Nota seat"), false);
   }
-  check("homepage has the contact section the CTA targets", ids["/"].has("contact"), true);
+  check("homepage has the sections the nav targets", ["how", "pricing", "faq", "contact"].every((a) => ids["/"].has(a)), true);
+  check("use-cases has an anchor per case", ["bookkeeping", "commercial-real-estate", "home-services", "tax-and-accounting"].every((a) => ids["/use-cases"].has(a)), true);
+  check("every FAQ question is on the page", QA.every((q) => pages["/"].includes(q.q)), true);
 
-  // The source side of the same bug: no HTML entities in the editorial JSX.
+  // The source side of the same bug: no HTML entities in the marketing JSX.
   // `&nbsp;` in the wordmark is the one exception; it never starts a text run.
   const sources = readdirSync(here, { recursive: true, encoding: "utf8" }).filter((f) => f.endsWith(".tsx"));
   const entities = sources.flatMap((f) =>
     [...readFileSync(join(here, f), "utf8").matchAll(/&(?!nbsp;)[a-zA-Z#0-9]+;/g)].map((m) => `${f}: ${m[0]}`),
   );
-  check("no HTML entities in editorial JSX", entities, []);
-  check("use-cases has an anchor per case", ["bookkeeping", "commercial-real-estate", "home-services", "tax-and-accounting"].every((a) => ids["/use-cases"].has(a)), true);
+  check("no HTML entities in marketing JSX", entities, []);
 
   // --- pricing agrees with shared/pricing-constants.ts --------------------------
   // Loaded by computed path at run time, never a static import: the website is
   // built on Railway from website/ alone, where ../shared does not exist.
   const constantsPath = join(websiteRoot, "..", "shared", "pricing-constants.ts");
   check("shared/pricing-constants.ts is reachable", existsSync(constantsPath), true);
-  const shared = (await import(pathToFileURL(constantsPath).href)) as { TIERS: Record<string, Tier>; SECOND_AGENT_DISCOUNT_PCT: number };
+  const shared = (await import(pathToFileURL(constantsPath).href)) as {
+    TIERS: Record<string, Tier>;
+    SECOND_AGENT_DISCOUNT_PCT: number;
+    getAnnualPrice: (t: "starter" | "growth" | "scale") => number;
+  };
 
   for (const key of ["starter", "growth", "scale"] as const) {
     const mine = pricing.TIERS[key];
     const theirs = shared.TIERS[key];
-    check(`${key}: website mirror matches Oracle`, [mine.monthlyCents, mine.setupFeeCentsMin, mine.setupFeeCentsMax], [theirs.monthlyCents, theirs.setupFeeCentsMin, theirs.setupFeeCentsMax]);
+    check(
+      `${key}: website mirror matches Oracle`,
+      [mine.monthlyCents, mine.maxAgents, mine.interactionsPerMonth, mine.overageRateCents, mine.setupFeeCentsMin, mine.setupFeeCentsMax],
+      [theirs.monthlyCents, theirs.maxAgents, theirs.interactionsPerMonth, theirs.overageRateCents, theirs.setupFeeCentsMin, theirs.setupFeeCentsMax],
+    );
+    check(`${key}: yearly price matches Oracle's getAnnualPrice`, mine.monthlyCents * pricing.ANNUAL_MONTHS, shared.getAnnualPrice(key));
     // The ledger foot claims every tier's first year, build included, is under a
     // $55,000 coordinator. Keep that true or change the sentence.
     check(`${key}: first year with build stays under the coordinator`, theirs.monthlyCents * 12 + theirs.setupFeeCentsMax < pricing.COORDINATOR_SALARY * 100, true);
   }
   check("discount mirror matches Oracle", pricing.SECOND_AGENT_DISCOUNT_PCT, shared.SECOND_AGENT_DISCOUNT_PCT);
 
-  const section = /<section class="section" id="pricing">([\s\S]*?)<\/section>/.exec(pages["/"])?.[1] ?? "";
+  const section = /<section class="section ruled" id="pricing">([\s\S]*?)<\/section>/.exec(pages["/"])?.[1] ?? "";
   check("pricing section found", section.length > 0, true);
   const usd = pricing.usd;
   for (const key of ["starter", "growth", "scale"] as const) {
     const tier = shared.TIERS[key];
-    const label = pricing.TIERS[key].label;
-    const row = new RegExp(`<tr><td><div class="tier">${label}</div>[\\s\\S]*?</tr>`).exec(section)?.[0] ?? "";
-    const cells = [...row.matchAll(/<td class="price"[^>]*>([\s\S]*?)<\/td>/g)].map((m) => text(m[1]));
+    const card = new RegExp(`<div class="plan[^"]*">[\\s\\S]*?<div class="name">${pricing.TIERS[key].label}</div>[\\s\\S]*?</ul>`).exec(section)?.[0] ?? "";
+    check(`${key}: card found`, card.length > 0, true);
+    check(`${key}: card shows the monthly price`, text(card).includes(`${usd(tier.monthlyCents)}/mo`), true);
     const build =
       tier.setupFeeCentsMin === tier.setupFeeCentsMax
         ? `${usd(tier.setupFeeCentsMin)} flat`
         : `${usd(tier.setupFeeCentsMin)} to ${usd(tier.setupFeeCentsMax)}`;
-    check(`${label} ledger row`, cells, [`${usd(tier.monthlyCents)}/mo`, build, `${usd(tier.monthlyCents * 12)}/yr`]);
+    check(`${key}: card shows the build fee`, text(card).includes(`One-time build: ${build}`), true);
+    check(`${key}: card shows the interaction allowance`, text(card).includes(`${tier.interactionsPerMonth.toLocaleString("en-US")} interactions a month`), true);
   }
+  check("Growth is the featured plan", /<div class="plan featured">[\s\S]*?Most popular/.test(section), true);
   const foot = text(section);
   const { growth, scale, starter } = shared.TIERS;
   check("Growth and Scale share one flat build", growth.setupFeeCentsMin === scale.setupFeeCentsMin && growth.setupFeeCentsMin === growth.setupFeeCentsMax && scale.setupFeeCentsMin === scale.setupFeeCentsMax, true);
   check("ledger foot states the flat build", foot.includes(`It's a flat ${usd(growth.setupFeeCentsMin)} on Growth and Scale.`), true);
   check("ledger foot states Starter's range", foot.includes(`On Starter it's ${usd(starter.setupFeeCentsMin)} to ${usd(starter.setupFeeCentsMax)}, quoted`), true);
-  // Billing is per agent: the first at plan price, each after that discounted.
   check("no false 'no per-seat charge' claim", /no per-seat charge/i.test(pages["/"]), false);
   check("states the additional-agent discount", foot.includes(`each one you add after that is ${shared.SECOND_AGENT_DISCOUNT_PCT}% off`), true);
+  check("yearly toggle promises what getAnnualPrice gives", foot.includes("2 months free") && pricing.ANNUAL_MONTHS === 10, true);
   check("usd formats thousands", [usd(49_900), usd(500_000), usd(4_198_800)], ["$499", "$5,000", "$41,988"]);
 }
 
@@ -180,7 +203,7 @@ main()
     failures.push(`threw: ${err instanceof Error ? err.stack ?? err.message : String(err)}`);
   })
   .finally(() => {
-    console.log(`\neditorial pages: ${passed}/${passed + failures.length} passed`);
+    console.log(`\nmarketing pages: ${passed}/${passed + failures.length} passed`);
     if (failures.length) {
       for (const f of failures) console.error(`  FAIL ${f}`);
       process.exitCode = 1;

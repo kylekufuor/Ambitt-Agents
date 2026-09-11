@@ -5,7 +5,7 @@ import { FigCaption, MailArtifact, MaskLine, PullQuote } from "../primitives";
 /** Case 4 of 4: Priya, the filing-season document chase. */
 export function TaxAndAccountingCase() {
   return (
-    <section className="section tone-alt" id="tax-and-accounting">
+    <section className="section ruled" id="tax-and-accounting">
       <PhotoPlate photo="taxAccounting" style={{ "--pos": "center 35%", "--cap-w": "280px" }}>
         Filing season, one document at a time.
       </PhotoPlate>

@@ -3,12 +3,12 @@ import { BrandLockup } from "./brand-mark";
 export function Footer({ page }: { page: "home" | "cases" }) {
   const home = page === "home" ? "" : "/";
   return (
-    <footer className="tone-ink">
+    <footer>
       <div className="wrap">
         <div className="foot-grid">
           <div>
-            <BrandLockup href="#top" style={{ "--logo-size": "34px" }} wordStyle={{ color: "var(--ink)" }} />
-            <p className="meta" style={{ marginTop: "12px", maxWidth: "34ch" }}>
+            <BrandLockup href="#top" style={{ "--logo-size": "30px" }} />
+            <p className="meta" style={{ marginTop: "12px", maxWidth: "36ch" }}>
               An AI workforce. Hired like a person, not licensed like software.
             </p>
           </div>
@@ -16,6 +16,7 @@ export function Footer({ page }: { page: "home" | "cases" }) {
             <a href={`${home}#how`}>How it works</a>
             <a href="/use-cases">The cases</a>
             <a href={`${home}#pricing`}>Pricing</a>
+            <a href={`${home}#faq`}>FAQ</a>
             <a href="/docs">Docs</a>
             <a href="/contact">Contact</a>
             <a href="https://portal.ambitt.agency">Log in</a>

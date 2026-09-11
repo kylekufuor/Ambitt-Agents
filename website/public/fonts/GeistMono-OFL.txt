@@ -1,15 +1,11 @@
-Newsreader, used by the editorial pages (app/(editorial)/, `/` and
-`/use-cases`): newsreader-roman.woff2 and newsreader-italic.woff2 in this
-directory, a Latin subset of each, loaded through next/font/local. The OFL
-permits subsetting (a Modified Version) provided this licence travels with
-the font.
+Geist Mono (geist-mono-var.woff2), variable, wght 100-900.
+From the 'geist' npm package v1.7.2, by Vercel. Licensed under the SIL Open Font License 1.1, reproduced below. Loaded via next/font/local in app/(editorial)/layout.tsx for labels, tags and UI mock text only.
 
-Copyright 2020 The Newsreader Project Authors (http://github.com/productiontype/Newsreader)
+Copyright (c) 2023 Vercel, in collaboration with basement.studio
 
 This Font Software is licensed under the SIL Open Font License, Version 1.1.
 This license is copied below, and is also available with a FAQ at:
 http://scripts.sil.org/OFL
-
 
 -----------------------------------------------------------
 SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007
@@ -50,7 +46,7 @@ new environment.
 "Author" refers to any designer, engineer, programmer, technical
 writer or other person who contributed to the Font Software.
 
-PERMISSION & CONDITIONS
+PERMISSION AND CONDITIONS
 Permission is hereby granted, free of charge, to any person obtaining
 a copy of the Font Software, to use, study, copy, merge, embed, modify,
 redistribute, and sell modified and unmodified copies of the Font
