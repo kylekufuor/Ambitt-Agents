@@ -39,12 +39,6 @@ export const metadata: Metadata = {
   title: "Ambitt Agents — named AI agents that do the work in your tools",
   description:
     "Hire a named AI agent that works inside the tools you already use and emails you the finished work. You ask in plain English. It does the job. You never have to log in.",
-  icons: {
-    icon: [
-      { url: "/favicon.ico", sizes: "any" },
-      { url: "/brand/ambitt-agents-favicon.svg", type: "image/svg+xml" },
-    ],
-  },
   openGraph: {
     title: "Ambitt Agents — named AI agents that do the work in your tools",
     description:

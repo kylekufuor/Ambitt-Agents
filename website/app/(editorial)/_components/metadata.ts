@@ -17,12 +17,6 @@ export function pageMetadata({ path, title, description }: { path: string; title
     title,
     description,
     alternates: { canonical: path },
-    icons: {
-      icon: [
-        { url: "/favicon.ico", sizes: "any" },
-        { url: "/brand/ambitt-agents-favicon.svg", type: "image/svg+xml" },
-      ],
-    },
     openGraph: { type: "website", siteName: "Ambitt Agents", title, description, url: path, images: [SHARE_IMAGE] },
     twitter: { card: "summary", title, description, images: [SHARE_IMAGE.url] },
   };

@@ -99,5 +99,5 @@ export const config = {
   // Skip middleware on static assets and the public brand folder so they're
   // reachable to anonymous visitors AND to external clients (Gmail loading the
   // logo from our presentation email) without a Supabase session.
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|icon.svg|brand/).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|icon.svg|apple-icon.png|brand/).*)"],
 };
