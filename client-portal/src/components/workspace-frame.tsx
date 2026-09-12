@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { NavigationLink as Link } from "./navigation-link";
 import { NotificationBell } from "./v3-bell";
 import { RailNav, MobileRail, type RailProps } from "./v3-rail";
 import { ThemeToggle } from "./theme-toggle";

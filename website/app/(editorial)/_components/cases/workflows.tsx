@@ -16,11 +16,11 @@ export function WorkflowCases() {
         <figure className="workflow-film">
           <div className="workflow-film-bar"><span>{workflow.business}</span><span>Fictional workspace</span></div>
           <video controls playsInline preload="metadata" width="1440" height="1000" poster={`/demos/cases/${workflow.video}.webp`} aria-label={`${workflow.industry} portal walkthrough with fictional data`}>
-            <source src={`/demos/cases/${workflow.video}.mp4`} type="video/mp4" />
-            <track kind="captions" src={`/demos/cases/${workflow.video}.vtt`} srcLang="en" label="English" default />
+            <source src={`/demos/cases/${workflow.video}-narrated.mp4`} type="video/mp4" />
+            <track kind="captions" src={`/demos/cases/${workflow.video}-narrated.vtt`} srcLang="en" label="English" default />
             Your browser does not support video. The steps beside it describe the workflow.
           </video>
-          <figcaption>Recorded from the current portal with fictional data. Use full screen for a closer look.</figcaption>
+          <figcaption>Play with sound for the guided walkthrough. Captions follow the narration. Recorded from the portal with fictional data.</figcaption>
         </figure>
       </div>
       <div className="workflow-footer"><p>Example workflow for a configured agent. Scope and connected tools are agreed for each custom build.</p><a href="/docs#approvals" className="text-link">How approvals work ↗</a></div>

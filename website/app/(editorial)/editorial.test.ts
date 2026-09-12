@@ -112,9 +112,9 @@ async function main(): Promise<void> {
     check(`${path}: every icon has its symbol`, [...new Set(refs.filter((r) => !ids[path].has(r)))], []);
 
     // Every primary "Talk to us" lands on the contact section.
-    const ctas = [...html.matchAll(/<a href="([^"]*)" class="btn btn-primary[^"]*">([\s\S]*?)<\/a>/g)]
-      .filter((m) => text(m[2]).startsWith("Talk to us"))
-      .map((m) => m[1]);
+    const ctas = [...html.matchAll(/<a\s([^>]*)>([\s\S]*?)<\/a>/g)]
+      .filter((m) => /class="[^"]*\bbtn-primary\b/.test(m[1]) && text(m[2]).startsWith("Talk to us"))
+      .map((m) => m[1].match(/href="([^"]*)"/)?.[1]);
     check(`${path}: has a primary Talk to us`, ctas.length > 0, true);
     check(`${path}: primary CTA goes to the contact section`, [...new Set(ctas)], [path === "/" ? "#contact" : "/#contact"]);
 
@@ -188,7 +188,7 @@ async function main(): Promise<void> {
   const portal = await import(pathToFileURL(join(websiteRoot, "..", "client-portal", "src", "lib", "pricing-constants.ts")).href);
   check("active billing tiers remain in sync", active.TIERS, portal.TIERS);
   check("active billing discounts remain in sync", active.SECOND_AGENT_DISCOUNT_PCT, portal.SECOND_AGENT_DISCOUNT_PCT);
-  check("walkthrough asset exists", existsSync(join(websiteRoot, "public/demos/portal-walkthrough.mp4")), true);
+  check("walkthrough asset exists", existsSync(join(websiteRoot, "public/demos/portal-walkthrough-narrated.mp4")), true);
   check("retired pricing screenshot removed from page", pages["/"].includes("portal-billing.webp"), false);
   check("usd formats prices", [pricing.usd(0), pricing.usd(7900), pricing.usd(500000)], ["$0", "$79", "$5,000"]);
 

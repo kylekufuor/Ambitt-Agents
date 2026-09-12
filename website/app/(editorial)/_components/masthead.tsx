@@ -1,5 +1,7 @@
 "use client";
 
+import { SiteLink } from "./site-link";
+
 import { useEffect, useRef, useState } from "react";
 import { BrandLockup } from "./brand-mark";
 import { Btn } from "./primitives";
@@ -59,22 +61,22 @@ export function Masthead({ page }: { page: Page }) {
       <div className="bar">
         <BrandLockup href={page === "home" ? "#top" : "/"} />
         <nav className="navlinks" aria-label="Primary">
-          <a href={`${home}#how`} className="hide-mobile">
+          <SiteLink href={`${home}#how`} className="hide-mobile">
             How it works
-          </a>
-          <a href="/use-cases" aria-current={page === "cases" ? "page" : undefined}>
+          </SiteLink>
+          <SiteLink href="/use-cases" aria-current={page === "cases" ? "page" : undefined}>
             Use cases
-          </a>
-          <a href={`${home}#portal`} className="hide-mobile">The portal</a>
-          <a href={`${home}#pricing`} className="hide-mobile">
+          </SiteLink>
+          <SiteLink href={`${home}#portal`} className="hide-mobile">The portal</SiteLink>
+          <SiteLink href={`${home}#pricing`} className="hide-mobile">
             Pricing
-          </a>
-          <a href="/docs" aria-current={page === "docs" ? "page" : undefined} className="hide-mobile">Help</a>
+          </SiteLink>
+          <SiteLink href="/docs" aria-current={page === "docs" ? "page" : undefined} className="hide-mobile">Help</SiteLink>
           <span className="navspacer" />
           <span className="nav-cta">
-            <a href="https://portal.ambitt.agency" className="hide-mobile">
+            <SiteLink href="https://portal.ambitt.agency" className="hide-mobile">
               Open portal
-            </a>
+            </SiteLink>
             <Btn href={`${home}#contact`} size="sm">
               Talk to us
             </Btn>
@@ -85,14 +87,14 @@ export function Masthead({ page }: { page: Page }) {
           <nav aria-label="Mobile navigation" onClick={(event) => {
             if (event.target instanceof Element && event.target.closest("a") && menu.current) menu.current.open = false;
           }}>
-            <a href={`${home}#how`}>How it works</a>
-            <a href="/use-cases" aria-current={page === "cases" ? "page" : undefined}>Use cases</a>
-            <a href={`${home}#portal`}>The portal</a>
-            <a href={`${home}#pricing`}>Pricing</a>
-            <a href="/docs" aria-current={page === "docs" ? "page" : undefined}>Help</a>
-            <a href={`${home}#faq`}>FAQ</a>
-            <a href="https://portal.ambitt.agency">Open portal</a>
-            <a href={`${home}#contact`}>Talk to us</a>
+            <SiteLink href={`${home}#how`}>How it works</SiteLink>
+            <SiteLink href="/use-cases" aria-current={page === "cases" ? "page" : undefined}>Use cases</SiteLink>
+            <SiteLink href={`${home}#portal`}>The portal</SiteLink>
+            <SiteLink href={`${home}#pricing`}>Pricing</SiteLink>
+            <SiteLink href="/docs" aria-current={page === "docs" ? "page" : undefined}>Help</SiteLink>
+            <SiteLink href={`${home}#faq`}>FAQ</SiteLink>
+            <SiteLink href="https://portal.ambitt.agency">Open portal</SiteLink>
+            <SiteLink href={`${home}#contact`}>Talk to us</SiteLink>
           </nav>
         </details>
       </div>

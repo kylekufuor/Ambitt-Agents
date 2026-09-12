@@ -1,0 +1,140 @@
+{
+  "provider": "ElevenLabs",
+  "voice": "Lily \u2014 Velvety Actress",
+  "voice_id": "pFZP5JQG7iQjIQuC4Bku",
+  "model_id": "eleven_v3",
+  "voice_settings": {
+    "stability": 0.5,
+    "similarity_boost": 0.8,
+    "style": 0,
+    "speed": 0.97,
+    "use_speaker_boost": true
+  },
+  "demos": [
+    {
+      "id": "portal-walkthrough",
+      "source": "portal-walkthrough.mp4",
+      "destination": "demos/portal-walkthrough-narrated.mp4",
+      "scenes": [
+        {
+          "start": 0,
+          "end": 5,
+          "text": "Here's your workspace. See what your agent has been working on this week."
+        },
+        {
+          "start": 5,
+          "end": 8.4,
+          "text": "Just below, you'll find the decisions waiting for your review."
+        },
+        {
+          "start": 8.4,
+          "end": 14.64,
+          "text": "Prefer a lighter view? Switch the appearance here. This workspace uses fictional data."
+        }
+      ]
+    },
+    {
+      "id": "bookkeeping",
+      "source": "bookkeeping.mp4",
+      "destination": "demos/cases/bookkeeping-narrated.mp4",
+      "scenes": [
+        {
+          "start": 0,
+          "end": 4.174,
+          "text": "In this bookkeeping example, two overdue invoices need a decision. Start with the weekly overview."
+        },
+        {
+          "start": 4.174,
+          "end": 9.235,
+          "text": "Open Approvals to read the proposed reminders and the reason behind each one."
+        },
+        {
+          "start": 9.235,
+          "end": 12.16,
+          "text": "You can approve by email, ask for changes, or decline. Nothing is sent in this fictional demo."
+        }
+      ]
+    },
+    {
+      "id": "real-estate",
+      "source": "real-estate.mp4",
+      "destination": "demos/cases/real-estate-narrated.mp4",
+      "scenes": [
+        {
+          "start": 0,
+          "end": 4.146,
+          "text": "Here's a fictional property team's workspace. Home brings the latest leads and pending decisions together."
+        },
+        {
+          "start": 4.146,
+          "end": 10.157,
+          "text": "Open Leads to see which opportunities are ready, warm, or still early, and why."
+        },
+        {
+          "start": 10.157,
+          "end": 15.213,
+          "text": "Switch to the table to compare contacts and see when each was last reached."
+        },
+        {
+          "start": 15.213,
+          "end": 20.218,
+          "text": "Then open Approvals to review the proposed outreach before it goes ahead."
+        },
+        {
+          "start": 20.218,
+          "end": 23.16,
+          "text": "Choose an email reply when you're ready. This demo stops before anything is sent."
+        }
+      ]
+    },
+    {
+      "id": "roofing",
+      "source": "roofing.mp4",
+      "destination": "demos/cases/roofing-narrated.mp4",
+      "scenes": [
+        {
+          "start": 0,
+          "end": 4.133,
+          "text": "Let's follow a roofing enquiry. Start at Home for the week's leads and decisions."
+        },
+        {
+          "start": 4.133,
+          "end": 10.165,
+          "text": "The lead board groups homeowner enquiries by priority, with a reason behind each rating."
+        },
+        {
+          "start": 10.165,
+          "end": 15.164,
+          "text": "In Approvals, read the proposed follow-up and check the context before deciding."
+        },
+        {
+          "start": 15.164,
+          "end": 18.12,
+          "text": "Approve by email, request a change, or decline. This example uses fictional data; no message is sent."
+        }
+      ]
+    },
+    {
+      "id": "tax-accounting",
+      "source": "tax-accounting.mp4",
+      "destination": "demos/cases/tax-accounting-narrated.mp4",
+      "scenes": [
+        {
+          "start": 0,
+          "end": 4.13,
+          "text": "Here's a tax team's workspace, using fictional client data. The weekly overview shows what needs attention."
+        },
+        {
+          "start": 4.13,
+          "end": 9.156,
+          "text": "Open Approvals to review the missing documents and the reminders your agent has prepared."
+        },
+        {
+          "start": 9.156,
+          "end": 12.12,
+          "text": "Check the wording, then choose an email reply to approve, request changes, or decline. No email is sent in this demo."
+        }
+      ]
+    }
+  ]
+}

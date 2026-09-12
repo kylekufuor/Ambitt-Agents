@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { NavigationLink as Link } from "./navigation-link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { formatNextRun } from "@/lib/agent-presentation";

@@ -1,3 +1,4 @@
+import { SiteLink } from "./site-link";
 import { BrandLockup } from "./brand-mark";
 
 export function Footer({ page }: { page: "home" | "cases" | "other" }) {
@@ -13,15 +14,15 @@ export function Footer({ page }: { page: "home" | "cases" | "other" }) {
             </p>
           </div>
           <nav className="foot-links" aria-label="Footer">
-            <a href={`${home}#how`}>How it works</a>
-            <a href="/use-cases">Use cases</a>
-            <a href={`${home}#portal`}>The portal</a>
-            <a href={`${home}#pricing`}>Pricing</a>
-            <a href={`${home}#faq`}>FAQ</a>
-            <a href="/docs">Help</a>
-            <a href="/contact">Contact</a>
-            <a href="https://portal.ambitt.agency">Open portal</a>
-            <a href="mailto:hello@ambitt.agency">hello@ambitt.agency</a>
+            <SiteLink href={`${home}#how`}>How it works</SiteLink>
+            <SiteLink href="/use-cases">Use cases</SiteLink>
+            <SiteLink href={`${home}#portal`}>The portal</SiteLink>
+            <SiteLink href={`${home}#pricing`}>Pricing</SiteLink>
+            <SiteLink href={`${home}#faq`}>FAQ</SiteLink>
+            <SiteLink href="/docs">Help</SiteLink>
+            <SiteLink href="/contact">Contact</SiteLink>
+            <SiteLink href="https://portal.ambitt.agency">Open portal</SiteLink>
+            <SiteLink href="mailto:hello@ambitt.agency">hello@ambitt.agency</SiteLink>
           </nav>
         </div>
         <p className="legal">
@@ -34,8 +35,8 @@ export function Footer({ page }: { page: "home" | "cases" | "other" }) {
           All rights reserved.
         </p>
         <nav className="foot-links" aria-label="Legal" style={{ marginTop: "14px", fontSize: ".75rem" }}>
-          <a href="/privacy">Privacy</a>
-          <a href="/terms">Terms</a>
+          <SiteLink href="/privacy">Privacy</SiteLink>
+          <SiteLink href="/terms">Terms</SiteLink>
         </nav>
       </div>
     </footer>

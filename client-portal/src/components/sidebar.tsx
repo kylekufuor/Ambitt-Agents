@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import { NavigationLink as Link } from "./navigation-link";
 import { usePathname } from "next/navigation";
 import { BrandLockup } from "./brand-mark";
 import { HomeIcon } from "./icons";

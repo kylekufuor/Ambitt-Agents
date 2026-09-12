@@ -876,3 +876,10 @@ html[data-theme="light"] { color-scheme: light; }
   .home-lead-list a > span:last-child { display: none; }
   .home-welcome { padding: 28px; }
 }
+
+/* Retain the current workspace during navigation; hint only for slower replies. */
+.portal-navigation-progress { position:fixed; inset:0 0 auto; height:3px; z-index:1000; pointer-events:none; opacity:0; animation:portal-navigation-show .1s linear .15s forwards; }
+.portal-navigation-progress::before { content:""; display:block; width:35%; height:100%; background:#00b3b3; animation:portal-navigation-sweep 1.2s ease-in-out infinite; }
+@keyframes portal-navigation-show { to { opacity:1; } }
+@keyframes portal-navigation-sweep { from { transform:translateX(-100%); } to { transform:translateX(386%); } }
+@media (prefers-reduced-motion:reduce) { .portal-navigation-progress { animation:none; opacity:1; } .portal-navigation-progress::before { animation:none; width:100%; } }

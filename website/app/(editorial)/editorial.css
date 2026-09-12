@@ -276,7 +276,7 @@ section[id]{ scroll-margin-top:100px }
 @media (max-width:560px){ .navlinks a:not(.btn){ display:none } .pill{ white-space:normal; text-align:center; padding:6px 12px 6px 6px } }
 /* the bar drops in from above the viewport on a spring, like Xtract's */
 @media (prefers-reduced-motion:no-preference){
-  html.js-anim .masthead{ animation:nav-drop .95s var(--spring-drop) .2s both }
+  html.js-anim:not(.site-navigated) .masthead{ animation:nav-drop .95s var(--spring-drop) .2s both }
 }
 @keyframes nav-drop{ from{ opacity:0; transform:translateY(-150px) } to{ opacity:1; transform:none } }
 
@@ -297,10 +297,10 @@ section[id]{ scroll-margin-top:100px }
 @keyframes panel-in{ from{ opacity:0; transform:translateY(60px) } to{ opacity:1; transform:none } }
 @keyframes orb-in{ from{ opacity:0; transform:translate(-50%,-50%) translateY(80px) scale(.9) } to{ opacity:.6; transform:translate(-50%,-50%) } }
 @media (prefers-reduced-motion:no-preference){
-  html.js-anim .enter{ animation:rise-in 1.2s var(--spring-soft) both; animation-delay:var(--t0,.9s) }
-  html.js-anim .enter-words .w > span{ animation:word-in 2.8s var(--spring-long) both; animation-delay:calc(var(--t0,.25s) + var(--i,0) * 60ms) }
-  html.js-anim .enter-panel{ animation:panel-in 1s var(--ease-panel) 1s both }
-  html.js-anim .enter-orb{ animation:orb-in 2s var(--ease-out-expo) .4s both }
+  html.js-anim:not(.site-navigated) .enter{ animation:rise-in 1.2s var(--spring-soft) both; animation-delay:var(--t0,.9s) }
+  html.js-anim:not(.site-navigated) .enter-words .w > span{ animation:word-in 2.8s var(--spring-long) both; animation-delay:calc(var(--t0,.25s) + var(--i,0) * 60ms) }
+  html.js-anim:not(.site-navigated) .enter-panel{ animation:panel-in 1s var(--ease-panel) 1s both }
+  html.js-anim:not(.site-navigated) .enter-orb{ animation:orb-in 2s var(--ease-out-expo) .4s both }
 }
 /* Below the fold: the observer adds .in. Visible by default; hidden only once JS proves
    it is running (html.js-anim), so nothing ever depends on a script to be readable. */

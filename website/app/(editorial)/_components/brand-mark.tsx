@@ -1,3 +1,4 @@
+import { SiteLink } from "./site-link";
 /** The Ambitt Agents mark and wordmark, as the masthead and footer carry it. */
 export function BrandLockup({
   href,
@@ -9,7 +10,7 @@ export function BrandLockup({
   wordStyle?: React.CSSProperties;
 }) {
   return (
-    <a className="brand" href={href} aria-label="Ambitt Agents, home" style={style}>
+    <SiteLink className="brand" href={href} aria-label="Ambitt Agents, home" style={style}>
       <svg viewBox="0 0 128 116" fill="none" aria-hidden="true" focusable="false">
         <circle cx="64" cy="10" r="8" fill="#00b3b3" />
         <rect x="60" y="16" width="8" height="18" rx="4" fill="#00b3b3" />
@@ -22,6 +23,6 @@ export function BrandLockup({
       <span className="brand-word" style={wordStyle}>
         Ambitt&nbsp;<b>Agents</b>
       </span>
-    </a>
+    </SiteLink>
   );
 }

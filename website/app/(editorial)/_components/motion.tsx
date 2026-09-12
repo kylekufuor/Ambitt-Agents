@@ -2,7 +2,7 @@
 
 import Lenis from "lenis";
 import { usePathname } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 
 /**
  * The page's motion runtime, mounted once per document. Renders nothing.
@@ -18,10 +18,16 @@ import { useEffect } from "react";
  *    marked .in first, so it fades in once rather than blinking. The hero is
  *    pure CSS keyframes and is not in this pass at all.
  *
- * Keyed on the pathname so a soft navigation, if one is ever added, re-arms.
+ * Keyed on the pathname to observe the new content after soft navigation.
  */
 export function Motion() {
   const pathname = usePathname();
+  const firstPath = useRef(pathname);
+
+  useLayoutEffect(() => {
+    // Entrance animations belong to the initial visit, not every tab change.
+    if (pathname !== firstPath.current) document.documentElement.classList.add("site-navigated");
+  }, [pathname]);
 
   useEffect(() => {
     const root = document.documentElement;

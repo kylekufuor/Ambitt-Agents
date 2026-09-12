@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { NavigationLink as Link } from "./navigation-link";
 import prisma from "@/lib/db";
 import { BrandLockup } from "./brand-mark";
 import { AccountMenu } from "./account-menu";

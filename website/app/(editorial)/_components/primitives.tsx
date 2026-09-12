@@ -1,3 +1,4 @@
+import { SiteLink } from "./site-link";
 /**
  * The small repeated pieces of the site. Each renders exactly the markup the
  * stylesheet was written against; the class names are the contract.
@@ -69,13 +70,13 @@ export function Btn({
   className?: string;
 }) {
   return (
-    <a href={href} className={["btn", `btn-${kind}`, size ? `btn-${size}` : "", className ?? ""].join(" ").trim()}>
+    <SiteLink href={href} className={["btn", `btn-${kind}`, size ? `btn-${size}` : "", className ?? ""].join(" ").trim()}>
       <span className="roll">
         <span>{children}</span>
         <span aria-hidden="true">{children}</span>
       </span>
       {icon ? <Ic name={icon} /> : null}
-    </a>
+    </SiteLink>
   );
 }
 
