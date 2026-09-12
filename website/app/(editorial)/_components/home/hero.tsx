@@ -10,7 +10,7 @@ export function Hero() {
         <div className="work-hero-copy">
           <span className="kicker">An AI workforce. Built around your business.</span>
           <h1 className="h1">You hired{" "}<br />someone.<br /><span className="accent">Not a seat.</span></h1>
-          <p className="dek">A name. An inbox. A standing job. Your agent works in your tools and sends back the finished work, without another thing to manage.</p>
+          <p className="dek">A name. An inbox. A standing job. Your agent works in your tools and sends back the finished work. Follow it in your portal, or reply by email.</p>
           <div className="work-hero-actions"><Btn href="#contact" size="lg" icon="arrow-up-right">Talk to us</Btn><a href="#portal" className="hero-watch"><span aria-hidden="true">▷</span> See the portal</a></div>
           <p className="work-hero-note">Built for your workflow. Delivered to your inbox.</p>
         </div>

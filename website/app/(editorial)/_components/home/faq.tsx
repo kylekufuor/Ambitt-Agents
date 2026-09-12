@@ -9,12 +9,16 @@ export const QA: Array<{ q: string; a: string }> = [
     a: "It works inside the tools you already use: your inbox, your CRM, your spreadsheets. It does the recurring work you'd otherwise do by hand or hire for: research, follow-ups, reports, chasing things down. It runs on a schedule or whenever you ask, and emails you the finished result.",
   },
   {
-    q: "Do I have to log into anything?",
-    a: "No. You talk to your agent by email, and the work comes to you. You do get a portal, with everything your agent has done, the tools it's connected to, and its settings. It's there for when you want a closer look, not something you have to keep up with. If you can reply to an email, you can work with an agent.",
+    q: "What can I do in the portal?",
+    a: "Home gives you a weekly overview. Leads lets you follow opportunities, Approvals collects decisions, and Activity shows the work log. You can also manage connections, review how your agent works, and check billing. You can keep asking for work by email.",
   },
   {
     q: "Which of my tools can it work in?",
     a: "The ones you already use: Gmail, Google Calendar and Sheets, Slack, your CRM (HubSpot or Salesforce), QuickBooks, and hundreds more. For specialized work like commercial real estate, it works in the listing and market-data platforms your brokers already subscribe to.",
+  },
+  {
+    q: "Can I start on the Free plan today?",
+    a: "Self-serve Free, Pro, Max and Business plans are coming soon. Credit billing and browser watching are still in development. You can ask about early access or talk to us now about a custom build.",
   },
   {
     q: "Whose account does it use?",
@@ -22,7 +26,7 @@ export const QA: Array<{ q: string; a: string }> = [
   },
   {
     q: "What if it gets something wrong?",
-    a: "You approve anything with real consequences before it happens, it shows its work, and one reply pauses it instantly. It's a teammate you can direct, not a black box.",
+    a: "You approve anything with real consequences before it happens, it shows its work, and you can pause it from the portal. It's a teammate you can direct, not a black box.",
   },
   {
     q: "How is my data handled?",
@@ -30,7 +34,7 @@ export const QA: Array<{ q: string; a: string }> = [
   },
   {
     q: "Can I cancel any time?",
-    a: "Yes. No contracts, no lock-in. Pause or cancel with a reply and your agent stops.",
+    a: "You can request cancellation through support. Your subscription terms determine when billing and service end. If you need the agent to stop working now, use the pause control in your portal.",
   },
 ];
 

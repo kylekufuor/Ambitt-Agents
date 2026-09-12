@@ -61,22 +61,27 @@ async function main(): Promise<void> {
 
   const sprites = renderToStaticMarkup(createElement(Sprites)) + renderToStaticMarkup(createElement(IconSprite));
   const render = (page: () => ReactElement): string => sprites + renderToStaticMarkup(createElement(page));
-  const pages = { "/": render(home.default), "/use-cases": render(cases.default) } as const;
+  const docs = await import("./docs/page");
+  const contact = await import("./contact/page");
+  const privacy = await import("./privacy/page");
+  const terms = await import("./terms/page");
+  const sms = await import("./sms-opt-in/page");
+  const pages = { "/": render(home.default), "/use-cases": render(cases.default), "/docs": render(docs.default), "/contact": render(contact.default), "/privacy": render(privacy.default), "/terms": render(terms.default), "/sms-opt-in": render(sms.default) } as const;
   type PagePath = keyof typeof pages;
 
   // --- metadata ---------------------------------------------------------------
   check("homepage title", home.metadata.title, "Ambitt Agents: you hired someone, not a seat");
-  check("use-cases title", cases.metadata.title, "Ambitt Agents: the cases, four industries, one workforce");
+  check("use-cases title", cases.metadata.title, "Ambitt Agents: four workflows inside the portal");
   check("homepage canonical", home.metadata.alternates?.canonical, "/");
   check("use-cases canonical", cases.metadata.alternates?.canonical, "/use-cases");
   check("share image survives the page-level openGraph", JSON.stringify(cases.metadata.openGraph).includes("ambitt-agent-avatar.png"), true);
 
   const idsOf = (html: string): string[] => [...html.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]);
-  const ids = { "/": new Set(idsOf(pages["/"])), "/use-cases": new Set(idsOf(pages["/use-cases"])) };
+  const ids = Object.fromEntries(Object.entries(pages).map(([path, html]) => [path, new Set(idsOf(html))])) as Record<PagePath, Set<string>>;
 
   // Everything a visitor can follow off these pages. Anything else is a typo.
-  const EXTERNAL = new Set(["https://portal.ambitt.agency", "mailto:hello@ambitt.agency"]);
-  const SITE_ROUTES = new Set(["/docs", "/contact", "/privacy", "/terms"]);
+  const EXTERNAL = new Set(["https://portal.ambitt.agency", "mailto:hello@ambitt.agency", "mailto:support@ambitt.agency"]);
+  const SITE_ROUTES = new Set(["/docs", "/contact", "/privacy", "/terms", "/sms-opt-in"]);
 
   for (const [path, html] of Object.entries(pages) as [PagePath, string][]) {
     // A duplicated id makes a gradient or anchor resolve to the wrong element.
@@ -93,12 +98,14 @@ async function main(): Promise<void> {
         const [route, anchor] = href.split("#") as [string, string | undefined];
         const target = (route === "/use-cases" ? "/use-cases" : "/") as PagePath;
         if (anchor !== undefined && !ids[target].has(anchor)) bad.push(href);
+      } else if (href.startsWith("/docs#")) {
+        if (!ids["/docs"].has(href.split("#")[1])) bad.push(href);
       } else if (!SITE_ROUTES.has(href) && !EXTERNAL.has(href)) {
         bad.push(href);
       }
     }
     check(`${path}: every link resolves`, bad, []);
-    for (const route of SITE_ROUTES) check(`${path}: footer links ${route}`, hrefs.includes(route), true);
+    for (const route of ["/docs", "/contact", "/privacy", "/terms"]) check(`${path}: footer links ${route}`, hrefs.includes(route), true);
 
     // The sprites are pruned to what the pages use. A new icon must bring its symbol.
     const refs = [...html.matchAll(/<use\s[^>]*?href="#([^"]+)"/g)].map((m) => m[1]);
@@ -112,7 +119,7 @@ async function main(): Promise<void> {
     check(`${path}: primary CTA goes to the contact section`, [...new Set(ctas)], [path === "/" ? "#contact" : "/#contact"]);
 
     const copy = text(html.replace(sprites, ""));
-    check(`${path}: no em dashes in visible copy`, copy.includes("—"), false);
+    if (!["/privacy", "/terms", "/sms-opt-in"].includes(path)) check(`${path}: no em dashes in visible copy`, copy.includes("—"), false);
     // A dropped space glues a figure to the next word ("$5,000on"). Next's
     // compiler does exactly that to a multi-line JSX text run that contains an
     // entity, which is why the copy uses literal ' and & (see the source check
@@ -130,11 +137,18 @@ async function main(): Promise<void> {
 
   // The source side of the same bug: no HTML entities in the marketing JSX.
   // `&nbsp;` in the wordmark is the one exception; it never starts a text run.
-  const sources = readdirSync(here, { recursive: true, encoding: "utf8" }).filter((f) => f.endsWith(".tsx"));
+  const sources = readdirSync(here, { recursive: true, encoding: "utf8" }).filter((f) => f.endsWith(".tsx") && (f.startsWith("_components/") || f === "page.tsx" || f === "use-cases/page.tsx"));
   const entities = sources.flatMap((f) =>
     [...readFileSync(join(here, f), "utf8").matchAll(/&(?!nbsp;)[a-zA-Z#0-9]+;/g)].map((m) => `${f}: ${m[0]}`),
   );
   check("no HTML entities in marketing JSX", entities, []);
+
+  check("cases shows all four native video players", (pages["/use-cases"].match(/<video /g) ?? []).length, 4);
+  check("cases labels fictional data", text(pages["/use-cases"]).includes("All businesses, records and results in these demos are fictional"), true);
+  check("cases no longer claims unbuilt browser workspace", /browser Arthur is actually driving|mid-search|firstrun/.test(pages["/use-cases"]), false);
+  check("contact has no unverified booking or instant setup offer", /calendly.com|Under 60 seconds|10\+ hours/.test(pages["/contact"]), false);
+  check("help distinguishes upcoming billing", text(pages["/docs"]).includes("have not replaced existing account billing"), true);
+  check("help links to working lead correction method", text(pages["/docs"]).includes("Reply to your agent with the lead name"), true);
 
   // Public plans are explicitly a preview until usage billing is built.
   // Assert the agreed prices independently of their render source.

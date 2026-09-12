@@ -1,8 +1,9 @@
-import type { Metadata } from "next";
+import { pageMetadata } from "../_components/metadata";
+import { Btn, Kicker } from "../_components/primitives";
 import { Nav } from "../../components/nav";
 import { Footer } from "../../components/footer";
-import { DocsSidebar, DocsOnThisPage } from "./docs-nav";
-import { DOC_GROUPS, DOC_SECTIONS } from "./sections";
+import { DocsSidebar } from "./docs-nav";
+import { DOC_SECTIONS } from "./sections";
 
 /* ---------------------------------------------------------------------------
    The public documentation.
@@ -13,11 +14,8 @@ import { DOC_GROUPS, DOC_SECTIONS } from "./sections";
    behind the login is missing exactly when it is needed most, so the canonical
    copy sits out here and the portal's own help page links in.
 
-   Layout is Databricks' docs structure — grouped sidebar, content, on-this-page
-   rail, hairline-separated sections, one tinted callout — in our own tokens,
-   which is the same trade the rest of the design system already makes: their
-   structure, our teal. The hero borrows its shape from Lev: an eyebrow, a
-   display line with real size, and a lede, left-aligned rather than centred.
+   The grouped sidebar tracks the section being read. On a phone, the same
+   section list becomes a compact jump menu above the guide.
 
    Written as answers to what someone is trying to do, not as a tour of
    features. Every claim has to stay true to the product: documentation that has
@@ -25,11 +23,7 @@ import { DOC_GROUPS, DOC_SECTIONS } from "./sections";
    earning.
    --------------------------------------------------------------------------- */
 
-export const metadata: Metadata = {
-  title: "Documentation — Ambitt Agents",
-  description:
-    "How to work with your Ambitt agent: asking for work, approvals, leads, stopping and starting, login codes, tools and billing.",
-};
+export const metadata = pageMetadata({ path: "/docs", title: "The portal guide: Ambitt Agents", description: "Your guide to the Ambitt workspace: overview, leads, approvals, connected tools, email, settings and billing." });
 
 function Section({
   id,
@@ -75,77 +69,31 @@ export default function DocsPage() {
     return acc;
   }, {});
 
-  return (
-    // NOT overflow-x-hidden, which every other page on the site uses.
-    //
-    // overflow-x: hidden forces overflow-y to compute as auto, which makes this
-    // element a scroll container — and position: sticky then anchors to it
-    // rather than to the viewport. Since main is as tall as its content, the
-    // rails never stick: they scroll away with the page, taking the current
-    // section highlight with them. The docs page has no full-bleed decoration
-    // to contain, so it simply does without.
-    <main>
-      <Nav />
-
-      {/* Hero sits full width above the grid, so the display line gets the whole
-          measure rather than being boxed into the content column. */}
-      <section className="pt-14 pb-10">
-        <div className="docs-grid">
-          <div className="lg:col-start-2">
-            <p className="eyebrow mb-4">
-              <span className="tick" aria-hidden />
-              Documentation
-            </p>
-            <h1
-              className="disp"
-              style={{
-                fontSize: "clamp(38px, 5.2vw, 58px)",
-                fontWeight: 500,
-                lineHeight: 1.08,
-                letterSpacing: "-0.018em",
-                color: "var(--ink-max)",
-                maxWidth: "16ch",
-              }}
-            >
-              Everything your agent can do, and how to ask.
-            </h1>
-            <p
-              style={{
-                marginTop: 18,
-                fontSize: 17,
-                lineHeight: 1.6,
-                color: "var(--muted)",
-                maxWidth: "58ch",
-              }}
-            >
-              Your agent works for you by email. There is nothing to install and nothing to
-              configure before they start. This covers the handful of things people actually ask,
-              in the order they tend to come up.
-            </p>
-          </div>
-        </div>
+  return <><Nav page="docs" /><main id="main" className="support-page docs-page">
+      <section className="support-hero wrap">
+        <Kicker>The portal guide</Kicker>
+        <h1 className="h1">Your workspace.<br /><span className="accent">A little guidance.</span></h1>
+        <p className="dek">Follow the work, review a decision, or give your agent a new brief. Here is where to find each part.</p>
+        <div className="support-actions"><Btn href="https://portal.ambitt.agency" icon="arrow-up-right">Open portal</Btn><Btn href="/use-cases" kind="ghost">Watch a workflow</Btn></div>
       </section>
-
-      <div className="docs-grid pb-28">
+      <div className="docs-grid">
         <DocsSidebar />
-
         <div className="docs-body">
-          <details className="docs-jump">
-            <summary>Jump to a section</summary>
-            <ul>
-              {DOC_SECTIONS.map((s) => (
-                <li key={s.id}>
-                  <a href={`#${s.id}`}>{s.label}</a>
-                </li>
-              ))}
-            </ul>
-          </details>
+          <details className="docs-jump"><summary>Jump to a section</summary><ul>{DOC_SECTIONS.map((s) => <li key={s.id}><a href={`#${s.id}`}>{s.label}</a></li>)}</ul></details>
+          <Section id="workspace" title="A look around your workspace" lede={lede["workspace"]}>
+            <figure className="docs-screenshot"><img src="/demos/portal-home-dark.webp" width="1440" height="1000" alt="The Ambitt home overview showing weekly work and decisions in a fictional sample workspace" /><figcaption>The current portal, with fictional sample data.</figcaption></figure>
+            <Q q="Start at Home"><p>Your weekly overview shows new leads, emails sent, and decisions waiting on you. The agent panel shows its status, schedule, and email address.</p></Q>
+            <Q q="Follow the work"><p>Open Leads for the board or table. Approvals collects the decisions waiting for your reply. Activity lets you look through the work log.</p></Q>
+            <Q q="Find the controls"><p>How they work shows the brief, limits and running status. Tools shows connections that are ready or need setup. Email setup, Billing and Settings handle the rest.</p></Q>
+            <Q q="Choose your appearance"><p>Use the Light or Dark control in the top bar. Your preference is saved on this browser. On a phone, open the navigation menu to reach the same pages.</p></Q>
+            <Note><p>Browser watching, credit top-ups and self-serve plans are still in development. The videos show the working portal with fictional data.</p></Note>
+          </Section>
 
           <Section id="signing-in" title="Signing in" lede={lede["signing-in"]}>
             <Q q="Your first time">
               <p>
                 Go to{" "}
-                <a href="https://portal.ambitt.agency" style={{ color: "var(--link)" }}>
+                <a href="https://portal.ambitt.agency" className="text-link">
                   portal.ambitt.agency
                 </a>
                 , put in your email, and choose <strong>Email me a link to set my password</strong>.
@@ -184,8 +132,7 @@ export default function DocsPage() {
                 colleague: there is no format, and no commands to learn.
               </p>
               <p>
-                They confirm what they understood before doing anything substantial, so if they have
-                taken it the wrong way you see that in the reply rather than in the result.
+                Include the goal, the relevant context, and anything they should leave alone. Clear boundaries help your agent make useful decisions.
               </p>
             </Q>
             <Q q="Sending a file">
@@ -197,8 +144,7 @@ export default function DocsPage() {
             </Q>
             <Q q="When they work">
               <p>
-                On a schedule you set, and whenever you write to them. The schedule is on the
-                &ldquo;How he works&rdquo; page in your portal, shown in your own time zone.
+                On a schedule you set, and whenever you write to them. The schedule and time zone are on the How they work page in your portal.
                 Changing it is a message away.
               </p>
             </Q>
@@ -234,14 +180,12 @@ export default function DocsPage() {
                 how far the outreach has got instead, and says so.
               </p>
               <p>
-                If you move a lead yourself, your call stands. They will not quietly move it back.
+                Read the reason alongside the rating. If it needs correcting, email your agent with the lead name and what should change.
               </p>
             </Q>
             <Q q="Correcting something">
               <p>
-                Open the lead and use <strong>Anything he got wrong</strong>. That is a message to
-                your agent rather than an edit to a database: they read it, confirm, and handle
-                similar ones the same way from then on.
+                Reply to your agent with the lead name, the incorrect detail, and the correction. The lead record helps you find the context to include.
               </p>
             </Q>
             <Q q="Taking them with you">
@@ -255,9 +199,7 @@ export default function DocsPage() {
           <Section id="control" title="Stopping and starting" lede={lede["control"]}>
             <Q q="Stopping">
               <p>
-                One button on the &ldquo;How he works&rdquo; page, and it takes effect immediately.
-                Nothing goes out in your name while your agent is stopped, and nothing is lost: they
-                pick up where they left off when you start them again.
+                Use Pause agent on the How they work page. Check the updated status before leaving. You can resume an agent you paused; an operator or safety hold needs our team to review it.
               </p>
             </Q>
             <Q q="When we have stopped them">
@@ -292,11 +234,11 @@ export default function DocsPage() {
             <Q q="Where the detail is">
               <p>
                 Our{" "}
-                <a href="/sms-opt-in" style={{ color: "var(--link)" }}>
+                <a href="/sms-opt-in" className="text-link">
                   SMS opt-in page
                 </a>{" "}
                 shows the exact consent screen and wording, and the{" "}
-                <a href="/privacy" style={{ color: "var(--link)" }}>
+                <a href="/privacy" className="text-link">
                   privacy policy
                 </a>{" "}
                 covers the rest.
@@ -313,8 +255,7 @@ export default function DocsPage() {
             </Q>
             <Q q="Where passwords are kept">
               <p>
-                In an encrypted vault. We never see the values ourselves, and your agent signs in
-                with them without them being readable by us or stored in plain text anywhere.
+                Credentials are encrypted at rest. Use the connection flow provided for each tool, and avoid sending passwords in ordinary email or support messages.
               </p>
             </Q>
           </Section>
@@ -328,9 +269,7 @@ export default function DocsPage() {
             </Q>
             <Q q="What counts against your plan">
               <p>
-                Conversations with your agent. Onboarding emails, and anything your agent sends you
-                about their own setup, do not count. They stop at your plan limit rather than
-                running up a bill you did not agree to.
+                Your current Billing page shows the allowance and extra interaction rate for your account. Setup and onboarding messages do not count toward the monthly allowance. The upcoming credit plans shown on the pricing page have not replaced existing account billing.
               </p>
             </Q>
             <Q q="Cancelling">
@@ -344,24 +283,20 @@ export default function DocsPage() {
           <Section id="help" title="Getting a person" lede={lede["help"]}>
             <Q q="Write to us">
               <p>
-                <a href="mailto:support@ambitt.agency" style={{ color: "var(--link)" }}>
+                <a href="mailto:support@ambitt.agency" className="text-link">
                   support@ambitt.agency
                 </a>{" "}
                 reaches a human. Say what you were trying to do and what happened instead. That is
                 enough to start.
               </p>
               <p>
-                You can also just reply to your agent. Anything meant for us rather than for them
-                gets passed on.
+                For account or billing help, use the support address. For a work request or a correction to a brief, reply to your agent.
               </p>
             </Q>
           </Section>
         </div>
 
-        <DocsOnThisPage />
       </div>
 
-      <Footer />
-    </main>
-  );
+    </main><Footer /></>;
 }

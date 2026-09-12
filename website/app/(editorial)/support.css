@@ -1,0 +1,103 @@
+/* Shared public pages: the portal's dark ground, clear type, and dotted dividers. */
+.support-page{ padding-top:145px }
+.support-hero{ padding-bottom:64px }
+.support-hero .h1{ font-size:clamp(40px,5vw,66px); max-width:19ch; font-weight:500; margin:24px 0 20px }
+.support-hero .dek{ max-width:55ch; margin:0 }
+.support-actions{ display:flex; flex-wrap:wrap; gap:12px; margin-top:26px }
+.text-link{ color:var(--teal-ink); text-decoration:underline; text-underline-offset:4px }
+.support-number{ font:11px var(--mono); letter-spacing:.06em; color:var(--teal-ink) }
+.contact-options{ display:grid; grid-template-columns:1fr 1fr; gap:48px }
+.contact-option{ border-top:1px dashed var(--rule-strong); padding-top:26px }
+.contact-option h2{ font-size:27px; font-weight:500; line-height:1.25; margin:16px 0 }
+.contact-option p{ color:var(--ink-2); max-width:46ch; line-height:1.7 }
+.contact-address{ display:block; font-size:clamp(18px,2vw,25px); margin:26px 0 18px; text-decoration:none }
+.contact-option .text-link{ font-size:14px }
+.support-next{ margin-top:88px; padding-block:40px 88px; border-top:1px dashed var(--rule-strong); display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:28px }
+.support-next .h2{ font-size:32px; margin-block:16px }
+.support-next .dek{ max-width:48ch; font-size:16px }
+.docs-grid{ display:grid; grid-template-columns:200px minmax(0,1fr); gap:60px; width:min(1116px,calc(100% - 48px)); margin:0 auto 90px }
+.docs-side{ position:sticky; top:110px; align-self:start; max-height:calc(100dvh - 135px); overflow:auto; border-right:1px dashed var(--rule); padding-right:20px }
+.docs-side-group + .docs-side-group{ margin-top:24px }
+.docs-side-label{ color:var(--ink-3); font:10px var(--mono); text-transform:uppercase; letter-spacing:.09em; margin:0 0 9px }
+.docs-side ul{ list-style:none; padding:0; margin:0 }
+.docs-side a{ display:block; text-decoration:none; color:var(--ink-2); font-size:13px; padding:7px 10px; margin-left:-10px; border-left:2px solid transparent }
+.docs-side a.is-here{ color:var(--teal-ink); border-left-color:var(--teal); background:var(--teal-wash) }
+.docs-side a:hover{ color:var(--ink) }
+.docs-body{ min-width:0; max-width:760px }
+.docs-sec{ padding-top:34px; margin-top:42px; border-top:1px dashed var(--rule-strong) }
+section[id].docs-sec{ scroll-margin-top:0 }
+.docs-sec:first-of-type{ border:0; margin-top:0; padding-top:0 }
+.docs-sec > h2{ font-size:28px; font-weight:500; line-height:1.2; margin:0 0 12px }
+.docs-sec-lede{ color:var(--ink-3); font-size:15px; margin:0 0 26px }
+.docs-q{ margin-top:24px }
+.docs-q h3{ font-size:17px; font-weight:500; margin:0 0 8px }
+.docs-q p{ color:var(--ink-2); font-size:15px; line-height:1.75; margin:0 0 12px }
+.docs-q strong{ color:var(--ink); font-weight:500 }
+.docs-note{ background:var(--teal-wash); border-left:2px solid var(--teal); border-radius:0 10px 10px 0; margin-top:24px; padding:16px 20px }
+.docs-note p{ color:var(--ink-2); font-size:14px; line-height:1.7; margin:0 }
+.docs-note p + p{ margin-top:12px }
+.docs-anchor{ font-size:15px; margin-left:10px; color:var(--teal-ink); text-decoration:none; opacity:0 }
+.docs-sec h2:hover .docs-anchor,.docs-anchor:focus-visible{ opacity:1 }
+.docs-jump{ display:none }
+.docs-screenshot{ margin:24px 0; border-radius:12px; overflow:hidden; border:1px solid var(--rule) }
+.docs-screenshot img{ display:block; width:100%; height:auto }
+.docs-screenshot figcaption{ color:var(--ink-3); font-size:12px; padding:10px 14px; background:var(--card) }
+.legal-page{ padding:160px 24px 90px }
+.legal-document{ max-width:800px; margin:auto }
+.legal-document .h1{ font-size:clamp(36px,5vw,60px); margin:22px 0 16px; font-weight:500 }
+.legal-date{ font:12px var(--mono); color:var(--ink-3); margin-bottom:30px }
+.legal-intro{ font-size:17px; color:var(--ink-2); line-height:1.75; margin-bottom:48px }
+.legal-sections > div{ padding-top:26px; margin-top:28px; border-top:1px dashed var(--rule-strong) }
+.legal-heading{ font-size:21px; font-weight:500; margin:0 0 18px }
+.legal-paragraphs{ color:var(--ink-2); font-size:15px; line-height:1.8 }
+.legal-paragraphs p{ margin:0 0 14px }
+.legal-paragraphs a{ color:var(--teal-ink); text-underline-offset:4px }
+.legal-paragraphs ul{ padding-left:22px }
+.legal-paragraphs blockquote{ padding-left:20px; border-left:2px solid var(--teal); margin:20px 0 }
+.legal-paragraphs img{ display:block; width:100%; height:auto; border-radius:12px }
+.legal-paragraphs figure{ margin:24px 0 12px }
+.legal-paragraphs figcaption{ color:var(--ink-3); font-size:12px }
+.not-found-page{ min-height:100dvh; display:grid; place-content:center; gap:20px; text-align:center; padding:32px }
+.not-found-page .h1{ font-size:clamp(36px,5vw,56px); max-width:16ch; margin:0 auto }
+.not-found-page .dek{ margin:0 auto; max-width:42ch }
+.not-found-page .support-actions{ justify-content:center }
+@media (max-width:980px){ .navlinks{ display:none } .mobile-menu{ display:block } .masthead .bar{ gap:12px } }
+@media (max-width:800px){ .support-page{ padding-top:125px } .support-hero{ padding-bottom:42px } .contact-options{ grid-template-columns:1fr; gap:38px } .docs-grid{ grid-template-columns:1fr; gap:0; width:calc(100% - 36px) } .docs-side{ display:none } .docs-jump{ display:block; margin-bottom:30px; border-block:1px dashed var(--rule); padding:12px 0 } .docs-jump summary{ cursor:pointer; padding:7px 0; min-height:40px } .docs-jump ul{ list-style:none; padding:0; columns:2 } .docs-jump a{ display:block; color:var(--ink-2); text-decoration:none; font-size:14px; padding:10px 0 } .legal-page{ padding-top:130px } }
+/* Workflow library: a clear brief, the steps, and a real product recording. */
+.section.workflow-intro{ padding-top:160px; padding-bottom:54px }
+.workflow-intro-grid{ display:grid; grid-template-columns:1fr 1fr; align-items:center; gap:48px }
+.workflow-intro .h1{ font-size:clamp(46px,5vw,68px); font-weight:500; margin:24px 0 }
+.workflow-intro .dek{ font-size:17px; max-width:46ch }
+.workflow-disclosure{ font-size:12px; color:var(--ink-3); margin-top:24px }
+.workflow-preview{ margin:0; border:1px solid var(--rule); border-radius:14px; padding:8px; background:var(--card); box-shadow:var(--sh-3) }
+.workflow-preview img{ display:block; width:100%; height:auto; border-radius:7px }
+.workflow-preview figcaption{ padding:10px 6px 3px; color:var(--ink-3); font-size:11px; font-family:var(--mono) }
+.workflow-index{ margin-top:62px; display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px }
+.workflow-index a{ display:flex; align-items:center; gap:12px; border-top:1px dashed var(--rule-strong); padding:18px 0 0; text-decoration:none; transition:color .2s }
+.workflow-index a:hover{ color:var(--teal-ink) }
+.workflow-index img{ width:48px; height:58px; object-fit:cover; border-radius:6px; opacity:.75 }
+.workflow-index a>span{ margin-left:auto; color:var(--teal-ink) }
+.workflow-index div>span{ font-family:var(--mono); font-size:11px }
+.workflow-index p{ font-size:12px; color:var(--ink-3); margin:6px 0 0 }
+.workflow-heading{ display:grid; grid-template-columns:1.35fr 1fr; align-items:end; gap:64px; margin-bottom:36px }
+.workflow-heading .h2{ font-size:clamp(30px,3.2vw,44px); max-width:23ch; margin-top:20px }
+.workflow-brief{ margin:0; color:var(--ink-2); font-size:15px; line-height:1.7; max-width:46ch; padding-left:22px; border-left:2px solid var(--teal-edge) }
+.workflow-brief>span{ display:block; color:var(--teal-ink); font:10px var(--mono); letter-spacing:.08em; margin-bottom:12px }
+.workflow-grid{ display:grid; grid-template-columns:280px minmax(0,1fr); align-items:start; gap:38px }
+.workflow-steps{ list-style:none; padding:0; margin:0; display:grid; gap:26px }
+.workflow-steps li{ display:flex; gap:14px }
+.workflow-step-number{ font:11px var(--mono); color:var(--teal-ink); padding-top:4px }
+.workflow-steps h3{ font-size:16px; font-weight:500; margin:0 0 8px }
+.workflow-steps p{ margin:0; font-size:13px; line-height:1.75; color:var(--ink-2) }
+.workflow-film{ margin:0; background:var(--card); border:1px solid var(--rule); border-radius:12px; overflow:hidden }
+.workflow-film-bar{ display:flex; justify-content:space-between; gap:10px; padding:12px 16px; color:var(--ink-3); font:10px var(--mono) }
+.workflow-film-bar>span:first-child{ color:var(--ink-2) }
+.workflow-film video{ width:100%; height:auto; display:block; background:var(--bg) }
+.workflow-film video::cue{ font-size:18px; background:rgba(10,16,15,.92); color:#eef3f1 }
+.workflow-film figcaption{ font-size:11px; color:var(--ink-3); padding:12px 16px; line-height:1.6 }
+.workflow-footer{ display:flex; justify-content:space-between; gap:24px; padding-top:22px; margin-top:26px; border-top:1px dashed var(--rule); font-size:12px; color:var(--ink-3) }
+.workflow-footer p{ margin:0; max-width:74ch }
+.workflow-footer a{ flex:none }
+@media (max-width:1050px){ .workflow-grid{ grid-template-columns:240px minmax(0,1fr); gap:28px } .workflow-index{ grid-template-columns:repeat(2,minmax(0,1fr)) } }
+@media (max-width:800px){ .section.workflow-intro{ padding-top:126px } .workflow-intro-grid,.workflow-heading,.workflow-grid{ grid-template-columns:1fr; gap:28px } .workflow-preview{ max-width:600px } .workflow-index{ margin-top:34px } .workflow-film{ grid-row:1 } .workflow-steps{ grid-template-columns:1fr; gap:20px; margin-top:6px } .workflow-heading .h2{ max-width:25ch } .workflow-footer{ flex-direction:column; gap:12px } .workflow-film video::cue{ font-size:15px } }
+@media (max-width:400px){ .workflow-index{ grid-template-columns:1fr } }

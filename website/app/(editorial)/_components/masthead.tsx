@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { BrandLockup } from "./brand-mark";
 import { Btn } from "./primitives";
 
-type Page = "home" | "cases";
+type Page = "home" | "cases" | "docs" | "other";
 
 /**
  * Nuera's floating pill bar, in dark glass. Fixed 16px from the top, drops in
@@ -63,18 +63,17 @@ export function Masthead({ page }: { page: Page }) {
             How it works
           </a>
           <a href="/use-cases" aria-current={page === "cases" ? "page" : undefined}>
-            The cases
+            Use cases
           </a>
+          <a href={`${home}#portal`} className="hide-mobile">The portal</a>
           <a href={`${home}#pricing`} className="hide-mobile">
             Pricing
           </a>
-          <a href={`${home}#faq`} className="hide-mobile">
-            FAQ
-          </a>
+          <a href="/docs" aria-current={page === "docs" ? "page" : undefined} className="hide-mobile">Help</a>
           <span className="navspacer" />
           <span className="nav-cta">
             <a href="https://portal.ambitt.agency" className="hide-mobile">
-              Log in
+              Open portal
             </a>
             <Btn href={`${home}#contact`} size="sm">
               Talk to us
@@ -87,10 +86,12 @@ export function Masthead({ page }: { page: Page }) {
             if (event.target instanceof Element && event.target.closest("a") && menu.current) menu.current.open = false;
           }}>
             <a href={`${home}#how`}>How it works</a>
-            <a href="/use-cases" aria-current={page === "cases" ? "page" : undefined}>The cases</a>
+            <a href="/use-cases" aria-current={page === "cases" ? "page" : undefined}>Use cases</a>
+            <a href={`${home}#portal`}>The portal</a>
             <a href={`${home}#pricing`}>Pricing</a>
+            <a href="/docs" aria-current={page === "docs" ? "page" : undefined}>Help</a>
             <a href={`${home}#faq`}>FAQ</a>
-            <a href="https://portal.ambitt.agency">Log in</a>
+            <a href="https://portal.ambitt.agency">Open portal</a>
             <a href={`${home}#contact`}>Talk to us</a>
           </nav>
         </details>

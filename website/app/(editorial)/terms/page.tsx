@@ -3,29 +3,30 @@ import { Nav } from "../../components/nav";
 import { Footer } from "../../components/footer";
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/terms" },
   title: "Terms of Service — Ambitt Agents",
   description: "The terms that govern your use of Ambitt Agents, including our SMS messaging terms.",
 };
 
 export default function TermsPage() {
   return (
-    <main className="overflow-x-hidden">
+    <>
       <Nav />
 
-      <section className="relative pt-16 pb-28 px-6">
-        <div className="relative z-10 max-w-3xl mx-auto">
-          <div className="label-pill mb-6">Legal</div>
-          <h1 className="text-4xl md:text-6xl font-medium tracking-tight mb-4">Terms of Service</h1>
-          <p className="text-muted-foreground text-sm mb-8">Last updated July 23, 2026</p>
+      <main id="main" className="legal-page"><section className="legal-document">
+        <div className="legal-content">
+          <div className="kicker">Legal</div>
+          <h1 className="h1">Terms of Service</h1>
+          <p className="legal-date">Last updated July 23, 2026</p>
 
-          <p className="text-sm leading-relaxed text-muted-foreground mb-16 max-w-2xl">
+          <p className="legal-intro">
             These Terms of Service (&ldquo;Terms&rdquo;) govern your use of Ambitt Agents, a service of{" "}
-            <span className="text-foreground/90">Kufgroup LLC</span>{" "}(d/b/a Ambitt Agents), operating at ambitt.agency.
+            <span>Kufgroup LLC</span>{" "}(d/b/a Ambitt Agents), operating at ambitt.agency.
             By creating an account or using the service, you agree to these Terms. When we say
             &ldquo;we&rdquo; or &ldquo;our team,&rdquo; we mean Kufgroup LLC.
           </p>
 
-          <div className="space-y-12 text-sm leading-relaxed text-muted-foreground">
+          <div className="legal-sections">
             <Section title="1. The Service">
               <p>Ambitt Agents provides managed AI agents that do work on your behalf — they use the tools you connect, deliver results by email, and, when you opt in, send you text messages tied to that work. You give an agent access to your accounts and data so it can act for you, and you stay in control of what it can touch.</p>
             </Section>
@@ -44,19 +45,19 @@ export default function TermsPage() {
 
             <Section title="5. Messaging Terms (SMS)">
               <p>If you provide your mobile number and opt in, we&apos;ll send you transactional text messages from Ambitt Agents. Here&apos;s what to expect:</p>
-              <ul className="list-disc pl-5 space-y-1.5 mt-3 text-muted-foreground/80">
-                <li><span className="text-foreground/80 font-medium">Message types:</span> account notifications and login-verification (2FA) requests related to work you&apos;ve asked your agent to do. We never send marketing or promotional texts.</li>
-                <li><span className="text-foreground/80 font-medium">Frequency:</span> message frequency varies.</li>
-                <li><span className="text-foreground/80 font-medium">Cost:</span> message and data rates may apply. These are charged by your mobile carrier, not by us.</li>
-                <li><span className="text-foreground/80 font-medium">Opt out:</span> reply STOP to any message to stop receiving texts. Reply HELP for help, or email support@ambitt.agency.</li>
-                <li><span className="text-foreground/80 font-medium">Not a condition of purchase:</span> your consent to receive text messages is not a condition of buying any product or service from us.</li>
+              <ul>
+                <li><span>Message types:</span> account notifications and login-verification (2FA) requests related to work you&apos;ve asked your agent to do. We never send marketing or promotional texts.</li>
+                <li><span>Frequency:</span> message frequency varies.</li>
+                <li><span>Cost:</span> message and data rates may apply. These are charged by your mobile carrier, not by us.</li>
+                <li><span>Opt out:</span> reply STOP to any message to stop receiving texts. Reply HELP for help, or email support@ambitt.agency.</li>
+                <li><span>Not a condition of purchase:</span> your consent to receive text messages is not a condition of buying any product or service from us.</li>
               </ul>
-              <p className="mt-3">Carriers are not liable for delayed or undelivered messages. We handle your mobile number and SMS consent as described in our{" "}
-                <a href="/privacy" className="text-accent hover:underline">Privacy Policy</a> — we never share it with third parties or affiliates for marketing.</p>
+              <p>Carriers are not liable for delayed or undelivered messages. We handle your mobile number and SMS consent as described in our{" "}
+                <a href="/privacy">Privacy Policy</a> — we never share it with third parties or affiliates for marketing.</p>
             </Section>
 
             <Section title="6. Client Data & Tool Connections">
-              <p>You keep ownership of the data in your connected tools and the content your agent produces for you. You grant us the limited right to access and process that data solely to run the service you&apos;ve asked for. We don&apos;t use your business data to train models or share it with other clients. See our <a href="/privacy" className="text-accent hover:underline">Privacy Policy</a> for the details.</p>
+              <p>You keep ownership of the data in your connected tools and the content your agent produces for you. You grant us the limited right to access and process that data solely to run the service you&apos;ve asked for. We don&apos;t use your business data to train models or share it with other clients. See our <a href="/privacy">Privacy Policy</a> for the details.</p>
             </Section>
 
             <Section title="7. Intellectual Property">
@@ -84,22 +85,22 @@ export default function TermsPage() {
             </Section>
 
             <Section title="13. Contact">
-              <p>Questions about these Terms? Contact us at <a href="mailto:support@ambitt.agency" className="text-accent hover:underline">support@ambitt.agency</a>, or write to Kufgroup LLC (d/b/a Ambitt Agents).</p>
+              <p>Questions about these Terms? Contact us at <a href="mailto:support@ambitt.agency">support@ambitt.agency</a>, or write to Kufgroup LLC (d/b/a Ambitt Agents).</p>
             </Section>
           </div>
         </div>
-      </section>
+      </section></main>
 
       <Footer />
-    </main>
+    </>
   );
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div>
-      <h2 className="text-foreground font-semibold text-xl mb-4">{title}</h2>
-      <div className="space-y-3">{children}</div>
+      <h2 className="legal-heading">{title}</h2>
+      <div className="legal-paragraphs">{children}</div>
     </div>
   );
 }

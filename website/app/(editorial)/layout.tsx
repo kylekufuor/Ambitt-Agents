@@ -1,18 +1,14 @@
+import type { Metadata } from "next";
 import localFont from "next/font/local";
 import { IconSprite } from "./_components/icons";
 import { Motion } from "./_components/motion";
 import { MotionBoot } from "./_components/motion-boot";
 import { Sprites } from "./_components/sprites";
 import "./editorial.css";
+import "./support.css";
 
 /* ---------------------------------------------------------------------------
-   Root layout for the marketing pages: `/` and `/use-cases`.
-
-   A root layout of its own (the rest of the site lives under app/(site)/ with
-   Tailwind and globals.css) because the two stylesheets were written for
-   different pages and would collide. Next does a full page load when a
-   visitor crosses between root layouts, so neither stylesheet ever sees the
-   other's markup.
+   Shared root layout for every public marketing, help and legal page.
 
    Type: Satoshi for everything read; Geist Mono for labels, tags and the UI
    mock text (Seonovu's mono, kept to the small sizes); Roboto for the Gmail
@@ -53,6 +49,12 @@ const robotoGmail = localFont({
   variable: "--font-roboto-gmail",
   fallback: ["Roboto", "-apple-system", "Segoe UI", "Arial", "sans-serif"],
 });
+
+export const metadata: Metadata = {
+  metadataBase: new URL("https://www.ambitt.agency"),
+  title: "Ambitt Agents: your work, your workspace",
+  description: "A named agent working in your tools. Receive the results by email and review work, leads and decisions in your Ambitt portal.",
+};
 
 export default function EditorialLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (

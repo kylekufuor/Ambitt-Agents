@@ -1,25 +1,26 @@
 import { BrandLockup } from "./brand-mark";
 
-export function Footer({ page }: { page: "home" | "cases" }) {
+export function Footer({ page }: { page: "home" | "cases" | "other" }) {
   const home = page === "home" ? "" : "/";
   return (
     <footer>
       <div className="wrap">
         <div className="foot-grid">
           <div>
-            <BrandLockup href="#top" style={{ "--logo-size": "30px" }} />
+            <BrandLockup href={page === "home" ? "#top" : "/"} style={{ "--logo-size": "30px" }} />
             <p className="meta" style={{ marginTop: "12px", maxWidth: "36ch" }}>
               An AI workforce. Hired like a person, not licensed like software.
             </p>
           </div>
           <nav className="foot-links" aria-label="Footer">
             <a href={`${home}#how`}>How it works</a>
-            <a href="/use-cases">The cases</a>
+            <a href="/use-cases">Use cases</a>
+            <a href={`${home}#portal`}>The portal</a>
             <a href={`${home}#pricing`}>Pricing</a>
             <a href={`${home}#faq`}>FAQ</a>
-            <a href="/docs">Docs</a>
+            <a href="/docs">Help</a>
             <a href="/contact">Contact</a>
-            <a href="https://portal.ambitt.agency">Log in</a>
+            <a href="https://portal.ambitt.agency">Open portal</a>
             <a href="mailto:hello@ambitt.agency">hello@ambitt.agency</a>
           </nav>
         </div>

@@ -1,7 +1,7 @@
 /* ---------------------------------------------------------------------------
    The documentation's table of contents, in one place.
 
-   Shared by the page, the sidebar and the on-this-page rail so those three can
+   Shared by the page, the sidebar and the mobile jump menu so those three can
    never disagree. Three hand-maintained copies of the same list is how a docs
    site ends up with a nav entry pointing at a section somebody renamed.
 
@@ -22,6 +22,7 @@ export interface DocGroup {
 }
 
 export const DOC_GROUPS: DocGroup[] = [
+  { label: "Your workspace", sections: [{ id: "workspace", label: "A look around", blurb: "The overview, the work, and the controls that stay with you." }] },
   {
     label: "Getting in",
     sections: [

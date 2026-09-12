@@ -9,7 +9,7 @@ export function How() {
         <div className="section-head">
           <Kicker>How it works</Kicker>
           <h2 className="h2 rv-words">
-            <Words text={"Three steps. Then it's Monday and the work is done."} accent="done." />
+            <Words text={"From the first brief to the next decision."} accent="done." />
           </h2>
         </div>
         <div className="steps rv-seq">
@@ -17,8 +17,7 @@ export function How() {
             <span className="num">01</span>
             <h3>Tell us the job</h3>
             <p>
-              Describe the work the way you'd brief a new hire: what, when, and what good looks like. No form,
-              no setup call you dread.
+              Describe the job, the tools it involves, and what a good result looks like. For a custom build, we agree the scope and set it up with you.
             </p>
             <div className="mini">
               <div className="ml"><i />From you · Sunday 9:12pm</div>
@@ -30,10 +29,9 @@ export function How() {
           </div>
           <div className="step">
             <span className="num">02</span>
-            <h3>It works in your tools, with your logins</h3>
+            <h3>Connect your tools. Set the boundaries.</h3>
             <p>
-              Connected to the accounts you already have. Anything with real consequences waits for your approval
-              first.
+              We connect your accounts and review the setup before your agent goes live. Your agreed rules decide what it can do and when it needs a yes.
             </p>
             <div className="mini">
               <div className="ml"><i />Otto · needs a yes</div>
@@ -46,10 +44,9 @@ export function How() {
           </div>
           <div className="step">
             <span className="num">03</span>
-            <h3>The finished work arrives</h3>
+            <h3>Follow the work in your portal</h3>
             <p>
-              Reports, routes, document lists, ranked shortlists: by email, on schedule, and again next week
-              without being asked.
+              Results arrive by email. In the portal, review the weekly overview, open leads, check decisions, and see the work log. Send the next brief when you are ready.
             </p>
             <div className="mini">
               <div className="ml"><i />Monday · 7:04am</div>

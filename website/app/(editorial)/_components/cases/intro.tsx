@@ -1,24 +1,14 @@
-import { MaskLine } from "../primitives";
+import { Btn, Kicker } from "../primitives";
+import { PHOTOS } from "../photos";
 
-/** The cases page opening, on the same load sequence as the homepage hero. */
 export function CasesIntro() {
-  return (
-    <section className="section case-head" style={{ paddingBottom: "clamp(24px,4vw,40px)" }}>
-      <div className="wrap">
-        {/* load sequence [POLISH]: same rhythm as the homepage hero -- kicker, masked
-           headline, dek -- so both pages open with the same one deliberate movement. */}
-        <div style={{ maxWidth: "760px" }}>
-          <p className="kicker enter" style={{ animationDelay: ".02s" }}>The cases</p>
-          <h1 className="h1 enter" style={{ animationDelay: ".10s" }}>
-            <MaskLine delay=".11s">Four jobs. Four industries.</MaskLine>
-            <MaskLine delay=".19s">One <em className="accent">workforce</em>.</MaskLine>
-          </h1>
-          <p className="dek enter" style={{ marginTop: "18px", maxWidth: "56ch", animationDelay: ".19s" }}>
-            Illustrative examples of the jobs an agent can take on and the work it can deliver.
-            Names, messages and results are composites, not customer testimonials or promised outcomes.
-          </p>
-        </div>
-      </div>
-    </section>
-  );
+  return <section className="section workflow-intro"><div className="wrap">
+    <div className="workflow-intro-grid">
+      <div><Kicker>Inside the app</Kicker><h1 className="h1">See the work.<br /><span className="accent">Follow every step.</span></h1><p className="dek">Four everyday workflows, recorded in the portal. See what your agent brings back and where you take the next step.</p><div className="support-actions"><Btn href="#bookkeeping" icon="arrow-up-right">Watch a workflow</Btn><Btn href="https://portal.ambitt.agency" kind="ghost">Open portal</Btn></div><p className="workflow-disclosure">All businesses, records and results in these demos are fictional.</p></div>
+      <figure className="workflow-preview"><img src="/demos/portal-home-dark.webp" alt="The current Ambitt portal: weekly overview, pending decisions and agent details, with fictional data" width="1440" height="1000" fetchPriority="high" /><figcaption>The overview. Your first stop in the workspace.</figcaption></figure>
+    </div>
+    <nav className="workflow-index" aria-label="Choose a workflow">
+      {[{id:"bookkeeping",name:"Bookkeeping",detail:"Review invoice reminders",photo:PHOTOS.bookkeeping},{id:"commercial-real-estate",name:"Real estate",detail:"Screen and organize leads",photo:PHOTOS.commercialRealEstate},{id:"home-services",name:"Roofing",detail:"Keep up with enquiries",photo:PHOTOS.homeServices},{id:"tax-and-accounting",name:"Tax & accounting",detail:"Chase missing documents",photo:PHOTOS.taxAccounting}].map((item,i)=><a href={`#${item.id}`} key={item.id}><img src={item.photo.src} alt="" width="80" height="80" /><div><span>0{i+1} / {item.name}</span><p>{item.detail}</p></div><span aria-hidden="true">↗</span></a>)}
+    </nav>
+  </div></section>;
 }

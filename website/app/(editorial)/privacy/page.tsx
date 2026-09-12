@@ -3,28 +3,29 @@ import { Nav } from "../../components/nav";
 import { Footer } from "../../components/footer";
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/privacy" },
   title: "Privacy Policy — Ambitt Agents",
   description: "How Ambitt Agents collects, uses, and protects your information, including mobile phone numbers and SMS consent.",
 };
 
 export default function PrivacyPage() {
   return (
-    <main className="overflow-x-hidden">
+    <>
       <Nav />
 
-      <section className="relative pt-16 pb-28 px-6">
-        <div className="relative z-10 max-w-3xl mx-auto">
-          <div className="label-pill mb-6">Legal</div>
-          <h1 className="text-4xl md:text-6xl font-medium tracking-tight mb-4">Privacy Policy</h1>
-          <p className="text-muted-foreground text-sm mb-8">Last updated July 23, 2026</p>
+      <main id="main" className="legal-page"><section className="legal-document">
+        <div className="legal-content">
+          <div className="kicker">Legal</div>
+          <h1 className="h1">Privacy Policy</h1>
+          <p className="legal-date">Last updated July 23, 2026</p>
 
-          <p className="text-sm leading-relaxed text-muted-foreground mb-16 max-w-2xl">
-            Ambitt Agents is a service of <span className="text-foreground/90">Kufgroup LLC</span>{" "}(d/b/a Ambitt Agents),
+          <p className="legal-intro">
+            Ambitt Agents is a service of <span>Kufgroup LLC</span>{" "}(d/b/a Ambitt Agents),
             operating at ambitt.agency. This policy explains what we collect, how we use it, and the choices you have.
             When we say &ldquo;we&rdquo; or &ldquo;our team,&rdquo; we mean Kufgroup LLC.
           </p>
 
-          <div className="space-y-12 text-sm leading-relaxed text-muted-foreground">
+          <div className="legal-sections">
             <Section title="1. Information We Collect">
               <p>We collect personal information you provide voluntarily, including your name, email address, business name, and other contact details when you create an account, connect tools, or contact us.</p>
               <p>If you choose to receive text messages from us, we also collect the mobile phone number you provide and a record of your consent.</p>
@@ -33,7 +34,7 @@ export default function PrivacyPage() {
 
             <Section title="2. How We Use Your Information">
               <p>We use the information we collect to:</p>
-              <ul className="list-disc pl-5 space-y-1.5 mt-3 text-muted-foreground">
+              <ul>
                 <li>Operate and maintain your AI agents and tool connections</li>
                 <li>Send agent communications (reports, alerts, digests) to your email</li>
                 <li>Send account and login-verification text messages to the mobile number you opted in with</li>
@@ -45,7 +46,7 @@ export default function PrivacyPage() {
 
             <Section title="3. Mobile Information & SMS Text Messaging">
               <p>When you give us your mobile phone number and opt in through your client portal, we use it to send you transactional text messages — specifically account notifications and login-verification requests tied to work you&apos;ve asked your agent to do. We record your consent, together with a timestamp, at the moment you check the opt-in box.</p>
-              <p className="text-foreground/90 font-medium">No mobile information will ever be shared with third parties or affiliates for marketing or promotional purposes. We do not sell, rent, or share the mobile phone numbers or SMS opt-in data of our clients with anyone. Text-messaging originator opt-in data and consent are never shared with any third parties.</p>
+              <p>No mobile information will ever be shared with third parties or affiliates for marketing or promotional purposes. We do not sell, rent, or share the mobile phone numbers or SMS opt-in data of our clients with anyone. Text-messaging originator opt-in data and consent are never shared with any third parties.</p>
               <p>Message frequency varies, and message and data rates may apply. You can reply STOP to any message to opt out of text messages at any time, or HELP for help. Opting out of texts doesn&apos;t affect the rest of your service.</p>
             </Section>
 
@@ -60,7 +61,7 @@ export default function PrivacyPage() {
 
             <Section title="6. Data Retention">
               <p>We keep your personal information for as long as your account is active and for as long as we need it to provide the service. When you close your account, we delete your data — including agent memory, conversation history, and connected-tool credentials — within 30 days, except where we&apos;re required to keep certain records (for example, billing history) to meet legal or tax obligations.</p>
-              <p>You can request deletion of your account and associated data at any time by emailing <a href="mailto:support@ambitt.agency" className="text-accent hover:underline">support@ambitt.agency</a>.</p>
+              <p>You can request deletion of your account and associated data at any time by emailing <a href="mailto:support@ambitt.agency">support@ambitt.agency</a>.</p>
             </Section>
 
             <Section title="7. Tool Connections & Client Data">
@@ -85,22 +86,22 @@ export default function PrivacyPage() {
             </Section>
 
             <Section title="12. Contact">
-              <p>Questions about this privacy policy? Contact us at <a href="mailto:support@ambitt.agency" className="text-accent hover:underline">support@ambitt.agency</a>, or write to Kufgroup LLC (d/b/a Ambitt Agents).</p>
+              <p>Questions about this privacy policy? Contact us at <a href="mailto:support@ambitt.agency">support@ambitt.agency</a>, or write to Kufgroup LLC (d/b/a Ambitt Agents).</p>
             </Section>
           </div>
         </div>
-      </section>
+      </section></main>
 
       <Footer />
-    </main>
+    </>
   );
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div>
-      <h2 className="text-foreground font-semibold text-xl mb-4">{title}</h2>
-      <div className="space-y-3">{children}</div>
+      <h2 className="legal-heading">{title}</h2>
+      <div className="legal-paragraphs">{children}</div>
     </div>
   );
 }
