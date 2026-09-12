@@ -23,7 +23,7 @@ import { DOC_SECTIONS } from "./sections";
    earning.
    --------------------------------------------------------------------------- */
 
-export const metadata = pageMetadata({ path: "/docs", title: "The portal guide: Ambitt Agents", description: "Your guide to the Ambitt workspace: overview, leads, approvals, connected tools, email, settings and billing." });
+export const metadata = pageMetadata({ path: "/docs", title: "The portal guide: Ambitt Agents", description: "Your guide to the Ambitt workspace: browser tools, agent chat, watching, Playbook, files, leads and billing." });
 
 function Section({
   id,
@@ -81,12 +81,12 @@ export default function DocsPage() {
         <div className="docs-body">
           <details className="docs-jump"><summary>Jump to a section</summary><ul>{DOC_SECTIONS.map((s) => <li key={s.id}><a href={`#${s.id}`}>{s.label}</a></li>)}</ul></details>
           <Section id="workspace" title="A look around your workspace" lede={lede["workspace"]}>
-            <figure className="docs-screenshot"><img src="/demos/portal-home-dark.webp" width="1440" height="1000" alt="The Ambitt home overview showing weekly work and decisions in a fictional sample workspace" /><figcaption>The current portal, with fictional sample data.</figcaption></figure>
-            <Q q="Start at Home"><p>Your weekly overview shows new leads, emails sent, and decisions waiting on you. The agent panel shows its status, schedule, and email address.</p></Q>
+            <figure className="docs-screenshot"><img src="/demos/portal-workspace-dark.webp" width="1440" height="1030" alt="The Ambitt browser workspace with agent chat and proposed instructions in a fictional sample scenario" /><figcaption>The current portal, with fictional sample data.</figcaption></figure>
+            <Q q="Start at Home"><p>Home is your browser workspace. Choose Add a tool to add a website, connect an app, or import a file. Open a web tool from the sidebar; chat with your agent alongside it. Work overview opens the weekly summary of leads, emails and decisions.</p></Q>
             <Q q="Follow the work"><p>Open Leads for the board or table. Approvals collects the decisions waiting for your reply. Activity lets you look through the work log.</p></Q>
-            <Q q="Find the controls"><p>How they work shows the brief, limits and running status. Tools shows connections that are ready or need setup. Email setup, Billing and Settings handle the rest.</p></Q>
+            <Q q="Find the controls"><p>Learn together helps your agent understand your process. Do a task asks your active agent to carry out work through its connected tools. Playbook holds instructions you have confirmed. Files holds imports and generated attachments; Schedule controls when your agent works.</p></Q>
             <Q q="Choose your appearance"><p>Use the Light or Dark control in the top bar. Your preference is saved on this browser. On a phone, open the navigation menu to reach the same pages.</p></Q>
-            <Note><p>Browser watching, credit top-ups and self-serve plans are still in development. The videos show the working portal with fictional data.</p></Note>
+            <Q q="Teach a workflow"><p>Open a web tool, finish signing in, then choose Start watching and approve the current website. The green indicator shows when your agent is watching. It saves visible-page learning notes and selected controls, asks questions, and proposes instructions. Confirm an instruction before it becomes part of the Playbook.</p><p>Stop watching whenever you like. Hiding the portal tab or changing websites stops watching; a different website needs fresh consent. Password pages, form values and editable content are excluded. Activity shows the watch log.</p></Q><Note><p>Watching saves learning notes, not a video. The browser runs in the cloud; some websites need a separate desktop setup. Credit top-ups and self-serve plans remain in development. Screenshots and videos use fictional data.</p></Note>
           </Section>
 
           <Section id="signing-in" title="Signing in" lede={lede["signing-in"]}>
@@ -127,7 +127,7 @@ export default function DocsPage() {
           <Section id="asking" title="Asking for work" lede={lede["asking"]}>
             <Q q="How to ask">
               <p>
-                Reply to any email your agent sends, or write to their address directly. It is on
+                Use Chat in the portal and select Do a task, reply to an email your agent sends, or write to their address directly. It is on
                 the Email setup page in your portal. Write it the way you would write to a
                 colleague: there is no format, and no commands to learn.
               </p>
@@ -137,15 +137,15 @@ export default function DocsPage() {
             </Q>
             <Q q="Sending a file">
               <p>
-                Email it with <strong>DOCS</strong> in the subject line. That marks the attachment as
+                Import Excel, CSV, PDF, Word, text or JSON files up to 5 MB through Add a tool or Files. Select a file when asking your agent about it. For ongoing email reference material, email it with <strong>DOCS</strong> in the subject line. That marks the attachment as
                 reference material to work from rather than a one off question, and they keep using
                 it.
               </p>
             </Q>
             <Q q="When they work">
               <p>
-                On a schedule you set, and whenever you write to them. The schedule and time zone are on the How they work page in your portal.
-                Changing it is a message away.
+                On a schedule you set, and whenever you write to them. The schedule and time zone are on the Schedule page in your portal.
+                Update the schedule there whenever you need to.
               </p>
             </Q>
           </Section>
@@ -249,7 +249,7 @@ export default function DocsPage() {
           <Section id="tools" title="Tools and passwords" lede={lede["tools"]}>
             <Q q="What the Tools page shows">
               <p>
-                The accounts your agent uses on your behalf, and which ones still need you. Anything
+                Choose Add a tool to search the app catalogue and complete the provider’s connection flow. Connected accounts shows the accounts your agent uses on your behalf and which ones still need you. Anything
                 marked as needing setup is a tool they cannot use yet.
               </p>
             </Q>
@@ -269,7 +269,7 @@ export default function DocsPage() {
             </Q>
             <Q q="What counts against your plan">
               <p>
-                Your current Billing page shows the allowance and extra interaction rate for your account. Setup and onboarding messages do not count toward the monthly allowance. The upcoming credit plans shown on the pricing page have not replaced existing account billing.
+                Your current Billing page shows the allowance and extra interaction rate for your account. Setup and onboarding messages do not count toward the monthly allowance. The upcoming credit plans shown on the pricing page have not replaced existing account billing. Watching time is shown for your records; no separate watching charge is enabled.
               </p>
             </Q>
             <Q q="Cancelling">

@@ -22,7 +22,7 @@ export interface DocGroup {
 }
 
 export const DOC_GROUPS: DocGroup[] = [
-  { label: "Your workspace", sections: [{ id: "workspace", label: "A look around", blurb: "The overview, the work, and the controls that stay with you." }] },
+  { label: "Your workspace", sections: [{ id: "workspace", label: "A look around", blurb: "Browser tools, agent chat, watching, files, and the instructions you confirm." }] },
   {
     label: "Getting in",
     sections: [

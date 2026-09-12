@@ -10,15 +10,15 @@ export const QA: Array<{ q: string; a: string }> = [
   },
   {
     q: "What can I do in the portal?",
-    a: "Home gives you a weekly overview. Leads lets you follow opportunities, Approvals collects decisions, and Activity shows the work log. You can also manage connections, review how your agent works, and check billing. You can keep asking for work by email.",
+    a: "Home brings your web tools and agent chat together. Add a website, connect an app, or import a file. Start watching to teach a workflow, answer your agent’s questions, and confirm instructions in Playbook. Work overview, Leads, Approvals and Activity help you follow the results. Email still works too.",
   },
   {
     q: "Which of my tools can it work in?",
-    a: "The ones you already use: Gmail, Google Calendar and Sheets, Slack, your CRM (HubSpot or Salesforce), QuickBooks, and hundreds more. For specialized work like commercial real estate, it works in the listing and market-data platforms your brokers already subscribe to.",
+    a: "The ones you already use: Gmail, Google Calendar and Sheets, Slack, your CRM (HubSpot or Salesforce), QuickBooks, and hundreds more. You can also add a website to the portal browser. Compatibility varies: some websites block cloud browsers and need a separate desktop setup.",
   },
   {
     q: "Can I start on the Free plan today?",
-    a: "Self-serve Free, Pro, Max and Business plans are coming soon. Credit billing and browser watching are still in development. You can ask about early access or talk to us now about a custom build.",
+    a: "Self-serve Free, Pro, Max and Business plans are coming soon. Credit billing is still in development. Browser watching is available to existing portal clients. You can ask about early access or talk to us now about a custom build.",
   },
   {
     q: "Whose account does it use?",

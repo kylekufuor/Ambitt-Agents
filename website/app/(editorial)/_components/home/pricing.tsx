@@ -84,7 +84,7 @@ export function Pricing() {
         </div>
         <div className="pricing-notes">
           <div><h3>More work, more credits.</h3><p>Paid plans will offer {TOPUP_PREVIEW.credits} extra credits for {usd(TOPUP_PREVIEW.priceCents)}. A typical run uses one credit; longer jobs can use more. Free has a hard cap.</p></div>
-          <div><h3>Know what you're using.</h3><p>These are planned monthly allowances. Credit billing and browser watching are in development. Paid watching beyond the allowance will be $3 an hour.</p></div>
+          <div><h3>Know what you're using.</h3><p>These are planned monthly allowances. Credit billing and self-serve plans are in development. Browser watching is available in the portal, with time recorded and no separate watching charge today. The planned rate beyond an allowance is $3 an hour.</p></div>
         </div>
       </div>
       <noscript><style>{"#pricing .pricing-tabs{display:none}#pricing .pricing-panel[hidden]{display:block}#pricing .pricing-panel-title{display:block;margin-top:32px}"}</style></noscript>

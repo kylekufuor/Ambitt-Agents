@@ -179,7 +179,7 @@ async function main(): Promise<void> {
   const copy = text(section);
   check("custom build price and retainer", copy.includes("From$5,000") && copy.includes("One-time build + a quoted monthly retainer"), true);
   check("top-up pack disclosed", copy.includes("40 extra credits for $25"), true);
-  check("unfinished capabilities disclosed", copy.includes("Credit billing and browser watching are in development"), true);
+  check("unfinished capabilities disclosed", copy.includes("Credit billing and self-serve plans are in development"), true);
   check("no retired public plans or annual offer", /Starter|Growth|Scale|\$499|\$1,499|\$3,499|2 months free|20% off|Yearly/.test(text(pages["/"])), false);
   check("no signup link to an unbuilt route", pages["/"].includes("/signup"), false);
   // The active billing policy stays consistent across Oracle and the portal.
