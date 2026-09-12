@@ -11,7 +11,7 @@
      (a 7x7 dot tile), product "windows" on a radial glow, per-word blur-in on scroll
      (6px, 700ms, cubic-bezier(.12,.23,.17,.98)), the hero panel rising 60px (1s,
      cubic-bezier(.12,.23,.17,.99), delay .4s), a stack of metric cards that cycles
-     (scale .95 + blur .8px out of focus, 2s per step), pricing with a Monthly/Yearly
+     (scale .95 + blur .8px out of focus, 2s per step), pricing with an Individuals/Business
      toggle. Geist Mono headlines, Inter Display body.
    - Nuera (nuera.framer.website): #fafafa ground, floating white pill nav (sticky, top
      16px, 1180 wide, radius 14), 96px/600/-4px headline, blocks rise 34px + scale .98
@@ -505,34 +505,38 @@ figcaption .fno{ font-family:var(--mono); font-size:.6875rem; letter-spacing:.06
 .tile:hover{ border-color:var(--teal-edge); transform:translateY(-3px); background:var(--card-2) }
 .tile .brandmark{ width:24px; height:24px }
 
-/* ---- pricing (Seonovu's toggle and cards) ------------------------------------------ */
+/* ---- pricing ---------------------------------------------------------------------- */
 .toggle-row{ display:flex; justify-content:center }
-.toggle{ display:inline-flex; padding:4px; border-radius:12px; background:var(--card); border:1px solid var(--rule); position:relative; font-size:.9375rem }
-.toggle button{ position:relative; z-index:1; padding:9px 18px; border-radius:9px; color:var(--ink-2); display:inline-flex; align-items:center; gap:8px; transition:color .25s var(--e-out); min-width:118px; justify-content:center }
-.toggle button[aria-pressed="true"]{ color:var(--ink) }
-.toggle .thumb{ position:absolute; top:4px; bottom:4px; left:4px; width:calc(50% - 4px); border-radius:9px; background:var(--card-3); border:1px solid var(--rule); transition:transform .3s var(--ease-out-quart) }
-.toggle[data-yearly="true"] .thumb{ transform:translateX(100%) }
-.toggle .save{ font-family:var(--mono); font-size:.6875rem; padding:2px 7px; border-radius:6px; background:var(--teal-wash); color:var(--teal-ink); border:1px solid var(--teal-edge); letter-spacing:.02em }
-.plans{ display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-top:clamp(28px,4vw,44px) }
-.plan{ position:relative; display:grid; gap:18px; align-content:start; padding:clamp(22px,2.6vw,30px); border-radius:18px; background:var(--card); border:1px solid var(--rule-soft); transition:border-color .3s var(--e-out), transform .3s var(--e-out) }
+.pricing-tabs{ display:inline-flex; padding:4px; border-radius:12px; background:var(--card); border:1px solid var(--rule); font-size:.9375rem }
+.pricing-tabs button{ min-width:132px; padding:10px 20px; border-radius:8px; color:var(--ink-2); border:1px solid transparent; transition:background-color .2s var(--e-out),color .2s var(--e-out) }
+.pricing-tabs button[aria-selected="true"]{ color:var(--ink); background:var(--card-3); border-color:var(--rule-strong) }
+.pricing-tabs button:focus-visible,.pricing-panel:focus-visible{ outline:2px solid var(--teal); outline-offset:4px }
+.pricing-panel-title{ display:none }
+.pricing-availability{ margin:24px auto 0; max-width:70ch; color:var(--ink-3); font-size:.8125rem; line-height:1.7; text-align:center }
+.pricing-availability span{ display:inline-block; color:var(--teal-ink); background:var(--teal-wash); border-radius:5px; padding:1px 7px; margin-right:5px; font-family:var(--mono); font-size:.6875rem }
+.plans{ display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:18px; margin-top:36px }
+.business-plans{ grid-template-columns:repeat(2,minmax(0,1fr)); max-width:900px; margin-inline:auto }
+.plan{ position:relative; display:grid; gap:18px; align-content:start; padding:clamp(22px,2.6vw,30px); border-radius:18px; background:var(--card); border:1px solid var(--rule-soft); transition:border-color .3s var(--e-out),transform .3s var(--e-out) }
 .plan:hover{ border-color:var(--rule-strong); transform:translateY(-3px) }
-.plan.featured{ border-color:var(--teal-edge); background:linear-gradient(var(--card-2), var(--card)); box-shadow:0 0 0 1px var(--teal-edge), 0 30px 60px -30px var(--teal-glow) }
+.plan.featured{ border-color:var(--teal-edge); background:linear-gradient(var(--card-2),var(--card)); box-shadow:0 0 0 1px var(--teal-edge),0 30px 60px -30px var(--teal-glow) }
 .plan .tag{ position:absolute; top:-13px; left:50%; transform:translateX(-50%); font-family:var(--mono); font-size:.6875rem; letter-spacing:.06em; text-transform:uppercase; padding:5px 10px; border-radius:6px; background:var(--teal); color:var(--on-teal); white-space:nowrap }
-.plan .name{ font-family:var(--mono); font-size:1.0625rem; font-weight:500 }
-.plan .for{ color:var(--ink-3); font-size:.9375rem; margin-top:4px }
-.plan .price{ display:flex; align-items:baseline; gap:6px; font-family:var(--mono); letter-spacing:-.02em }
-.plan .price .amt{ font-size:2.25rem; font-weight:500; color:var(--ink); transition:opacity .3s var(--e-out), filter .3s var(--e-out) }
+.plan .name{ margin:0; font-family:var(--mono); font-size:1.0625rem; font-weight:500 }
+.plan .for{ margin:5px 0 0; color:var(--ink-3); font-size:.9375rem; min-height:2.8em }
+.plan .price{ display:flex; flex-wrap:wrap; align-items:baseline; gap:7px; font-family:var(--mono); letter-spacing:-.02em }
+.plan .price .amt{ font-size:clamp(2.25rem,3.8vw,3.1rem); font-weight:500; color:var(--ink); line-height:1.15 }
 .plan .price .per{ color:var(--ink-3); font-size:.875rem }
-.plan .billed{ font-family:var(--mono); font-size:.75rem; color:var(--ink-3); min-height:1.2em; margin-top:-8px }
-.plan .build{ font-size:.875rem; color:var(--ink-2); padding:10px 12px; border-radius:9px; background:var(--bg-2); border:1px solid var(--rule-soft) }
-.plan .build b{ font-family:var(--mono); font-weight:500; color:var(--ink) }
-.plan ul{ list-style:none; margin:0; padding:16px 0 0; border-top:1px dashed var(--rule); display:grid; gap:11px; font-size:.9375rem; color:var(--ink-2) }
+.plan .billed{ margin:-8px 0 0; font-family:var(--mono); font-size:.6875rem; color:var(--ink-3); min-height:1.2em }
+.plan ul{ list-style:none; margin:0; padding:20px 0 0; border-top:1px dashed var(--rule); display:grid; gap:12px; font-size:.875rem; color:var(--ink-2) }
 .plan li{ display:flex; gap:10px; align-items:flex-start }
-.plan li .ic{ width:16px; height:16px; color:var(--teal-ink); margin-top:3px }
-.plans[data-switching="true"] .amt{ opacity:.35; filter:blur(3px) }
-.plan .btn{ justify-content:center }
-.ledger-foot{ margin:clamp(24px,3vw,36px) auto 0; max-width:66ch; text-align:center; font-size:.9375rem; color:var(--ink-3); line-height:1.6 }
-@media (max-width:980px){ .plans{ grid-template-columns:1fr } .plan.featured{ order:-1 } }
+.plan li .ic{ flex:none; width:16px; height:16px; color:var(--teal-ink); margin-top:2px }
+.plan .btn{ justify-content:center; padding-inline:12px; font-size:.875rem }
+.custom-plan{ background:linear-gradient(135deg,var(--card-2),var(--card)) }
+.custom-note{ margin:0; font-size:.875rem; line-height:1.65; color:var(--ink-3) }
+.pricing-notes{ margin:32px auto 0; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:32px; max-width:900px; padding-top:26px; border-top:1px dashed var(--rule) }
+.pricing-notes h3{ margin:0 0 6px; font-size:.9375rem; font-weight:500; color:var(--ink-2) }
+.pricing-notes p{ margin:0; color:var(--ink-3); font-size:.875rem; line-height:1.7 }
+@media (max-width:900px){ .plans,.business-plans{ grid-template-columns:1fr; max-width:540px; margin-inline:auto } .plan .for{ min-height:0 } }
+@media (max-width:600px){ .pricing-tabs{ width:100%; max-width:360px } .pricing-tabs button{ min-width:0; flex:1; padding-inline:14px } .pricing-notes{ grid-template-columns:1fr; gap:22px } }
 
 /* ---- FAQ (Nuera's) --------------------------------------------------------------- */
 .faq-list{ border-top:1px solid var(--rule) }
@@ -1036,3 +1040,5 @@ footer{ position:relative; border-top:1px solid var(--rule-soft); padding-block:
   .tour-gallery { grid-template-columns: 1fr; gap: 26px; }
   .tour-main video::cue { font-size: 12px; }
 }
+
+.tour-gallery.tour-gallery-single{ grid-template-columns:minmax(0,1fr); max-width:880px; margin-inline:auto }

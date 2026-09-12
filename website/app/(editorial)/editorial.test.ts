@@ -4,8 +4,7 @@
 //
 // Renders the two marketing pages (`/`, `/use-cases`) to static HTML with React
 // and checks what a visitor would actually get: links that go nowhere, icons
-// that point at a symbol no sprite carries, prices that disagree with what
-// Oracle bills, copy glued together by a whitespace bug, and anything that
+// that point at a symbol no sprite carries, pricing previews without availability labels, copy glued together by a whitespace bug, and anything that
 // should never reach a public page.
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
@@ -33,15 +32,6 @@ function check(label: string, actual: unknown, expected: unknown): void {
 const here = dirname(resolve(process.argv[1]));
 const websiteRoot = resolve(here, "../..");
 
-interface Tier {
-  monthlyCents: number;
-  maxAgents: number;
-  interactionsPerMonth: number;
-  overageRateCents: number;
-  setupFeeCentsMin: number;
-  setupFeeCentsMax: number;
-}
-
 /**
  * Visible text, near enough: entities back, whitespace collapsed, and a block
  * boundary counted as a break while an inline tag is not, so a space that is
@@ -66,6 +56,7 @@ async function main(): Promise<void> {
   const { Sprites } = await import("./_components/sprites");
   const { IconSprite } = await import("./_components/icons");
   const pricing = await import("./_components/home/pricing");
+  const { PLAN_PREVIEW } = await import("../lib/plan-preview");
   const { QA } = await import("./_components/home/faq");
 
   const sprites = renderToStaticMarkup(createElement(Sprites)) + renderToStaticMarkup(createElement(IconSprite));
@@ -145,55 +136,48 @@ async function main(): Promise<void> {
   );
   check("no HTML entities in marketing JSX", entities, []);
 
-  // --- pricing agrees with shared/pricing-constants.ts --------------------------
-  // Loaded by computed path at run time, never a static import: the website is
-  // built on Railway from website/ alone, where ../shared does not exist.
-  const constantsPath = join(websiteRoot, "..", "shared", "pricing-constants.ts");
-  check("shared/pricing-constants.ts is reachable", existsSync(constantsPath), true);
-  const shared = (await import(pathToFileURL(constantsPath).href)) as {
-    TIERS: Record<string, Tier>;
-    SECOND_AGENT_DISCOUNT_PCT: number;
-    getAnnualPrice: (t: "starter" | "growth" | "scale") => number;
-  };
-
-  for (const key of ["starter", "growth", "scale"] as const) {
-    const mine = pricing.TIERS[key];
-    const theirs = shared.TIERS[key];
-    check(
-      `${key}: website mirror matches Oracle`,
-      [mine.monthlyCents, mine.maxAgents, mine.interactionsPerMonth, mine.overageRateCents, mine.setupFeeCentsMin, mine.setupFeeCentsMax],
-      [theirs.monthlyCents, theirs.maxAgents, theirs.interactionsPerMonth, theirs.overageRateCents, theirs.setupFeeCentsMin, theirs.setupFeeCentsMax],
-    );
-    check(`${key}: yearly price matches Oracle's getAnnualPrice`, mine.monthlyCents * pricing.ANNUAL_MONTHS, shared.getAnnualPrice(key));
-
-  }
-  check("discount mirror matches Oracle", pricing.SECOND_AGENT_DISCOUNT_PCT, shared.SECOND_AGENT_DISCOUNT_PCT);
-
+  // Public plans are explicitly a preview until usage billing is built.
+  // Assert the agreed prices independently of their render source.
+  const agreed = {
+    free: [0, 30, 2, 3, 1], pro: [7900, 80, 8, 6, 1],
+    max: [19900, 200, 20, null, 1], business: [59900, 600, 60, null, 3],
+  } as const;
   const section = /<section class="section ruled" id="pricing">([\s\S]*?)<\/section>/.exec(pages["/"])?.[1] ?? "";
   check("pricing section found", section.length > 0, true);
-  const usd = pricing.usd;
-  for (const key of ["starter", "growth", "scale"] as const) {
-    const tier = shared.TIERS[key];
-    const card = new RegExp(`<div class="plan[^"]*">[\\s\\S]*?<div class="name">${pricing.TIERS[key].label}</div>[\\s\\S]*?</ul>`).exec(section)?.[0] ?? "";
+  for (const key of Object.keys(agreed) as Array<keyof typeof agreed>) {
+    const plan = PLAN_PREVIEW[key];
+    check(`${key}: agrees with Kyle's pricing decisions`, [plan.monthlyCents, plan.credits, plan.watchHours, plan.tools, plan.agents], agreed[key]);
+    const card = new RegExp(`<article[^>]*data-tier="${key}"[^>]*>[\\s\\S]*?</article>`).exec(section)?.[0] ?? "";
     check(`${key}: card found`, card.length > 0, true);
-    check(`${key}: card shows the monthly price`, text(card).includes(`${usd(tier.monthlyCents)}/mo`), true);
-    const build =
-      tier.setupFeeCentsMin === tier.setupFeeCentsMax
-        ? `${usd(tier.setupFeeCentsMin)} flat`
-        : `${usd(tier.setupFeeCentsMin)} to ${usd(tier.setupFeeCentsMax)}`;
-    check(`${key}: card shows the build fee`, text(card).includes(`One-time build: ${build}`), true);
-    check(`${key}: card shows the interaction allowance`, text(card).includes(`${tier.interactionsPerMonth.toLocaleString("en-US")} interactions per agent a month`), true);
+    check(`${key}: monthly price rendered`, text(card).includes(`${pricing.usd(plan.monthlyCents)}/month`), true);
+    check(`${key}: allowance is credits, not a guaranteed run count`, text(card).includes(`${plan.credits} credits a month`), true);
+    check(`${key}: planned watching allowance rendered`, text(card).includes(`${plan.watchHours} hours of browser watching`), true);
+    check(`${key}: tool allowance rendered`, text(card).includes(plan.tools === null ? "Unlimited tool connections" : `${plan.tools} tool connections`), true);
+    check(`${key}: availability disclosed on the card`, text(card).includes("coming soon"), true);
+    check(`${key}: CTA does not promise working signup`, text(card).includes("Ask about early access") && card.includes('href="#contact"'), true);
   }
-  check("Growth is the featured plan", /<div class="plan featured">[\s\S]*?For growing teams/.test(section), true);
-  const foot = text(section);
-  const { growth, scale, starter } = shared.TIERS;
-  check("Growth and Scale share one flat build", growth.setupFeeCentsMin === scale.setupFeeCentsMin && growth.setupFeeCentsMin === growth.setupFeeCentsMax && scale.setupFeeCentsMin === scale.setupFeeCentsMax, true);
-  check("ledger foot states the flat build", foot.includes(`It's a flat ${usd(growth.setupFeeCentsMin)} on Growth and Scale.`), true);
-  check("ledger foot states Starter's range", foot.includes(`On Starter it's ${usd(starter.setupFeeCentsMin)} to ${usd(starter.setupFeeCentsMax)}, quoted`), true);
-  check("no false 'no per-seat charge' claim", /no per-seat charge/i.test(pages["/"]), false);
-  check("states the additional-agent discount", foot.includes(`each one you add after that is ${shared.SECOND_AGENT_DISCOUNT_PCT}% off`), true);
-  check("yearly toggle promises what getAnnualPrice gives", foot.includes("2 months free") && pricing.ANNUAL_MONTHS === 10, true);
-  check("usd formats thousands", [usd(49_900), usd(500_000), usd(4_198_800)], ["$499", "$5,000", "$41,988"]);
+  for (const audience of ["individuals", "business"]) {
+    check(`${audience}: tab linked to its panel`, section.includes(`id="pricing-tab-${audience}" aria-controls="pricing-${audience}"`), true);
+    check(`${audience}: panel labelled by its tab`, section.includes(`role="tabpanel" aria-labelledby="pricing-tab-${audience}"`), true);
+  }
+  check("individuals is selected initially", section.includes('aria-controls="pricing-individuals" aria-selected="true"'), true);
+  check("both panels remain readable without JavaScript", section.includes("<noscript>"), true);
+  const copy = text(section);
+  check("custom build price and retainer", copy.includes("From$5,000") && copy.includes("One-time build + a quoted monthly retainer"), true);
+  check("top-up pack disclosed", copy.includes("40 extra credits for $25"), true);
+  check("unfinished capabilities disclosed", copy.includes("Credit billing and browser watching are in development"), true);
+  check("no retired public plans or annual offer", /Starter|Growth|Scale|\$499|\$1,499|\$3,499|2 months free|20% off|Yearly/.test(text(pages["/"])), false);
+  check("no signup link to an unbuilt route", pages["/"].includes("/signup"), false);
+  // The active billing policy stays consistent across Oracle and the portal.
+  const constantsPath = join(websiteRoot, "..", "shared", "pricing-constants.ts");
+  const active = await import(pathToFileURL(constantsPath).href);
+  const portal = await import(pathToFileURL(join(websiteRoot, "..", "client-portal", "src", "lib", "pricing-constants.ts")).href);
+  check("active billing tiers remain in sync", active.TIERS, portal.TIERS);
+  check("active billing discounts remain in sync", active.SECOND_AGENT_DISCOUNT_PCT, portal.SECOND_AGENT_DISCOUNT_PCT);
+  check("walkthrough asset exists", existsSync(join(websiteRoot, "public/demos/portal-walkthrough.mp4")), true);
+  check("retired pricing screenshot removed from page", pages["/"].includes("portal-billing.webp"), false);
+  check("usd formats prices", [pricing.usd(0), pricing.usd(7900), pricing.usd(500000)], ["$0", "$79", "$5,000"]);
+
 }
 
 main()
