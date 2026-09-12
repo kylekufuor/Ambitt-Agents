@@ -18,6 +18,9 @@ export async function middleware(request: NextRequest) {
   // --- Chat subdomain path ---
   if (isChatHost(host)) {
     const url = request.nextUrl.clone();
+    if (url.pathname === "/" || url.pathname === "/chat") {
+      return NextResponse.redirect(new URL("https://portal.ambitt.agency/chat"));
+    }
     // If we already rewrote this request once, don't double-prefix.
     if (!url.pathname.startsWith("/chat")) {
       url.pathname = url.pathname === "/" ? "/chat" : `/chat${url.pathname}`;

@@ -201,6 +201,14 @@ export async function runBrowserTask(input: RunBrowserTaskInput): Promise<RunBro
   let errorMessage: string | undefined;
 
   try {
+    // The client signs in once in the portal. Subsequent agent runs use the
+    // same isolated profile, and never take it over while the client is in it.
+    const workspaceTools = startingUrl ? await prisma.workspaceTool.findMany({ where: { agentId, clientId, kind: "web", archivedAt: null, contextId: { not: null } }, select: { id: true, url: true, contextId: true } }) : [];
+    const workspaceTool = workspaceTools.find(t => { try { return new URL(t.url!).origin === new URL(startingUrl!).origin; } catch { return false; } });
+    if (workspaceTool) await prisma.$transaction(async tx => {
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${clientId}))::text`;
+      if (await tx.workspaceSession.findFirst({ where: { toolId: workspaceTool.id, status: { in: ["starting", "running"] } } })) throw new Error("The client is using this browser profile in the portal. Ask them to close the session before running a task here.");
+    });
     stagehand = new Stagehand({
       env: "BROWSERBASE",
       apiKey: process.env.BROWSERBASE_API_KEY,
@@ -211,14 +219,11 @@ export async function runBrowserTask(input: RunBrowserTaskInput): Promise<RunBro
       // survives our disconnect and the next call can reconnect to it.
       ...(resumeSessionId
         ? { browserbaseSessionID: resumeSessionId }
-        : keepSessionOpen
-          ? {
-              browserbaseSessionCreateParams: {
-                projectId: process.env.BROWSERBASE_PROJECT_ID!,
-                keepAlive: true,
-              },
-            }
-          : {}),
+        : { browserbaseSessionCreateParams: {
+            projectId: process.env.BROWSERBASE_PROJECT_ID!,
+            ...(keepSessionOpen ? { keepAlive: true } : {}),
+            ...(workspaceTool?.contextId ? { browserSettings: { context: { id: workspaceTool.contextId, persist: true }, recordSession: false, logSession: false } } : {}),
+          } }),
     });
     await stagehand.init();
     browserbaseSessionId = resumeSessionId ?? stagehand.browserbaseSessionID;

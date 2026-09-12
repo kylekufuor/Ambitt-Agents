@@ -87,6 +87,11 @@ model Client {
 
   @@index([stripeCustomerId])
   @@index([billingStatus])
+  playbookRules PlaybookRule[]
+  workspaceTools WorkspaceTool[]
+  workspaceSessions WorkspaceSession[]
+  workspaceTurns WorkspaceTurn[]
+
 }
 
 model Agent {
@@ -232,6 +237,11 @@ model Agent {
   @@index([clientId, agentType])
   @@index([status])
   @@index([agentType])
+  playbookRules PlaybookRule[]
+  workspaceTools WorkspaceTool[]
+  workspaceSessions WorkspaceSession[]
+  workspaceTurns WorkspaceTurn[]
+
 }
 
 model Task {
@@ -1119,4 +1129,161 @@ model LocalTask {
   @@index([deviceId, status])
   @@index([agentId, createdAt])
   @@index([status, createdAt])
+}
+
+
+model PlaybookRule {
+  id       String @id @default(cuid())
+  agentId  String
+  agent    Agent  @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  // "target" | "outreach" | "never" | "stop" — see the note above.
+  group String
+
+  // The rule in the CLIENT'S words, not our paraphrase. The whole point of the
+  // Playbook is that they recognise the line as something they said.
+  text      String @db.Text
+  sortOrder Int    @default(0)
+
+  //   active   — in force, rendered into the system prompt
+  //   proposed — the agent noticed a pattern and is asking; NOT in the prompt
+  //   declined — the client said no; kept so the agent stops re-proposing it
+  //   retired  — superseded or withdrawn; kept for history
+  status String @default("active")
+
+  // Provenance as facts (see the note above).
+  //   sourceKind  — "onboarding" | "email" | "portal" | "chat" | "agent" | "operator"
+  //   sourceRef   — id of whatever it came from (Prospect id, message id, …)
+  //   sourceQuote — the client's own sentence, when we have it verbatim
+  //   sourceAt    — when the CLIENT said it, not when we wrote the row
+  sourceKind  String    @default("onboarding")
+  sourceRef   String?
+  sourceQuote String?   @db.Text
+  sourceAt    DateTime?
+
+  // Machine-readable form of the rule when one can be derived, e.g.
+  // { field: "units", op: "gte", value: 5 }. Null means the rule is prose and
+  // lives in the prompt rather than in a filter. Phase 2+.
+  predicate Json?
+
+  // What the rule costs or saves, in the client's terms ("drops 23 off your
+  // board"). impactNote is the sentence we show, impactData the counted
+  // evidence behind it. Phase 2 — both null in Phase 1, and nothing renders
+  // an impact number until there is real counting behind it.
+  impactNote String? @db.Text
+  impactData Json?
+
+  // Set only on status="proposed": why the agent is asking. proposedKey is a
+  // stable dedupe key so it asks once rather than on every run.
+  proposedReason String? @db.Text
+  proposedKey    String?
+
+  // The rule this one replaces. Deliberately NOT a Prisma self-relation: a
+  // superseded row can be hard-deleted by a client "forget this", and a FK
+  // would either block that or cascade into rules still in force. The renderer
+  // drops any active rule that a live rule supersedes.
+  supersedesId String?
+
+  effectiveFrom DateTime?
+  retiredAt     DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // The prompt read: this agent's live rules, by group.
+  @@index([agentId, status, group])
+  @@index([agentId, sortOrder])
+  @@index([clientId])
+  // "have I already proposed this?" — checked before the agent proposes again.
+  @@index([agentId, proposedKey])
+}
+
+// Portal-owned connections and persistent, isolated browser profiles.
+model WorkspaceTool {
+  id String @id @default(cuid())
+  clientId String
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  agentId String
+  agent Agent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  kind String // web | app | file
+  name String
+  url String?
+  appSlug String?
+  logoUrl String?
+  contextId String?
+  contentEncrypted String? @db.Text
+  filename String?
+  archivedAt DateTime?
+  createdAt DateTime @default(now())
+  sessions WorkspaceSession[]
+  @@unique([clientId, appSlug])
+  @@unique([clientId, url])
+  @@index([agentId, createdAt])
+}
+
+model WorkspaceSession {
+  id String @id @default(cuid())
+  clientId String
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  agentId String
+  agent Agent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  toolId String
+  tool WorkspaceTool @relation(fields: [toolId], references: [id], onDelete: Cascade)
+  providerId String?
+  connectionEncrypted String? @db.Text
+  viewEncrypted String? @db.Text
+  status String @default("starting")
+  currentUrl String?
+  consentOrigin String?
+  consentAt DateTime?
+  watching Boolean @default(false)
+  watchedMs Int @default(0)
+  ownerTabId String
+  heartbeatSeq Int @default(0)
+  lastHeartbeatAt DateTime?
+  startedAt DateTime @default(now())
+  endedAt DateTime?
+  expiresAt DateTime
+  observations WorkspaceObservation[]
+  turns WorkspaceTurn[]
+  @@index([agentId, status])
+}
+
+// Each interval is auditable; redacted browser content expires separately.
+model WorkspaceObservation {
+  id String @id @default(cuid())
+  sessionId String
+  session WorkspaceSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  origin String
+  startedAt DateTime
+  endedAt DateTime
+  watchedMs Int
+  contentEncrypted String? @db.Text
+  expiresAt DateTime
+  @@index([sessionId, startedAt])
+  @@index([expiresAt])
+}
+
+// Request IDs survive HTTP retries. A work turn is never automatically replayed.
+model WorkspaceTurn {
+  id String @id @default(cuid())
+  clientId String
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  agentId String
+  agent Agent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  sessionId String?
+  session WorkspaceSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  requestId String
+  automatic Boolean @default(false)
+  heartbeatAt DateTime?
+  kind String
+  message String @db.Text
+  response String? @db.Text
+  status String @default("pending")
+  createdAt DateTime @default(now())
+  completedAt DateTime?
+  @@unique([clientId, requestId])
+  @@index([agentId, createdAt])
 }

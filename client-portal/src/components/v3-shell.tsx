@@ -58,7 +58,10 @@ async function loadRail(email: string): Promise<RailProps | null> {
   const tier = (agent?.pricingTier ?? "growth") as PricingTier;
   const planLabel = agent ? (TIERS[tier] ? `${TIERS[tier].label} plan` : "Your plan") : "Getting started";
 
+  const workspaceTools = agent ? await prisma.workspaceTool.findMany({ where: { agentId: agent.id, archivedAt: null }, select: { id: true, name: true, kind: true }, orderBy: { createdAt: "asc" } }) : [];
+
   return {
+    workspaceTools,
     businessName: client.businessName,
     planLabel,
     agent: agent

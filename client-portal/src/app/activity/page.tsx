@@ -1,3 +1,4 @@
+import { WatchRecords } from "@/components/workspace/records";
 import prisma from "@/lib/db";
 import { V3Shell } from "@/components/v3-shell";
 import { PageHead, Panel, Eyebrow, Empty } from "@/components/v3-ui";
@@ -76,6 +77,7 @@ export default async function ActivityPage() {
   return (
     <V3Shell user={{ email, name: client.businessName }} crumbs={[{ label: "Activity" }]}>
       <PageHead title="Activity" sub={`Everything ${name} has done for you, newest first.`} />
+      <WatchRecords />
 
       {items.length === 0 ? (
         <Empty title={`${name} has not done anything yet.`}>

@@ -123,6 +123,7 @@ export interface RailProps {
   agent: RailAgent | null;
   counts: { leads: number; approvals: number };
   toolsNeedSetup: boolean;
+  workspaceTools?: Array<{ id: string; name: string; kind: string }>;
 }
 
 /**
@@ -162,7 +163,7 @@ function agentLine(a: RailAgent): { dot: string; line: string } {
  * nothing else about the rail changes.
  */
 const BUILT = new Set<string>([
-  "/", "/leads", "/approvals", "/activity",
+  "/", "/chat", "/playbook", "/files", "/schedule", "/leads", "/approvals", "/activity",
   "/agent/how", "/agent/tools", "/agent/email",
   "/billing", "/people", "/settings", "/help",
 ]);
@@ -200,7 +201,7 @@ function NavItem({
   );
 }
 
-export function RailNav({ businessName, planLabel, agent, counts, toolsNeedSetup }: RailProps) {
+export function RailNav({ businessName, planLabel, agent, counts, toolsNeedSetup, workspaceTools = [] }: RailProps) {
   const pathname = usePathname();
   const is = (p: string) => pathname === p || pathname.startsWith(p + "/");
   const initials = businessName.split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("");
@@ -228,23 +229,27 @@ export function RailNav({ businessName, planLabel, agent, counts, toolsNeedSetup
 
       <nav className="px-2 flex flex-col gap-px" aria-label="Portal">
         <NavItem href="/" label="Home" icon="home" active={pathname === "/"} />
+        {agent && <><p className="v3-navs">Your tools</p>{workspaceTools.filter(t => t.kind === 'web').map(t => <Link className="v3-ni" href={`/?tool=${t.id}`} key={t.id}><Icon name="tools" /><span className="truncate">{t.name}</span></Link>)}<Link className="v3-ni" href="/?add=1"><Icon name="tools" />Add a tool</Link><NavItem href="/chat" label="Chat" icon="mail" active={is("/chat")} /><NavItem href="/playbook" label="Playbook" icon="leads" active={is("/playbook")} /></>}
         <NavItem href="/leads" label="Leads" icon="leads" count={counts.leads} active={is("/leads")} />
         <NavItem href="/approvals" label="Approvals" icon="check" count={counts.approvals} active={is("/approvals")} />
         <NavItem href="/activity" label="Activity" icon="clock" active={is("/activity")} />
+        <NavItem href="/schedule" label="Schedule" icon="clock" active={is("/schedule")} />
+        <NavItem href="/files" label="Files" icon="leads" active={is("/files")} />
 
         {agent && (
           <>
             <p className="v3-navs">{agent.name}</p>
             <NavItem href="/agent/how" label="How they work" icon="cfg" active={is("/agent/how")} />
-            <NavItem href="/agent/tools" label="Tools" icon="tools" dot={toolsNeedSetup} active={is("/agent/tools")} />
+            <NavItem href="/agent/tools" label="Connected accounts" icon="tools" dot={toolsNeedSetup} active={is("/agent/tools")} />
             <NavItem href="/agent/email" label="Email setup" icon="mail" active={is("/agent/email")} />
           </>
         )}
 
-        <p className="v3-navs">Account</p>
+        <details className="rail-account"><summary className="v3-navs cursor-pointer">Account</summary>
         <NavItem href="/billing" label="Billing" icon="card" active={is("/billing")} />
         <NavItem href="/people" label="People" icon="team" active={is("/people")} />
         <NavItem href="/settings" label="Settings" icon="gear" active={is("/settings")} />
+        </details>
         <NavItem href="/help" label="Help" icon="help" active={is("/help")} />
       </nav>
 

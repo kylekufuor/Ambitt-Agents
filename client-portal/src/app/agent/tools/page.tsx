@@ -1,3 +1,4 @@
+import { SavedWebTools } from "@/components/workspace/records";
 import { notFound } from "next/navigation";
 import prisma from "@/lib/db";
 import { oracleUrl } from "@/lib/agent-auth";
@@ -109,9 +110,10 @@ export default async function AgentToolsPage({
 
   return (
     <V3Shell user={{ email, name: client.businessName }} crumbs={[{ label: "Tools" }]}>
+      <SavedWebTools />
       <PageHead
         title={`What ${agent.name} works with`}
-        sub={`The accounts ${agent.name} uses on your behalf. Your passwords sit in an encrypted vault, and we never see or store the values ourselves.`}
+        sub={`The accounts ${agent.name} uses on your behalf. Connection details are protected. Review or disconnect each account below.`}
       />
 
       <div className="flex flex-wrap items-center gap-x-5 gap-y-2 -mt-1 mb-4">

@@ -1,3 +1,5 @@
+import { workspaceRouter } from "./workspace/router.js";
+import { sweepWorkspace } from "../shared/workspace/browser.js";
 import "dotenv/config";
 import express, { Request, Response } from "express";
 import multer from "multer";
@@ -299,6 +301,8 @@ function needsRawBody(url: string | undefined): boolean {
 // Raise body limit — scaffold endpoint accepts base64-encoded SOP uploads.
 // The `verify` hook only stashes bytes for RAW_BODY_ROUTES, so we're not
 // holding a second copy of every 30MB scaffold upload.
+app.use("/workspace", express.text({ type: "application/json", limit: "7mb" }), workspaceRouter);
+
 app.use(
   express.json({
     limit: "30mb",
@@ -6838,6 +6842,8 @@ app.post("/cron/improvement", async (_req: Request, res: Response) => {
 // Start server
 const PORT = parseInt(process.env.PORT || "3000", 10);
 app.listen(PORT, async () => {
+  const workspaceCleanup = setInterval(() => { void sweepWorkspace().catch(() => logger.warn("Workspace cleanup unavailable")); }, 30_000);
+  workspaceCleanup.unref();
   logger.info(`Oracle running on port ${PORT}`);
 
   // Inbound emails a previous Oracle process claimed but never finished: a

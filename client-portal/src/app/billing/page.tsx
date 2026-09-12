@@ -1,3 +1,4 @@
+import { WatchRecords } from "@/components/workspace/records";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase-server";
 import prisma from "@/lib/db";
@@ -26,5 +27,5 @@ export default async function BillingPage() {
   if (!client) redirect("/login");
   return <V3Shell user={{ email: user.email, name: client.businessName }} crumbs={[{ label: "Billing" }]}>
     <BillingOverview agents={client.agents} billingEmail={client.billingEmail} billingStatus={client.billingStatus} hasBillingAccount={!!client.stripeCustomerId} />
-  </V3Shell>;
+  <WatchRecords compact /></V3Shell>;
 }

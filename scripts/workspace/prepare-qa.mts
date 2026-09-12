@@ -1,0 +1,14 @@
+import { PrismaClient } from '@prisma/client';
+import { randomBytes } from 'node:crypto';
+import { writeFileSync } from 'node:fs';
+const db = new PrismaClient();
+const schema = 'workspace_qa_20260912';
+const tables = await db.$queryRaw<Array<{ table_name: string }>>`SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name IN ('PlaybookRule','WorkspaceTool','WorkspaceSession')`;
+console.log('Existing production workspace tables:', tables.map(t=>t.table_name));
+await db.$executeRawUnsafe(`CREATE SCHEMA IF NOT EXISTS "${schema}"`);
+const u = new URL(process.env.DATABASE_URL!);u.searchParams.set('schema',schema);
+const direct = new URL(process.env.DIRECT_URL || process.env.DATABASE_URL!);direct.searchParams.set('schema',schema);
+const values = { DATABASE_URL:u.toString(), DIRECT_URL:direct.toString(), CHAT_TOKEN_SECRET:randomBytes(32).toString('hex'), APP_ENCRYPTION_KEY:randomBytes(32).toString('hex'), ORACLE_URL:'http://localhost:4311', PORTAL_DEV_AS:'workspace-qa@example.invalid', NEXT_PUBLIC_ORACLE_URL:'http://localhost:4311' };
+writeFileSync('.codex/reviews/workspace/qa.env',Object.entries(values).map(([k,v])=>`${k}=${v}`).join('\n'),{mode:0o600});
+await db.$disconnect();
+console.log('QA schema ready; secrets saved privately.');

@@ -35,12 +35,14 @@ async function getAuthConfigId(appName: string): Promise<{ id: string; authSchem
     const normalizedAppName = normalize(appName);
 
     const match = items.find((c: any) => {
-      // Exact match on appName/appKey fields
+      // Current SDK identifies the app through toolkit.slug.
+      if (c.toolkit?.slug) return normalize(c.toolkit.slug) === normalizedAppName;
+      // Legacy response shapes.
       if (c.appName && normalize(c.appName) === normalizedAppName) return true;
       if (c.appKey && normalize(c.appKey) === normalizedAppName) return true;
       // Fuzzy match on config name (e.g., "google sheets-9zza8o" contains "googlesheets")
       const configName = normalize(c.name ?? "");
-      return configName.startsWith(normalizedAppName) || normalizedAppName.startsWith(configName.slice(0, normalizedAppName.length));
+      return !!configName && (configName === normalizedAppName || configName.startsWith(normalizedAppName));
     });
 
     if (!match) return null;
@@ -96,6 +98,19 @@ export async function initiateOAuthConnection(
     redirectUrl: conn.redirectUrl ?? "",
     connectionId: conn.id ?? "",
   };
+}
+
+/** Self-service OAuth. The catalogue validates the slug before this call. */
+export async function connectWorkspaceApp(clientId: string, slug: string, callbackUrl: string) {
+  const client = getClient();
+  if (await isAppConnected(clientId, slug)) return { redirectUrl: "", alreadyConnected: true };
+  let config = await getAuthConfigId(slug);
+  if (!config) {
+    const created = await client.authConfigs.create(slug, { type: "use_composio_managed_auth", name: `Ambitt ${slug}` });
+    config = { id: created.id, authScheme: "OAUTH2" };
+  }
+  const result = await client.connectedAccounts.link(clientId, config.id, { callbackUrl });
+  return { redirectUrl: result.redirectUrl ?? "", alreadyConnected: false };
 }
 
 /**

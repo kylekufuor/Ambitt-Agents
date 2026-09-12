@@ -670,3 +670,19 @@ Decrypt on retrieval. Never log decrypted values.
 7. Credentials never logged in plaintext — encrypted before write, decrypted on read
 8. Every agent task logs output to DB before sending to client — no lost outputs
 9. Schema designed to support Kubernetes migration — no Railway-specific dependencies in data model
+
+## Portal workspace (September 2026)
+
+The exact definitions are in `prisma/schema.prisma` and the two application
+mirrors. `WorkspaceTool` stores web profiles, app references and encrypted files;
+web-tool removal archives the row to retain its audit. `WorkspaceSession` stores
+an owned browser lease, consent origin and watch counter. `WorkspaceObservation`
+is the interval ledger with separately expiring encrypted page notes.
+`WorkspaceTurn` stores idempotent task/learning jobs and automatic-question state.
+`PlaybookRule` stores proposed, active and retired instructions; only confirmed
+active instructions enter runtime prompts.
+
+The additive migration is `scripts/workspace/migration.sql`. Two partial unique
+indexes enforce one active browser per client and one pending turn per agent;
+Prisma does not express these partial indexes. Watching does not create billing
+charges in this release. See `docs/implementation/portal-workspace.md`.
