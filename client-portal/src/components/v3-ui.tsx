@@ -16,9 +16,9 @@ export function PageHead({
   right?: React.ReactNode;
 }) {
   return (
-    <div className="flex items-start gap-4 flex-wrap mb-5">
+    <div className="portal-page-head flex items-start gap-4 flex-wrap mb-5">
       <div className="min-w-0">
-        <h1 className="text-[24px] font-medium tracking-[-0.01em]">{title}</h1>
+        <h1 className="text-[28px] font-medium">{title}</h1>
         {sub && <p className="text-[14px] text-[color:var(--text-3)] mt-1 max-w-[68ch]">{sub}</p>}
       </div>
       {right && <div className="ml-auto shrink-0 flex items-center gap-2">{right}</div>}
@@ -33,7 +33,7 @@ export function Panel({
   children: React.ReactNode;
   className?: string;
 }) {
-  return <section className={`v3-panel p-[17px] ${className}`}>{children}</section>;
+  return <section className={`v3-panel p-5 ${className}`}>{children}</section>;
 }
 
 export function Eyebrow({ children }: { children: React.ReactNode }) {

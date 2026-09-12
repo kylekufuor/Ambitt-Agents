@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase-browser";
 import { nextFromLocation } from "@/lib/safe-next";
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { BrandLockup } from "@/components/brand-mark";
+import { AuthShell } from "@/components/auth-shell";
 
 /* ---------------------------------------------------------------------------
    Sign in with an email and a password.
@@ -78,29 +78,8 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="page-wash min-h-screen flex flex-col items-center justify-center px-4 relative overflow-hidden">
-      <div
-        aria-hidden
-        className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-[62%] w-[520px] h-[520px] rounded-full opacity-70"
-        style={{ background: "radial-gradient(circle, rgba(0,164,189,0.10), transparent 62%)" }}
-      />
-
-      <div className="relative w-full max-w-[400px]">
-        <div className="flex justify-center mb-7">
-          <BrandLockup height={26} />
-        </div>
-
-        <div className="card p-7 sm:p-8">
+    <AuthShell headline="Welcome back." sub="Sign in to your workspace with your email and password.">
           <form onSubmit={handleSignIn} className="space-y-5">
-            <div>
-              <h1 className="font-display text-[20px] text-[color:var(--text)] leading-tight">
-                Sign in to your workspace
-              </h1>
-              <p className="text-[13.5px] text-[color:var(--text-3)] mt-1.5">
-                Your email and password.
-              </p>
-            </div>
-
             <div>
               <label className="field-label" htmlFor="email">Email</label>
               <input
@@ -184,20 +163,12 @@ export default function LoginPage() {
               )}
             </div>
           </form>
-        </div>
 
         <p className="text-center text-[12.5px] text-[color:var(--text-3)] mt-5 leading-relaxed">
           On a shared computer? Untick &ldquo;remember this device&rdquo; and we will sign you out
           when the browser closes.
         </p>
 
-        <p className="text-center text-[12px] text-[color:var(--text-3)] mt-4">
-          Questions?{" "}
-          <a href="mailto:support@ambitt.agency" className="text-[color:var(--brand-ink)] underline underline-offset-2">
-            support@ambitt.agency
-          </a>
-        </p>
-      </div>
-    </div>
+    </AuthShell>
   );
 }

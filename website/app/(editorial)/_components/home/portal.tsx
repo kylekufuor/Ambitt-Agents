@@ -1,82 +1,27 @@
-import { Ic } from "../icons";
-import { PortalShot } from "../photos";
-import { FigCaption, Kicker, Words } from "../primitives";
+import { Kicker } from "../primitives";
 
-// The kind of number that lands in a client's inbox each week. Illustrative
-// composites, as the footer says; never captioned as a named customer.
-const METRICS: Array<{ k: string; from?: string; to: string }> = [
-  { k: "Listings reviewed → replied", from: "612", to: "47" },
-  { k: "Matched the buy box", from: "51", to: "4" },
-  { k: "Inspections recovered", to: "11" },
-  { k: "Out of the 90-day bucket", to: "$41,900" },
-];
-
-/** Seonovu's dashboard section: the real portal in a window, with the numbers cycling beside it. */
+/** Captured from the shipping React views with a fictional, labeled workspace. */
 export function PortalSection() {
-  return (
-    <section className="section ruled" id="portal">
-      <div className="wrap">
-        <div className="spread">
-          <div className="label-col">
-            <Kicker>You never have to log in</Kicker>
-            <h2 className="h2 rv-words">
-              <Words text={"The portal is real.\nYou just won't need it much."} accent="real." />
-            </h2>
-            <p className="dek rv">
-              Every agent keeps a work log, a list of connected tools, and settings you can change any time.
-              Most weeks, the work just arrives and you never open the tab.
-            </p>
-            <ul className="callouts rv-seq">
-              <li>
-                <span className="num"><Ic name="browser" /></span>
-                <span className="txt"><b>A real portal.</b> Work log, tools, settings. Open it whenever you want to.</span>
-              </li>
-              <li>
-                <span className="num"><Ic name="brain" /></span>
-                <span className="txt"><b>Permanent memory.</b> Tell it once. It doesn't ask again.</span>
-              </li>
-              <li>
-                <span className="num"><Ic name="gauge" /></span>
-                <span className="txt"><b>Usage you can see.</b> Included interactions and extra charges, explained in Billing.</span>
-              </li>
-            </ul>
-            <div className="stack-wrap rv" style={{ "--d": ".5s" }}>
-              <Kicker plain>Illustrative weekly results</Kicker>
-              <div className="stack" aria-label="Examples of the figures an agent reports each week">
-                {METRICS.map((m, i) => (
-                  <div key={m.k} className="m" style={{ "--i": i }}>
-                    <span className="k">{m.k}</span>
-                    <span className="v">
-                      {m.from ? <span className="from">{m.from}</span> : null}
-                      {m.from ? <Ic name="arrow-right" /> : null}
-                      {m.to}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-          <div className="rv" style={{ "--d": ".4s" }}>
-            <figure>
-              <div className="window">
-                <div className="window-bar">
-                  <span className="dots"><i /><i /><i /></span>
-                  <span className="title">portal.ambitt.agency</span>
-                </div>
-                <PortalShot shot="homeFunnel" className="shot-wide" style={{ aspectRatio: "1350/609", borderRadius: 0, boxShadow: "none" }} />
-                <PortalShot shot="homeLeads" className="shot-narrow" style={{ aspectRatio: "950/448", borderRadius: 0, boxShadow: "none" }} />
-              </div>
-              <FigCaption fig="03" className="shot-wide">
-                An example portal view with sample data: 612 reviewed down to 47 replied, with the
-                drop-off named at every stage.
-              </FigCaption>
-              <FigCaption fig="03" className="shot-narrow">
-                An example portal view showing replies, using sample data.
-              </FigCaption>
-            </figure>
-          </div>
-        </div>
+  return <section className="section ruled portal-tour" id="portal">
+    <div className="wrap">
+      <div className="tour-heading">
+        <div><Kicker>Inside your workspace</Kicker><h2 className="h2">The work comes to you.<br /><span className="accent">The controls stay with you.</span></h2></div>
+        <p className="dek">A clear view of your agent's work, the decisions waiting on you, and what you're using. Take a look around.</p>
       </div>
-    </section>
-  );
+      <figure className="tour-main">
+        <div className="tour-bar"><span className="dots"><i /><i /><i /></span><span>AMBITT / CLIENT WORKSPACE</span><span>Product walkthrough · sample data</span></div>
+        <video controls playsInline preload="none" poster="/demos/portal-home-dark.webp" width="1440" height="1000" aria-label="Ambitt portal walkthrough with illustrative sample data">
+          <source src="/demos/portal-walkthrough.mp4" type="video/mp4" />
+          <track kind="captions" src="/demos/portal-walkthrough.vtt" srcLang="en" label="English" default />
+          Your browser does not support the video. The portal screenshots below show the same workspace.
+        </video>
+        <figcaption><span>01 / A quick look around</span><span>Recorded from the portal. Example Studio is fictional.</span></figcaption>
+      </figure>
+      <div className="tour-gallery">
+        <figure><img src="/demos/portal-home-light.webp" alt="The portal in light mode, showing weekly work, pending decisions, leads and the agent's schedule with sample data" width="1440" height="1000" loading="lazy" /><figcaption><span>02 / Your preferred view</span><p>Switch between dark and light. Your choice stays with you.</p></figcaption></figure>
+        <figure><img src="/demos/portal-billing.webp" alt="Portal billing view with an illustrative Starter plan and 640 of 1,000 included interactions used" width="1440" height="1000" loading="lazy" /><figcaption><span>03 / Nothing hidden in the numbers</span><p>Your plan, each agent's usage, and the rate for extra interactions.</p></figcaption></figure>
+      </div>
+      <p className="tour-summary">In this silent walkthrough: check the weekly overview, find decisions that need review, switch appearance, and view billing. All figures are illustrative.</p>
+    </div>
+  </section>;
 }

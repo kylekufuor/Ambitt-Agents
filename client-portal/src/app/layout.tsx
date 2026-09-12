@@ -67,6 +67,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
+      data-theme="dark"
       // Browser extensions (1Password, Grammarly, adblockers) inject inline
       // styles onto <html> before React hydrates — `suppressHydrationWarning`
       // silences the resulting top-level mismatch without hiding real bugs
@@ -74,6 +75,9 @@ export default function RootLayout({
       suppressHydrationWarning
       className={`${satoshi.variable} ${dmMono.variable} h-full`}
     >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: `try{var t=localStorage.getItem('ambitt-appearance');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t}catch(e){}` }} />
+      </head>
       <body className="min-h-full">{children}</body>
     </html>
   );

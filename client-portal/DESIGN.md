@@ -278,3 +278,20 @@ allowlist, `?d=` interpolates a validated hostname into a fixed upstream.
 Cover: signed-out (login, account-not-found), no agents, agent building
 (pending_approval), active, paused, killed; empty tools, connected tools; empty
 leads/activity vs populated; loading; error. Each state must look intentional.
+
+
+## Workspace v4 implementation (2026-09-11)
+
+The finished `docs/mockups/portal-workspace-v4` Claude design supplies the
+new dark palette, compact rail, dotted dividers, and adjacent agent panel.
+The production portal now defaults to dark and offers a persistent Light / Dark
+control. The original oat tokens remain the light palette. Both use the
+existing Satoshi and DM Mono assets. Text and status colors follow the measured
+v4 values; solid teal keeps the established white-label contrast.
+
+The new palette is scoped to the authenticated workspace and the sign-in shell.
+Prospect onboarding and the separate chat surfaces retain their existing design.
+Home presents actual weekly counts, pending decisions, hot leads, and the primary
+agent's status and schedule. There is no simulated browser, live-watching state,
+or editable file surface: those mockup features need separate backend delivery.
+The marketing walkthrough uses these same React views with fictional sample data.

@@ -24,12 +24,12 @@ const CARDS: Array<{ icon: IconName; title: string; body: string }> = [
   },
 ];
 
-/** Seonovu's four-up bento, with our four promises. */
+/** Four concrete capabilities beside the introduction, stacked on mobile. */
 export function Features() {
   return (
-    <section className="section ruled" id="what">
-      <div className="wrap">
-        <div className="section-head center">
+    <section className="section ruled capabilities" id="what">
+      <div className="wrap capabilities-grid">
+        <div className="section-head">
           <Kicker>What you get</Kicker>
           <h2 className="h2 rv-words">
             <Words text={"A hire that shows its work."} accent="shows" />

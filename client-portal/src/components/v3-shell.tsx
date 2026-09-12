@@ -1,13 +1,12 @@
 import { missingCustomTools } from "@/lib/tool-setup";
-import Link from "next/link";
 import prisma from "@/lib/db";
 import { getClientTodos } from "@/lib/client-todos";
-import { NotificationBell } from "./v3-bell";
-import { RailNav, MobileRail, type RailProps } from "./v3-rail";
+import { WorkspaceFrame } from "./workspace-frame";
+import type { RailProps } from "./v3-rail";
 import { TIERS, type PricingTier } from "@/lib/pricing-constants";
 
 /* ---------------------------------------------------------------------------
-   V3 shell. A 232px rail and a content plane, on three depth planes: the rail
+   Portal data loader. A 224px rail and a content plane, on three depth planes: the rail
    is recessed, the page sits in front of it, and cards/panels lift off the
    page. See the DEPTH block in globals.css.
 
@@ -95,46 +94,6 @@ export async function V3Shell({
   ]);
   if (!rail) return <>{children}</>;
 
-  const initials =
-    (user.name ?? user.email).split(/[\s@.]+/).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("");
-
-  return (
-    <div className="min-h-screen grid lg:grid-cols-[232px_1fr] bg-[color:var(--bg)]">
-      <aside className="v3-rail hidden lg:flex flex-col py-2.5">
-        <RailNav {...rail} />
-      </aside>
-
-      <div className="v3-main min-w-0 flex flex-col">
-        <header className="v3-top h-[52px] flex items-center gap-3 px-4 lg:px-5 shrink-0">
-          <div className="lg:hidden"><MobileRail {...rail} /></div>
-          <nav className="text-[14px] text-[color:var(--text-3)] min-w-0 truncate" aria-label="Breadcrumb">
-            {crumbs.map((c, i) => {
-              const last = i === crumbs.length - 1;
-              return (
-                <span key={`${c.label}-${i}`}>
-                  {i > 0 && <span className="px-1.5 text-[color:var(--text-4)]">/</span>}
-                  {last || !c.href ? (
-                    <span className="text-[color:var(--text)] font-medium" aria-current="page">{c.label}</span>
-                  ) : (
-                    <Link href={c.href} className="hover:text-[color:var(--text)] transition-colors">{c.label}</Link>
-                  )}
-                </span>
-              );
-            })}
-          </nav>
-          <span className="flex-1" />
-          <NotificationBell items={todos.items} requiredCount={todos.requiredCount} />
-          <Link
-            href="/settings"
-            className="w-[26px] h-[26px] rounded-full bg-[color:var(--brand-solid)] text-white text-[10.5px] font-semibold grid place-items-center shrink-0"
-            aria-label="Your account"
-          >
-            {initials}
-          </Link>
-        </header>
-
-        <main className="flex-1 min-w-0 px-4 lg:px-6 py-6">{children}</main>
-      </div>
-    </div>
-  );
+  return <WorkspaceFrame user={user} crumbs={crumbs} rail={rail}
+    notifications={{ items: todos.items, requiredCount: todos.requiredCount }}>{children}</WorkspaceFrame>;
 }
