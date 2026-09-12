@@ -167,7 +167,7 @@ export function SavedWebTools() {
       <div className="flex items-center justify-between gap-4">
         <h2 className="text-lg font-medium">Web tools</h2>
         <a className="ws-primary" href="/?add=1">
-          Add a tool
+          Integrations
         </a>
       </div>
       {error && <p role="alert">{error}</p>}

@@ -82,7 +82,7 @@ export default function DocsPage() {
           <details className="docs-jump"><summary>Jump to a section</summary><ul>{DOC_SECTIONS.map((s) => <li key={s.id}><a href={`#${s.id}`}>{s.label}</a></li>)}</ul></details>
           <Section id="workspace" title="A look around your workspace" lede={lede["workspace"]}>
             <figure className="docs-screenshot"><img src="/demos/portal-workspace-dark.webp" width="1440" height="1030" alt="The Ambitt browser workspace with agent chat and proposed instructions in a fictional sample scenario" /><figcaption>The current portal, with fictional sample data.</figcaption></figure>
-            <Q q="Start at Home"><p>Home is your browser workspace. Choose Add a tool to add a website, connect an app, or import a file. Open a web tool from the sidebar; chat with your agent alongside it. Work overview opens the weekly summary of leads, emails and decisions.</p></Q>
+            <Q q="Start at Home"><p>Home is your browser workspace. Choose Integrations to add a website, connect an app, or import a file. Open a web tool from the sidebar; chat with your agent alongside it. Work overview opens the weekly summary of leads, emails and decisions.</p></Q>
             <Q q="Follow the work"><p>Open Leads for the board or table. Approvals collects the decisions waiting for your reply. Activity lets you look through the work log.</p></Q>
             <Q q="Find the controls"><p>Learn together helps your agent understand your process. Do a task asks your active agent to carry out work through its connected tools. Playbook holds instructions you have confirmed. Files holds imports and generated attachments; Schedule controls when your agent works.</p></Q>
             <Q q="Choose your appearance"><p>Use the Light or Dark control in the top bar. Your preference is saved on this browser. On a phone, open the navigation menu to reach the same pages.</p></Q>
@@ -137,7 +137,7 @@ export default function DocsPage() {
             </Q>
             <Q q="Sending a file">
               <p>
-                Import Excel, CSV, PDF, Word, text or JSON files up to 5 MB through Add a tool or Files. Select a file when asking your agent about it. For ongoing email reference material, email it with <strong>DOCS</strong> in the subject line. That marks the attachment as
+                Import Excel, CSV, PDF, Word, text or JSON files up to 5 MB through Integrations or Files. Select a file when asking your agent about it. For ongoing email reference material, email it with <strong>DOCS</strong> in the subject line. That marks the attachment as
                 reference material to work from rather than a one off question, and they keep using
                 it.
               </p>
@@ -249,7 +249,7 @@ export default function DocsPage() {
           <Section id="tools" title="Tools and passwords" lede={lede["tools"]}>
             <Q q="What the Tools page shows">
               <p>
-                Choose Add a tool to search the app catalogue and complete the provider’s connection flow. Connected accounts shows the accounts your agent uses on your behalf and which ones still need you. Anything
+                Choose Integrations to search the app catalogue and complete the provider’s connection flow. Connected accounts shows the accounts your agent uses on your behalf and which ones still need you. Anything
                 marked as needing setup is a tool they cannot use yet.
               </p>
             </Q>

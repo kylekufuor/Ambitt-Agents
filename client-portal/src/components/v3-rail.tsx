@@ -229,7 +229,7 @@ export function RailNav({ businessName, planLabel, agent, counts, toolsNeedSetup
 
       <nav className="px-2 flex flex-col gap-px" aria-label="Portal">
         <NavItem href="/" label="Home" icon="home" active={pathname === "/"} />
-        {agent && <><p className="v3-navs">Your tools</p>{workspaceTools.filter(t => t.kind === 'web').map(t => <Link className="v3-ni" href={`/?tool=${t.id}`} key={t.id}><Icon name="tools" /><span className="truncate">{t.name}</span></Link>)}<Link className="v3-ni" href="/?add=1"><Icon name="tools" />Add a tool</Link><NavItem href="/chat" label="Chat" icon="mail" active={is("/chat")} /><NavItem href="/playbook" label="Playbook" icon="leads" active={is("/playbook")} /></>}
+        {agent && <><p className="v3-navs">Your tools</p>{workspaceTools.filter(t => t.kind === 'web').map(t => <Link className="v3-ni" href={`/?tool=${t.id}`} key={t.id}><Icon name="tools" /><span className="truncate">{t.name}</span></Link>)}<Link className="v3-ni" href="/?add=1"><Icon name="tools" />Integrations</Link><NavItem href="/chat" label="Chat" icon="mail" active={is("/chat")} /><NavItem href="/playbook" label="Playbook" icon="leads" active={is("/playbook")} /></>}
         <NavItem href="/leads" label="Leads" icon="leads" count={counts.leads} active={is("/leads")} />
         <NavItem href="/approvals" label="Approvals" icon="check" count={counts.approvals} active={is("/approvals")} />
         <NavItem href="/activity" label="Activity" icon="clock" active={is("/activity")} />

@@ -792,7 +792,7 @@ export function Workspace({
         <div className="ws-heading-actions">
           <Link href="/overview">Work overview ↗</Link>
           <button className="ws-primary" onClick={() => setAdd(true)}>
-            <Glyph name="plus" /> Add a tool
+            <Glyph name="plus" /> Integrations
           </button>
         </div>
       </div>
@@ -835,7 +835,7 @@ export function Workspace({
                         <span>{t.name}</span>
                       </button>
                     ))}
-                  <button aria-label="Add a tool" onClick={() => setAdd(true)}>
+                  <button aria-label="Integrations" onClick={() => setAdd(true)}>
                     <Glyph name="plus" />
                   </button>
                 </div>
@@ -1165,12 +1165,12 @@ export function Workspace({
         ref={dialog}
         className="ws-dialog"
         onClose={() => setAdd(false)}
-        aria-label="Add a tool"
+        aria-label="Integrations"
       >
         <div className="ws-dialog-head">
           <div>
             <span className="ws-eyebrow">MAKE THIS YOUR WORKSPACE</span>
-            <h2>Add a tool</h2>
+            <h2>Integrations</h2>
           </div>
           <button aria-label="Close add tool" onClick={() => setAdd(false)}>
             <Glyph name="close" />
