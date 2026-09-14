@@ -2,6 +2,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import type { RequestOptions } from "@modelcontextprotocol/sdk/shared/protocol.js";
 import logger from "../logger.js";
 import { HIGHLEVEL_ID, highLevelHeaders, parseHighLevelCredential, credentialFingerprint, createHighLevelFetch, bindHighLevelLocation } from "./highlevel.js";
 import type {
@@ -34,7 +35,7 @@ export class MCPClientManager {
   // Connect to an MCP server
   // -------------------------------------------------------------------------
 
-  async connect(config: MCPConnectionConfig): Promise<void> {
+  async connect(config: MCPConnectionConfig, options?: RequestOptions): Promise<void> {
     const { server, credential } = config;
     const key = this.connectionKey(server.id, credential);
 
@@ -61,11 +62,11 @@ export class MCPClientManager {
 
     const tools: MCPToolInfo[] = [];
     try {
-      await client.connect(transport);
+      await client.connect(transport, options);
       // Include every page of scoped tools.
       let cursor: string | undefined;
       do {
-        const toolsResult = await client.listTools(cursor ? { cursor } : undefined);
+        const toolsResult = await client.listTools(cursor ? { cursor } : undefined, options);
         tools.push(...(toolsResult.tools ?? []).map((t) => ({
           name: t.name,
           description: t.description,
@@ -113,17 +114,22 @@ export class MCPClientManager {
     serverId: string,
     credential: string,
     toolName: string,
-    args: Record<string, unknown>
+    args: Record<string, unknown>,
+    options?: RequestOptions
   ): Promise<MCPToolResult> {
     const conn = this.getConnection(serverId, credential);
     if (!conn) throw new Error(`Not connected to MCP server: ${serverId}`);
 
     try {
-      if (serverId === HIGHLEVEL_ID) bindHighLevelLocation(args, parseHighLevelCredential(credential).locationId);
+      // The discovered schema names the location parameters; the configured
+      // location overwrites every one of them (see bindHighLevelLocation).
+      const bound = serverId === HIGHLEVEL_ID
+        ? bindHighLevelLocation(args, parseHighLevelCredential(credential).locationId, conn.tools.find((tool) => tool.name === toolName)?.inputSchema)
+        : args;
       const result = await conn.client.callTool({
         name: toolName,
-        arguments: args,
-      });
+        arguments: bound,
+      }, undefined, options);
 
       if (serverId === HIGHLEVEL_ID && result.isError) return {
         success: false, isError: true,

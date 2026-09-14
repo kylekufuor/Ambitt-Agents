@@ -2,7 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { listAllAgentTools, executeAgentTool } from "../mcp/agent-bridge.js";
 import logger from "../logger.js";
 import type { MCPToolInfo } from "../mcp/types.js";
-import { HIGHLEVEL_ID, isHighLevelReadTool } from "../mcp/highlevel.js";
+import { HIGHLEVEL_ID, HIGHLEVEL_MESSAGING_DISABLED, isHighLevelMessagingTool, isHighLevelReadTool } from "../mcp/highlevel.js";
 
 // ---------------------------------------------------------------------------
 // Tool Bridge — connects Claude's tool_use to MCP servers
@@ -93,6 +93,15 @@ export async function executeToolCalls(
   for (const block of toolUseBlocks) {
     const { serverId, toolName } = parseToolName(block.name);
     const input = (block.input as Record<string, unknown>) ?? {};
+
+    // GoHighLevel messaging is off until it has outbound parity with the
+    // email/SMS seatbelts (see isHighLevelMessagingTool). The tool is never
+    // offered to the model, but a model can still name one: refuse it here,
+    // before dry-run capture or any lookup, with a static result.
+    if (serverId === HIGHLEVEL_ID && isHighLevelMessagingTool(toolName)) {
+      results.push({ type: "tool_result", tool_use_id: block.id, content: HIGHLEVEL_MESSAGING_DISABLED, is_error: true });
+      continue;
+    }
 
     if (serverId === HIGHLEVEL_ID && !dryRunKnown) {
       results.push({ type: "tool_result", tool_use_id: block.id, content: "Couldn't verify the agent's run mode. No GoHighLevel action was taken.", is_error: true });

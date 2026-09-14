@@ -1,10 +1,11 @@
 import { Router } from "express";
 import prisma from "../../shared/db.js";
 import { encrypt, decrypt } from "../../shared/encryption.js";
+import logger from "../../shared/logger.js";
 import { verifyToolConnection } from "../../shared/tool-connection-auth.js";
 import { MCPClientManager } from "../../shared/mcp/client.js";
 import { MCP_SERVERS } from "../../shared/mcp/registry.js";
-import { HIGHLEVEL_ID, parseHighLevelCredential } from "../../shared/mcp/highlevel.js";
+import { HIGHLEVEL_ID, parseHighLevelCredential, highLevelLocationParameter, withoutHighLevelMessaging } from "../../shared/mcp/highlevel.js";
 
 interface StoredCredential { apiKey: string | null; status: string; expiresAt: Date | null }
 export interface HighLevelStore {
@@ -38,30 +39,56 @@ const store: HighLevelStore = {
   },
 };
 
+// The portal route gives up at 45 s; the probe (initialize, tools/list, one
+// call) shares a single deadline inside that.
+const PROBE_TIMEOUT_MS = 30_000;
+
+// True when the tool result carries an object whose id is the configured
+// location. GoHighLevel returns { location: { id, name, ... } }; the walk
+// tolerates a flatter shape and ignores anything that is not JSON.
+function returnsLocation(content: unknown[], locationId: string): boolean {
+  const holds = (value: unknown, depth: number): boolean => {
+    if (!value || typeof value !== "object" || depth > 4) return false;
+    if (Array.isArray(value)) return value.some((item) => holds(item, depth + 1));
+    const record = value as Record<string, unknown>;
+    if ([record.id, record._id, record.locationId].includes(locationId)) return true;
+    return Object.values(record).some((item) => holds(item, depth + 1));
+  };
+  return content.some((block) => {
+    try { return holds(JSON.parse((block as { text?: string }).text ?? "null"), 0); }
+    catch { return false; }
+  });
+}
+
 // A separate manager for a one-shot probe: testing/replacing a token must not
 // close an active runtime connection. Read the location to prove data access;
 // tools/list alone can be served before a provider checks the selected tenant.
 export async function probeHighLevel(credential: string): Promise<number> {
   const manager = new MCPClientManager();
   const { locationId } = parseHighLevelCredential(credential);
+  const options = { timeout: PROBE_TIMEOUT_MS, signal: AbortSignal.timeout(PROBE_TIMEOUT_MS) };
   try {
-    await manager.connect({ server: MCP_SERVERS.highlevel, credential });
+    await manager.connect({ server: MCP_SERVERS.highlevel, credential }, options);
     const tools = await manager.listTools(HIGHLEVEL_ID, credential);
-    if (!tools.some((tool) => tool.name === "locations_get-location")) throw new Error("Missing location access");
-    const result = await manager.callTool(HIGHLEVEL_ID, credential, "locations_get-location", { locationId });
+    const locationTool = tools.find((tool) => tool.name === "locations_get-location");
+    if (!locationTool) throw new Error("Missing location access");
+    // The discovered schema names the parameter (path_locationId today);
+    // callTool overwrites it with the configured location either way.
+    const parameter = highLevelLocationParameter(locationTool.inputSchema) ?? "locationId";
+    const result = await manager.callTool(HIGHLEVEL_ID, credential, "locations_get-location", { [parameter]: locationId }, options);
     if (!result.success) throw new Error("Location access failed");
-    const matches = result.content.some((block) => {
-      try {
-        const text = (block as { text?: string }).text;
-        const value = JSON.parse(text ?? "null") as { id?: string; location?: { id?: string } } | null;
-        return value?.id === locationId || value?.location?.id === locationId;
-      } catch { return false; }
-    });
-    if (!matches) throw new Error("Location not verified");
-    return tools.length;
+    if (!returnsLocation(result.content, locationId)) throw new Error("Location not verified");
+    // Count what the agent will actually be offered (messaging tools are withheld).
+    return withoutHighLevelMessaging(tools).length;
   } finally {
     await manager.disconnectAll();
   }
+}
+
+// Probe failures are logged by category only. Our own messages are static, and
+// the token pattern is scrubbed anyway; a vendor body is never included.
+function probeReason(error: unknown): string {
+  return (error instanceof Error ? error.message : "unknown").replace(/pit-[A-Za-z0-9_-]+/g, "pit-[redacted]").slice(0, 120);
 }
 
 export function createHighLevelRouter(deps: { store: HighLevelStore; probe: typeof probeHighLevel } = { store, probe: probeHighLevel }): Router {
@@ -98,11 +125,16 @@ export function createHighLevelRouter(deps: { store: HighLevelStore; probe: type
       const serialized = JSON.stringify(credential);
       let toolCount: number;
       try { toolCount = await deps.probe(serialized); }
-      catch { res.status(422).json({ error: "We couldn't verify GoHighLevel access. Check the token and Location ID, and include View Locations in its permissions." }); return; }
+      catch (error) {
+        logger.warn("GoHighLevel probe failed", { agentId, action, status: 422, reason: probeReason(error) });
+        res.status(422).json({ error: "We couldn't verify GoHighLevel access. Check the token and Location ID, and include View Locations in its permissions." });
+        return;
+      }
       if (action === "connect") await deps.store.save(clientId, agentId, encrypt(serialized));
       res.json({ connected: action === "connect" || !!saved, verified: true, locationId: credential.locationId, token: "••••••••", toolCount });
     } catch {
       // Never return/log vendor payloads or errors containing submitted secrets.
+      logger.warn("GoHighLevel connection request failed", { agentId, action: String(req.body?.action ?? ""), status: 500 });
       res.status(500).json({ error: "We couldn't update your GoHighLevel connection. Try again shortly." });
     }
   });

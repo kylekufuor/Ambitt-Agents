@@ -26,7 +26,9 @@ export function verifyToolConnection(token: string, agentId: string, body: unkno
   if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) throw new Error("Unauthorized");
   const claims = JSON.parse(Buffer.from(payload, "base64url").toString()) as Record<string, unknown>;
   const hash = createHash("sha256").update(JSON.stringify(body)).digest("hex");
+  // The signer sets exactly now + 60 s; allow 5 s of clock skew between the
+  // portal and Oracle, as workspace-auth.ts does.
   if (claims.agentId !== agentId || typeof claims.clientId !== "string" || !claims.clientId ||
-      typeof claims.expires !== "number" || claims.expires <= now || claims.expires > now + 60_000 || claims.bodyHash !== hash) throw new Error("Unauthorized");
+      typeof claims.expires !== "number" || claims.expires <= now || claims.expires > now + 65_000 || claims.bodyHash !== hash) throw new Error("Unauthorized");
   return claims.clientId;
 }

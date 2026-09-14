@@ -3,7 +3,7 @@ import { decrypt } from "../encryption.js";
 import logger from "../logger.js";
 import { mcpManager } from "./client.js";
 import { getServerDefinition } from "./registry.js";
-import { HIGHLEVEL_ID } from "./highlevel.js";
+import { HIGHLEVEL_ID, HIGHLEVEL_MESSAGING_DISABLED, isHighLevelMessagingTool, withoutHighLevelMessaging } from "./highlevel.js";
 import {
   executeTool as composioExecute,
   getTools as composioGetTools,
@@ -54,6 +54,12 @@ export async function executeAgentTool(
       content: [{ type: "text", text: `Agent ${agent.name} is not configured for tool: ${serverId}` }],
       isError: true,
     };
+  }
+
+  // GoHighLevel messaging is off until it has email/SMS seatbelt parity; see
+  // isHighLevelMessagingTool. Held here too so no caller can reach it by name.
+  if (serverId === HIGHLEVEL_ID && isHighLevelMessagingTool(toolName)) {
+    return { success: false, content: [{ type: "text", text: HIGHLEVEL_MESSAGING_DISABLED }], isError: true };
   }
 
   // Try Composio first
@@ -268,7 +274,9 @@ async function listDirectTools(
   if (!credential) return [];
 
   await mcpManager.connect({ server, credential });
-  return mcpManager.listTools(serverId, credential);
+  const tools = await mcpManager.listTools(serverId, credential);
+  // GoHighLevel messaging tools never reach the model; see isHighLevelMessagingTool.
+  return serverId === HIGHLEVEL_ID ? withoutHighLevelMessaging(tools) : tools;
 }
 
 // ---------------------------------------------------------------------------

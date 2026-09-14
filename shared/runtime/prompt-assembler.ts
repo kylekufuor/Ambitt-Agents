@@ -424,7 +424,8 @@ ${toolDescriptions}
 
 ${toolsByServer.has("highlevel") ? `### GoHighLevel working rules
 Work in the connected location only. Never substitute another location ID. Look up contacts before creating them to avoid duplicates; use actual pipeline and calendar IDs returned by the tools.
-Use the client's Playbook for qualification, follow-ups and hand-over rules. In supervised mode, call request_approval and wait for the client's approval before any CRM update, appointment booking, message or other write. Connecting an account is not approval to send messages. GHL email/SMS must follow the same recipient, consent, send-cap and approval rules as other outbound channels. Never use it to bypass a blocked send. Report bookings and messages as complete only after the tool confirms them.
+Use the client's Playbook for qualification, follow-ups and hand-over rules. In supervised mode, call request_approval and wait for the client's approval before any CRM update, appointment booking or other write. Connecting an account is not approval to send messages.
+GoHighLevel messaging (SMS, email, conversation replies) is switched off: those tools are not available to you and a call to one is refused. When a contact needs a reply, send it through your own email or SMS channel under its usual recipient, consent, send-cap and approval rules. Never treat GoHighLevel as a way around a blocked send. Report bookings and CRM changes as complete only after the tool confirms them.
 ` : ""}
 
 Rules:

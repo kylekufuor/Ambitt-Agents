@@ -578,9 +578,8 @@ export function Workspace({
   // routes GoHighLevel through direct MCP only, so that entry is hidden and
   // the token entry below is shown for an empty or matching search instead.
   const isHighLevel = (text: string) => /high\s*level/i.test(text);
-  const showHighLevel = "gohighlevel go high level ghl crm".includes(
-    query.trim().toLowerCase(),
-  );
+  const q = query.trim();
+  const showHighLevel = q === "" || /high\s*level|ghl|crm/i.test(q);
   const foundApps = apps
     .filter((a) => !isHighLevel(`${a.key} ${a.name}`))
     .filter((a) =>
