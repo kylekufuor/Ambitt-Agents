@@ -40,3 +40,7 @@ Live acceptance remains pending. Connect a test GoHighLevel sub-account through 
 4. Add the verified capabilities to the current landing page, preserving the newer website design.
 
 Official connector reference checked on 11 September: [HighLevel token setup](https://help.gohighlevel.com/support/solutions/articles/155000005741). Its example uses `https://services.leadconnectorhq.com/mcp/`, `Authorization: Bearer <token>` and `locationId`. The newer [OAuth endpoints](https://marketplace.gohighlevel.com/docs/other/mcp/index.html) are a separate connection path.
+
+## Rebased onto the portal workspace release, 13 September 2026
+
+Branch `feat/ghl-connector` carries the same increment on top of `6dcca4d`. No schema change; the three Prisma files are as on `origin/main`. The connector now also appears in the workspace Integrations modal (rail link and the `+ Integrations` button): the Connected app tab pins a GoHighLevel tile that opens the same token form used on the Tools page, and any Composio HighLevel toolkit is hidden from that grid so the direct-MCP path is the only one offered. The Tools page card is unchanged.

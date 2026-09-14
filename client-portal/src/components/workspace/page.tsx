@@ -56,6 +56,7 @@ export async function WorkspacePage({
       {agent ? (
         <Suspense>
           <Workspace
+            agentId={agent.id}
             agentName={agent.name}
             agentStatus={agent.status}
             mode={mode}

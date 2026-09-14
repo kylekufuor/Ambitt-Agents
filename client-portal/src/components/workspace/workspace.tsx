@@ -11,6 +11,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { parseTable } from "@/lib/parse-table";
 import { AgentAvatar } from "@/components/brand-mark";
 import { NavigationLink as Link } from "@/components/navigation-link";
+import { HighLevelCard } from "@/app/agents/[id]/tools/highlevel-card";
 
 type Tool = {
   id: string;
@@ -163,11 +164,13 @@ function ToolMark({
 }
 
 export function Workspace({
+  agentId,
   agentName,
   agentStatus,
   mode = "home",
   initial,
 }: {
+  agentId: string;
   agentName: string;
   agentStatus: string;
   mode?: WorkspaceMode;
@@ -183,6 +186,9 @@ export function Workspace({
   const [busy, setBusy] = useState("");
   const [add, setAdd] = useState(search.get("add") === "1");
   const [addType, setAddType] = useState<"web" | "app" | "file">("web");
+  // GoHighLevel connects with a Private Integration Token through direct MCP,
+  // not Composio OAuth, so it gets its own entry inside the Connected app tab.
+  const [ghl, setGhl] = useState(false);
   const [apps, setApps] = useState<App[]>([]);
   const [connected, setConnected] = useState<string[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(false);
@@ -240,6 +246,9 @@ export function Workspace({
     if (add) dialog.current?.showModal();
     else dialog.current?.close();
   }, [add]);
+  useEffect(() => {
+    if (!add || addType !== "app") setGhl(false);
+  }, [add, addType]);
   useEffect(() => {
     if (consent) consentDialog.current?.showModal();
     else consentDialog.current?.close();
@@ -565,7 +574,15 @@ export function Workspace({
     "notion",
     "outlook",
   ];
+  // The Composio catalogue may carry its own HighLevel toolkit. The runtime
+  // routes GoHighLevel through direct MCP only, so that entry is hidden and
+  // the token entry below is shown for an empty or matching search instead.
+  const isHighLevel = (text: string) => /high\s*level/i.test(text);
+  const showHighLevel = "gohighlevel go high level ghl crm".includes(
+    query.trim().toLowerCase(),
+  );
   const foundApps = apps
+    .filter((a) => !isHighLevel(`${a.key} ${a.name}`))
     .filter((a) =>
       `${a.name} ${a.description}`.toLowerCase().includes(query.toLowerCase()),
     )
@@ -1227,7 +1244,7 @@ export function Workspace({
             </button>
           </form>
         )}
-        {addType === "app" && (
+        {addType === "app" && !ghl && (
           <div className="ws-catalog">
             <p>
               Connect an account so {agentName} can use it. Review the
@@ -1241,6 +1258,18 @@ export function Workspace({
             />
             {catalogLoading && <p role="status">Loading the app catalogue…</p>}
             <div className="ws-catalog-grid">
+              {showHighLevel && (
+                <button disabled={!!busy} onClick={() => setGhl(true)}>
+                  <ToolMark
+                    tool={{
+                      name: "GoHighLevel",
+                      logoUrl: "https://logos.composio.dev/api/highlevel",
+                    }}
+                  />
+                  <strong>GoHighLevel</strong>
+                  <span>Connect or manage ↗</span>
+                </button>
+              )}
               {foundApps.map((app) => (
                 <button
                   key={app.key}
@@ -1267,9 +1296,23 @@ export function Workspace({
                 </button>
               ))}
             </div>
-            {!catalogLoading && foundApps.length === 0 && (
+            {!catalogLoading && foundApps.length === 0 && !showHighLevel && (
               <p>No matching apps. You can add the website instead.</p>
             )}
+          </div>
+        )}
+        {addType === "app" && ghl && (
+          <div className="ws-catalog">
+            <div>
+              <button
+                type="button"
+                className="btn-ghost text-[13px]"
+                onClick={() => setGhl(false)}
+              >
+                ← All apps
+              </button>
+            </div>
+            <HighLevelCard agentId={agentId} agentName={agentName} />
           </div>
         )}
         {addType === "file" && (
